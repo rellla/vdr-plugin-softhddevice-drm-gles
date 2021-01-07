@@ -24,6 +24,22 @@
 /// @addtogroup Video
 /// @{
 
+#ifndef __VIDEO_H
+#define __VIDEO_H
+
+#include <xf86drm.h>
+#include <xf86drmMode.h>
+#include <libavfilter/avfilter.h>
+
+#include "iatomic.h"
+#include "softhddev.h"
+
+//----------------------------------------------------------------------------
+//	Defines
+//----------------------------------------------------------------------------
+
+#define VIDEO_SURFACES_MAX	3	///< video output surfaces for queue
+
 //----------------------------------------------------------------------------
 //	Typedefs
 //----------------------------------------------------------------------------
@@ -31,6 +47,64 @@
     /// Video hardware decoder typedef
 typedef struct _Mmal_Render_ VideoRender;
 #else
+struct drm_buf {
+	uint32_t width, height, size, pitch[4], handle[4], offset[4], fb_id;
+	uint8_t *plane[4];
+	uint32_t pix_fmt;
+	int fd_prime;
+	AVFrame *frame;
+};
+
+struct _Drm_Render_
+{
+	AVFrame  *FramesDeintRb[VIDEO_SURFACES_MAX];
+	int FramesDeintWrite;			///< write pointer
+	int FramesDeintRead;			///< read pointer
+	atomic_t FramesDeintFilled;		///< how many of the buffer is used
+
+	AVFrame  *FramesRb[VIDEO_SURFACES_MAX];
+	int FramesWrite;			///< write pointer
+	int FramesRead;			///< read pointer
+	atomic_t FramesFilled;		///< how many of the buffer is used
+
+	VideoStream *Stream;		///< video stream
+	int TrickSpeed;			///< current trick speed
+//	int TrickCounter;			///< current trick speed counter
+	int VideoPaused;
+	int Closing;			///< flag about closing current stream
+	int Filter_Close;
+	int Filter_Bug;
+
+	int StartCounter;			///< counter for video start
+	int FramesDuped;			///< number of frames duplicated
+	int FramesDropped;			///< number of frames dropped
+	AVRational *timebase;		///< pointer to AVCodecContext pkts_timebase
+	int64_t pts;
+
+	int CodecMode;			/// 0: find codec by id, 1: set _mmal, 2: no mpeg hw,
+							/// 3: set _v4l2m2m for H264
+	int NoHwDeint;			/// set if no hw deinterlacer
+
+	AVFilterGraph *filter_graph;
+	AVFilterContext *buffersrc_ctx, *buffersink_ctx;
+
+	int fd_drm;
+	drmModeModeInfo mode;
+	drmModeCrtc *saved_crtc;
+	drmEventContext ev;
+	struct drm_buf *act_buf;
+	struct drm_buf bufs[36];
+	struct drm_buf buf_osd;
+	struct drm_buf buf_black;
+	int use_zpos;
+	uint64_t zpos_overlay;
+	uint64_t zpos_primary;
+	uint32_t connector_id, crtc_id, video_plane, osd_plane;
+	AVFrame *lastframe;
+	int buffers;
+	int enqueue_buffer;
+};
+
     /// Video hardware decoder typedef
 typedef struct _Drm_Render_ VideoRender;
 #endif
@@ -110,3 +184,4 @@ extern int VideoCodecMode(VideoRender *);
 extern const char * VideoGetDecoderName(const char *);
 
 /// @}
+#endif
