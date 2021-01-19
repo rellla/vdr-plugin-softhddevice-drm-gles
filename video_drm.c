@@ -199,6 +199,12 @@ void SetPlaneFbId(VideoRender * render, drmModeAtomicReqPtr ModeReq, uint32_t pl
 					DRM_MODE_OBJECT_PLANE, "FB_ID", fb_id);
 }
 
+void SetPlaneCrtcId(VideoRender * render, drmModeAtomicReqPtr ModeReq, uint32_t plane_id, uint64_t crtc_id)
+{
+	SetPropertyRequest(ModeReq, render->fd_drm, plane_id,
+				DRM_MODE_OBJECT_PLANE, "CRTC_ID", crtc_id);
+}
+
 void SetPlaneCrtc(VideoRender * render, drmModeAtomicReqPtr ModeReq, uint32_t plane_id,
 		  int crtc_x, int crtc_y, int crtc_w, int crtc_h)
 {
@@ -1740,8 +1746,7 @@ void VideoInit(VideoRender * render)
 		SetPlaneFbId(render, ModeReq, prime_plane, render->buf_osd.fb_id);
 		// Black Buffer
 		SetPlaneCrtc(render, ModeReq, overlay_plane, 0, 0, render->mode.hdisplay, render->mode.vdisplay);
-		SetPropertyRequest(ModeReq, render->fd_drm, overlay_plane,
-						DRM_MODE_OBJECT_PLANE, "CRTC_ID", render->crtc_id);
+		SetPlaneCrtcId(render, ModeReq, overlay_plane, render->crtc_id);
 		SetPlaneSrc(render, ModeReq, overlay_plane, 0, 0, render->buf_black.width, render->buf_black.height);
 		SetPlaneFbId(render, ModeReq, overlay_plane, render->buf_black.fb_id);
 	}
