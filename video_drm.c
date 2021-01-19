@@ -159,40 +159,6 @@ static int SetPropertyRequest(drmModeAtomicReqPtr ModeReq, int fd_drm,
 	return drmModeAtomicAddProperty(ModeReq, objectID, id, value);
 }
 
-///
-/// If primary plane support only rgb and overlay plane nv12
-/// must the zpos change. At the end it must change back.
-/// @param backward		if set change to origin.
-///
-void ChangePlanes(VideoRender * render, int back)
-{
-	drmModeAtomicReqPtr ModeReq;
-	const uint32_t flags = DRM_MODE_ATOMIC_ALLOW_MODESET;
-//	const uint32_t flags = DRM_MODE_ATOMIC_NONBLOCK | DRM_MODE_PAGE_FLIP_ASYNC;
-	uint64_t zpos_video;
-	uint64_t zpos_osd;
-
-	if (!(ModeReq = drmModeAtomicAlloc()))
-		fprintf(stderr, "ChangePlanes: cannot allocate atomic request (%d): %m\n", errno);
-
-	if (back) {
-		zpos_video = render->zpos_overlay;
-		zpos_osd = render->zpos_primary;
-	} else {
-		zpos_video = render->zpos_primary;
-		zpos_osd = render->zpos_overlay;
-	}
-	SetPropertyRequest(ModeReq, render->fd_drm, render->video_plane,
-			DRM_MODE_OBJECT_PLANE, "zpos", zpos_video);
-	SetPropertyRequest(ModeReq, render->fd_drm, render->osd_plane,
-			DRM_MODE_OBJECT_PLANE, "zpos", zpos_osd);
-
-	if (drmModeAtomicCommit(render->fd_drm, ModeReq, flags, NULL) != 0)
-		fprintf(stderr, "ChangePlanes: cannot change planes (%d): %m\n", errno);
-
-	drmModeAtomicFree(ModeReq);
-}
-
 void SetPlaneFbId(VideoRender * render, drmModeAtomicReqPtr ModeReq, uint32_t plane_id, uint64_t fb_id)
 {
 	SetPropertyRequest(ModeReq, render->fd_drm, plane_id,
@@ -229,6 +195,44 @@ void SetPlaneSrc(VideoRender * render, drmModeAtomicReqPtr ModeReq, uint32_t pla
 						DRM_MODE_OBJECT_PLANE, "SRC_W", src_w << 16);
 	SetPropertyRequest(ModeReq, render->fd_drm, plane_id,
 						DRM_MODE_OBJECT_PLANE, "SRC_H", src_h << 16);
+}
+
+void SetPlaneZpos(VideoRender * render, drmModeAtomicReqPtr ModeReq, uint32_t plane_id, uint64_t zpos)
+{
+	SetPropertyRequest(ModeReq, render->fd_drm, plane_id,
+			DRM_MODE_OBJECT_PLANE, "zpos", zpos);
+}
+
+///
+/// If primary plane support only rgb and overlay plane nv12
+/// must the zpos change. At the end it must change back.
+/// @param backward		if set change to origin.
+///
+void ChangePlanes(VideoRender * render, int back)
+{
+	drmModeAtomicReqPtr ModeReq;
+	const uint32_t flags = DRM_MODE_ATOMIC_ALLOW_MODESET;
+//	const uint32_t flags = DRM_MODE_ATOMIC_NONBLOCK | DRM_MODE_PAGE_FLIP_ASYNC;
+	uint64_t zpos_video;
+	uint64_t zpos_osd;
+
+	if (!(ModeReq = drmModeAtomicAlloc()))
+		fprintf(stderr, "ChangePlanes: cannot allocate atomic request (%d): %m\n", errno);
+
+	if (back) {
+		zpos_video = render->zpos_overlay;
+		zpos_osd = render->zpos_primary;
+	} else {
+		zpos_video = render->zpos_primary;
+		zpos_osd = render->zpos_overlay;
+	}
+	SetPlaneZpos(render, ModeReq, render->video_plane, zpos_video);
+	SetPlaneZpos(render, ModeReq, render->osd_plane, zpos_osd);
+
+	if (drmModeAtomicCommit(render->fd_drm, ModeReq, flags, NULL) != 0)
+		fprintf(stderr, "ChangePlanes: cannot change planes (%d): %m\n", errno);
+
+	drmModeAtomicFree(ModeReq);
 }
 
 size_t ReadLineFromFile(char *buf, size_t size, char * file)
