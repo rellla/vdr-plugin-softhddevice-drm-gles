@@ -193,30 +193,30 @@ void ChangePlanes(VideoRender * render, int back)
 	drmModeAtomicFree(ModeReq);
 }
 
-void SetCrtc(VideoRender * render, drmModeAtomicReqPtr ModeReq,
-				uint32_t plane_id, int x, int width)
+void SetPlaneCrtc(VideoRender * render, drmModeAtomicReqPtr ModeReq, uint32_t plane_id,
+		  int crtc_x, int crtc_y, int crtc_w, int crtc_h)
 {
 	SetPropertyRequest(ModeReq, render->fd_drm, plane_id,
-						DRM_MODE_OBJECT_PLANE, "CRTC_X", x);
+						DRM_MODE_OBJECT_PLANE, "CRTC_X", crtc_x);
 	SetPropertyRequest(ModeReq, render->fd_drm, plane_id,
-						DRM_MODE_OBJECT_PLANE, "CRTC_Y", 0);
+						DRM_MODE_OBJECT_PLANE, "CRTC_Y", crtc_y);
 	SetPropertyRequest(ModeReq, render->fd_drm, plane_id,
-						DRM_MODE_OBJECT_PLANE, "CRTC_W", width);
+						DRM_MODE_OBJECT_PLANE, "CRTC_W", crtc_w);
 	SetPropertyRequest(ModeReq, render->fd_drm, plane_id,
-						DRM_MODE_OBJECT_PLANE, "CRTC_H", render->mode.vdisplay);
+						DRM_MODE_OBJECT_PLANE, "CRTC_H", crtc_h);
 }
 
-void SetSrc(VideoRender * render, drmModeAtomicReqPtr ModeReq,
-				uint32_t plane_id, struct drm_buf *buf)
+void SetPlaneSrc(VideoRender * render, drmModeAtomicReqPtr ModeReq, uint32_t plane_id,
+		 int src_x, int src_y, int src_w, int src_h)
 {
 	SetPropertyRequest(ModeReq, render->fd_drm, plane_id,
-						DRM_MODE_OBJECT_PLANE, "SRC_X", 0);
+						DRM_MODE_OBJECT_PLANE, "SRC_X", src_x);
 	SetPropertyRequest(ModeReq, render->fd_drm, plane_id,
-						DRM_MODE_OBJECT_PLANE, "SRC_Y", 0);
+						DRM_MODE_OBJECT_PLANE, "SRC_Y", src_y);
 	SetPropertyRequest(ModeReq, render->fd_drm, plane_id,
-						DRM_MODE_OBJECT_PLANE, "SRC_W", buf->width << 16);
+						DRM_MODE_OBJECT_PLANE, "SRC_W", src_w << 16);
 	SetPropertyRequest(ModeReq, render->fd_drm, plane_id,
-						DRM_MODE_OBJECT_PLANE, "SRC_H", buf->height << 16);
+						DRM_MODE_OBJECT_PLANE, "SRC_H", src_h << 16);
 }
 
 size_t ReadLineFromFile(char *buf, size_t size, char * file)
@@ -854,12 +854,12 @@ page_flip:
 
 	if (buf->width != (GetPropertyValue(render->fd_drm, render->video_plane,
 		DRM_MODE_OBJECT_PLANE, "SRC_W") >> 16))
-			SetSrc(render, ModeReq, render->video_plane, buf);
+			SetPlaneSrc(render, ModeReq, render->video_plane, 0, 0, buf->width, buf->height);
 
 	if (PicWidth != GetPropertyValue(render->fd_drm, render->video_plane,
 		DRM_MODE_OBJECT_PLANE, "CRTC_W"))
-			SetCrtc(render, ModeReq, render->video_plane,
-				(render->mode.hdisplay - PicWidth) / 2, PicWidth);
+			SetPlaneCrtc(render, ModeReq, render->video_plane,
+				(render->mode.hdisplay - PicWidth) / 2, 0, PicWidth, render->mode.vdisplay);
 
 	SetPropertyRequest(ModeReq, render->fd_drm, render->video_plane,
 					DRM_MODE_OBJECT_PLANE, "FB_ID", buf->fb_id);
@@ -1750,18 +1750,18 @@ void VideoInit(VideoRender * render)
 						DRM_MODE_OBJECT_CONNECTOR, "CRTC_ID", render->crtc_id);
 	SetPropertyRequest(ModeReq, render->fd_drm, render->crtc_id,
 						DRM_MODE_OBJECT_CRTC, "ACTIVE", 1);
-	SetCrtc(render, ModeReq, prime_plane, 0, render->mode.hdisplay);
+	SetPlaneCrtc(render, ModeReq, prime_plane, 0, 0, render->mode.hdisplay, render->mode.vdisplay);
 
 	if (render->use_zpos) {
 		// Primary plane
-		SetSrc(render, ModeReq, prime_plane, &render->buf_osd);
+		SetPlaneSrc(render, ModeReq, prime_plane, 0, 0, render->buf_osd.width, render->buf_osd.height);
 		SetPropertyRequest(ModeReq, render->fd_drm, prime_plane,
 						DRM_MODE_OBJECT_PLANE, "FB_ID", render->buf_osd.fb_id);
 		// Black Buffer
-		SetCrtc(render, ModeReq, overlay_plane, 0, render->mode.hdisplay);
+		SetPlaneCrtc(render, ModeReq, overlay_plane, 0, 0, render->mode.hdisplay, render->mode.vdisplay);
 		SetPropertyRequest(ModeReq, render->fd_drm, overlay_plane,
 						DRM_MODE_OBJECT_PLANE, "CRTC_ID", render->crtc_id);
-		SetSrc(render, ModeReq, overlay_plane, &render->buf_black);
+		SetPlaneSrc(render, ModeReq, overlay_plane, 0, 0, render->buf_black.width, render->buf_black.height);
 		SetPropertyRequest(ModeReq, render->fd_drm, overlay_plane,
 						DRM_MODE_OBJECT_PLANE, "FB_ID", render->buf_black.fb_id);
 	}
