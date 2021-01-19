@@ -53,6 +53,7 @@ struct drm_buf {
 	uint32_t pix_fmt;
 	int fd_prime;
 	AVFrame *frame;
+	int dirty;
 };
 
 struct _Drm_Render_
@@ -103,6 +104,7 @@ struct _Drm_Render_
 	AVFrame *lastframe;
 	int buffers;
 	int enqueue_buffer;
+	int OsdShown;
 };
 
     /// Video hardware decoder typedef
