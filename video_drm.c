@@ -193,6 +193,12 @@ void ChangePlanes(VideoRender * render, int back)
 	drmModeAtomicFree(ModeReq);
 }
 
+void SetPlaneFbId(VideoRender * render, drmModeAtomicReqPtr ModeReq, uint32_t plane_id, uint64_t fb_id)
+{
+	SetPropertyRequest(ModeReq, render->fd_drm, plane_id,
+					DRM_MODE_OBJECT_PLANE, "FB_ID", fb_id);
+}
+
 void SetPlaneCrtc(VideoRender * render, drmModeAtomicReqPtr ModeReq, uint32_t plane_id,
 		  int crtc_x, int crtc_y, int crtc_w, int crtc_h)
 {
@@ -861,8 +867,7 @@ page_flip:
 			SetPlaneCrtc(render, ModeReq, render->video_plane,
 				(render->mode.hdisplay - PicWidth) / 2, 0, PicWidth, render->mode.vdisplay);
 
-	SetPropertyRequest(ModeReq, render->fd_drm, render->video_plane,
-					DRM_MODE_OBJECT_PLANE, "FB_ID", buf->fb_id);
+	SetPlaneFbId(render, ModeReq, render->video_plane, buf->fb_id);
 
 	if (drmModeAtomicCommit(render->fd_drm, ModeReq, flags, NULL) != 0)
 		fprintf(stderr, "Frame2Display: cannot page flip to FB %i (%d): %m\n",
@@ -1755,15 +1760,13 @@ void VideoInit(VideoRender * render)
 	if (render->use_zpos) {
 		// Primary plane
 		SetPlaneSrc(render, ModeReq, prime_plane, 0, 0, render->buf_osd.width, render->buf_osd.height);
-		SetPropertyRequest(ModeReq, render->fd_drm, prime_plane,
-						DRM_MODE_OBJECT_PLANE, "FB_ID", render->buf_osd.fb_id);
+		SetPlaneFbId(render, ModeReq, prime_plane, render->buf_osd.fb_id);
 		// Black Buffer
 		SetPlaneCrtc(render, ModeReq, overlay_plane, 0, 0, render->mode.hdisplay, render->mode.vdisplay);
 		SetPropertyRequest(ModeReq, render->fd_drm, overlay_plane,
 						DRM_MODE_OBJECT_PLANE, "CRTC_ID", render->crtc_id);
 		SetPlaneSrc(render, ModeReq, overlay_plane, 0, 0, render->buf_black.width, render->buf_black.height);
-		SetPropertyRequest(ModeReq, render->fd_drm, overlay_plane,
-						DRM_MODE_OBJECT_PLANE, "FB_ID", render->buf_black.fb_id);
+		SetPlaneFbId(render, ModeReq, overlay_plane, render->buf_black.fb_id);
 	}
 
 	if (drmModeAtomicCommit(render->fd_drm, ModeReq, flags, NULL) != 0)
