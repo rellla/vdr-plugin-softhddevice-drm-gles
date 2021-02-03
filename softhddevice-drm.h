@@ -30,6 +30,10 @@ static const char *const VERSION = "0.0.1rc1"
 #endif
     ;
 
+#ifdef USE_GLES
+#include "openglosd.h"
+#endif
+
     /// vdr-plugin description.
 static const char *const DESCRIPTION =
 trNOOP("A software and GPU emulated HD device");
@@ -60,6 +64,10 @@ static int ConfigAudioEq;			///< config equalizer filter
 static int SetupAudioEqBand[18];	///< config equalizer filter bands
 
 static volatile int DoMakePrimary;	///< switch primary device to this
+
+#ifdef USE_GLES
+static int ConfigMaxSizeGPUImageCache = 128;
+#endif
 
 //////////////////////////////////////////////////////////////////////////////
 
@@ -98,15 +106,45 @@ class cSoftOsdProvider:public cOsdProvider
 {
   private:
     static cOsd *Osd;			///< single OSD
+#ifdef USE_GLES
+    static std::shared_ptr<cOglThread> oglThread;
+    static bool StartOpenGlThread(void);
+  protected:
+    virtual int StoreImageData(const cImage &Image);
+    virtual void DropImageData(int ImageHandle);
+#endif
   public:
     virtual cOsd * CreateOsd(int, int, uint);
     virtual bool ProvidesTrueColor(void);
     cSoftOsdProvider(void);		///< OSD provider constructor
-    //virtual ~cSoftOsdProvider();	///< OSD provider destructor
+#ifdef USE_GLES
+    static void StopOpenGlThread(void);
+    static const cImage *GetImageData(int ImageHandle);
+    static void OsdSizeChanged(void);
+#endif
+    virtual ~cSoftOsdProvider();	///< OSD provider destructor
 };
 
 cOsd *cSoftOsdProvider::Osd;		///< single osd
 
+#ifdef USE_GLES
+std::shared_ptr<cOglThread> cSoftOsdProvider::oglThread;	// openGL worker Thread
+
+int cSoftOsdProvider::StoreImageData(const cImage &Image)
+{
+    if (StartOpenGlThread()) {
+        int imgHandle = oglThread->StoreImage(Image);
+        return imgHandle;
+    }
+    return 0;
+}
+
+void cSoftOsdProvider::DropImageData(int imgHandle)
+{
+    if (StartOpenGlThread())
+        oglThread->DropImageData(imgHandle);
+}
+#endif
 
 //////////////////////////////////////////////////////////////////////////////
 //	cMenuSetupPage
@@ -144,6 +182,10 @@ class cMenuSetupSoft:public cMenuSetupPage
     int AudioFilter;
     int AudioEq;
     int AudioEqBand[18];
+
+#ifdef USE_GLES
+    int MaxSizeGPUImageCache;
+#endif
 
     /// @}
   private:

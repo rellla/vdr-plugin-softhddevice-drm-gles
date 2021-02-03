@@ -102,6 +102,10 @@ extern "C"
     /// Get parsed width and height
     extern void ParseResolutionH264(int *, int *);
 
+#ifdef USE_GLES
+    /// C plugin get video render
+    extern void *GetVideoRender(void);
+#endif
 #ifdef __cplusplus
 }
 #endif

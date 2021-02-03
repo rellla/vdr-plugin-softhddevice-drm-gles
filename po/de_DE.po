@@ -195,6 +195,9 @@ msgstr "Erzeuge primäres Gerät"
 msgid "Hide main menu entry"
 msgstr "Verstecke Hauptmenüeintrag"
 
+msgid "GPU mem used for image caching (MB)"
+msgstr ""
+
 msgid "Audio"
 msgstr "Audio"
 
@@ -319,6 +322,10 @@ msgstr ""
 
 #, c-format
 msgid "FindDevice: DRM setup CRTC: %i video_plane: %i osd_plane %i use_zpos %d\n"
+msgstr ""
+
+#, c-format
+msgid "drm_get_buf_from_bo: cannot create framebuffer (%d): %m\n"
 msgstr ""
 
 #, c-format

@@ -1,5 +1,6 @@
 Copyright (c) 2011 - 2013 by Johns.  All Rights Reserved.
 Copyright (c) 2018 - 2021 by zillevdr.  All Rights Reserved.
+Copyright (c) 2020 - 2021 by rellla.  All Rights Reserved.
 
 License: AGPLv3
 
@@ -22,6 +23,17 @@ Install:
 	make
 	make install
 
+OpenGL/ES:
+---------
+	OpenGL/ES support is based on the work of Stefan Braun
+	(https://github.com/louisbraun/softhddevice-openglosd)
+
+	This enables GPU accelerated OSD rendering.
+	OpenGL/ES support is enabled, if gles2, egl and gbm are found on the system
+	To disable OpenGL/ES support (if autodetected), simply build with
+
+	GLES=0 make
+
 Requirement:
 ---------
         No running X!
@@ -38,6 +50,13 @@ Requirement:
 	media-libs/alsa-lib
 		Advanced Linux Sound Architecture Library
 		http://www.alsa-project.org
+
+	For OpenGL/ES support:
+		gles2 (Mesa)
+		egl (Mesa
+		gbm (Mesa)
+		freetype2
+		glm - OpenGL Mathematics (GLM)
 
 TODO:
 -----
