@@ -1630,6 +1630,13 @@ void GetScreenSize(int *width, int *height, double *pixel_aspect)
 	VideoGetScreenSize(MyVideoStream->Render, width, height, pixel_aspect);
 }
 
+#ifdef USE_GLES
+void *GetVideoRender()
+{
+	return (void *)(MyVideoStream->Render);
+}
+#endif
+
 /**
 **	Set play mode, called on channel switch.
 **

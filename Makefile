@@ -13,6 +13,8 @@ PLUGIN = softhddevice-drm
 
 	# enable this for MMAL (RaspberryPi 2)
 MMAL ?= 0
+	# Use OpenGL/ES for OSD? Disable autodetection by setting GLES=1 or GLES=0 with make command
+GLES ?= $(shell pkg-config --exists glesv2 egl gbm && echo 1)
 
 CONFIG := #-DDEBUG 				# enable debug output+functions
 #CONFIG += -DAV_SYNC_DEBUG		# enable debug messages AV_SYNC
@@ -22,6 +24,12 @@ CONFIG := #-DDEBUG 				# enable debug output+functions
 #CONFIG += -DCODEC_DEBUG		# enable debug messages in codec configuration
 #CONFIG += -DSTILL_DEBUG		# still picture debug
 #CONFIG += -DMEDIA_DEBUG		# media player debug
+
+ifeq ($(GLES),1)
+#CONFIG += -DGL_DEBUG			# enable debug messages OpenGL/ES OSD
+#CONFIG += -DWRITE_PNG			# enable writing OSD to png file
+CONFIG += -DUSE_GLES			# build with OpenGL/ES support
+endif
 
 ### The version number of this plugin (taken from the main source file):
 
@@ -78,6 +86,28 @@ LIBS += -lrt -lmmal -lmmal_core -lbcm_host -lvcos $(shell pkg-config --libs alsa
 else
 _CFLAGS += $(shell pkg-config --cflags alsa libavcodec libavfilter libdrm)
 LIBS += $(shell pkg-config --libs alsa libavcodec libavfilter libdrm)
+ifeq ($(GLES),1)
+### Check for openglosd dependencies
+ifneq ($(shell pkg-config --exists glesv2 && echo 1),1)
+$(error ERROR: Missing openglosd dependency: gles2)
+endif
+ifneq ($(shell pkg-config --exists egl && echo 1),1)
+$(error ERROR: Missing openglosd dependency: egl)
+endif
+ifneq ($(shell pkg-config --exists gbm && echo 1),1)
+$(error ERROR: Missing openglosd dependency: gbm)
+endif
+ifneq ($(shell pkg-config --exists freetype2 && echo 1),1)
+$(error ERROR: Missing openglosd dependency: freetype2)
+endif
+ifneq ($(shell pkg-config --exists glm && echo 1),1)
+$(error ERROR: Missing openglosd dependency: glm)
+endif
+_CFLAGS += $(shell pkg-config --cflags gbm glesv2 egl)
+LIBS += $(shell pkg-config --libs gbm glesv2 egl)
+_CFLAGS += $(shell pkg-config --cflags freetype2)
+LIBS += $(shell pkg-config --libs freetype2)
+endif
 endif
 
 ### Includes and Defines (add further entries here):
@@ -100,6 +130,10 @@ ifeq ($(MMAL),1)
 OBJS = $(PLUGIN).o mediaplayer.o softhddev.o video_mmal.o audio.o codec.o ringbuffer.o
 else
 OBJS = $(PLUGIN).o mediaplayer.o softhddev.o video_drm.o audio.o codec.o ringbuffer.o
+endif
+
+ifeq ($(GLES),1)
+OBJS += openglosd.o
 endif
 
 SRCS = $(wildcard $(OBJS:.o=.c)) $(PLUGIN).cpp
