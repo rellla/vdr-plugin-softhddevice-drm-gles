@@ -1795,6 +1795,22 @@ void GetStats(int *duped, int *dropped, int *counter)
 }
 
 
+/**
+**	Scale the currently shown video.
+**
+**	@param x	video window x coordinate OSD relative
+**	@param y	video window x coordinate OSD relative
+**	@param width	video window width OSD relative
+**	@param height	video window height OSD relative
+*/
+void ScaleVideo(int x, int y, int width, int height)
+{
+	if (MyVideoStream->Render) {
+		VideoSetOutputPosition(MyVideoStream->Render, x, y, width, height);
+	}
+}
+
+
 //////////////////////////////////////////////////////////////////////////////
 //	OSD
 //////////////////////////////////////////////////////////////////////////////

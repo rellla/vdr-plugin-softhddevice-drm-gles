@@ -1154,6 +1154,32 @@ uchar *cSoftHdDevice::GrabImage(int &size, bool jpeg, int quality, int width,
 }
 
 /**
+**	Ask the output, if it can scale video.
+**
+**	@param rect	requested video window rectangle
+**
+**	@returns	the real rectangle or cRect::NULL if invalid
+*/
+cRect cSoftHdDevice::CanScaleVideo(const cRect & rect, __attribute__ ((unused)) int alignment)
+{
+    return rect;
+}
+
+/**
+**	Scale the currently shown video.
+**
+**	@param rect	video window rectangle
+*/
+void cSoftHdDevice::ScaleVideo(const cRect & rect)
+{
+#ifdef OSD_DEBUG
+    dsyslog("[softhddev] OSD %s: %dx%d%+d%+d\n",
+        __FUNCTION__, rect.Width(), rect.Height(), rect.X(), rect.Y());
+#endif
+    ::ScaleVideo(rect.X(), rect.Y(), rect.Width(), rect.Height());
+}
+
+/**
 **	Call rgb to jpeg for C Plugin.
 */
 extern "C" uint8_t * CreateJpeg(uint8_t * image, int *size, int quality,
