@@ -101,6 +101,8 @@ extern "C"
     extern void GetStats(int *, int *, int *);
     /// Get parsed width and height
     extern void ParseResolutionH264(int *, int *);
+    /// C plugin scale video
+    extern void ScaleVideo(int, int, int, int);
 
     /// C plugin get video render
     extern void *GetVideoRender(void);
