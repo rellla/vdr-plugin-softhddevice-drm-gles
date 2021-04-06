@@ -308,7 +308,7 @@ msgid "FindDevice: Found Monitor Mode %dx%d@%d\n"
 msgstr ""
 
 #, c-format
-msgid "FindDevice: DRM setup CRTC: %i video_plane: %i osd_plane %i use_zpos %d\n"
+msgid "FindDevice: DRM setup CRTC: %i video_plane: %i osd_plane: %i use_zpos: %d\n"
 msgstr ""
 
 #, c-format
