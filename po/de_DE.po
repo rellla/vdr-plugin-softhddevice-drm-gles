@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: VDR \n"
 "Report-Msgid-Bugs-To: <see README>\n"
-"POT-Creation-Date: 2021-05-26 16:01+0200\n"
+"POT-Creation-Date: 2021-12-06 17:33+0100\n"
 "PO-Revision-Date: blabla\n"
 "Last-Translator: blabla\n"
 "Language-Team: blabla\n"
@@ -307,8 +307,11 @@ msgstr ""
 msgid "FindDevice: Found Monitor Mode %dx%d@%d\n"
 msgstr ""
 
+msgid "FindDevice: No suitable planes found!\n"
+msgstr ""
+
 #, c-format
-msgid "FindDevice: DRM setup CRTC: %i video_plane: %i osd_plane: %i use_zpos: %d\n"
+msgid "FindDevice: DRM setup CRTC: %i video_plane: %i (%s %lld) osd_plane: %i (%s %lld) use_zpos: %d\n"
 msgstr ""
 
 #, c-format
