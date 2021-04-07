@@ -320,8 +320,11 @@ msgstr ""
 msgid "FindDevice: Found Monitor Mode %dx%d@%d\n"
 msgstr ""
 
+msgid "FindDevice: No suitable planes found!\n"
+msgstr ""
+
 #, c-format
-msgid "FindDevice: DRM setup CRTC: %i video_plane: %i osd_plane: %i use_zpos: %d\n"
+msgid "FindDevice: DRM setup CRTC: %i video_plane: %i (%s %lld) osd_plane: %i (%s %lld) use_zpos: %d\n"
 msgstr ""
 
 #, c-format
