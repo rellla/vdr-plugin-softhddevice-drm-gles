@@ -2179,9 +2179,9 @@ void VideoInit(VideoRender * render)
 						DRM_MODE_OBJECT_CRTC, "ACTIVE", 1);
 
 	// Osd plane
+#ifndef USE_GLES
 	SetPlaneCrtcId(ModeReq, render->planes[OSD_PLANE]->plane_id, render->crtc_id);
 	SetPlaneCrtc(ModeReq, render->planes[OSD_PLANE]->plane_id, 0, 0, render->mode.hdisplay, render->mode.vdisplay);
-#ifndef USE_GLES
 	SetPlaneSrc(ModeReq, render->planes[OSD_PLANE]->plane_id, 0, 0, render->buf_osd.width, render->buf_osd.height);
 	SetPlaneFbId(ModeReq,render->planes[OSD_PLANE]->plane_id, render->buf_osd.fb_id);
 #else
@@ -2192,6 +2192,7 @@ void VideoInit(VideoRender * render)
 		SetPlaneZpos(ModeReq, render->planes[OSD_PLANE]->plane_id, render->zpos_primary);
 	}
 #endif
+
 	// Black Buffer for video plane
 	SetPlane(ModeReq, render->planes[VIDEO_PLANE]->plane_id, render->crtc_id, render->buf_black.fb_id,
 		 0, 0, render->mode.hdisplay, render->mode.vdisplay, 0, 0, render->buf_black.width, render->buf_black.height);
