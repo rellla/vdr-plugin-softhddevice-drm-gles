@@ -376,8 +376,8 @@ int CodecVideoReceiveFrame(VideoDecoder * decoder, int no_deint)
 	} else {
 		av_frame_free(&decoder->Frame);
 #ifdef DEBUG
-		fprintf(stderr, "CodecVideoReceiveFrame: receive_frame ret: %s\n",
-			av_err2str(ret));
+		if (ret != AVERROR(EAGAIN))
+			fprintf(stderr, "CodecVideoReceiveFrame: receive_frame ret: %s\n", av_err2str(ret));
 #endif
 	}
 
