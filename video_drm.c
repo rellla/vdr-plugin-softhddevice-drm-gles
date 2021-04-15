@@ -1275,10 +1275,12 @@ page_flip:
 	}
 #endif
 
-	if (drmModeAtomicCommit(render->fd_drm, ModeReq, flags, NULL) != 0)
+	if (drmModeAtomicCommit(render->fd_drm, ModeReq, flags, NULL) != 0) {
 		fprintf(stderr, "Frame2Display: cannot page flip to FB %i (%d): %m\n",
 			buf->fb_id, errno);
-
+		drmModeAtomicFree(ModeReq);
+		abort();
+	}
 	drmModeAtomicFree(ModeReq);
 }
 
@@ -2220,8 +2222,11 @@ void VideoInit(VideoRender * render)
 	SetPlane(ModeReq, render->planes[VIDEO_PLANE]->plane_id, render->crtc_id, render->buf_black.fb_id,
 		 0, 0, render->mode.hdisplay, render->mode.vdisplay, 0, 0, render->buf_black.width, render->buf_black.height);
 
-	if (drmModeAtomicCommit(render->fd_drm, ModeReq, flags, NULL) != 0)
+	if (drmModeAtomicCommit(render->fd_drm, ModeReq, flags, NULL) != 0) {
 		fprintf(stderr, "cannot set atomic mode (%d): %m\n", errno);
+		drmModeAtomicFree(ModeReq);
+		abort();
+	}
 
 	drmModeAtomicFree(ModeReq);
 
