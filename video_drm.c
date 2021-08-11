@@ -137,6 +137,45 @@ int GetPropertyValue(int fd_drm, uint32_t objectID,
 	return 0;
 }
 
+static int SetPlanePropertyRequest(drmModeAtomicReqPtr ModeReq, uint32_t objectID, const char *propName, uint64_t value)
+{
+	VideoRender *render = (VideoRender *)GetVideoRender();
+	if (!render) {
+		fprintf(stderr, "failed to get VideoRender\n");
+		abort();
+	}
+
+	struct plane *obj = NULL;
+
+	if (objectID == render->planes[VIDEO_PLANE]->plane_id)
+		obj = render->planes[VIDEO_PLANE];
+	else if (objectID == render->planes[OSD_PLANE]->plane_id)
+		obj = render->planes[OSD_PLANE];
+
+	if (!obj) {
+		fprintf(stderr, "SetPlanePropertyRequest: Unable to find plane with id %d\n", objectID);
+		return -EINVAL;
+	}
+
+	uint32_t i;
+	int id = -1;
+
+	for (i = 0; i < obj->props->count_props; i++) {
+		if (strcmp(obj->props_info[i]->name, propName) == 0) {
+			id = obj->props_info[i]->prop_id;
+			break;
+		}
+	}
+
+	if (id < 0) {
+		fprintf(stderr, "SetPlanePropertyRequest: Unable to find value for property \'%s\'.\n",
+			propName);
+		return -EINVAL;
+	}
+
+	return drmModeAtomicAddProperty(ModeReq, objectID, id, value);
+}
+
 static int SetPropertyRequest(drmModeAtomicReqPtr ModeReq, int fd_drm,
 					uint32_t objectID, uint32_t objectType,
 					const char *propName, uint64_t value)
@@ -169,59 +208,48 @@ static int SetPropertyRequest(drmModeAtomicReqPtr ModeReq, int fd_drm,
 	return drmModeAtomicAddProperty(ModeReq, objectID, id, value);
 }
 
-void SetPlaneFbId(VideoRender * render, drmModeAtomicReqPtr ModeReq, uint32_t plane_id, uint64_t fb_id)
+void SetPlaneFbId(drmModeAtomicReqPtr ModeReq, uint32_t plane_id, uint64_t fb_id)
 {
-	SetPropertyRequest(ModeReq, render->fd_drm, plane_id,
-					DRM_MODE_OBJECT_PLANE, "FB_ID", fb_id);
+	SetPlanePropertyRequest(ModeReq, plane_id, "FB_ID", fb_id);
 }
 
-void SetPlaneCrtcId(VideoRender * render, drmModeAtomicReqPtr ModeReq, uint32_t plane_id, uint64_t crtc_id)
+void SetPlaneCrtcId(drmModeAtomicReqPtr ModeReq, uint32_t plane_id, uint64_t crtc_id)
 {
-	SetPropertyRequest(ModeReq, render->fd_drm, plane_id,
-				DRM_MODE_OBJECT_PLANE, "CRTC_ID", crtc_id);
+	SetPlanePropertyRequest(ModeReq, plane_id, "CRTC_ID", crtc_id);
 }
 
-void SetPlaneCrtc(VideoRender * render, drmModeAtomicReqPtr ModeReq, uint32_t plane_id,
+void SetPlaneCrtc(drmModeAtomicReqPtr ModeReq, uint32_t plane_id,
 		  int crtc_x, int crtc_y, int crtc_w, int crtc_h)
 {
-	SetPropertyRequest(ModeReq, render->fd_drm, plane_id,
-						DRM_MODE_OBJECT_PLANE, "CRTC_X", crtc_x);
-	SetPropertyRequest(ModeReq, render->fd_drm, plane_id,
-						DRM_MODE_OBJECT_PLANE, "CRTC_Y", crtc_y);
-	SetPropertyRequest(ModeReq, render->fd_drm, plane_id,
-						DRM_MODE_OBJECT_PLANE, "CRTC_W", crtc_w);
-	SetPropertyRequest(ModeReq, render->fd_drm, plane_id,
-						DRM_MODE_OBJECT_PLANE, "CRTC_H", crtc_h);
+	SetPlanePropertyRequest(ModeReq, plane_id, "CRTC_X", crtc_x);
+	SetPlanePropertyRequest(ModeReq, plane_id, "CRTC_Y", crtc_y);
+	SetPlanePropertyRequest(ModeReq, plane_id, "CRTC_W", crtc_w);
+	SetPlanePropertyRequest(ModeReq, plane_id, "CRTC_H", crtc_h);
 }
 
-void SetPlaneSrc(VideoRender * render, drmModeAtomicReqPtr ModeReq, uint32_t plane_id,
+void SetPlaneSrc(drmModeAtomicReqPtr ModeReq, uint32_t plane_id,
 		 int src_x, int src_y, int src_w, int src_h)
 {
-	SetPropertyRequest(ModeReq, render->fd_drm, plane_id,
-						DRM_MODE_OBJECT_PLANE, "SRC_X", src_x);
-	SetPropertyRequest(ModeReq, render->fd_drm, plane_id,
-						DRM_MODE_OBJECT_PLANE, "SRC_Y", src_y);
-	SetPropertyRequest(ModeReq, render->fd_drm, plane_id,
-						DRM_MODE_OBJECT_PLANE, "SRC_W", src_w << 16);
-	SetPropertyRequest(ModeReq, render->fd_drm, plane_id,
-						DRM_MODE_OBJECT_PLANE, "SRC_H", src_h << 16);
+	SetPlanePropertyRequest(ModeReq, plane_id, "SRC_X", src_x);
+	SetPlanePropertyRequest(ModeReq, plane_id, "SRC_Y", src_y);
+	SetPlanePropertyRequest(ModeReq, plane_id, "SRC_W", src_w << 16);
+	SetPlanePropertyRequest(ModeReq, plane_id, "SRC_H", src_h << 16);
 }
 
-void SetPlaneZpos(VideoRender * render, drmModeAtomicReqPtr ModeReq, uint32_t plane_id, uint64_t zpos)
+void SetPlaneZpos(drmModeAtomicReqPtr ModeReq, uint32_t plane_id, uint64_t zpos)
 {
-	SetPropertyRequest(ModeReq, render->fd_drm, plane_id,
-			DRM_MODE_OBJECT_PLANE, "zpos", zpos);
+	SetPlanePropertyRequest(ModeReq, plane_id, "zpos", zpos);
 }
 
-void SetPlane(VideoRender * render, drmModeAtomicReqPtr ModeReq, uint32_t plane_id,
-				uint64_t crtc_id, uint64_t fb_id,
-				uint64_t crtc_x, uint64_t crtc_y, uint64_t crtc_w, uint64_t crtc_h,
-				uint64_t src_x, uint64_t src_y, uint64_t src_w, uint64_t src_h)
+void SetPlane(drmModeAtomicReqPtr ModeReq, uint32_t plane_id,
+	      uint64_t crtc_id, uint64_t fb_id,
+	      uint64_t crtc_x, uint64_t crtc_y, uint64_t crtc_w, uint64_t crtc_h,
+	      uint64_t src_x, uint64_t src_y, uint64_t src_w, uint64_t src_h)
 {
-	SetPlaneCrtcId(render, ModeReq, plane_id, crtc_id);
-	SetPlaneFbId(render, ModeReq, plane_id, fb_id);
-	SetPlaneCrtc(render, ModeReq, plane_id, crtc_x, crtc_y, crtc_w, crtc_h);
-	SetPlaneSrc(render, ModeReq, plane_id, src_x, src_y, src_w, src_h);
+	SetPlaneCrtcId(ModeReq, plane_id, crtc_id);
+	SetPlaneFbId(ModeReq, plane_id, fb_id);
+	SetPlaneCrtc(ModeReq, plane_id, crtc_x, crtc_y, crtc_w, crtc_h);
+	SetPlaneSrc(ModeReq, plane_id, src_x, src_y, src_w, src_h);
 }
 
 ///
@@ -229,8 +257,14 @@ void SetPlane(VideoRender * render, drmModeAtomicReqPtr ModeReq, uint32_t plane_
 /// must the zpos change. At the end it must change back.
 /// @param backward		if set change to origin.
 ///
-void SetChangePlanes(VideoRender * render, drmModeAtomicReqPtr ModeReq, int back)
+void SetChangePlanes(drmModeAtomicReqPtr ModeReq, int back)
 {
+	VideoRender *render = (VideoRender *)GetVideoRender();
+	if (!render) {
+		fprintf(stderr, "failed to get VideoRender\n");
+		abort();
+	}
+
 	uint64_t zpos_video;
 	uint64_t zpos_osd;
 
@@ -242,8 +276,8 @@ void SetChangePlanes(VideoRender * render, drmModeAtomicReqPtr ModeReq, int back
 		zpos_osd = render->zpos_overlay;
 	}
 
-	SetPlaneZpos(render, ModeReq, render->video_plane, zpos_video);
-	SetPlaneZpos(render, ModeReq, render->osd_plane, zpos_osd);
+	SetPlaneZpos(ModeReq, render->planes[VIDEO_PLANE]->plane_id, zpos_video);
+	SetPlaneZpos(ModeReq, render->planes[OSD_PLANE]->plane_id, zpos_osd);
 }
 
 size_t ReadLineFromFile(char *buf, size_t size, char * file)
@@ -399,6 +433,38 @@ PFNEGLGETPLATFORMDISPLAYEXTPROC get_platform_display = NULL;
 PFNEGLCREATEPLATFORMWINDOWSURFACEEXTPROC get_platform_surface = NULL;
 #endif
 
+static void get_properties(int fd, int plane_id, struct plane *plane)
+{
+	uint32_t i;
+	plane->props = drmModeObjectGetProperties(fd, plane_id, DRM_MODE_OBJECT_PLANE);
+	if (!plane->props) {
+		fprintf(stderr, "could not get %u properties: %s\n",
+			plane_id, strerror(errno));
+		return;
+	}
+	plane->props_info = calloc(plane->props->count_props, sizeof(*plane->props_info)); \
+	for (i = 0; i < plane->props->count_props; i++) {
+		plane->props_info[i] = drmModeGetProperty(fd, plane->props->props[i]);
+	}
+}
+
+static void free_properties(struct plane *plane)
+{
+	if (!plane->props)
+		return;
+
+	if (!plane->props_info)
+		return;
+
+	for (uint32_t i = 0; i < plane->props->count_props; i++) {
+		if (plane->props_info[i]) {
+			drmModeFreeProperty(plane->props_info[i]);
+		}
+	}
+	drmModeFreeObjectProperties(plane->props);
+	free(plane->props_info);
+}
+
 static int FindDevice(VideoRender * render)
 {
 	drmModeRes *resources;
@@ -504,6 +570,10 @@ search_mode:
 	if ((plane_res = drmModeGetPlaneResources(render->fd_drm)) == NULL)
 		fprintf(stderr, "FindDevice: cannot retrieve PlaneResources (%d): %m\n", errno);
 
+	for (i = 0; i < MAX_PLANES; i++) {
+		render->planes[i] = calloc(1, sizeof(struct plane));
+	}
+
 	for (k = 0; k < plane_res->count_planes; k++) {
 		plane = drmModeGetPlane(render->fd_drm, plane_res->planes[k]);
 
@@ -537,7 +607,7 @@ search_mode:
 #endif
 				switch (plane->formats[l]) {
 					case DRM_FORMAT_NV12:
-						if (!render->video_plane) {
+						if (!render->planes[VIDEO_PLANE]->plane_id) {
 							if (type != DRM_PLANE_TYPE_PRIMARY) {
 								// We have found a NV12 plane as OVERLAY_PLANE
 								// so we use the zpos to switch between them
@@ -549,13 +619,15 @@ search_mode:
 #endif
 								}
 							}
-							render->video_plane = plane->plane_id;
-							if (plane->plane_id == render->osd_plane)
-								render->osd_plane = 0;
+							render->planes[VIDEO_PLANE]->plane_id = plane->plane_id;
+							// fill the plane's properties to speed up SetPropertyRequest later
+							get_properties(render->fd_drm, render->planes[VIDEO_PLANE]->plane_id, render->planes[VIDEO_PLANE]);
+							if (plane->plane_id == render->planes[OSD_PLANE]->plane_id)
+								render->planes[OSD_PLANE]->plane_id = 0;
 						}
 						break;
 					case DRM_FORMAT_ARGB8888:
-						if (!render->osd_plane) {
+						if (!render->planes[OSD_PLANE]->plane_id) {
 							if (type != DRM_PLANE_TYPE_OVERLAY) {
 								if (!GetPropertyValue(render->fd_drm, plane_res->planes[k],
 										     DRM_MODE_OBJECT_PLANE, "zpos", &render->zpos_primary)) {
@@ -565,7 +637,9 @@ search_mode:
 #endif
 								}
 							}
-							render->osd_plane = plane->plane_id;
+							render->planes[OSD_PLANE]->plane_id = plane->plane_id;
+							// fill the plane's properties to speed up SetPropertyRequest later
+							get_properties(render->fd_drm, render->planes[OSD_PLANE]->plane_id, render->planes[OSD_PLANE]);
 						}
 						break;
 					default:
@@ -654,9 +728,9 @@ search_mode:
 
 #ifdef DRM_DEBUG
 	Info(_("FindDevice: DRM setup CRTC: %i video_plane: %i osd_plane %i use_zpos %d\n"),
-		render->crtc_id, render->video_plane, render->osd_plane, render->use_zpos);
+		render->crtc_id, render->planes[VIDEO_PLANE]->plane_id, render->planes[OSD_PLANE]->plane_id, render->use_zpos);
 	fprintf(stderr, "FindDevice: DRM setup CRTC: %i video_plane: %i osd_plane %i use_zpos %d\n",
-		render->crtc_id, render->video_plane, render->osd_plane, render->use_zpos);
+		render->crtc_id, render->planes[VIDEO_PLANE]->plane_id, render->planes[OSD_PLANE]->plane_id, render->use_zpos);
 #endif
 	return 0;
 }
@@ -1127,101 +1201,75 @@ page_flip:
 
 	// handle the video plane
 	uint64_t buf_width_tmp;
-	GetPropertyValue(render->fd_drm, render->video_plane, DRM_MODE_OBJECT_PLANE, "SRC_W", &buf_width_tmp);
+	GetPropertyValue(render->fd_drm, render->planes[VIDEO_PLANE]->plane_id, DRM_MODE_OBJECT_PLANE, "SRC_W", &buf_width_tmp);
 	if (buf->width != (buf_width_tmp >> 16))
-			SetPlaneSrc(render, ModeReq, render->video_plane, 0, 0, buf->width, buf->height);
+			SetPlaneSrc(ModeReq, render->planes[VIDEO_PLANE]->plane_id, 0, 0, buf->width, buf->height);
 
 	uint64_t pic_width_tmp;
-	GetPropertyValue(render->fd_drm, render->video_plane, DRM_MODE_OBJECT_PLANE, "CRTC_W", &pic_width_tmp);
+	GetPropertyValue(render->fd_drm, render->planes[VIDEO_PLANE]->plane_id, DRM_MODE_OBJECT_PLANE, "CRTC_W", &pic_width_tmp);
 	if (PicWidth != pic_width_tmp)
-			SetPlaneCrtc(render, ModeReq, render->video_plane,
+			SetPlaneCrtc(ModeReq, render->planes[VIDEO_PLANE]->plane_id,
 				(render->mode.hdisplay - PicWidth) / 2, 0, PicWidth, render->mode.vdisplay);
 
-	SetPlaneFbId(render, ModeReq, render->video_plane, buf->fb_id);
+	SetPlaneFbId(ModeReq, render->planes[VIDEO_PLANE]->plane_id, buf->fb_id);
 
 	// handle the osd plane
-	if (render->OsdShown) {
 #ifdef USE_GLES
-		if (render->use_zpos) {
-			if (render->buf_osd_gl && !render->buf_osd_gl->init) {
-				SetPlane(render, ModeReq, render->osd_plane, render->crtc_id, render->buf_osd_gl->fb_id,
-					 0, 0, render->buf_osd_gl->width, render->buf_osd_gl->height,
-					 0, 0, render->buf_osd_gl->width, render->buf_osd_gl->height);
-				render->buf_osd_gl->init = 1;
-			}
-
-			if (render->buf_osd_gl && render->buf_osd_gl->dirty) {
-				SetPlaneZpos(render, ModeReq, render->video_plane, render->zpos_primary);
-				SetPlaneZpos(render, ModeReq, render->osd_plane, render->zpos_overlay);
-				render->buf_osd_gl->dirty = 0;
-			}
-		} else {
-			if (render->buf_osd_gl && render->buf_osd_gl->dirty) {
-				SetPlane(render, ModeReq, render->osd_plane, render->crtc_id, render->buf_osd_gl->fb_id,
-					 0, 0, render->buf_osd_gl->width, render->buf_osd_gl->height,
-					 0, 0, render->buf_osd_gl->width, render->buf_osd_gl->height);
-				render->buf_osd_gl->dirty = 0;
-			}
-		}
-#else
-		if (render->buf_osd.dirty) {
-			uint64_t value;
+	// We had draw activity on the osd buffer
+	if (render->buf_osd_gl && render->buf_osd_gl->dirty) {
+		if (render->OsdShown) {
+			SetPlane(ModeReq, render->planes[OSD_PLANE]->plane_id, render->crtc_id, render->buf_osd_gl->fb_id,
+				 0, 0, render->buf_osd_gl->width, render->buf_osd_gl->height,
+				 0, 0, render->buf_osd_gl->width, render->buf_osd_gl->height);
 			if (render->use_zpos) {
-				if (GetPropertyValue(render->fd_drm, render->osd_plane, DRM_MODE_OBJECT_PLANE, "zpos", &value))
-					fprintf(stderr, "Failed to get property 'zpos'\n");
-				if (render->zpos_overlay != value) {
-					SetChangePlanes(render, ModeReq, 0);
-				}
-			}
-			if (GetPropertyValue(render->fd_drm, render->osd_plane, DRM_MODE_OBJECT_PLANE, "FB_ID", &value))
-				fprintf(stderr, "Failed to get property 'FB_ID'\n");
-			if (!value) {
-				SetPlane(render, ModeReq, render->osd_plane, render->crtc_id, render->buf_osd.fb_id,
-					 0, 0, render->buf_osd.width, render->buf_osd.height,
-					 0, 0, render->buf_osd.width, render->buf_osd.height);
-			}
-			render->buf_osd.dirty = 0;
-		}
-#endif
-	} else {
-#ifdef USE_GLES
-		if (render->use_zpos) {
-			if (render->buf_osd_gl && !render->buf_osd_gl->init) {
-				SetPlane(render, ModeReq, render->osd_plane, render->crtc_id, render->buf_osd_gl->fb_id,
-					 0, 0, render->buf_osd_gl->width, render->buf_osd_gl->height,
-					 0, 0, render->buf_osd_gl->width, render->buf_osd_gl->height);
-				render->buf_osd_gl->init = 1;
-			}
-			if (render->buf_osd_gl && render->buf_osd_gl->dirty) {
-				SetPlaneZpos(render, ModeReq, render->video_plane, render->zpos_overlay);
-				SetPlaneZpos(render, ModeReq, render->osd_plane, render->zpos_primary);
-				render->buf_osd_gl->dirty = 0;
+				SetPlaneZpos(ModeReq, render->planes[VIDEO_PLANE]->plane_id, render->zpos_primary);
+				SetPlaneZpos(ModeReq, render->planes[OSD_PLANE]->plane_id, render->zpos_overlay);
 			}
 		} else {
-			if (render->buf_osd_gl && render->buf_osd_gl->dirty) {
-				SetPlane(render, ModeReq, render->osd_plane, render->crtc_id, render->buf_osd_gl->fb_id,
+			if (render->use_zpos) {
+				SetPlaneZpos(ModeReq, render->planes[VIDEO_PLANE]->plane_id, render->zpos_overlay);
+				SetPlaneZpos(ModeReq, render->planes[OSD_PLANE]->plane_id, render->zpos_primary);
+			} else {
+				SetPlane(ModeReq, render->planes[OSD_PLANE]->plane_id, render->crtc_id, render->buf_osd_gl->fb_id,
 					 0, 0, render->buf_osd_gl->width, render->buf_osd_gl->height,
 					 0, 0, 0, 0);
-				render->buf_osd_gl->dirty = 0;
 			}
 		}
+		render->buf_osd_gl->dirty = 0;
+	}
 #else
-		if (render->buf_osd.dirty) {
-			uint64_t value;
+	// We had draw activity on the osd buffer
+	if (render->buf_osd.dirty) {
+		uint64_t value;
+		if (render->OsdShown) {
 			if (render->use_zpos) {
-				if (GetPropertyValue(render->fd_drm, render->osd_plane, DRM_MODE_OBJECT_PLANE, "zpos", &value))
+				if (GetPropertyValue(render->fd_drm, render->planes[OSD_PLANE]->plane_id, DRM_MODE_OBJECT_PLANE, "zpos", &value))
 					fprintf(stderr, "Failed to get property 'zpos'\n");
-				if (render->zpos_overlay == value) {
-					SetChangePlanes(render, ModeReq, 1);
-				}
+				if (render->zpos_overlay != value)
+					SetChangePlanes(ModeReq, 0);
+			}
+			if (GetPropertyValue(render->fd_drm, render->planes[OSD_PLANE]->plane_id, DRM_MODE_OBJECT_PLANE, "FB_ID", &value))
+				fprintf(stderr, "Failed to get property 'FB_ID'\n");
+			if (!value) {
+				SetPlane(ModeReq, render->planes[OSD_PLANE]->plane_id, render->crtc_id, render->buf_osd.fb_id,
+					 0, 0, render->buf_osd.width, render->buf_osd.height,
+					 0, 0, render->buf_osd.width, render->buf_osd.height);
+
+			}
+		} else {
+			if (render->use_zpos) {
+				if (GetPropertyValue(render->fd_drm, render->planes[OSD_PLANE]->plane_id, DRM_MODE_OBJECT_PLANE, "zpos", &value))
+					fprintf(stderr, "Failed to get property 'zpos'\n");
+				if (render->zpos_overlay == value)
+					SetChangePlanes(ModeReq, 1);
 			} else {
-				SetPlane(render, ModeReq, render->osd_plane, render->crtc_id, render->buf_osd.fb_id,
+				SetPlane(ModeReq, render->planes[OSD_PLANE]->plane_id, render->crtc_id, render->buf_osd.fb_id,
 					 0, 0, render->buf_osd.width, render->buf_osd.height, 0, 0, 0, 0);
 			}
-			render->buf_osd.dirty = 0;
 		}
-#endif
+		render->buf_osd.dirty = 0;
 	}
+#endif
 
 	if (drmModeAtomicCommit(render->fd_drm, ModeReq, flags, NULL) != 0)
 		fprintf(stderr, "Frame2Display: cannot page flip to FB %i (%d): %m\n",
@@ -1344,8 +1392,10 @@ void VideoOsdClear(VideoRender * render)
 ///
 #ifdef USE_GLES
 void VideoOsdDrawARGB(VideoRender * render, __attribute__ ((unused)) int xi,
-		__attribute__ ((unused)) int yi, __attribute__ ((unused)) int width, __attribute__ ((unused)) int height, __attribute__ ((unused)) int pitch,
-		__attribute__ ((unused)) const uint8_t * argb, __attribute__ ((unused)) int x, __attribute__ ((unused)) int y)
+		__attribute__ ((unused)) int yi,  __attribute__ ((unused)) int width,
+		__attribute__ ((unused)) int height, __attribute__ ((unused)) int pitch,
+		__attribute__ ((unused)) const uint8_t * argb,
+		__attribute__ ((unused)) int x,  __attribute__ ((unused)) int y)
 #else
 void VideoOsdDrawARGB(VideoRender * render, __attribute__ ((unused)) int xi,
 		__attribute__ ((unused)) int yi, __attribute__ ((unused)) int width,
@@ -2138,11 +2188,11 @@ void VideoInit(VideoRender * render)
 	uint32_t overlay_plane;
 
 	if (render->use_zpos) {
-		prime_plane = render->osd_plane;
-		overlay_plane = render->video_plane;
+		prime_plane = render->planes[OSD_PLANE]->plane_id;
+		overlay_plane = render->planes[VIDEO_PLANE]->plane_id;
 	} else {
-		prime_plane = render->video_plane;
-		overlay_plane = render->osd_plane;
+		prime_plane = render->planes[VIDEO_PLANE]->plane_id;
+		overlay_plane = render->planes[OSD_PLANE]->plane_id;
 	}
 
 	if (drmModeCreatePropertyBlob(render->fd_drm, &render->mode, sizeof(render->mode), &modeID) != 0)
@@ -2156,24 +2206,24 @@ void VideoInit(VideoRender * render)
 						DRM_MODE_OBJECT_CONNECTOR, "CRTC_ID", render->crtc_id);
 	SetPropertyRequest(ModeReq, render->fd_drm, render->crtc_id,
 						DRM_MODE_OBJECT_CRTC, "ACTIVE", 1);
-	SetPlaneCrtc(render, ModeReq, prime_plane, 0, 0, render->mode.hdisplay, render->mode.vdisplay);
+	SetPlaneCrtc(ModeReq, prime_plane, 0, 0, render->mode.hdisplay, render->mode.vdisplay);
 
 	if (render->use_zpos) {
 		// Primary plane
 #ifndef USE_GLES
-		SetPlaneSrc(render, ModeReq, prime_plane, 0, 0, render->buf_osd.width, render->buf_osd.height);
-		SetPlaneFbId(render, ModeReq, prime_plane, render->buf_osd.fb_id);
+		SetPlaneSrc(ModeReq, prime_plane, 0, 0, render->buf_osd.width, render->buf_osd.height);
+		SetPlaneFbId(ModeReq, prime_plane, render->buf_osd.fb_id);
 #else
 		// We don't have the buf_osd_gl yet, so we can't set anything
 		// Initially move the OSD behind the VIDEO
-		SetPlaneZpos(render, ModeReq, render->video_plane, render->zpos_overlay);
-		SetPlaneZpos(render, ModeReq, render->osd_plane, render->zpos_primary);
+		SetPlaneZpos(ModeReq, render->planes[VIDEO_PLANE]->plane_id, render->zpos_overlay);
+		SetPlaneZpos(ModeReq, render->planes[OSD_PLANE]->plane_id, render->zpos_primary);
 #endif
 		// Black Buffer
-		SetPlaneCrtc(render, ModeReq, overlay_plane, 0, 0, render->mode.hdisplay, render->mode.vdisplay);
-		SetPlaneCrtcId(render, ModeReq, overlay_plane, render->crtc_id);
-		SetPlaneSrc(render, ModeReq, overlay_plane, 0, 0, render->buf_black.width, render->buf_black.height);
-		SetPlaneFbId(render, ModeReq, overlay_plane, render->buf_black.fb_id);
+		SetPlaneCrtc(ModeReq, overlay_plane, 0, 0, render->mode.hdisplay, render->mode.vdisplay);
+		SetPlaneCrtcId(ModeReq, overlay_plane, render->crtc_id);
+		SetPlaneSrc(ModeReq, overlay_plane, 0, 0, render->buf_black.width, render->buf_black.height);
+		SetPlaneFbId(ModeReq, overlay_plane, render->buf_black.fb_id);
 	}
 
 	if (drmModeAtomicCommit(render->fd_drm, ModeReq, flags, NULL) != 0)
@@ -2205,6 +2255,13 @@ void VideoExit(VideoRender * render)
 			drmModeSetCrtc(render->fd_drm, render->saved_crtc->crtc_id, render->saved_crtc->buffer_id,
 				render->saved_crtc->x, render->saved_crtc->y, &render->connector_id, 1, &render->saved_crtc->mode);
 			drmModeFreeCrtc(render->saved_crtc);
+		}
+
+		for (int i = 0; i < MAX_PLANES; i++) {
+			if (render->planes[i]) {
+				free_properties(render->planes[i]);
+				free(render->planes[i]);
+			}
 		}
 
 		DestroyFB(render->fd_drm, &render->buf_black);
