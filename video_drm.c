@@ -100,12 +100,11 @@ static void ThreadExitHandler( __attribute__ ((unused)) void * arg)
 	FilterThread = 0;
 }
 
-static uint64_t GetPropertyValue(int fd_drm, uint32_t objectID,
-						uint32_t objectType, const char *propName)
+int GetPropertyValue(int fd_drm, uint32_t objectID,
+		     uint32_t objectType, const char *propName, uint64_t *value)
 {
 	uint32_t i;
 	int found = 0;
-	uint64_t value = 0;
 	drmModePropertyPtr Prop;
 	drmModeObjectPropertiesPtr objectProps =
 		drmModeObjectGetProperties(fd_drm, objectID, objectType);
@@ -115,7 +114,7 @@ static uint64_t GetPropertyValue(int fd_drm, uint32_t objectID,
 			fprintf(stderr, "GetPropertyValue: Unable to query property.\n");
 
 		if (strcmp(propName, Prop->name) == 0) {
-			value = objectProps->prop_values[i];
+			*value = objectProps->prop_values[i];
 			found = 1;
 		}
 
@@ -127,12 +126,15 @@ static uint64_t GetPropertyValue(int fd_drm, uint32_t objectID,
 
 	drmModeFreeObjectProperties(objectProps);
 
+	if (!found) {
 #ifdef DRM_DEBUG
-	if (!found)
 		fprintf(stderr, "GetPropertyValue: Unable to find value for property \'%s\'.\n",
 			propName);
 #endif
-	return value;
+		return -1;
+	}
+
+	return 0;
 }
 
 static int SetPropertyRequest(drmModeAtomicReqPtr ModeReq, int fd_drm,
@@ -505,10 +507,11 @@ search_mode:
 				break;
 		}
 
-		uint64_t type = GetPropertyValue(render->fd_drm, plane_res->planes[j],
-							DRM_MODE_OBJECT_PLANE, "type");
-		uint64_t zpos = GetPropertyValue(render->fd_drm, plane_res->planes[j],
-							DRM_MODE_OBJECT_PLANE, "zpos");
+		uint64_t type;
+		if (GetPropertyValue(render->fd_drm, plane_res->planes[j],
+				     DRM_MODE_OBJECT_PLANE, "type", &type)) {
+			fprintf(stderr, "Failed to get property 'type'\n");
+		}
 
 #ifdef DRM_DEBUG // If more then 2 crtcs this must rewriten!!!
 		fprintf(stderr, "FindDevice: Plane id %i crtc_id %i possible_crtcs %i possible CRTC %i type %s\n",
@@ -530,11 +533,13 @@ search_mode:
 							if (type != DRM_PLANE_TYPE_PRIMARY) {
 								// We have found a NV12 plane as OVERLAY_PLANE
 								// so we use the zpos to switch between them
-								render->use_zpos = 1;
-								render->zpos_overlay = zpos;
+								if (!GetPropertyValue(render->fd_drm, plane_res->planes[j],
+										     DRM_MODE_OBJECT_PLANE, "zpos", &render->zpos_overlay)) {
+									render->use_zpos = 1;
 #ifdef DRM_DEBUG
-								fprintf(stderr, "\nVIDEO on OVERLAY zpos %d (=render->zpos_overlay)\n", (int)zpos);
+									fprintf(stderr, "\nVIDEO on OVERLAY zpos %d (=render->zpos_overlay)\n", (int)render->zpos_overlay);
 #endif
+								}
 							}
 							render->video_plane = plane->plane_id;
 							if (plane->plane_id == render->osd_plane)
@@ -544,10 +549,13 @@ search_mode:
 					case DRM_FORMAT_ARGB8888:
 						if (!render->osd_plane) {
 							if (type != DRM_PLANE_TYPE_OVERLAY) {
-								render->zpos_primary = zpos;
+								if (!GetPropertyValue(render->fd_drm, plane_res->planes[j],
+										     DRM_MODE_OBJECT_PLANE, "zpos", &render->zpos_primary)) {
+									render->use_zpos = 1;
 #ifdef DRM_DEBUG
-								fprintf(stderr, "\nOSD on PRIMARY zpos %d (=render->zpos_primary)\n", (int)zpos);
+									fprintf(stderr, "\nOSD on PRIMARY zpos %d (=render->zpos_primary)\n", (int)render->zpos_primary);
 #endif
+								}
 							}
 							render->osd_plane = plane->plane_id;
 						}
@@ -1075,12 +1083,14 @@ page_flip:
 		PicWidth = render->mode.hdisplay;
 
 	// handle the video plane
-	if (buf->width != (GetPropertyValue(render->fd_drm, render->video_plane,
-		DRM_MODE_OBJECT_PLANE, "SRC_W") >> 16))
+	uint64_t buf_width_tmp;
+	GetPropertyValue(render->fd_drm, render->video_plane, DRM_MODE_OBJECT_PLANE, "SRC_W", &buf_width_tmp);
+	if (buf->width != (buf_width_tmp >> 16))
 			SetPlaneSrc(render, ModeReq, render->video_plane, 0, 0, buf->width, buf->height);
 
-	if (PicWidth != GetPropertyValue(render->fd_drm, render->video_plane,
-		DRM_MODE_OBJECT_PLANE, "CRTC_W"))
+	uint64_t pic_width_tmp;
+	GetPropertyValue(render->fd_drm, render->video_plane, DRM_MODE_OBJECT_PLANE, "CRTC_W", &pic_width_tmp);
+	if (PicWidth != pic_width_tmp)
 			SetPlaneCrtc(render, ModeReq, render->video_plane,
 				(render->mode.hdisplay - PicWidth) / 2, 0, PicWidth, render->mode.vdisplay);
 
@@ -1112,12 +1122,17 @@ page_flip:
 		}
 #else
 		if (render->buf_osd.dirty) {
-			if (render->use_zpos && render->zpos_overlay != GetPropertyValue(render->fd_drm,
-					render->osd_plane, DRM_MODE_OBJECT_PLANE, "zpos")) {
-				SetChangePlanes(render, ModeReq, 0);
+			uint64_t value;
+			if (render->use_zpos) {
+				if (GetPropertyValue(render->fd_drm, render->osd_plane, DRM_MODE_OBJECT_PLANE, "zpos", &value))
+					fprintf(stderr, "Failed to get property 'zpos'\n");
+				if (render->zpos_overlay != value) {
+					SetChangePlanes(render, ModeReq, 0);
+				}
 			}
-			if (!GetPropertyValue(render->fd_drm, render->osd_plane,
-				DRM_MODE_OBJECT_PLANE, "FB_ID")){
+			if (GetPropertyValue(render->fd_drm, render->osd_plane, DRM_MODE_OBJECT_PLANE, "FB_ID", &value))
+				fprintf(stderr, "Failed to get property 'FB_ID'\n");
+			if (!value) {
 				SetPlane(render, ModeReq, render->osd_plane, render->crtc_id, render->buf_osd.fb_id,
 					 0, 0, render->buf_osd.width, render->buf_osd.height,
 					 0, 0, render->buf_osd.width, render->buf_osd.height);
@@ -1149,9 +1164,11 @@ page_flip:
 		}
 #else
 		if (render->buf_osd.dirty) {
+			uint64_t value;
 			if (render->use_zpos) {
-				if (render->zpos_overlay == GetPropertyValue(render->fd_drm,
-						render->osd_plane, DRM_MODE_OBJECT_PLANE, "zpos")) {
+				if (GetPropertyValue(render->fd_drm, render->osd_plane, DRM_MODE_OBJECT_PLANE, "zpos", &value))
+					fprintf(stderr, "Failed to get property 'zpos'\n");
+				if (render->zpos_overlay == value) {
 					SetChangePlanes(render, ModeReq, 1);
 				}
 			} else {
