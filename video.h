@@ -47,6 +47,10 @@
 
 #define VIDEO_SURFACES_MAX	3	///< video output surfaces for queue
 
+#define VIDEO_PLANE		0
+#define OSD_PLANE		1
+#define MAX_PLANES		2
+
 //----------------------------------------------------------------------------
 //	Typedefs
 //----------------------------------------------------------------------------
@@ -63,8 +67,14 @@ struct drm_buf {
 	int dirty;
 #ifdef USE_GLES
 	struct gbm_bo *bo;
-	int init;
 #endif
+};
+
+struct plane {
+	uint32_t plane_id;
+	drmModePlane *plane;
+	drmModeObjectProperties *props;
+	drmModePropertyRes **props_info;
 };
 
 struct _Drm_Render_
@@ -114,7 +124,8 @@ struct _Drm_Render_
 	int use_zpos;
 	uint64_t zpos_overlay;
 	uint64_t zpos_primary;
-	uint32_t connector_id, crtc_id, video_plane, osd_plane;
+	uint32_t connector_id, crtc_id;
+	struct plane *planes[MAX_PLANES];
 	AVFrame *lastframe;
 	int buffers;
 	int enqueue_buffer;
