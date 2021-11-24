@@ -1579,8 +1579,15 @@ void AudioPlay(void)
 	}
 	Debug(3, "AudioPlay: resumed\n");
 	if (AlsaCanPause) {
-		if ((err = snd_pcm_pause(AlsaPCMHandle, 0))) {
-			Error(_("AudioPlay: snd_pcm_pause(): %s\n"), snd_strerror(err));
+		snd_pcm_state_t state;
+		state = snd_pcm_state(AlsaPCMHandle);
+		if (state == SND_PCM_STATE_PAUSED) {
+#ifdef DEBUG
+			fprintf(stderr, "AudioPlay: state paused, try snd_pcm_pause(0)!\n");
+#endif
+			if ((err = snd_pcm_pause(AlsaPCMHandle, 0))) {
+				Error(_("AudioPlay: snd_pcm_pause(): %s\n"), snd_strerror(err));
+			}
 		}
 	} else {
 		AudioPaused = 0;
@@ -1606,8 +1613,15 @@ void AudioPause(void)
 	}
 	Debug(3, "AudioPause: paused\n");
 	if (AlsaCanPause) {
-		if ((err = snd_pcm_pause(AlsaPCMHandle, 1))) {
-			Error(_("AudioPause: snd_pcm_pause(): %s\n"), snd_strerror(err));
+		snd_pcm_state_t state;
+		state = snd_pcm_state(AlsaPCMHandle);
+		if (state == SND_PCM_STATE_RUNNING) {
+#ifdef DEBUG
+			fprintf(stderr, "AudioPlay: state running, try snd_pcm_pause(1)!\n");
+#endif
+			if ((err = snd_pcm_pause(AlsaPCMHandle, 1))) {
+				Error(_("AudioPause: snd_pcm_pause(): %s\n"), snd_strerror(err));
+			}
 		}
 	} else {
 		AudioPaused = 1;
