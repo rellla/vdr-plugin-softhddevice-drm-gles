@@ -72,6 +72,8 @@ struct drm_buf {
 
 struct plane {
 	uint32_t plane_id;
+	uint64_t type;
+	uint64_t zpos;
 	drmModePlane *plane;
 	drmModeObjectProperties *props;
 	drmModePropertyRes **props_info;

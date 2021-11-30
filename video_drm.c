@@ -566,6 +566,12 @@ search_mode:
 		render->planes[i] = calloc(1, sizeof(struct plane));
 	}
 
+	// test and list the planes
+	struct plane best_primary_video_plane = { .plane_id = 0}; // is the NV12 capable primary plane with the lowest plane_id
+	struct plane best_overlay_video_plane = { .plane_id = 0}; // is the NV12 capable overlay plane with the lowest plane_id
+	struct plane best_primary_osd_plane = { .plane_id = 0};   // is the AR24 capable primary plane with the highest plane_id
+	struct plane best_overlay_osd_plane = { .plane_id = 0};   // is the AR24 capable overlay plane with the highest plane_id
+
 	for (j = 0; j < plane_res->count_planes; j++) {
 		plane = drmModeGetPlane(render->fd_drm, plane_res->planes[j]);
 
@@ -578,9 +584,16 @@ search_mode:
 		}
 
 		uint64_t type;
+		uint64_t zpos;
 		if (GetPropertyValue(render->fd_drm, plane_res->planes[j],
 				     DRM_MODE_OBJECT_PLANE, "type", &type)) {
-			fprintf(stderr, "Failed to get property 'type'\n");
+			fprintf(stderr, "FindDevice: Failed to get property 'type'\n");
+		}
+		if (GetPropertyValue(render->fd_drm, plane_res->planes[j],
+				     DRM_MODE_OBJECT_PLANE, "zpos", &zpos)) {
+			fprintf(stderr, "FindDevice: Failed to get property 'zpos'\n");
+		} else {
+			render->use_zpos = 1;
 		}
 
 #ifdef DRM_DEBUG // If more then 2 crtcs this must rewriten!!!
@@ -599,39 +612,27 @@ search_mode:
 #endif
 				switch (plane->formats[k]) {
 					case DRM_FORMAT_NV12:
-						if (!render->planes[VIDEO_PLANE]->plane_id) {
-							if (type != DRM_PLANE_TYPE_PRIMARY) {
-								// We have found a NV12 plane as OVERLAY_PLANE
-								// so we use the zpos to switch between them
-								if (!GetPropertyValue(render->fd_drm, plane_res->planes[j],
-										     DRM_MODE_OBJECT_PLANE, "zpos", &render->zpos_overlay)) {
-									render->use_zpos = 1;
-#ifdef DRM_DEBUG
-									fprintf(stderr, "\nVIDEO on OVERLAY zpos %d (=render->zpos_overlay)\n", (int)render->zpos_overlay);
-#endif
-								}
-							}
-							render->planes[VIDEO_PLANE]->plane_id = plane->plane_id;
-							// fill the plane's properties to speed up SetPropertyRequest later
-							get_properties(render->fd_drm, render->planes[VIDEO_PLANE]->plane_id, render->planes[VIDEO_PLANE]);
-							if (plane->plane_id == render->planes[OSD_PLANE]->plane_id)
-								render->planes[OSD_PLANE]->plane_id = 0;
+						if (type == DRM_PLANE_TYPE_PRIMARY && !best_primary_video_plane.plane_id) {
+							best_primary_video_plane.plane_id = plane->plane_id;
+							best_primary_video_plane.type = type;
+							best_primary_video_plane.zpos = zpos;
+						}
+						if (type == DRM_PLANE_TYPE_OVERLAY && !best_overlay_video_plane.plane_id) {
+							best_overlay_video_plane.plane_id = plane->plane_id;
+							best_overlay_video_plane.type = type;
+							best_overlay_video_plane.zpos = zpos;
 						}
 						break;
 					case DRM_FORMAT_ARGB8888:
-						if (!render->planes[OSD_PLANE]->plane_id) {
-							if (type != DRM_PLANE_TYPE_OVERLAY) {
-								if (!GetPropertyValue(render->fd_drm, plane_res->planes[j],
-										     DRM_MODE_OBJECT_PLANE, "zpos", &render->zpos_primary)) {
-									render->use_zpos = 1;
-#ifdef DRM_DEBUG
-									fprintf(stderr, "\nOSD on PRIMARY zpos %d (=render->zpos_primary)\n", (int)render->zpos_primary);
-#endif
-								}
-							}
-							render->planes[OSD_PLANE]->plane_id = plane->plane_id;
-							// fill the plane's properties to speed up SetPropertyRequest later
-							get_properties(render->fd_drm, render->planes[OSD_PLANE]->plane_id, render->planes[OSD_PLANE]);
+						if (type == DRM_PLANE_TYPE_PRIMARY) {
+							best_primary_osd_plane.plane_id = plane->plane_id;
+							best_primary_osd_plane.type = type;
+							best_primary_osd_plane.zpos = zpos;
+						}
+						if (type == DRM_PLANE_TYPE_OVERLAY) {
+							best_overlay_osd_plane.plane_id = plane->plane_id;
+							best_overlay_osd_plane.type = type;
+							best_overlay_osd_plane.zpos = zpos;
 						}
 						break;
 					default:
@@ -645,9 +646,51 @@ search_mode:
 		drmModeFreePlane(plane);
 	}
 
+#ifdef DRM_DEBUG
+	fprintf(stderr, "best_primary_video_plane: plane_id %d, type %s, zpos %lld\n",
+		best_primary_video_plane.plane_id, best_primary_video_plane.type == DRM_PLANE_TYPE_PRIMARY ? "PRIMARY" : "OVERLAY", best_primary_video_plane.zpos);
+	fprintf(stderr, "best_overlay_video_plane: plane_id %d, type %s, zpos %lld\n",
+		best_overlay_video_plane.plane_id, best_overlay_video_plane.type == DRM_PLANE_TYPE_PRIMARY ? "PRIMARY" : "OVERLAY", best_overlay_video_plane.zpos);
+	fprintf(stderr, "best_primary_osd_plane: plane_id %d, type %s, zpos %lld\n",
+		best_primary_osd_plane.plane_id, best_primary_osd_plane.type == DRM_PLANE_TYPE_PRIMARY ? "PRIMARY" : "OVERLAY", best_primary_osd_plane.zpos);
+	fprintf(stderr, "best_overlay_osd_plane: plane_id %d, type %s, zpos %lld\n",
+		best_overlay_osd_plane.plane_id, best_overlay_osd_plane.type == DRM_PLANE_TYPE_PRIMARY ? "PRIMARY" : "OVERLAY", best_overlay_osd_plane.zpos);
+#endif
+
+	// See which planes we should use
+	if (best_primary_video_plane.plane_id && best_overlay_osd_plane.plane_id) {
+		render->planes[VIDEO_PLANE]->plane_id = best_primary_video_plane.plane_id;
+		render->planes[VIDEO_PLANE]->type = best_primary_video_plane.type;
+		render->planes[VIDEO_PLANE]->zpos = render->zpos_primary = best_primary_video_plane.zpos;
+		render->planes[OSD_PLANE]->plane_id = best_overlay_osd_plane.plane_id;
+		render->planes[OSD_PLANE]->type = best_overlay_osd_plane.type;
+		render->planes[OSD_PLANE]->zpos = render->zpos_overlay = best_overlay_osd_plane.zpos;
+	} else if (best_overlay_video_plane.plane_id && best_primary_osd_plane.plane_id) {
+		render->planes[VIDEO_PLANE]->plane_id = best_overlay_video_plane.plane_id;
+		render->planes[VIDEO_PLANE]->type = best_overlay_video_plane.type;
+		render->planes[VIDEO_PLANE]->zpos = render->zpos_overlay = best_overlay_video_plane.zpos;
+		render->planes[OSD_PLANE]->plane_id = best_primary_osd_plane.plane_id;
+		render->planes[OSD_PLANE]->type = best_primary_osd_plane.type;
+		render->planes[OSD_PLANE]->zpos = render->zpos_primary = best_primary_osd_plane.zpos;
+		render->use_zpos = 1;
+	} else {
+		Fatal(_("FindDevice: No suitable planes found!\n"));
+		Info(_("FindDevice: No suitable planes found!\n"));
+	}
+
+	// fill the plane's properties to speed up SetPropertyRequest later
+	get_properties(render->fd_drm, render->planes[VIDEO_PLANE]->plane_id, render->planes[VIDEO_PLANE]);
+	get_properties(render->fd_drm, render->planes[OSD_PLANE]->plane_id, render->planes[OSD_PLANE]);
+
+
+	// render->use_zpos was set, if Video is on OVERLAY, and Osd is on PRIMARY
+	// Check if the OVERLAY plane really got a higher zpos than the PRIMARY plane
+	// If not, change their zpos values or hardcode them to
+	// 1 OVERLAY (Video)
+	// 0 PRIMARY (Osd)
 	if (render->use_zpos && render->zpos_overlay <= render->zpos_primary) {
 #ifdef DRM_DEBUG
-		fprintf(stderr, "zpos values are wrong, so ");
+		fprintf(stderr, "FindDevice: zpos values are wrong, so ");
 #endif
 		if (render->zpos_overlay == render->zpos_primary) {
 			// is this possible?
@@ -715,10 +758,22 @@ search_mode:
 #endif
 
 #ifdef DRM_DEBUG
-	Info(_("FindDevice: DRM setup CRTC: %i video_plane: %i osd_plane: %i use_zpos: %d\n"),
-		render->crtc_id, render->planes[VIDEO_PLANE]->plane_id, render->planes[OSD_PLANE]->plane_id, render->use_zpos);
-	fprintf(stderr, "FindDevice: DRM setup CRTC: %i video_plane: %i osd_plane: %i use_zpos: %d\n",
-		render->crtc_id, render->planes[VIDEO_PLANE]->plane_id, render->planes[OSD_PLANE]->plane_id, render->use_zpos);
+	Info(_("FindDevice: DRM setup CRTC: %i video_plane: %i (%s %lld) osd_plane: %i (%s %lld) use_zpos: %d\n"),
+		render->crtc_id, render->planes[VIDEO_PLANE]->plane_id,
+		render->planes[VIDEO_PLANE]->type == DRM_PLANE_TYPE_PRIMARY ? "PRIMARY" : "OVERLAY",
+		render->planes[VIDEO_PLANE]->zpos,
+		render->planes[OSD_PLANE]->plane_id,
+		render->planes[OSD_PLANE]->type == DRM_PLANE_TYPE_PRIMARY ? "PRIMARY" : "OVERLAY",
+		render->planes[OSD_PLANE]->zpos,
+		render->use_zpos);
+	fprintf(stderr, "FindDevice: DRM setup CRTC: %i video_plane: %i (%s %lld) osd_plane: %i (%s %lld) use_zpos: %d\n",
+		render->crtc_id, render->planes[VIDEO_PLANE]->plane_id,
+		render->planes[VIDEO_PLANE]->type == DRM_PLANE_TYPE_PRIMARY ? "PRIMARY" : "OVERLAY",
+		render->planes[VIDEO_PLANE]->zpos,
+		render->planes[OSD_PLANE]->plane_id,
+		render->planes[OSD_PLANE]->type == DRM_PLANE_TYPE_PRIMARY ? "PRIMARY" : "OVERLAY",
+		render->planes[OSD_PLANE]->zpos,
+		render->use_zpos);
 #endif
 	return 0;
 }
