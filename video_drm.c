@@ -1151,6 +1151,9 @@ dequeue:
 #else
 		if (render->buf_osd.dirty) {
 #endif
+#ifdef DRM_DEBUG
+			fprintf(stderr, "Frame2Display: goto page_flip_osd\n");
+#endif
 			goto page_flip;
 		}
 		usleep(10000);
@@ -1298,17 +1301,38 @@ page_flip:
 			if (render->use_zpos) {
 				SetPlaneZpos(ModeReq, render->planes[VIDEO_PLANE]->plane_id, render->zpos_primary);
 				SetPlaneZpos(ModeReq, render->planes[OSD_PLANE]->plane_id, render->zpos_overlay);
+#ifdef DRM_DEBUG
+				fprintf(stderr, "Frame2Display: SetPlaneZpos: video->plane_id %d -> zpos %lld\n",
+					render->planes[VIDEO_PLANE]->plane_id, render->zpos_primary);
+				fprintf(stderr, "Frame2Display: SetPlaneZpos: osd->plane_id %d -> zpos %lld\n",
+					render->planes[OSD_PLANE]->plane_id, render->zpos_overlay);
+#endif
 			}
 			SetPlane(ModeReq, render->planes[OSD_PLANE]->plane_id, render->crtc_id, render->buf_osd_gl->fb_id,
 				 0, 0, render->buf_osd_gl->width, render->buf_osd_gl->height,
 				 0, 0, render->buf_osd_gl->width, render->buf_osd_gl->height);
+#ifdef DRM_DEBUG
+			fprintf(stderr, "Frame2Display: SetPlane: osd->plane_id %d, crtc_id %d, fb_id %d, w %d, h %d\n",
+				render->planes[OSD_PLANE]->plane_id, render->crtc_id, render->buf_osd_gl->fb_id,
+				render->buf_osd_gl->width, render->buf_osd_gl->height);
+#endif
 		} else {
 			if (render->use_zpos) {
 				SetPlaneZpos(ModeReq, render->planes[VIDEO_PLANE]->plane_id, render->zpos_overlay);
 				SetPlaneZpos(ModeReq, render->planes[OSD_PLANE]->plane_id, render->zpos_primary);
+#ifdef DRM_DEBUG
+				fprintf(stderr, "Frame2Display: SetPlaneZpos: video->plane_id %d -> zpos %lld\n",
+					render->planes[VIDEO_PLANE]->plane_id, render->zpos_overlay);
+				fprintf(stderr, "Frame2Display: SetPlaneZpos: osd->plane_id %d -> zpos %lld\n",
+					render->planes[OSD_PLANE]->plane_id, render->zpos_primary);
+#endif
 			}
 			SetPlane(ModeReq, render->planes[OSD_PLANE]->plane_id, 0, 0,
 				 0, 0, 0, 0, 0, 0, 0, 0);
+#ifdef DRM_DEBUG
+			fprintf(stderr, "Frame2Display: SetPlane: osd->plane_id %d\n",
+				render->planes[OSD_PLANE]->plane_id);
+#endif
 		}
 		render->buf_osd_gl->dirty = 0;
 	}
@@ -1319,17 +1343,38 @@ page_flip:
 			if (render->use_zpos) {
 				SetPlaneZpos(ModeReq, render->planes[VIDEO_PLANE]->plane_id, render->zpos_primary);
 				SetPlaneZpos(ModeReq, render->planes[OSD_PLANE]->plane_id, render->zpos_overlay);
+#ifdef DRM_DEBUG
+				fprintf(stderr, "Frame2Display: SetPlaneZpos: video->plane_id %d -> zpos %lld\n",
+					render->planes[VIDEO_PLANE]->plane_id, render->zpos_primary);
+				fprintf(stderr, "Frame2Display: SetPlaneZpos: osd->plane_id %d -> zpos %lld\n",
+					render->planes[OSD_PLANE]->plane_id, render->zpos_overlay);
+#endif
 			}
 			SetPlane(ModeReq, render->planes[OSD_PLANE]->plane_id, render->crtc_id, render->buf_osd.fb_id,
 				 0, 0, render->buf_osd.width, render->buf_osd.height,
 				 0, 0, render->buf_osd.width, render->buf_osd.height);
+#ifdef DRM_DEBUG
+			fprintf(stderr, "Frame2Display: SetPlane: osd->plane_id %d, crtc_id %d, fb_id %d, w %d, h %d\n",
+				render->planes[OSD_PLANE]->plane_id, render->crtc_id, render->buf_osd.fb_id,
+				render->buf_osd.width, render->buf_osd.height);
+#endif
 		} else {
 			if (render->use_zpos) {
 				SetPlaneZpos(ModeReq, render->planes[VIDEO_PLANE]->plane_id, render->zpos_overlay);
 				SetPlaneZpos(ModeReq, render->planes[OSD_PLANE]->plane_id, render->zpos_primary);
+#ifdef DRM_DEBUG
+				fprintf(stderr, "Frame2Display: SetPlaneZpos: video->plane_id %d -> zpos %lld\n",
+					render->planes[VIDEO_PLANE]->plane_id, render->zpos_overlay);
+				fprintf(stderr, "Frame2Display: SetPlaneZpos: osd->plane_id %d -> zpos %lld\n",
+					render->planes[OSD_PLANE]->plane_id, render->zpos_primary);
+#endif
 			} else {
 				SetPlane(ModeReq, render->planes[OSD_PLANE]->plane_id, render->crtc_id, 0,
 					 0, 0, render->buf_osd.width, render->buf_osd.height, 0, 0, 0, 0);
+#ifdef DRM_DEBUG
+				fprintf(stderr, "Frame2Display: SetPlane: osd->plane_id %d\n",
+					render->planes[OSD_PLANE]->plane_id);
+#endif
 			}
 		}
 		render->buf_osd.dirty = 0;
@@ -1338,6 +1383,7 @@ page_flip:
 
 	if (drmModeAtomicCommit(render->fd_drm, ModeReq, flags, NULL) != 0) {
 		fprintf(stderr, "Frame2Display: page flip failed (%d): %m\n", errno);
+		fprintf(stderr, "   crtc_id %d\n", render->crtc_id);
 		drmModeAtomicFree(ModeReq);
 		abort();
 	}
