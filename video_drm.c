@@ -1135,7 +1135,7 @@ static void Frame2Display(VideoRender * render)
 closing:
 		// set a black FB
 #ifdef DEBUG
-	fprintf(stderr, "Frame2Display: set a black FB\n");
+		fprintf(stderr, "Frame2Display: set a black FB\n");
 #endif
 		buf = &render->buf_black;
 		goto page_flip;
@@ -1154,7 +1154,8 @@ dequeue:
 #ifdef DRM_DEBUG
 			fprintf(stderr, "Frame2Display: goto page_flip_osd\n");
 #endif
-			goto page_flip;
+			render->act_buf = NULL;
+			goto page_flip_osd;
 		}
 		usleep(10000);
 	}
@@ -1255,13 +1256,9 @@ audioclock:
 	render->FramesRead = (render->FramesRead + 1) % VIDEO_SURFACES_MAX;
 	atomic_dec(&render->FramesFilled);
 
+// handle the video plane
 page_flip:
 	render->act_buf = buf;
-
-	// handle the video plane
-	if (buf)
-		SetPlaneSrc(ModeReq, render->planes[VIDEO_PLANE]->plane_id, 0, 0, buf->width, buf->height);
-
 	// Get video size and position and set crtc rect
 	uint64_t DispWidth = render->mode.hdisplay;
 	uint64_t DispHeight = render->mode.vdisplay;
@@ -1284,16 +1281,12 @@ page_flip:
 	if (!PicWidth || PicWidth > DispWidth)
 		PicWidth = DispWidth;
 
-	SetPlaneCrtc(ModeReq, render->planes[VIDEO_PLANE]->plane_id,
-		DispX + (DispWidth - PicWidth) / 2,
-		DispY + (DispHeight - PicHeight) / 2,
-		PicWidth, PicHeight);
+	SetPlane(ModeReq, render->planes[VIDEO_PLANE]->plane_id, render->crtc_id, buf->fb_id,
+		 DispX + (DispWidth - PicWidth) / 2, DispY + (DispHeight - PicHeight) / 2, PicWidth, PicHeight,
+		 0, 0, buf->width, buf->height);
 
-	SetPlaneCrtcId(ModeReq, render->planes[VIDEO_PLANE]->plane_id, render->crtc_id);
-	if (buf)
-		SetPlaneFbId(ModeReq, render->planes[VIDEO_PLANE]->plane_id, buf->fb_id);
-
-	// handle the osd plane
+// handle the osd plane
+page_flip_osd:
 #ifdef USE_GLES
 	// We had draw activity on the osd buffer
 	if (render->buf_osd_gl && render->buf_osd_gl->dirty) {
@@ -1369,11 +1362,11 @@ page_flip:
 					render->planes[OSD_PLANE]->plane_id, render->zpos_primary);
 #endif
 			} else {
-				SetPlane(ModeReq, render->planes[OSD_PLANE]->plane_id, render->crtc_id, 0,
-					 0, 0, render->buf_osd.width, render->buf_osd.height, 0, 0, 0, 0);
+				SetPlane(ModeReq, render->planes[OSD_PLANE]->plane_id, render->crtc_id, render->buf_osd.fb_id,
+					 0, 0, 0, 0, 0, 0, 0, 0);
 #ifdef DRM_DEBUG
-				fprintf(stderr, "Frame2Display: SetPlane: osd->plane_id %d\n",
-					render->planes[OSD_PLANE]->plane_id);
+				fprintf(stderr, "Frame2Display: SetPlane: osd->plane_id %d crtc_id %d fb_id %d\n",
+					render->planes[OSD_PLANE]->plane_id, render->crtc_id, render->buf_osd.fb_id);
 #endif
 			}
 		}
