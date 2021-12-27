@@ -1275,9 +1275,15 @@ page_flip:
 	uint64_t PicWidth = DispWidth;
 	uint64_t PicHeight = DispHeight;
 
-	if (frame)
+	if (frame) {
 		PicWidth = DispHeight * av_q2d(frame->sample_aspect_ratio) *
 			   frame->width / frame->height;
+		if (!PicWidth || PicWidth > DispWidth) {
+			PicWidth = DispWidth;
+			PicHeight = PicWidth * frame->height / av_q2d(frame->sample_aspect_ratio) / frame->width;
+		}
+	}
+
 	if (!PicWidth || PicWidth > DispWidth)
 		PicWidth = DispWidth;
 
