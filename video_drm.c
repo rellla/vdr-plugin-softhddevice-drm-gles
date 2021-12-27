@@ -66,6 +66,7 @@
 #include "misc.h"
 #include "video.h"
 #include "audio.h"
+#include "codec.h"
 
 //----------------------------------------------------------------------------
 //	Variables
@@ -2214,6 +2215,34 @@ void VideoGetScreenSize(VideoRender * render, int *width, int *height,
 	*width = render->mode.hdisplay;
 	*height = render->mode.vdisplay;
 	*pixel_aspect = (double)16 / (double)9;
+}
+
+///
+///	Get video size.
+///
+///	@param[out] width		video stream width
+///	@param[out] height		video stream height
+///	@param[out] aspect_ratio	video stream aspect ratio
+///
+void VideoGetVideoSize(VideoDecoder *decoder, int *width, int *height, double *aspect_ratio)
+{
+	*width = 0;
+	*height = 0;
+	*aspect_ratio = 1.0f;
+
+	if (!decoder)
+		return;
+
+	AVCodecContext *ctx;
+	ctx = decoder->VideoCtx;
+
+	if (!ctx)
+		return;
+
+	*width = ctx->coded_width;
+	*height = ctx->coded_height;
+	if (ctx->coded_height > 0)
+		*aspect_ratio = (double)(ctx->coded_width) / (double)(ctx->coded_height);
 }
 
 ///

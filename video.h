@@ -158,6 +158,7 @@ typedef struct _Drm_Render_ VideoRender;
 #endif
     /// Video output stream typedef
 typedef struct __video_stream__ VideoStream; 		// in softhddev.h ?
+typedef struct _video_decoder_ VideoDecoder;
 
 //----------------------------------------------------------------------------
 //	Variables
@@ -219,6 +220,9 @@ extern void VideoGetStats(VideoRender *, int *, int *, int *);
 
     /// Get screen size
 extern void VideoGetScreenSize(VideoRender *, int *, int *, double *);
+
+    /// Get video size
+extern void VideoGetVideoSize(VideoDecoder *, int *, int *, double *);
 
     /// Get video clock.
 extern int64_t VideoGetClock(const VideoRender *);

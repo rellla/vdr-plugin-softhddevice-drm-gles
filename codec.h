@@ -23,6 +23,9 @@
 /// @addtogroup Codec
 /// @{
 
+#ifndef __CODEC_H
+#define __CODEC_H
+
 //----------------------------------------------------------------------------
 //	Defines
 //----------------------------------------------------------------------------
@@ -32,6 +35,20 @@
 #define CodecAC3 0x04			///< AC-3 bit mask
 #define CodecEAC3 0x08			///< E-AC-3 bit mask
 #define CodecDTS 0x10			///< DTS bit mask (planned)
+
+//----------------------------------------------------------------------------
+//	Video
+//----------------------------------------------------------------------------
+///
+///	Video decoder structure.
+///
+struct _video_decoder_
+{
+    VideoRender *Render;		///< video hardware decoder
+
+    AVCodecContext *VideoCtx;		///< video codec context
+    AVFrame *Frame;			///< decoded video frame
+};
 
 //----------------------------------------------------------------------------
 //	Typedefs
@@ -101,3 +118,5 @@ extern void CodecInit(void);
 extern void CodecExit(void);
 
 /// @}
+
+#endif
