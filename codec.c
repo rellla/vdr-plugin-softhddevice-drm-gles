@@ -57,21 +57,6 @@
 static pthread_mutex_t CodecLockMutex;
 
 //----------------------------------------------------------------------------
-//	Video
-//----------------------------------------------------------------------------
-
-///
-///	Video decoder structure.
-///
-struct _video_decoder_
-{
-    VideoRender *Render;		///< video hardware decoder
-
-    AVCodecContext *VideoCtx;		///< video codec context
-    AVFrame *Frame;			///< decoded video frame
-};
-
-//----------------------------------------------------------------------------
 //	Call-backs
 //----------------------------------------------------------------------------
 

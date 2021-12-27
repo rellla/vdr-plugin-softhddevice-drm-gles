@@ -1053,7 +1053,7 @@ void cSoftHdDevice::SetVideoFormat(bool video_format16_9)
 */
 void cSoftHdDevice::GetVideoSize(int &width, int &height, double &video_aspect)
 {
-    ::GetScreenSize(&width, &height, &video_aspect);
+    ::GetVideoSize(&width, &height, &video_aspect);
 }
 
 /**
