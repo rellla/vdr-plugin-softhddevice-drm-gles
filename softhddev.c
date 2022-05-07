@@ -1259,6 +1259,7 @@ void StillPicture(const uint8_t * data, int size)
 	int i;
 	int pes_length;
 	int head_length;
+	int context = 0;
 
 	avpkt = &MyVideoStream->PacketRb[MyVideoStream->PacketWrite];
 	avpkt->size = 0;
@@ -1320,7 +1321,16 @@ void StillPicture(const uint8_t * data, int size)
 	}
 	atomic_inc(&MyVideoStream->PacketsFilled);
 
-	CodecVideoOpen(MyVideoStream->Decoder, codec, NULL, NULL);
+	StreamFreezed = 1;
+	if (Codec_get_VideoContext(MyVideoStream->Decoder)) { 
+		if ((int)(Codec_get_VideoContext(MyVideoStream->Decoder)->codec_id) != codec) {
+			CodecVideoClose(MyVideoStream->Decoder);
+		}
+	}
+	if (!Codec_get_VideoContext(MyVideoStream->Decoder)) {
+		CodecVideoOpen(MyVideoStream->Decoder, codec, NULL, NULL);
+		context = 1;
+	}
 	VideoSetTrickSpeed(MyVideoStream->Render, 1);
 
 send:
@@ -1331,10 +1341,12 @@ send:
 #ifdef STILL_DEBUG
 	else fprintf(stderr, "StillPicture: Received Frame\n");
 #endif
-	CodecVideoFlushBuffers(MyVideoStream->Decoder);
-	CodecVideoClose(MyVideoStream->Decoder);
+	if (context) {
+		CodecVideoClose(MyVideoStream->Decoder);
+		MyVideoStream->CodecID = AV_CODEC_ID_NONE;
+	}
 	ClearVideo(MyVideoStream);
-	MyVideoStream->CodecID = AV_CODEC_ID_NONE;
+	StreamFreezed = 0;
 
 	usleep(100000);
 	VideoSetTrickSpeed(MyVideoStream->Render, 0);
