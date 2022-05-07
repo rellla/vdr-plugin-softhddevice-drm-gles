@@ -1318,7 +1318,6 @@ void StillPicture(const uint8_t * data, int size)
 		pos += pes_length;
 		i = 0;
 	}
-	MyVideoStream->PacketWrite = (MyVideoStream->PacketWrite + 1) % VIDEO_PACKET_MAX;
 	atomic_inc(&MyVideoStream->PacketsFilled);
 
 	CodecVideoOpen(MyVideoStream->Decoder, codec, NULL, NULL);
@@ -1332,8 +1331,9 @@ send:
 #ifdef STILL_DEBUG
 	else fprintf(stderr, "StillPicture: Received Frame\n");
 #endif
-	ClearVideo(MyVideoStream);
+	CodecVideoFlushBuffers(MyVideoStream->Decoder);
 	CodecVideoClose(MyVideoStream->Decoder);
+	ClearVideo(MyVideoStream);
 	MyVideoStream->CodecID = AV_CODEC_ID_NONE;
 
 	usleep(100000);

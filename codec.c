@@ -163,17 +163,10 @@ void CodecVideoOpen(VideoDecoder * decoder, int codec_id, AVCodecParameters * Pa
 #ifdef CODEC_DEBUG
 	fprintf(stderr, "CodecVideoOpen: Codec %s found\n", codec->long_name);
 #endif
-	pthread_mutex_lock(&CodecLockMutex);
-	if (decoder->VideoCtx) {
-		avcodec_flush_buffers(decoder->VideoCtx);
-		avcodec_free_context(&decoder->VideoCtx);
-	}
-
 	decoder->VideoCtx = avcodec_alloc_context3(codec);
 	if (!decoder->VideoCtx) {
 		fprintf(stderr, "CodecVideoOpen: can't open video codec!\n");
 	}
-	pthread_mutex_unlock(&CodecLockMutex);
 
 	decoder->VideoCtx->codec_id = codec_id;
 	decoder->VideoCtx->get_format = Codec_get_format;
@@ -232,9 +225,7 @@ void CodecVideoOpen(VideoDecoder * decoder, int codec_id, AVCodecParameters * Pa
 		decoder->VideoCtx->pkt_timebase.den = timebase->den;
 	}
 
-	pthread_mutex_lock(&CodecLockMutex);
 	err = avcodec_open2(decoder->VideoCtx, decoder->VideoCtx->codec, NULL);
-	pthread_mutex_unlock(&CodecLockMutex);
 	if (err < 0) {
 		fprintf(stderr, "CodecVideoOpen: Error opening the decoder: %s\n",
 			av_err2str(err));
