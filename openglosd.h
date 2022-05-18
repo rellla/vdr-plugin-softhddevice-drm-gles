@@ -354,8 +354,9 @@ private:
     GLfloat drawPortX, drawPortY;
     GLint transparency;
     GLint bcolor;
+    cRect *dirtyrect;
 public:
-    cOglCmdRenderFbToBufferFb(cOglFb *fb, cOglFb *buffer, GLint x, GLint y, GLint transparency, GLint drawPortX, GLint drawPortY);
+    cOglCmdRenderFbToBufferFb(cOglFb *fb, cOglFb *buffer, GLint x, GLint y, GLint transparency, GLint drawPortX, GLint drawPortY, cRect *dirtyrect);
     virtual ~cOglCmdRenderFbToBufferFb(void) {};
     virtual const char* Description(void) { return "Render Framebuffer to Buffer"; }
     virtual bool Execute(void);
@@ -571,6 +572,8 @@ public:
     virtual void Copy(const cPixmap *Pixmap, const cRect &Source, const cPoint &Dest);
     virtual void Scroll(const cPoint &Dest, const cRect &Source = cRect::Null);
     virtual void Pan(const cPoint &Dest, const cRect &Source = cRect::Null);
+    virtual void MarkViewPortDirty(const cRect &Rect);
+    virtual void SetClean(void);
 };
 
 /******************************************************************************
