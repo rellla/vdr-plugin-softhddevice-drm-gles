@@ -2162,7 +2162,7 @@ void cOglThread::Action(void) {
     startWait->Signal();
     stalled = false;
 
-#ifdef GL_DEBUG
+#ifdef GL_DEBUG_TIME
     uint64_t start_flush = 0;
     uint64_t end_flush = 0;
     int time_reset = 0;
@@ -2178,7 +2178,7 @@ void cOglThread::Action(void) {
         cOglCmd* cmd = commands.front();
         commands.pop();
         Unlock();
-#ifdef GL_DEBUG
+#ifdef GL_DEBUG_TIME
         uint64_t start = cTimeMs::Now();
         if (strcmp(cmd->Description(), "InitFramebuffer") == 0 || time_reset) {
             start_flush = cTimeMs::Now();
@@ -2186,9 +2186,11 @@ void cOglThread::Action(void) {
         }
 #endif
         cmd->Execute();
-#ifdef GL_DEBUG
+#ifdef GL_DEBUG_TIME_ALL
         esyslog("[softhddev]\"%-*s\", %dms, %d commands left, time %" PRIu64 "", 15, cmd->Description(), (int)(cTimeMs::Now() - start), (int)(commands.size()), cTimeMs::Now());
+#endif
 
+#ifdef GL_DEBUG_TIME
         if (strcmp(cmd->Description(), "Copy buffer to OutputFramebuffer") == 0) {
             end_flush = cTimeMs::Now();
             time_reset = 1;
