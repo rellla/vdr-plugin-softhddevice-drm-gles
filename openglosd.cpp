@@ -1173,7 +1173,8 @@ bool cOglCmdDeleteFb::Execute(void) {
 }
 
 //------------------ cOglCmdRenderFbToBufferFb --------------------
-cOglCmdRenderFbToBufferFb::cOglCmdRenderFbToBufferFb(cOglFb *fb, cOglFb *buffer, GLint x, GLint y, GLint transparency, GLint drawPortX, GLint drawPortY) : cOglCmd(fb) {
+cOglCmdRenderFbToBufferFb::cOglCmdRenderFbToBufferFb(cOglFb *fb, cOglFb *buffer, GLint x, GLint y, GLint transparency, GLint drawPortX, GLint drawPortY, cRect *dirtyrect) : cOglCmd(fb) {
+    this->dirtyrect = dirtyrect;
     this->buffer = buffer;
     this->x = (GLfloat)x;
     this->y = (GLfloat)y;
@@ -1220,8 +1221,11 @@ bool cOglCmdRenderFbToBufferFb::Execute(void) {
     if (!fb->BindTexture())
         return false;
     VertexBuffers[vbTexture]->Bind();
+    GL_CHECK(glEnable(GL_SCISSOR_TEST));
+    GL_CHECK(glScissor(dirtyrect->X(), buffer->Height() - dirtyrect->Top() - dirtyrect->Height(), dirtyrect->Width(), dirtyrect->Height()));
     VertexBuffers[vbTexture]->SetVertexSubData(quadVertices);
     VertexBuffers[vbTexture]->DrawArrays();
+    GL_CHECK(glDisable(GL_SCISSOR_TEST));
     VertexBuffers[vbTexture]->Unbind();
     buffer->Unbind();
 
@@ -1289,7 +1293,7 @@ bool cOglCmdCopyBufferToOutputFb::Execute(void) {
     GL_CHECK(glFinish());
     GLubyte result[oFb->Width() * oFb->Height() * 4];
     static int scr_nr = 0;
-    char filename[18];
+    char filename[40];
 
     GLenum fbstatus;
     GL_CHECK(fbstatus = glCheckFramebufferStatus(GL_FRAMEBUFFER));
@@ -1298,7 +1302,7 @@ bool cOglCmdCopyBufferToOutputFb::Execute(void) {
 
     GL_CHECK(glReadPixels(0, 0, oFb->Width(), oFb->Height(), GL_RGBA, GL_UNSIGNED_BYTE, &result));
     if (result) {
-        snprintf(filename, sizeof(filename), "texture%03d.png", scr_nr++);
+        snprintf(filename, sizeof(filename), "/tmp/oFb%03d.png", scr_nr++);
         writeImage(filename, oFb->Width(), oFb->Height(), &result, "osd");
     }
 #endif
@@ -2290,7 +2294,7 @@ cOglPixmap::cOglPixmap(std::shared_ptr<cOglThread> oglThread, int Layer, const c
     }
 
     fb = new cOglFb(width, height, ViewPort.Width(), ViewPort.Height());
-    dirty = true; 
+    dirty = true;
 }
 
 cOglPixmap::~cOglPixmap(void) {
@@ -2299,11 +2303,23 @@ cOglPixmap::~cOglPixmap(void) {
     oglThread->DoCmd(new cOglCmdDeleteFb(fb));
 }
 
+void cOglPixmap::MarkViewPortDirty(const cRect &Rect) {
+    cPixmap::MarkViewPortDirty(Rect);
+    SetDirty();
+}
+
+void cOglPixmap::SetClean(void) {
+    cPixmap::SetClean();
+    SetDirty(false);
+}
+
 void cOglPixmap::SetLayer(int Layer) {
 #ifdef GL_DEBUG
     esyslog("[softhddev] SetLayer %d", Layer);
 #endif
     cPixmap::SetLayer(Layer);
+    if (cPixmap::Layer() >= 0 || Layer >= 0)
+        SetDirty();
 }
 
 void cOglPixmap::SetAlpha(int Alpha) {
@@ -2687,7 +2703,7 @@ void cOglOsd::DestroyPixmap(cPixmap *Pixmap) {
     for (int i = start; i < oglPixmaps.Size(); i++) {
         if (oglPixmaps[i] == Pixmap) {
             if (Pixmap->Layer() >= 0)
-                oglPixmaps[0]->SetDirty();
+                oglPixmaps[0]->MarkViewPortDirty(oglPixmaps[i]->ViewPort());
             oglPixmaps[i] = NULL;
             cOsd::DestroyPixmap(Pixmap);
             return;
@@ -2706,26 +2722,43 @@ void cOglOsd::Flush(void) {
             dirty = true;
     if (!dirty)
         return;
-    //clear buffer
-    oglThread->DoCmd(new cOglCmdFill(bFb, clrTransparent));
+
+    // check for dirty areas
+    cRect *dirtyrect = new cRect(0, 0, 0, 0);
+    for (int i = 0; i < oglPixmaps.Size(); i++)
+        if (oglPixmaps[i] && oglPixmaps[i]->Layer() >= 0 && oglPixmaps[i]->IsDirty())
+            dirtyrect->Combine(oglPixmaps[i]->DirtyViewPort());
+
+    // clear buffer within the dirty area
+    oglThread->DoCmd(new cOglCmdDrawRectangle(bFb,
+                                              dirtyrect->X(),
+                                              dirtyrect->Y(),
+                                              dirtyrect->Width(),
+                                              dirtyrect->Height(),
+                                              clrTransparent));
 
     //render pixmap textures blended to buffer
     for (int layer = 0; layer < MAXPIXMAPLAYERS; layer++) {
         for (int i = 0; i < oglPixmaps.Size(); i++) {
-            if (oglPixmaps[i]) {
-                if (oglPixmaps[i]->Layer() == layer) {
-                    oglThread->DoCmd(new cOglCmdRenderFbToBufferFb( oglPixmaps[i]->Fb(),
-                                                                    bFb,
-                                                                    oglPixmaps[i]->ViewPort().X(),
+            if (!oglPixmaps[i])
+                continue;
+
+            if (oglPixmaps[i]->Layer () != layer)
+                continue;
+
+            if (oglPixmaps[i]->IsDirty() || (!oglPixmaps[i]->IsDirty() && dirtyrect->Intersects(oglPixmaps[i]->ViewPort()))) {
+                oglThread->DoCmd(new cOglCmdRenderFbToBufferFb( oglPixmaps[i]->Fb(),
+                                                                bFb,
+                                                                oglPixmaps[i]->ViewPort().X(),
 /* fix from ua0lnj
-                                                                    (!isSubtitleOsd) ? oglPixmaps[i]->ViewPort().X() : 0,
+                                                                (!isSubtitleOsd) ? oglPixmaps[i]->ViewPort().X() : 0,
 */
-                                                                    (!isSubtitleOsd) ? oglPixmaps[i]->ViewPort().Y() : 0,
-                                                                    oglPixmaps[i]->Alpha(),
-                                                                    oglPixmaps[i]->DrawPort().X(),
-                                                                    oglPixmaps[i]->DrawPort().Y()));
-                    oglPixmaps[i]->SetDirty(false);
-                }
+                                                                (!isSubtitleOsd) ? oglPixmaps[i]->ViewPort().Y() : 0,
+                                                                oglPixmaps[i]->Alpha(),
+                                                                oglPixmaps[i]->DrawPort().X(),
+                                                                oglPixmaps[i]->DrawPort().Y(),
+                                                                dirtyrect));
+                oglPixmaps[i]->SetClean();
             }
         }
     }
