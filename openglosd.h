@@ -354,9 +354,12 @@ private:
     GLfloat drawPortX, drawPortY;
     GLint transparency;
     GLint bcolor;
-    cRect *dirtyrect;
+    GLint dirtyX;
+    GLint dirtyTop;
+    GLint dirtyWidth;
+    GLint dirtyHeight;
 public:
-    cOglCmdRenderFbToBufferFb(cOglFb *fb, cOglFb *buffer, GLint x, GLint y, GLint transparency, GLint drawPortX, GLint drawPortY, cRect *dirtyrect);
+    cOglCmdRenderFbToBufferFb(cOglFb *fb, cOglFb *buffer, GLint x, GLint y, GLint transparency, GLint drawPortX, GLint drawPortY, GLint dirtyX, GLint dirtyTop, GLint dirtyWidth, GLint dirtyHeight);
     virtual ~cOglCmdRenderFbToBufferFb(void) {};
     virtual const char* Description(void) { return "Render Framebuffer to Buffer"; }
     virtual bool Execute(void);
@@ -586,6 +589,7 @@ private:
     cVector<cOglPixmap *> oglPixmaps;
     bool isSubtitleOsd;
     cSize maxPixmapSize;
+    cRect *dirtyViewport;
 protected:
 public:
     cOglOsd(int Left, int Top, uint Level, std::shared_ptr<cOglThread> oglThread);

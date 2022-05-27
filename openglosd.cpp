@@ -1173,8 +1173,11 @@ bool cOglCmdDeleteFb::Execute(void) {
 }
 
 //------------------ cOglCmdRenderFbToBufferFb --------------------
-cOglCmdRenderFbToBufferFb::cOglCmdRenderFbToBufferFb(cOglFb *fb, cOglFb *buffer, GLint x, GLint y, GLint transparency, GLint drawPortX, GLint drawPortY, cRect *dirtyrect) : cOglCmd(fb) {
-    this->dirtyrect = dirtyrect;
+cOglCmdRenderFbToBufferFb::cOglCmdRenderFbToBufferFb(cOglFb *fb, cOglFb *buffer, GLint x, GLint y, GLint transparency, GLint drawPortX, GLint drawPortY, GLint dirtyX, GLint dirtyTop, GLint dirtyWidth, GLint dirtyHeight) : cOglCmd(fb) {
+    this->dirtyX = dirtyX;
+    this->dirtyTop = dirtyTop;
+    this->dirtyWidth = dirtyWidth;
+    this->dirtyHeight = dirtyHeight;
     this->buffer = buffer;
     this->x = (GLfloat)x;
     this->y = (GLfloat)y;
@@ -1222,7 +1225,7 @@ bool cOglCmdRenderFbToBufferFb::Execute(void) {
         return false;
     VertexBuffers[vbTexture]->Bind();
     GL_CHECK(glEnable(GL_SCISSOR_TEST));
-    GL_CHECK(glScissor(dirtyrect->X(), buffer->Height() - dirtyrect->Top() - dirtyrect->Height(), dirtyrect->Width(), dirtyrect->Height()));
+    GL_CHECK(glScissor(dirtyX, buffer->Height() - dirtyTop - dirtyHeight, dirtyWidth, dirtyHeight));
     VertexBuffers[vbTexture]->SetVertexSubData(quadVertices);
     VertexBuffers[vbTexture]->DrawArrays();
     GL_CHECK(glDisable(GL_SCISSOR_TEST));
@@ -2612,6 +2615,7 @@ cOglOsd::cOglOsd(int Left, int Top, uint Level, std::shared_ptr<cOglThread> oglT
     int osdWidth = 0;
     int osdHeight = 0;
     double pixel_aspect;
+    dirtyViewport = new cRect();
 
     GetScreenSize(&osdWidth, &osdHeight, &pixel_aspect);
     dsyslog("[softhddev]cOglOsd osdLeft %d osdTop %d screenWidth %d screenHeight %d", Left, Top, osdWidth, osdHeight);
@@ -2641,6 +2645,7 @@ cOglOsd::~cOglOsd() {
 //    SetActive(false);
 //    OsdClose();
     oglThread->DoCmd(new cOglCmdDeleteFb(bFb));
+    delete dirtyViewport;
 }
 
 const cSize &cOglOsd::MaxPixmapSize(void) const {
@@ -2717,26 +2722,21 @@ void cOglOsd::Flush(void) {
     if (!oglThread->Active())
         return;
     LOCK_PIXMAPS;
-    //check if any pixmap is dirty
-    bool dirty = false;
-    for (int i = 0; i < oglPixmaps.Size() && !dirty; i++)
-        if (oglPixmaps[i] && oglPixmaps[i]->Layer() >= 0 && oglPixmaps[i]->IsDirty())
-            dirty = true;
-    if (!dirty)
-        return;
-
     // check for dirty areas
-    cRect *dirtyrect = new cRect(0, 0, 0, 0);
+    dirtyViewport->Set(0, 0, 0, 0);
     for (int i = 0; i < oglPixmaps.Size(); i++)
         if (oglPixmaps[i] && oglPixmaps[i]->Layer() >= 0 && oglPixmaps[i]->IsDirty())
-            dirtyrect->Combine(oglPixmaps[i]->DirtyViewPort());
+            dirtyViewport->Combine(oglPixmaps[i]->DirtyViewPort());
+
+    if (dirtyViewport->IsEmpty())
+        return;
 
     // clear buffer within the dirty area
     oglThread->DoCmd(new cOglCmdDrawRectangle(bFb,
-                                              dirtyrect->X(),
-                                              dirtyrect->Y(),
-                                              dirtyrect->Width(),
-                                              dirtyrect->Height(),
+                                              dirtyViewport->X(),
+                                              dirtyViewport->Y(),
+                                              dirtyViewport->Width(),
+                                              dirtyViewport->Height(),
                                               clrTransparent));
 
     //render pixmap textures blended to buffer
@@ -2748,20 +2748,24 @@ void cOglOsd::Flush(void) {
             if (oglPixmaps[i]->Layer () != layer)
                 continue;
 
-            if (oglPixmaps[i]->IsDirty() || (!oglPixmaps[i]->IsDirty() && dirtyrect->Intersects(oglPixmaps[i]->ViewPort()))) {
-                oglThread->DoCmd(new cOglCmdRenderFbToBufferFb( oglPixmaps[i]->Fb(),
-                                                                bFb,
-                                                                oglPixmaps[i]->ViewPort().X(),
+            if (!dirtyViewport->Intersects(oglPixmaps[i]->ViewPort()))
+                continue;
+
+            oglThread->DoCmd(new cOglCmdRenderFbToBufferFb( oglPixmaps[i]->Fb(),
+                                                            bFb,
+                                                            oglPixmaps[i]->ViewPort().X(),
 /* fix from ua0lnj
-                                                                (!isSubtitleOsd) ? oglPixmaps[i]->ViewPort().X() : 0,
+                                                            (!isSubtitleOsd) ? oglPixmaps[i]->ViewPort().X() : 0,
 */
-                                                                (!isSubtitleOsd) ? oglPixmaps[i]->ViewPort().Y() : 0,
-                                                                oglPixmaps[i]->Alpha(),
-                                                                oglPixmaps[i]->DrawPort().X(),
-                                                                oglPixmaps[i]->DrawPort().Y(),
-                                                                dirtyrect));
-                oglPixmaps[i]->SetClean();
-            }
+                                                            (!isSubtitleOsd) ? oglPixmaps[i]->ViewPort().Y() : 0,
+                                                            oglPixmaps[i]->Alpha(),
+                                                            oglPixmaps[i]->DrawPort().X(),
+                                                            oglPixmaps[i]->DrawPort().Y(),
+                                                            dirtyViewport->X(),
+                                                            dirtyViewport->Top(),
+                                                            dirtyViewport->Width(),
+                                                            dirtyViewport->Height()));
+            oglPixmaps[i]->SetClean();
         }
     }
     //copy buffer to output framebuffer
