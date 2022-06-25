@@ -1400,10 +1400,6 @@ static void *DisplayHandlerThread(void * arg)
 	pthread_setcancelstate (PTHREAD_CANCEL_ENABLE, NULL);
 	pthread_setcanceltype(PTHREAD_CANCEL_DEFERRED, NULL);
 
-	while ((atomic_read(&render->FramesFilled)) < 2 ){
-		usleep(10000);
-	}
-
 	while (1) {
 		pthread_testcancel();
 
@@ -1638,12 +1634,16 @@ void VideoThreadExit(void)
 ///
 ///	New video arrived, wakeup video thread.
 ///
-void VideoThreadWakeup(VideoRender * render)
+void VideoThreadWakeup(VideoRender * render, int decoder, int display)
 {
 #ifdef DEBUG
 	fprintf(stderr, "VideoThreadWakeup: VideoThreadWakeup\n");
 #endif
-	if (!DecodeThread) {
+
+	if (decoder && !DecodeThread) {
+#ifdef DEBUG
+		fprintf(stderr, "DisplayThreadWakeup: VideoThreadWakeup\n");
+#endif
 		pthread_cond_init(&PauseCondition,NULL);
 		pthread_mutex_init(&PauseMutex, NULL);
 
@@ -1654,7 +1654,10 @@ void VideoThreadWakeup(VideoRender * render)
 		pthread_setname_np(DecodeThread, "softhddev video");
 	}
 
-	if (!DisplayThread) {
+	if (display && !DisplayThread) {
+#ifdef DEBUG
+		fprintf(stderr, "VideoThreadWakeup: DisplayThreadWakeup\n");
+#endif
 		pthread_create(&DisplayThread, NULL, DisplayHandlerThread, render);
 	}
 }
@@ -2374,6 +2377,9 @@ void VideoInit(VideoRender * render)
 		render->ev.version = 2;
 //		render->ev.page_flip_handler = Drm_page_flip_event;
 //	}
+
+	// Wakeup DisplayHandlerThread
+	VideoThreadWakeup(render, 0, 1);
 }
 
 ///
