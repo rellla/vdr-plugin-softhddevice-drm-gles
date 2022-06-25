@@ -1652,7 +1652,7 @@ int SetPlayMode(int play_mode)
 		SkipAudio = 0;
 		break;
 	case 1:			// audio/video
-		VideoThreadWakeup(MyVideoStream->Render);
+		VideoThreadWakeup(MyVideoStream->Render, 1, 1);
 		//Play(); Play is a vdr command!!!
 		break;
 	case 2:			// audio only
@@ -1660,11 +1660,11 @@ int SetPlayMode(int play_mode)
 		break;
 	case 3:			// audio only (black screen)
 		Debug(3, "softhddev: FIXME: audio only, silence video errors\n");
-		VideoThreadWakeup(MyVideoStream->Render);
+		VideoThreadWakeup(MyVideoStream->Render, 1, 1);
 		//Play();
 		break;
 	case 4:			// video only
-		VideoThreadWakeup(MyVideoStream->Render);
+		VideoThreadWakeup(MyVideoStream->Render, 1, 1);
 		//Play();
 		break;
 	default:

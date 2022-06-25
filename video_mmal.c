@@ -761,7 +761,7 @@ void VideoThreadExit(void)
 ///
 ///	New video arrived, wakeup video thread.
 ///
-void VideoThreadWakeup(VideoRender * render)
+void VideoThreadWakeup(VideoRender * render, int decoder, int display)
 {
 	render->Closing = 0;
 

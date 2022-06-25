@@ -228,7 +228,7 @@ extern void VideoGetVideoSize(VideoDecoder *, int *, int *, double *);
 extern int64_t VideoGetClock(const VideoRender *);
 
     /// Display handler.
-extern void VideoThreadWakeup(VideoRender *);
+extern void VideoThreadWakeup(VideoRender *, int, int);
 extern void VideoThreadExit(void);
 
 extern void VideoInit(VideoRender *);	///< Setup video module.
