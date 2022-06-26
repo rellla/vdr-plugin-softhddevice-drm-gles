@@ -386,7 +386,7 @@ EGLConfig get_config(void)
     EGLConfig *configs;
     EGLint matched;
     EGLint count;
-    EGL_CHECK(assert(eglGetConfigs(render->eglDisplay, NULL, 0, &count) == EGL_TRUE));
+    EGL_CHECK(eglGetConfigs(render->eglDisplay, NULL, 0, &count));
     if (count < 1) {
         fprintf(stderr, "no EGL configs to choose from\n");
         abort();
@@ -400,7 +400,7 @@ EGLConfig get_config(void)
     if (!configs)
         abort();
 
-    EGL_CHECK(assert(eglChooseConfig(render->eglDisplay, config_attribute_list, configs, count, &matched) == EGL_TRUE));
+    EGL_CHECK(eglChooseConfig(render->eglDisplay, config_attribute_list, configs, count, &matched));
     if (!matched) {
         fprintf(stderr, "no EGL configs with appropriate attributes\n");
         abort();
@@ -412,7 +412,7 @@ EGLConfig get_config(void)
 
     for (int i = 0; i < matched; ++i) {
         EGLint gbm_format;
-        EGL_CHECK(assert(eglGetConfigAttrib(render->eglDisplay, configs[i], EGL_NATIVE_VISUAL_ID, &gbm_format) == EGL_TRUE));
+        EGL_CHECK(eglGetConfigAttrib(render->eglDisplay, configs[i], EGL_NATIVE_VISUAL_ID, &gbm_format));
 
         if (gbm_format == GBM_FORMAT_ARGB8888)
             return configs[i];
@@ -737,19 +737,40 @@ search_mode:
 	PFNEGLCREATEPLATFORMWINDOWSURFACEEXTPROC get_platform_surface = (PFNEGLCREATEPLATFORMWINDOWSURFACEEXTPROC)eglGetProcAddress("eglCreatePlatformWindowSurfaceEXT");
 	assert(get_platform_surface != NULL);
 
-	EGL_CHECK(assert((render->eglDisplay = get_platform_display(EGL_PLATFORM_GBM_MESA, render->gbm_device, NULL)) != EGL_NO_DISPLAY));
-	EGL_CHECK(assert(eglInitialize(render->eglDisplay, &iMajorVersion, &iMinorVersion) == EGL_TRUE));
+	EGL_CHECK(render->eglDisplay = get_platform_display(EGL_PLATFORM_GBM_KHR, render->gbm_device, NULL));
+	if (!render->eglDisplay) {
+		Info(_("initGBM: failed to get eglDisplay\n"));
+		return -1;
+	}
+
+	if (!eglInitialize(render->eglDisplay, &iMajorVersion, &iMinorVersion)) {
+		Info(_("initGBM: eglInitialize failed\n"));
+	}
+
+	Info(_("[softhddev]Using display %p with EGL version %d.%d"), render->eglDisplay, iMajorVersion, iMinorVersion);
+	EGL_CHECK(Info(_("[softhddev]  EGL Version: \"%s\""), eglQueryString(render->eglDisplay, EGL_VERSION)));
+	EGL_CHECK(Info(_("[softhddev]  EGL Vendor: \"%s\""), eglQueryString(render->eglDisplay, EGL_VENDOR)));
+	EGL_CHECK(Info(_("[softhddev]  EGL Extensions: \"%s\""), eglQueryString(render->eglDisplay, EGL_EXTENSIONS)));
+	EGL_CHECK(Info(_("[softhddev]  EGL APIs: \"%s\""), eglQueryString(render->eglDisplay, EGL_CLIENT_APIS)));
 
 	EGLConfig eglConfig = get_config();
 
-	EGL_CHECK(assert(eglBindAPI(EGL_OPENGL_ES_API) == EGL_TRUE));
-	EGL_CHECK(assert((render->eglContext = eglCreateContext(render->eglDisplay, eglConfig, EGL_NO_CONTEXT, context_attribute_list)) != EGL_NO_CONTEXT));
+	EGL_CHECK(eglBindAPI(EGL_OPENGL_ES_API));
+	EGL_CHECK(render->eglContext = eglCreateContext(render->eglDisplay, eglConfig, EGL_NO_CONTEXT, context_attribute_list));
+	if (!render->eglContext) {
+		Info(_("initGBM: failed to create eglContext\n"));
+		return -1;
+	}
 
-	EGL_CHECK(assert((render->eglSurface = get_platform_surface(render->eglDisplay, eglConfig, render->gbm_surface, NULL)) != EGL_NO_SURFACE));
+	EGL_CHECK(render->eglSurface = get_platform_surface(render->eglDisplay, eglConfig, render->gbm_surface, NULL));
+	if (render->eglSurface == EGL_NO_SURFACE) {
+		Info(_("initGBM: failed to create eglSurface\n"));
+		return -1;
+	}
 
 	EGLint s_width, s_height;
-	EGL_CHECK(assert(eglQuerySurface(render->eglDisplay, render->eglSurface, EGL_WIDTH, &s_width) == EGL_TRUE));
-	EGL_CHECK(assert(eglQuerySurface(render->eglDisplay, render->eglSurface, EGL_HEIGHT, &s_height) == EGL_TRUE));
+	EGL_CHECK(eglQuerySurface(render->eglDisplay, render->eglSurface, EGL_WIDTH, &s_width));
+	EGL_CHECK(eglQuerySurface(render->eglDisplay, render->eglSurface, EGL_HEIGHT, &s_height));
 
 #ifdef GL_DEBUG
 	if (render->eglSurface != EGL_NO_SURFACE)

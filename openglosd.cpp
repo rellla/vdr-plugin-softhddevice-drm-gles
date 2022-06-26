@@ -119,7 +119,7 @@ void eglAcquireContext()
         abort();
     }
 
-    EGL_CHECK(assert(eglMakeCurrent(render->eglDisplay, render->eglSurface, render->eglSurface, render->eglContext) == EGL_TRUE));
+    EGL_CHECK(eglMakeCurrent(render->eglDisplay, render->eglSurface, render->eglSurface, render->eglContext));
 }
 
 void eglReleaseContext()
@@ -130,7 +130,7 @@ void eglReleaseContext()
         abort();
     }
 
-    EGL_CHECK(assert(eglMakeCurrent(render->eglDisplay, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT) == EGL_TRUE));
+    EGL_CHECK(eglMakeCurrent(render->eglDisplay, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT));
 }
 
 /****************************************************************************************
@@ -2227,11 +2227,6 @@ bool cOglThread::InitOpenGL(void) {
     }
 
     eglAcquireContext(); /* eglMakeCurrent with new eglSurface */
-
-    EGL_CHECK(dsyslog("[softhddev]EGL Version: \"%s\"", eglQueryString(render->eglDisplay, EGL_VERSION)));
-    EGL_CHECK(dsyslog("[softhddev]EGL Vendor: \"%s\"", eglQueryString(render->eglDisplay, EGL_VENDOR)));
-    EGL_CHECK(dsyslog("[softhddev]EGL Extensions: \"%s\"", eglQueryString(render->eglDisplay, EGL_EXTENSIONS)));
-    EGL_CHECK(dsyslog("[softhddev]EGL APIs: \"%s\"", eglQueryString(render->eglDisplay, EGL_CLIENT_APIS)));
 
     GL_CHECK(dsyslog("[softhddev]GL Version: \"%s\"", glGetString(GL_VERSION)));
     GL_CHECK(dsyslog("[softhddev]GL Vendor: \"%s\"", glGetString(GL_VENDOR)));
