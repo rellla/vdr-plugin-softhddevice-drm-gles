@@ -2315,9 +2315,6 @@ void cOglPixmap::SetClean(void) {
 }
 
 void cOglPixmap::SetLayer(int Layer) {
-#ifdef GL_DEBUG
-    esyslog("[softhddev] SetLayer %d", Layer);
-#endif
     cPixmap::SetLayer(Layer);
     if (cPixmap::Layer() >= 0 || Layer >= 0)
         SetDirty();
