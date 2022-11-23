@@ -170,6 +170,7 @@ attribute vec2 texCoords; \
 \
 varying vec2 TexCoords; \
 varying vec4 alphaValue;\
+varying vec4 bColorValue;\
 \
 uniform vec4 bColor; \
 uniform mat4 projection; \
@@ -180,6 +181,7 @@ void main() \
     gl_Position = projection * vec4(position.x, position.y, 0.0, 1.0); \
     TexCoords = texCoords; \
     alphaValue = alpha; \
+    bColorValue = bColor; \
 } \
 ";
 
@@ -188,8 +190,8 @@ const char *textureFragmentShader =
 precision mediump float; \
 varying vec2 TexCoords; \
 varying vec4 alphaValue; \
+varying vec4 bColorValue; \
 \
-uniform vec4 bColor; \
 uniform sampler2D screenTexture; \
 \
 float clamp_to_border_factor (vec2 coords) \
@@ -204,7 +206,7 @@ void main() \
 { \
     vec4 color = texture2D(screenTexture, TexCoords) * alphaValue; \
     float f = clamp_to_border_factor (TexCoords); \
-    gl_FragColor = mix (bColor, color, f); \
+    gl_FragColor = mix (bColorValue, color, f); \
 } \
 ";
 
@@ -213,8 +215,8 @@ const char *textureFragmentShaderSwapBR =
 precision mediump float; \
 varying vec2 TexCoords; \
 varying vec4 alphaValue; \
+varying vec4 bColorValue; \
 \
-uniform vec4 bColor; \
 uniform sampler2D screenTexture; \
 \
 float clamp_to_border_factor (vec2 coords) \
@@ -230,10 +232,9 @@ void main() \
     vec4 color = texture2D(screenTexture, TexCoords) * alphaValue; \
     vec4 color_swapped = vec4(color.b, color.g, color.r, color.a); \
     float f = clamp_to_border_factor (TexCoords); \
-    gl_FragColor = mix (bColor, color_swapped, f); \
+    gl_FragColor = mix (bColorValue, color_swapped, f); \
 } \
 ";
-
 
 const char *textVertexShader = 
 "#version 100 \n\
@@ -383,7 +384,7 @@ bool cShader::CheckCompileErrors(GLuint object, bool program) {
         GL_CHECK(glGetProgramiv(object, GL_LINK_STATUS, &success));
         if (!success) {
             GL_CHECK(glGetProgramInfoLog(object, 1024, NULL, infoLog));
-            esyslog("[softhddev]:SHADER: Link-time error: Type: %d", type);
+            esyslog("[softhddev]:SHADER: Link-time error: Type: %d - %s", type, infoLog);
             return false;
         }
     }
