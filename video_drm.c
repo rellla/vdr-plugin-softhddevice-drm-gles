@@ -1335,17 +1335,25 @@ page_flip:
 	uint64_t PicWidth = DispWidth;
 	uint64_t PicHeight = DispHeight;
 
+	// resize frame to fit into video area/ screen and keep the aspect ratio
 	if (frame) {
-		PicWidth = DispHeight * av_q2d(frame->sample_aspect_ratio) *
-			   frame->width / frame->height;
-		if (!PicWidth || PicWidth > DispWidth) {
-			PicWidth = DispWidth;
-			PicHeight = PicWidth * frame->height / av_q2d(frame->sample_aspect_ratio) / frame->width;
+		// use frame->sample_aspect_ratio of 1.0f if undefined (0.0f), otherwise we have division by 0
+		double frame_sar = av_q2d(frame->sample_aspect_ratio) ? av_q2d(frame->sample_aspect_ratio) : 1.0f;
+
+		// frame b*h < display b*h, e.g. fit a 4:3 frame into 16:9 display or area
+		if (1000 * DispWidth / DispHeight >= 1000 * frame->width / frame->height) {
+			PicWidth = DispHeight * frame->width / frame->height * frame_sar;
+			if (PicWidth <= 0 || PicWidth > DispWidth) {
+				PicWidth = DispWidth;
+			}
+		// frame b*h >= display b*h, e.g. fit a 16:9 frame into 4:3 display or area
+		} else {
+			PicHeight = DispWidth * frame->height / frame->width / frame_sar;
+			if (PicHeight <= 0 || PicHeight > DispHeight) {
+				PicHeight = DispHeight;
+			}
 		}
 	}
-
-	if (!PicWidth || PicWidth > DispWidth)
-		PicWidth = DispWidth;
 
 	SetPlane(ModeReq, render->planes[VIDEO_PLANE]->plane_id, render->crtc_id, buf->fb_id,
 		 DispX + (DispWidth - PicWidth) / 2, DispY + (DispHeight - PicHeight) / 2, PicWidth, PicHeight,
