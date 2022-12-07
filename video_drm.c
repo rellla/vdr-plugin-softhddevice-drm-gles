@@ -1318,7 +1318,7 @@ page_flip:
 		double frame_sar = av_q2d(frame->sample_aspect_ratio) ? av_q2d(frame->sample_aspect_ratio) : 1.0f;
 
 		// frame b*h < display b*h, e.g. fit a 4:3 frame into 16:9 display or area
-		if (1000 * DispWidth / DispHeight >= 1000 * frame->width / frame->height) {
+		if (1000 * DispWidth / DispHeight > 1000 * frame->width / frame->height * frame_sar) {
 			PicWidth = DispHeight * frame->width / frame->height * frame_sar;
 			if (PicWidth <= 0 || PicWidth > DispWidth) {
 				PicWidth = DispWidth;
