@@ -328,6 +328,14 @@ void ReadHWPlatform(VideoRender * render)
 			render->NoHwDeint = 1;
 			break;
 		}
+		if (strstr(read_ptr, "amlogic")) {
+#ifdef DEBUG
+			printf("ReadHWPlatform: amlogic found\n");
+#endif
+			render->CodecMode = 3;	// set _v4l2m2m for H264
+			render->NoHwDeint = 1;
+			break;
+		}
 
 		read_size -= (strlen(read_ptr) + 1);
 		read_ptr = (char *)&read_ptr[(strlen(read_ptr) + 1)];
@@ -491,8 +499,8 @@ static int FindDevice(VideoRender * render)
 	drmModePlaneRes *plane_res;
 	int hdr;
 	uint32_t vrefresh;
-	uint32_t j, k;
-	int i;
+	uint32_t k, l;
+	int i, j;
 
 	render->fd_drm = open("/dev/dri/card0", O_RDWR);
 	if (render->fd_drm < 0) {
@@ -548,19 +556,19 @@ static int FindDevice(VideoRender * render)
 		}
 		// search Modes
 search_mode:
-		for (i = 0; i < connector->count_modes; i++) {
-			mode = &connector->modes[i];
+		for (j = 0; j < connector->count_modes; j++) {
+			mode = &connector->modes[j];
 			// Mode HD
 			if(mode->hdisplay == 1920 && mode->vdisplay == 1080 &&
 				mode->vrefresh == vrefresh &&
 				!(mode->flags & DRM_MODE_FLAG_INTERLACE) && !hdr) {
-				memcpy(&render->mode, &connector->modes[i], sizeof(drmModeModeInfo));
+				memcpy(&render->mode, &connector->modes[j], sizeof(drmModeModeInfo));
 			}
 			// Mode HDready
 			if(mode->hdisplay == 1280 && mode->vdisplay == 720 &&
 				mode->vrefresh == vrefresh &&
 				!(mode->flags & DRM_MODE_FLAG_INTERLACE) && hdr) {
-				memcpy(&render->mode, &connector->modes[i], sizeof(drmModeModeInfo));
+				memcpy(&render->mode, &connector->modes[j], sizeof(drmModeModeInfo));
 			}
 		}
 		if (!render->mode.hdisplay || !render->mode.vdisplay) {
@@ -596,11 +604,11 @@ search_mode:
 	struct plane best_primary_osd_plane = { .plane_id = 0};   // is the AR24 capable primary plane with the highest plane_id
 	struct plane best_overlay_osd_plane = { .plane_id = 0};   // is the AR24 capable overlay plane with the highest plane_id
 
-	for (j = 0; j < plane_res->count_planes; j++) {
-		plane = drmModeGetPlane(render->fd_drm, plane_res->planes[j]);
+	for (k = 0; k < plane_res->count_planes; k++) {
+		plane = drmModeGetPlane(render->fd_drm, plane_res->planes[k]);
 
 		if (plane == NULL)
-			fprintf(stderr, "FindDevice: cannot query DRM-KMS plane %d\n", j);
+			fprintf(stderr, "FindDevice: cannot query DRM-KMS plane %d\n", k);
 
 		for (i = 0; i < resources->count_crtcs; i++) {
 			if (plane->possible_crtcs & (1 << i))
@@ -609,11 +617,11 @@ search_mode:
 
 		uint64_t type;
 		uint64_t zpos;
-		if (GetPropertyValue(render->fd_drm, plane_res->planes[j],
+		if (GetPropertyValue(render->fd_drm, plane_res->planes[k],
 				     DRM_MODE_OBJECT_PLANE, "type", &type)) {
 			fprintf(stderr, "FindDevice: Failed to get property 'type'\n");
 		}
-		if (GetPropertyValue(render->fd_drm, plane_res->planes[j],
+		if (GetPropertyValue(render->fd_drm, plane_res->planes[k],
 				     DRM_MODE_OBJECT_PLANE, "zpos", &zpos)) {
 			fprintf(stderr, "FindDevice: Failed to get property 'zpos'\n");
 		} else {
@@ -629,12 +637,12 @@ search_mode:
 		fprintf(stderr, "FindDevice: PixelFormats");
 #endif
 		// test pixel format and plane caps
-		for (k = 0; k < plane->count_formats; k++) {
+		for (l = 0; l < plane->count_formats; l++) {
 			if (encoder->possible_crtcs & plane->possible_crtcs) {
 #ifdef DRM_DEBUG
-				fprintf(stderr, " %4.4s", (char *)&plane->formats[k]);
+				fprintf(stderr, " %4.4s", (char *)&plane->formats[l]);
 #endif
-				switch (plane->formats[k]) {
+				switch (plane->formats[l]) {
 					case DRM_FORMAT_NV12:
 						if (type == DRM_PLANE_TYPE_PRIMARY && !best_primary_video_plane.plane_id) {
 							best_primary_video_plane.plane_id = plane->plane_id;
@@ -750,6 +758,10 @@ search_mode:
 	drmModeFreePlaneResources(plane_res);
 	drmModeFreeEncoder(encoder);
 	drmModeFreeResources(resources);
+
+//	if (render->use_zpos &&
+//		(render->video_plane > render->osd_plane))
+//		render->use_zpos = 0;
 
 #ifdef USE_GLES
 	render->gbm_device = gbm_create_device(render->fd_drm);
@@ -949,34 +961,45 @@ static int SetupFB(VideoRender * render, struct drm_buf *buf,
 	buf->offset[0] = buf->offset[1] = buf->offset[2] = buf->offset[3] = 0;
 
 	if (primedata) {
-		uint32_t prime_handle;
+#ifdef DRM_DEBUG
+		if (!render->buffers) {
+		for (int object = 0; object < primedata->nb_objects; object++) {
 
+			fprintf(stderr, "SetupFB:  %d x %d nb_objects %i Handle %i size %zu modifier %" PRIx64 "\n",
+				buf->width, buf->height, primedata->nb_objects, primedata->objects[object].fd,
+				primedata->objects[object].size, primedata->objects[object].format_modifier);
+		}
+		for (int layer = 0; layer < primedata->nb_layers; layer++) {
+			fprintf(stderr, "SetupFB: nb_layers %d nb_planes %d pix_fmt %4.4s\n",
+				primedata->nb_layers, primedata->layers[layer].nb_planes,
+				(char *)&primedata->layers[layer].format);
+
+			for (int plane = 0; plane < primedata->layers[layer].nb_planes; plane++) {
+				fprintf(stderr, "SetupFB: nb_planes %d object_index %i\n",
+					primedata->layers[layer].nb_planes, primedata->layers[layer].planes[plane].object_index);
+			}
+		}
+		}
+#endif
 		buf->pix_fmt = primedata->layers[0].format;
 
-		if (drmPrimeFDToHandle(render->fd_drm, primedata->objects[0].fd, &prime_handle))
-			fprintf(stderr, "SetupFB: Failed to retrieve the Prime Handle %i size %zu (%d): %m\n",
-				primedata->objects[0].fd, primedata->objects[0].size, errno);
-#ifdef DRM_DEBUG
-		if (!render->buffers)
-			fprintf(stderr, "SetupFB: %d x %d nb_objects %d nb_layers %d nb_planes %d size %zu pix_fmt %4.4s modifier %" PRIx64 "\n",
-				buf->width, buf->height, primedata->nb_objects, primedata->nb_layers,
-				primedata->layers[0].nb_planes, primedata->objects[0].size,
-				(char *)&buf->pix_fmt, primedata->objects[0].format_modifier);
-#endif
 		for (int plane = 0; plane < primedata->layers[0].nb_planes; plane++) {
-			buf->handle[plane] = prime_handle;
+
+			if (drmPrimeFDToHandle(render->fd_drm,
+				primedata->objects[primedata->layers[0].planes[plane].object_index].fd, &buf->handle[plane]))
+
+				fprintf(stderr, "SetupFB: Failed to retrieve the Prime Handle %i size %zu (%d): %m\n",
+					primedata->objects[primedata->layers[0].planes[plane].object_index].fd,
+					primedata->objects[primedata->layers[0].planes[plane].object_index].size, errno);
+
 			buf->pitch[plane] = primedata->layers[0].planes[plane].pitch;
 			buf->offset[plane] = primedata->layers[0].planes[plane].offset;
-			if (primedata->objects[0].format_modifier) {
+
+			if (primedata->objects[primedata->layers[0].planes[plane].object_index].format_modifier) {
 				modifier[plane] =
 					primedata->objects[primedata->layers[0].planes[plane].object_index].format_modifier;
 				mod_flags = DRM_MODE_FB_MODIFIERS;
 			}
-#ifdef DRM_DEBUG
-			if (!render->buffers)
-				fprintf(stderr, "SetupFB: plane %d pitch %d offset %d\n",
-					plane, buf->pitch[plane], buf->offset[plane]);
-#endif
 		}
 	} else {
 		memset(&creq, 0, sizeof(struct drm_mode_create_dumb));
