@@ -520,9 +520,9 @@ void cSoftHdMenu::SelectPL(void)
 	struct dirent **DirList;
 	int n, i;
 
-	if ((n = scandir(cPlugin::ConfigDirectory("softhddevice-drm"), &DirList, NULL, alphasort)) == -1) {
+	if ((n = scandir(cPlugin::ConfigDirectory("softhddevice-drm-gles"), &DirList, NULL, alphasort)) == -1) {
 		fprintf(stderr, "SelectPL: searching PL in %s failed (%d): %m\n",
-			cPlugin::ConfigDirectory("softhddevice-drm"), errno);
+			cPlugin::ConfigDirectory("softhddevice-drm-gles"), errno);
 	} else {
 		Clear();
 		for (i = 0; i < n; i++) {
@@ -613,7 +613,7 @@ void cSoftHdMenu::MakePlayList(const char * Target, const char * mode)
 	if (Playlist.empty())
 		Playlist = "/default.m3u";		// if (!Playlist) ???
 
-	string PlPath = cPlugin::ConfigDirectory("softhddevice-drm");
+	string PlPath = cPlugin::ConfigDirectory("softhddevice-drm-gles");
 	PlPath.append(Playlist.c_str());
 	FILE *playlist = fopen(PlPath.c_str(), mode);
 
@@ -647,7 +647,7 @@ eOSState cSoftHdMenu::ProcessKey(eKeys key)
 			FindFile(Path, NULL);
 			return osContinue;
 		case osUser2:			// select play list
-			Path = cPlugin::ConfigDirectory("softhddevice-drm");
+			Path = cPlugin::ConfigDirectory("softhddevice-drm-gles");
 			SelectPL();
 			return osContinue;
 		default:
@@ -696,7 +696,7 @@ eOSState cSoftHdMenu::ProcessKey(eKeys key)
 					return osEnd;
 				}
 			} else {
-				Path = cPlugin::ConfigDirectory("softhddevice-drm");
+				Path = cPlugin::ConfigDirectory("softhddevice-drm-gles");
 				PlayMedia(Playlist.c_str());
 				return osEnd;
 			}

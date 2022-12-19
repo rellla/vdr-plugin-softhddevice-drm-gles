@@ -1,6 +1,6 @@
 Copyright (c) 2011 - 2013 by Johns.  All Rights Reserved.
 Copyright (c) 2018 - 2021 by zillevdr.  All Rights Reserved.
-Copyright (c) 2020 - 2021 by rellla.  All Rights Reserved.
+Copyright (c) 2020 - 2022 by rellla.  All Rights Reserved.
 
 License: AGPLv3
 
@@ -17,8 +17,8 @@ GNU Affero General Public License for more details.
 
 Install:
 --------
-	git clone https://github.com/zillevdr/vdr-plugin-softhddevice-drm.git
-	cd vdr-plugin-softhddevice-drm
+	git clone https://github.com/rellla/vdr-plugin-softhddevice-drm-gles.git
+	cd vdr-plugin-softhddevice-drm-gles
 	For mmal (Raspberry Pi 2) set MMAL to 1 in Makefile.
 	make
 	make install
@@ -139,13 +139,13 @@ SVDRP:
 	Tested extension: *.mp3, *.mp4, *.m3u, *.m3u8
 
 	Play a local file:
-	svdrpsend plug softhddevice-drm PLAY /path_to_file/media_file.mp4
+	svdrpsend plug softhddevice-drm-gles PLAY /path_to_file/media_file.mp4
 
 	Play a playlist inside ConfigDirectory:
-	svdrpsend plug softhddevice-drm PLAY playlist_name.m3u
+	svdrpsend plug softhddevice-drm-gles PLAY playlist_name.m3u
 
 	Play a media file from web:
-	svdrpsend plug softhddevice-drm PLAY http://www.media-server/path_to_file/media_file.mp4
+	svdrpsend plug softhddevice-drm-gles PLAY http://www.media-server/path_to_file/media_file.mp4
 
 Known Bugs:
 -----------

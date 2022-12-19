@@ -32,7 +32,7 @@ using std::ifstream;
 #include <vdr/plugin.h>
 #include <vdr/dvbspu.h>
 
-#include "softhddevice-drm.h"
+#include "softhddevice-drm-gles.h"
 #include "softhddevice_service.h"
 #include "mediaplayer.h"
 

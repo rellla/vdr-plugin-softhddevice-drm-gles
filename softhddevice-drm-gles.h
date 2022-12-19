@@ -39,7 +39,7 @@ static const char *const DESCRIPTION =
 trNOOP("A software and GPU emulated HD device");
 
     /// vdr-plugin text of main menu entry
-static const char *MAINMENUENTRY = trNOOP("SoftHdDevice-drm");
+static const char *MAINMENUENTRY = trNOOP("SoftHdDevice-drm-gles");
 
     /// single instance of softhddevice plugin device.
 static class cSoftHdDevice *MyDevice;
@@ -208,7 +208,7 @@ class cSoftHdDevice:public cDevice
     cSoftHdDevice(void);
     virtual ~ cSoftHdDevice(void);
 
-    virtual cString DeviceName(void) const { return "softhddevice-drm"; }
+    virtual cString DeviceName(void) const { return "softhddevice-drm-gles"; }
 
     virtual bool HasDecoder(void) const;
     virtual bool CanReplay(void) const;
