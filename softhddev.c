@@ -692,7 +692,7 @@ int PlayAudio(const uint8_t * data, int size, uint8_t id)
 			break;
 		}
 		if (r > 0) {
-			AVPacket avpkt[1];
+			AVPacket *avpkt;
 
 			// new codec id, close and open new
 			if (AudioCodecID != codec_id) {
@@ -700,12 +700,18 @@ int PlayAudio(const uint8_t * data, int size, uint8_t id)
 				CodecAudioOpen(MyAudioDecoder, codec_id, NULL, &timebase);
 				AudioCodecID = codec_id;
 			}
-			av_init_packet(avpkt);
+			avpkt = av_packet_alloc();
+			if (avpkt == NULL) {
+				Error(_("[softhddev] avpkt allocation failed\n"));
+				fprintf(stderr, "[softhddev] avpkt allocation failed\n");
+				continue;
+			};
 			avpkt->data = (void *)p;
 			avpkt->size = r;
 			avpkt->pts = AudioAvPkt->pts;
 			CodecAudioDecode(MyAudioDecoder, avpkt);
 			AudioAvPkt->pts = AV_NOPTS_VALUE;
+			av_packet_free(&av_pkt);
 			p += r;
 			n -= r;
 			continue;
