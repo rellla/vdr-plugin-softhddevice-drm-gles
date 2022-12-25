@@ -711,7 +711,7 @@ int PlayAudio(const uint8_t * data, int size, uint8_t id)
 			avpkt->pts = AudioAvPkt->pts;
 			CodecAudioDecode(MyAudioDecoder, avpkt);
 			AudioAvPkt->pts = AV_NOPTS_VALUE;
-			av_packet_free(&av_pkt);
+			av_packet_free(&avpkt);
 			p += r;
 			n -= r;
 			continue;
