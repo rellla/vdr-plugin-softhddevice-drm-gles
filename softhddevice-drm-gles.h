@@ -21,6 +21,11 @@
 ///	$Id$
 //////////////////////////////////////////////////////////////////////////////
 
+#ifndef __SOFTHDDEVICE_DRM_GLES_H
+#define __SOFTHDDEVICE_DRM_GLES_H
+
+#include "vdr/dvbspu.h"
+
     /// vdr-plugin version number.
     /// Makefile extracts the version number for generating the file name
     /// for the distribution archive.
@@ -48,6 +53,8 @@ static class cSoftHdDevice *MyDevice;
 
 static char ConfigMakePrimary;		///< config primary wanted
 static char ConfigHideMainMenuEntry;	///< config hide main menu entry
+static char ConfigDetachFromMainMenu;	///< detach from main menu entry instead of suspend
+static char ConfigSuspendClose;		///< suspend should close devices
 static int ConfigVideoAudioDelay;	///< config audio delay
 static char ConfigAudioPassthrough;	///< config audio pass-through mask
 static char AudioPassthroughState;	///< flag audio pass-through on/off
@@ -58,7 +65,7 @@ static int ConfigAudioMaxNormalize;	///< config max normalize factor
 static char ConfigAudioCompression;	///< config use volume compression
 static int ConfigAudioMaxCompression;	///< config max volume compression
 static int ConfigAudioStereoDescent;	///< config reduce stereo loudness
-int ConfigAudioBufferTime;			///< config size ms of audio buffer
+static int ConfigAudioBufferTime;			///< config size ms of audio buffer
 static int ConfigAudioAutoAES;		///< config automatic AES handling
 static int ConfigAudioEq;			///< config equalizer filter 
 static int SetupAudioEqBand[18];	///< config equalizer filter bands
@@ -68,6 +75,11 @@ static volatile int DoMakePrimary;	///< switch primary device to this
 #ifdef USE_GLES
 static int ConfigMaxSizeGPUImageCache = 128;
 #endif
+
+#define NOT_SUSPENDED     0    ///< not suspended
+#define SUSPEND_NORMAL    1    ///< normal suspend mode
+#define SUSPEND_DETACHED  2    ///< detached suspend mode
+static signed char SuspendMode;
 
 //////////////////////////////////////////////////////////////////////////////
 
@@ -84,16 +96,13 @@ class cSoftOsd:public cOsd
     static volatile char Dirty;		///< flag force redraw everything
     int OsdLevel;			///< current osd level FIXME: remove
 
-     cSoftOsd(int, int, uint);		///< osd constructor
-     virtual ~ cSoftOsd(void);		///< osd destructor
+    cSoftOsd(int, int, uint);		///< osd constructor
+    virtual ~ cSoftOsd(void);		///< osd destructor
     /// set the sub-areas to the given areas
     virtual eOsdError SetAreas(const tArea *, int);
     virtual void Flush(void);		///< commits all data to the hardware
     virtual void SetActive(bool);	///< sets OSD to be the active one
 };
-
-volatile char cSoftOsd::Dirty;		///< flag force redraw everything
-
 
 //////////////////////////////////////////////////////////////////////////////
 //	OSD provider
@@ -125,27 +134,6 @@ class cSoftOsdProvider:public cOsdProvider
     virtual ~cSoftOsdProvider();	///< OSD provider destructor
 };
 
-cOsd *cSoftOsdProvider::Osd;		///< single osd
-
-#ifdef USE_GLES
-std::shared_ptr<cOglThread> cSoftOsdProvider::oglThread;	// openGL worker Thread
-
-int cSoftOsdProvider::StoreImageData(const cImage &Image)
-{
-    if (StartOpenGlThread()) {
-        int imgHandle = oglThread->StoreImage(Image);
-        return imgHandle;
-    }
-    return 0;
-}
-
-void cSoftOsdProvider::DropImageData(int imgHandle)
-{
-    if (StartOpenGlThread())
-        oglThread->DropImageData(imgHandle);
-}
-#endif
-
 //////////////////////////////////////////////////////////////////////////////
 //	cMenuSetupPage
 //////////////////////////////////////////////////////////////////////////////
@@ -162,7 +150,8 @@ class cMenuSetupSoft:public cMenuSetupPage
     int General;
     int MakePrimary;
     int HideMainMenuEntry;
-
+    int DetachFromMainMenu;
+    int SuspendClose;
     int Audio;
     int AudioDelay;
     int AudioPassthroughDefault;
@@ -275,3 +264,4 @@ class cPluginSoftHdDevice:public cPlugin
     virtual cString SVDRPCommand(const char *, const char *, int &);
 };
 
+#endif

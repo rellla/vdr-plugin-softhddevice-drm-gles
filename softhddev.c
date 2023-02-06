@@ -54,6 +54,8 @@
 //////////////////////////////////////////////////////////////////////////////
 
 extern int ConfigAudioBufferTime;	///< config size ms of audio buffer
+static signed char ConfigStartSuspended;///< start in suspended mode
+static pthread_mutex_t SuspendLockMutex;///< suspend lock mutex
 
 static volatile char StreamFreezed;	///< stream freezed
 
@@ -78,6 +80,7 @@ struct __video_stream__
 
     volatile char NewStream;		///< flag new video stream
     volatile char ClosingStream;	///< flag closing video stream
+    volatile char SkipStream;		///< skip video stream
     volatile char TrickSpeed;		///< current trick speed
 
     AVPacket PacketRb[VIDEO_PACKET_MAX];	///< PES packet ring buffer
@@ -1041,6 +1044,7 @@ static void VideoStreamClose(VideoStream * stream)
 #ifdef DEBUG
 	fprintf(stderr, "VideoStreamClose:\n");
 #endif
+	stream->SkipStream = 1;
 	if (stream->Decoder) {
 		CodecVideoDelDecoder(stream->Decoder);
 		stream->Decoder = NULL;
@@ -1157,6 +1161,9 @@ int PlayVideo(const uint8_t * data, int size)
 	int64_t pts = AV_NOPTS_VALUE;
 	int i, n;
 
+	if (stream->SkipStream)
+		return size;
+
 	if (StreamFreezed) {
 		return 0;
 	}
@@ -1230,6 +1237,10 @@ newstream:
 */
 void StillPicture(const uint8_t * data, int size)
 {
+	// might be called in suspended mode //rellla
+	if (!MyVideoStream->Decoder || MyVideoStream->SkipStream)
+		return;
+
 	AVPacket *avpkt;
 	const uint8_t * pos;
 	int size_rest;
@@ -1646,17 +1657,20 @@ int SetPlayMode(int play_mode)
 
 	switch (play_mode) {
 	case 0:			// none audio/video
-		if (MyVideoStream->CodecID != AV_CODEC_ID_NONE) {
-			MyVideoStream->ClosingStream = 1;
-			// tell render we are closing stream
-			VideoSetClosing(MyVideoStream->Render);
+		if (MyVideoStream->Decoder && !MyVideoStream->SkipStream) {
+			if (MyVideoStream->CodecID != AV_CODEC_ID_NONE) {
+				MyVideoStream->ClosingStream = 1;
+				// tell render we are closing stream
+				VideoSetClosing(MyVideoStream->Render);
+			}
+			if (!SkipAudio)
+				ClearAudio();	// flush all AUDIO buffers
 		}
-		ClearAudio();	// flush all AUDIO buffers
 		if (MyAudioDecoder && AudioCodecID != AV_CODEC_ID_NONE) {
 			NewAudioStream = 1;
 		}
 		StreamFreezed = 0;
-		SkipAudio = 0;
+//		SkipAudio = 0; //rellla check
 		break;
 	case 1:			// audio/video
 		VideoThreadWakeup(MyVideoStream->Render, 1, 1);
@@ -1708,6 +1722,8 @@ void SoftHdDeviceExit(void)
     VideoStreamClose(MyVideoStream);
 
     CodecExit();
+
+    pthread_mutex_destroy(&SuspendLockMutex);
 }
 
 
@@ -1723,7 +1739,9 @@ int Start(void)
 #ifdef DEBUG
 	fprintf(stderr, "Start(void):\n");
 #endif
-	if (!MyAudioDecoder) {
+	pthread_mutex_init(&SuspendLockMutex, NULL);
+
+	if (!MyAudioDecoder && !ConfigStartSuspended) {
 		AudioInit();
 		AudioSetBufferTime(ConfigAudioBufferTime);
 		av_new_packet(AudioAvPkt, AUDIO_BUFFER_SIZE);
@@ -1734,18 +1752,35 @@ int Start(void)
 		CodecInit();
 		if (!MyVideoStream->Decoder) {
 			MyVideoStream->CodecID = AV_CODEC_ID_NONE;
+			MyVideoStream->SkipStream = 1;
 		}
 
 		if ((MyVideoStream->Render = VideoNewRender(MyVideoStream))) {
 			VideoInit(MyVideoStream->Render);
 			MyVideoStream->Decoder = CodecVideoNewDecoder(MyVideoStream->Render);
 			VideoPacketInit(MyVideoStream);
+			MyVideoStream->SkipStream = 0;
 		}
+	} else {
+		MyVideoStream->SkipStream = 1;
+		SkipAudio = 1;
 	}
+	Info(_("[softhddev] ready%s\n"),
+	    ConfigStartSuspended ? ConfigStartSuspended == -1 ? " detached" : " suspended" : "");
 
-	return 0;
+	return ConfigStartSuspended;
 }
 
+// rellla suspend, resume
+void Resume(void)
+{
+}
+
+void Suspend(__attribute__((unused)) int video,
+             __attribute__((unused)) int audio,
+             __attribute__((unused)) int dox11)
+{
+}
 
 /**
 **	Stop plugin.
@@ -1850,6 +1885,8 @@ const char *CommandLineHelp(void)
     return "  -a device\taudio device (fe. alsa: hw:0,0)\n"
 	"  -p device\taudio device for pass-through (hw:0,1)\n"
 	"  -c channel\taudio mixer channel name (fe. PCM)\n"
+	"  -s \t\tstart in suspended mode\n"
+	"  -D \t\tstart in detached mode\n"
 	"\n";
 }
 
@@ -1875,6 +1912,12 @@ int ProcessArgs(int argc, char *const argv[])
 		continue;
 	    case 'p':			// pass-through audio device
 		AudioSetPassthroughDevice(optarg);
+		continue;
+	    case 's':			// start in suspended mode
+		ConfigStartSuspended = 1;
+		continue;
+	    case 'D':			// start in detached mode
+		ConfigStartSuspended = -1;
 		continue;
 	    case EOF:
 		break;

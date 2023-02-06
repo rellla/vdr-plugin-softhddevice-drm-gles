@@ -32,8 +32,10 @@ using std::ifstream;
 #include <vdr/interface.h>
 #include <vdr/player.h>
 #include <vdr/plugin.h>
+#include <vdr/shutdown.h>
 #include <vdr/videodir.h>
 
+#include "softhddevice-drm-gles.h"
 #include "mediaplayer.h"
 
 extern "C"
@@ -55,6 +57,58 @@ av_always_inline char* av_err2str(int errnum)
 	return av_make_error_string(str, AV_ERROR_MAX_STRING_SIZE, errnum);
 }
 #endif
+
+//////////////////////////////////////////////////////////////////////////////
+//	cPlayer - dummy for suspend
+//////////////////////////////////////////////////////////////////////////////
+
+cSoftHdDummyPlayer::cSoftHdDummyPlayer(void)
+{
+}
+
+cSoftHdDummyPlayer::~cSoftHdDummyPlayer()
+{
+	Detach();
+}
+
+cSoftHdDummyPlayer *cSoftHdDummyControl::Player;	///< dummy player instance
+
+//////////////////////////////////////////////////////////////////////////////
+//	cControl - dummy for suspend
+//////////////////////////////////////////////////////////////////////////////
+
+eOSState cSoftHdDummyControl::ProcessKey(eKeys key)
+{
+	if (SuspendMode == SUSPEND_NORMAL && (!ISMODELESSKEY(key)
+	    || key == kMenu || key == kBack || key == kStop)) {
+		delete Player;
+		Player = NULL;
+		Resume();
+		SuspendMode = NOT_SUSPENDED;
+		return osEnd;
+	}
+	return osContinue;
+}
+
+void cSoftHdDummyControl::Hide(void)
+{
+}
+
+cSoftHdDummyControl::cSoftHdDummyControl(void):cControl(Player = new cSoftHdDummyPlayer)
+{
+}
+
+cSoftHdDummyControl::~cSoftHdDummyControl()
+{
+	delete Player;
+	Player = NULL;
+	if (SuspendMode == SUSPEND_NORMAL) {
+		Resume();
+		SuspendMode = NOT_SUSPENDED;
+	}
+
+	dsyslog("[softhddev]%s: dummy player stopped\n", __FUNCTION__);
+}
 
 //////////////////////////////////////////////////////////////////////////////
 //	cPlayer Mediaplayer
@@ -483,6 +537,11 @@ void cSoftHdMenu::MainMenu(void)
 	Add(new cOsdItem(cString::sprintf(tr
 		(" Frames duped(%d) dropped(%d) total(%d)"),
 		duped, dropped, counter), osUnknown, false));
+	if (ConfigDetachFromMainMenu) {
+		Add(new cOsdItem(hk(tr(" Detach SofHdDevice")), osUser3));
+	} else {
+		Add(new cOsdItem(hk(tr(" Suspend SofHdDevice")), osUser3));
+	}
 
 	SetCurrent(Get(current));		// restore selected menu entry
 	Display();
@@ -650,6 +709,25 @@ eOSState cSoftHdMenu::ProcessKey(eKeys key)
 			Path = cPlugin::ConfigDirectory("softhddevice-drm-gles");
 			SelectPL();
 			return osContinue;
+		case osUser3:			// select play list
+			if (SuspendMode == NOT_SUSPENDED && !cSoftHdControl::Player) {
+				cControl::Launch(new cSoftHdDummyControl);
+				cControl::Attach();
+				if (ConfigDetachFromMainMenu) {
+					Suspend(1, 1, 0);
+					SuspendMode = SUSPEND_DETACHED;
+				} else {
+					Suspend(ConfigSuspendClose, ConfigSuspendClose, 0);
+					SuspendMode = SUSPEND_NORMAL;
+				}
+				dsyslog("[softhddev]stopping OpenGL/ES thread osUser3");
+				cSoftOsdProvider::StopOpenGlThread();
+				if (ShutdownHandler.GetUserInactiveTime()) {
+					dsyslog("[softhddev}%s: set user inactive\n", __FUNCTION__);
+					ShutdownHandler.SetUserInactive();
+				}
+			}
+			return osEnd;
 		default:
 			break;
 	}

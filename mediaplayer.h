@@ -20,6 +20,9 @@
 ///	$Id$
 //////////////////////////////////////////////////////////////////////////////
 
+#ifndef __MEDIAPLAYER_H
+#define __MEDIAPLAYER_H
+
 	struct PLEntry {
 		string Path;
 		string File;
@@ -88,6 +91,39 @@ public:
 };
 
 //////////////////////////////////////////////////////////////////////////////
+//	cPlayer - dummy for suspend mode
+//////////////////////////////////////////////////////////////////////////////
+
+/**
+**	Dummy player for suspend mode.
+*/
+class cSoftHdDummyPlayer : public cPlayer
+{
+protected:
+public:
+	cSoftHdDummyPlayer(void);
+	virtual ~ cSoftHdDummyPlayer();
+};
+
+//////////////////////////////////////////////////////////////////////////////
+//	cControl - dummy for suspend mode
+//////////////////////////////////////////////////////////////////////////////
+
+/**
+**	Dummy control class for suspend mode.
+*/
+
+class cSoftHdDummyControl : public cControl
+{
+public:
+	static cSoftHdDummyPlayer *Player;	///< dummy player
+	virtual void Hide(void);		///< hide control
+	virtual eOSState ProcessKey(eKeys);	///< process input events
+	cSoftHdDummyControl(void);		///< control constructor
+	virtual ~cSoftHdDummyControl();		///< control destructor
+};
+
+//////////////////////////////////////////////////////////////////////////////
 //	cOsdMenu
 //////////////////////////////////////////////////////////////////////////////
 
@@ -114,3 +150,5 @@ public:
 	static cSoftHdMenu *pSoftHdMenu;
 	static cSoftHdMenu *Menu() { return pSoftHdMenu; }
 };
+
+#endif

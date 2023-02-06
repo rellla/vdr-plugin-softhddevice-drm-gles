@@ -99,6 +99,11 @@ extern "C"
     extern void Stop(void);
     /// C plugin house keeping
 
+    /// Suspend plugin
+    extern void Suspend(int, int, int);
+    /// Resume plugin
+    extern void Resume(void);
+
     /// Get decoder statistics
     extern void GetStats(int *, int *, int *);
     /// Get parsed width and height

@@ -31,6 +31,7 @@ using std::ifstream;
 #include <vdr/player.h>
 #include <vdr/plugin.h>
 #include <vdr/dvbspu.h>
+#include <vdr/shutdown.h>
 
 #include "softhddevice-drm-gles.h"
 #include "softhddevice_service.h"
@@ -403,6 +404,23 @@ bool cSoftOsdProvider::ProvidesTrueColor(void)
 }
 
 #ifdef USE_GLES
+std::shared_ptr<cOglThread> cSoftOsdProvider::oglThread;	// openGL worker Thread
+
+int cSoftOsdProvider::StoreImageData(const cImage &Image)
+{
+    if (StartOpenGlThread()) {
+        int imgHandle = oglThread->StoreImage(Image);
+        return imgHandle;
+    }
+    return 0;
+}
+
+void cSoftOsdProvider::DropImageData(int imgHandle)
+{
+    if (StartOpenGlThread())
+        oglThread->DropImageData(imgHandle);
+}
+
 const cImage *cSoftOsdProvider::GetImageData(int ImageHandle) {
     return cOsdProvider::GetImageData(ImageHandle);
 }
@@ -414,6 +432,10 @@ void cSoftOsdProvider::OsdSizeChanged(void) {
 }
 
 bool cSoftOsdProvider::StartOpenGlThread(void) {
+    if (SuspendMode != NOT_SUSPENDED) {
+        dsyslog("[sofhddev]detached - Don't try to start openGL worker thread");
+        return false;
+    }
     if (oglThread.get()) {
         if (oglThread->Active()) {
             return true;
@@ -533,9 +555,18 @@ void cMenuSetupSoft::Create(void)
 	Add(new cMenuEditBoolItem(tr("Hide main menu entry"),
 		&HideMainMenuEntry, trVDR("no"), trVDR("yes")));
 	//
+	//	suspend
+	//
+	Add (SeparatorItem(tr("Suspend")));
+	Add(new cMenuEditBoolItem(tr("Detach from main menu entry"),
+		&DetachFromMainMenu, trVDR("no"), trVDR("yes")));
+	Add(new cMenuEditBoolItem(tr("Suspend closes video and audio"),
+		&SuspendClose, trVDR("no"), trVDR("yes")));
+	//
 	//	osd
 	//
 #ifdef USE_GLES
+	Add (SeparatorItem(tr("OpenGL/ES")));
 	Add(new cMenuEditIntItem(tr("GPU mem used for image caching (MB)"), &MaxSizeGPUImageCache, 0, 4000));
 #endif
     }
@@ -694,7 +725,7 @@ cMenuSetupSoft::cMenuSetupSoft(void)
     for (int i = 0; i < 18; i++) {
 		AudioEqBand[i] = SetupAudioEqBand[i];
 	}
-
+    SuspendClose = ConfigSuspendClose;
 #ifdef USE_GLES
     MaxSizeGPUImageCache = ConfigMaxSizeGPUImageCache;
 #endif
@@ -709,6 +740,10 @@ void cMenuSetupSoft::Store(void)
 {
     SetupStore("MakePrimary", ConfigMakePrimary = MakePrimary);
     SetupStore("HideMainMenuEntry", ConfigHideMainMenuEntry = HideMainMenuEntry);
+    // Suspend
+    SetupStore("DetachFromMainMenu", ConfigDetachFromMainMenu = DetachFromMainMenu);
+    SetupStore("Suspend.Close", ConfigSuspendClose = SuspendClose);
+
     SetupStore("AudioDelay", ConfigVideoAudioDelay = AudioDelay);
     VideoSetAudioDelay(ConfigVideoAudioDelay);
 
@@ -816,13 +851,12 @@ void cSoftHdDevice::MakePrimaryDevice(bool on)
 	} else {
 		::Start();
 	}
-
+// rellla todo
 	cDevice::MakePrimaryDevice(on);
 	if (on) {
 		new cSoftOsdProvider();
 	}
 }
-
 
 /**
 **	Get the device SPU decoder.
@@ -873,6 +907,14 @@ bool cSoftHdDevice::SetPlayMode(ePlayMode play_mode)
 #ifdef DEBUG
 	fprintf(stderr, "[softhddev]%s: %d\n", __FUNCTION__, play_mode);
 #endif
+	if (SuspendMode != NOT_SUSPENDED) {
+		Resume();
+		SuspendMode = NOT_SUSPENDED;
+	}
+// rellla todo?
+	if (!cDevice::IsMute())
+		SetVolume(cDevice::CurrentVolume(), true);
+
 	return::SetPlayMode(play_mode);
 }
 
@@ -1293,7 +1335,17 @@ bool cPluginSoftHdDevice::Start(void)
 			DoMakePrimary = MyDevice->DeviceNumber() + 1;
 		}
 	}
-	::Start();
+	switch (::Start()) {
+	case 1:
+		SuspendMode = SUSPEND_NORMAL;
+		break;
+	case -1:
+		SuspendMode = SUSPEND_DETACHED;
+		break;
+	case 0:
+	default:
+		break;
+	}
 
     return true;
 }
@@ -1311,6 +1363,9 @@ void cPluginSoftHdDevice::Stop(void)
 
     ::Stop();
 }
+
+// rellla housekeeping ?
+
 
 /**
 **	Create main menu entry.
@@ -1360,6 +1415,14 @@ bool cPluginSoftHdDevice::SetupParse(const char *name, const char *value)
     }
     if (!strcasecmp(name, "HideMainMenuEntry")) {
 	ConfigHideMainMenuEntry = atoi(value);
+	return true;
+    }
+    if (!strcasecmp(name, "DetachFromMainMenu")) {
+	ConfigDetachFromMainMenu = atoi(value);
+	return true;
+    }
+    if (!strcasecmp(name, "Suspend.Close")) {
+	ConfigSuspendClose = atoi(value);
 	return true;
     }
     if (!strcasecmp(name, "AudioDelay")) {
@@ -1526,6 +1589,10 @@ bool cPluginSoftHdDevice::Service(const char *id, void *data)
 	    return true;
 	}
 
+	if (SuspendMode != NOT_SUSPENDED) {
+	   return false;
+	}
+
 	SoftHDDevice_AtmoGrabService_v1_0_t *r =
 	    (SoftHDDevice_AtmoGrabService_v1_0_t *) data;
 	if (r->structSize != sizeof(SoftHDDevice_AtmoGrabService_v1_0_t)
@@ -1554,6 +1621,10 @@ bool cPluginSoftHdDevice::Service(const char *id, void *data)
 	    return true;
 	}
 
+	if (SuspendMode != NOT_SUSPENDED) {
+	   return false;
+	}
+
 	r = (SoftHDDevice_AtmoGrabService_v1_1_t *) data;
 	r->img = VideoGrabService(&r->size, &r->width, &r->height);
 	if (!r->img) {
@@ -1575,7 +1646,16 @@ bool cPluginSoftHdDevice::Service(const char *id, void *data)
 **	FIXME: translation?
 */
 static const char *SVDRPHelpText[] = {
-	"PLAY Url\n" "    Play the media from the given url.\n",
+	"PLAY Url\n" "    Play the media from the given url.\n"
+	"DETA\n" "    Detach plugin.\n"
+	"ATTA\n" "    Attach plugin.\n"
+	"SUSP\n" "    Suspend plugin.\n"
+	"RESU\n" "    Resume plugin.\n"
+	"STAT\n" "    Display SuspendMode of the plugin.\n\n"
+	    "    reply code is 910 + SuspendMode\n"
+	    "    NOT_SUSPENDED    == 0 (910)\n"
+	    "    SUSPEND_NORMAL   == 1 (911)\n",
+	    "    SUSPEND_DETACHED == 2 (912)\n",
 	NULL
 };
 
@@ -1601,15 +1681,92 @@ cString cPluginSoftHdDevice::SVDRPCommand(const char *command,
 		__attribute__ ((unused)) const char *option,
 		__attribute__ ((unused)) int &reply_code)
 {
-	if (!strcasecmp(command, "PLAY")) {
-#ifdef MEDIA_DEBUG
-		fprintf(stderr, "SVDRPCommand: %s %s\n", command, option);
+#ifdef DEBUG
+	fprintf(stderr, "SVDRPCommand: %s %s\n", command, option);
 #endif
-		cControl::Launch(new cSoftHdControl(option));
-		return "PLAY url";
+	// PLAY
+	if (!strcasecmp(command, "PLAY")) {
+	    cControl::Launch(new cSoftHdControl(option));
+	    return "PLAY url";
 	}
-
-    return NULL;
+	// SUSP
+	if (!strcasecmp(command, "SUSP")) {
+	    if (cSoftHdDummyControl::Player) {   // already suspended
+	        return "can't suspend, SoftHdDevice already suspended!";
+	    }
+	    if (SuspendMode != NOT_SUSPENDED) {
+	        return "SoftHdDevice is already detached!";
+	    }
+	    dsyslog("[softhddev]stopping OpenGL/ES thread svdrp SUSP");
+	    cSoftOsdProvider::StopOpenGlThread();
+	    cControl::Launch(new cSoftHdDummyControl);
+	    cControl::Attach();
+	    Suspend(ConfigSuspendClose, ConfigSuspendClose, 0);
+	    SuspendMode = SUSPEND_NORMAL;
+	    return "SoftHdDevice is suspended";
+	}
+	// RESU
+	if (!strcasecmp(command, "RESU")) {
+	    if (SuspendMode == NOT_SUSPENDED) {
+	        return "SoftHdDevice already resumed!";
+	    }
+	    if (SuspendMode != SUSPEND_NORMAL) {
+	        return "can't resume SoftHdDevice!";
+	    }
+	    if (ShutdownHandler.GetUserInactiveTime()) {
+	        ShutdownHandler.SetUserInactiveTimeout();
+	    }
+	    if (cSoftHdDummyControl::Player) {
+	       cControl::Shutdown();
+	    }
+	    Resume();
+	    SuspendMode = NOT_SUSPENDED;
+	    return "SoftHdDevice is resumed";
+	}
+	// DETA
+	if (!strcasecmp(command, "DETA")) {
+	    if (SuspendMode == SUSPEND_DETACHED) {
+	        return "SoftHdDevice is already detached!";
+	    }
+	    if (cSoftHdDummyControl::Player) {   // already suspended
+	        return "can't detach, SoftHdDevice already suspended!";
+	    }
+	    dsyslog("[softhddev]stopping OpenGL/ES thread svdrp DETA");
+	    cSoftOsdProvider::StopOpenGlThread();
+	    cControl::Launch(new cSoftHdDummyControl);
+	    cControl::Attach();
+	    Suspend(1, 1, 0);
+	    SuspendMode = SUSPEND_DETACHED;
+	    return "SoftHdDevice is detached";
+	}
+	// ATTA
+	if (!strcasecmp(command, "ATTA")) {
+	    if (SuspendMode != SUSPEND_DETACHED) {
+	        return "can't attach, SoftHdDevice is not detached!";
+	    }
+	    if (ShutdownHandler.GetUserInactiveTime()) {
+	        ShutdownHandler.SetUserInactiveTimeout();
+	    }
+	    if (cSoftHdDummyControl::Player) {
+	       cControl::Shutdown();
+	    }
+	    Resume();
+	    SuspendMode = NOT_SUSPENDED;
+	    return "SoftHdDevice is attached";
+	}
+	// STAT
+	if (!strcasecmp(command, "STAT")) {
+	    reply_code = 910 + SuspendMode;
+	    switch (SuspendMode) {
+	    case NOT_SUSPENDED:
+	        return "SuspendMode is NOT_SUSPENDED";
+	    case SUSPEND_NORMAL:
+	        return "SuspendMode is SUSPEND_NORMAL";
+	    case SUSPEND_DETACHED:
+	        return "SuspendMode is SUSPEND_DETACHED";
+	    }
+	}
+	return NULL;
 }
 
 VDRPLUGINCREATOR(cPluginSoftHdDevice);	// Don't touch this!
