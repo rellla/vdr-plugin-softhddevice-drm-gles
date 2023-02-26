@@ -20,6 +20,9 @@
 ///	$Id$
 //////////////////////////////////////////////////////////////////////////////
 
+#ifndef __SOFTHDDEV_H
+#define __SOFTHDDEV_H
+
 #ifdef __cplusplus
 extern "C"
 {
@@ -108,6 +111,9 @@ extern "C"
 
     /// C plugin get video render
     extern void *GetVideoRender(void);
+
 #ifdef __cplusplus
 }
+#endif
+
 #endif

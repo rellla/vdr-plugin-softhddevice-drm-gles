@@ -529,7 +529,7 @@ static int FindDevice(VideoRender * render)
 	}
 
 #ifdef DRM_DEBUG
-	Info(_("FindDevice: DRM have %i connectors, %i crtcs, %i encoders\n"),
+	Info("FindDevice: DRM have %i connectors, %i crtcs, %i encoders\n",
 		resources->count_connectors, resources->count_crtcs,
 		resources->count_encoders);
 #endif
@@ -586,8 +586,8 @@ search_mode:
 	}
 
 	if (!render->mode.hdisplay || !render->mode.vdisplay)
-		Fatal(_("FindDevice: No Monitor Mode found! Give up!\n"));
-	Info(_("FindDevice: Found Monitor Mode %dx%d@%d\n"),
+		Fatal("FindDevice: No Monitor Mode found! Give up!\n");
+	Info("FindDevice: Found Monitor Mode %dx%d@%d\n",
 		render->mode.hdisplay, render->mode.vdisplay, render->mode.vrefresh);
 
 	// find first plane
@@ -714,8 +714,8 @@ search_mode:
 		render->planes[OSD_PLANE]->zpos = render->zpos_primary = best_primary_osd_plane.zpos;
 		render->use_zpos = 1;
 	} else {
-		Fatal(_("FindDevice: No suitable planes found!\n"));
-		Info(_("FindDevice: No suitable planes found!\n"));
+		Fatal("FindDevice: No suitable planes found!\n");
+		Info("FindDevice: No suitable planes found!\n");
 	}
 
 	// fill the plane's properties to speed up SetPropertyRequest later
@@ -789,32 +789,32 @@ search_mode:
 
 	EGL_CHECK(render->eglDisplay = get_platform_display(EGL_PLATFORM_GBM_KHR, render->gbm_device, NULL));
 	if (!render->eglDisplay) {
-		Info(_("initGBM: failed to get eglDisplay\n"));
+		Info("initGBM: failed to get eglDisplay\n");
 		return -1;
 	}
 
 	if (!eglInitialize(render->eglDisplay, &iMajorVersion, &iMinorVersion)) {
-		Info(_("initGBM: eglInitialize failed\n"));
+		Info("initGBM: eglInitialize failed\n");
 	}
 
-	Info(_("[softhddev]Using display %p with EGL version %d.%d"), render->eglDisplay, iMajorVersion, iMinorVersion);
-	EGL_CHECK(Info(_("[softhddev]  EGL Version: \"%s\""), eglQueryString(render->eglDisplay, EGL_VERSION)));
-	EGL_CHECK(Info(_("[softhddev]  EGL Vendor: \"%s\""), eglQueryString(render->eglDisplay, EGL_VENDOR)));
-	EGL_CHECK(Info(_("[softhddev]  EGL Extensions: \"%s\""), eglQueryString(render->eglDisplay, EGL_EXTENSIONS)));
-	EGL_CHECK(Info(_("[softhddev]  EGL APIs: \"%s\""), eglQueryString(render->eglDisplay, EGL_CLIENT_APIS)));
+	Info("[softhddev]Using display %p with EGL version %d.%d", render->eglDisplay, iMajorVersion, iMinorVersion);
+	EGL_CHECK(Info("[softhddev]  EGL Version: \"%s\"", eglQueryString(render->eglDisplay, EGL_VERSION)));
+	EGL_CHECK(Info("[softhddev]  EGL Vendor: \"%s\"", eglQueryString(render->eglDisplay, EGL_VENDOR)));
+	EGL_CHECK(Info("[softhddev]  EGL Extensions: \"%s\"", eglQueryString(render->eglDisplay, EGL_EXTENSIONS)));
+	EGL_CHECK(Info("[softhddev]  EGL APIs: \"%s\"", eglQueryString(render->eglDisplay, EGL_CLIENT_APIS)));
 
 	EGLConfig eglConfig = get_config();
 
 	EGL_CHECK(eglBindAPI(EGL_OPENGL_ES_API));
 	EGL_CHECK(render->eglContext = eglCreateContext(render->eglDisplay, eglConfig, EGL_NO_CONTEXT, context_attribute_list));
 	if (!render->eglContext) {
-		Info(_("initGBM: failed to create eglContext\n"));
+		Info("initGBM: failed to create eglContext\n");
 		return -1;
 	}
 
 	EGL_CHECK(render->eglSurface = get_platform_surface(render->eglDisplay, eglConfig, render->gbm_surface, NULL));
 	if (render->eglSurface == EGL_NO_SURFACE) {
-		Info(_("initGBM: failed to create eglSurface\n"));
+		Info("initGBM: failed to create eglSurface\n");
 		return -1;
 	}
 
@@ -830,7 +830,7 @@ search_mode:
 #endif
 
 #ifdef DRM_DEBUG
-	Info(_("FindDevice: DRM setup CRTC: %i video_plane: %i (%s %lld) osd_plane: %i (%s %lld) use_zpos: %d\n"),
+	Info("FindDevice: DRM setup CRTC: %i video_plane: %i (%s %lld) osd_plane: %i (%s %lld) use_zpos: %d\n",
 		render->crtc_id, render->planes[VIDEO_PLANE]->plane_id,
 		render->planes[VIDEO_PLANE]->type == DRM_PLANE_TYPE_PRIMARY ? "PRIMARY" : "OVERLAY",
 		render->planes[VIDEO_PLANE]->zpos,
@@ -935,7 +935,7 @@ struct drm_buf *drm_get_buf_from_bo(VideoRender *render, struct gbm_bo *bo)
 	if (ret) {
 #ifdef GL_DEBUG
 		fprintf(stderr, "drm_get_buf_from_bo: cannot create framebuffer (%d): %m\n", errno);
-		Fatal(_("drm_get_buf_from_bo: cannot create framebuffer (%d): %m\n"), errno);
+		Fatal("drm_get_buf_from_bo: cannot create framebuffer (%d): %m\n", errno);
 #endif
 		free(buf);
 		return NULL;
@@ -1050,7 +1050,7 @@ static int SetupFB(VideoRender * render, struct drm_buf *buf,
 			buf->handle, buf->pitch, buf->offset, modifier, &buf->fb_id, mod_flags)) {
 
 		fprintf(stderr, "SetupFB: cannot create modifiers framebuffer (%d): %m\n", errno);
-		Fatal(_("SetupFB: cannot create modifiers framebuffer (%d): %m\n"), errno);
+		Fatal("SetupFB: cannot create modifiers framebuffer (%d): %m\n", errno);
 	}
 
 	if (primedata)
@@ -1487,7 +1487,7 @@ static void *DisplayHandlerThread(void * arg)
 
 		tick = GetMsTicks();
 		if (tick - last_tick > 21) {
-			Debug(3, "DisplayHandlerThread: StartCounter %4d %dms\n",
+			Debug("DisplayHandlerThread: StartCounter %4d %dms\n",
 				render->StartCounter, tick - last_tick);
 			fprintf(stderr, "DisplayHandlerThread: StartCounter %4d FramesFilled %d %dms\n",
 				render->StartCounter, atomic_read(&render->FramesFilled), tick - last_tick);
@@ -1630,7 +1630,7 @@ static void *DecodeHandlerThread(void *arg)
 {
 	VideoRender * render = (VideoRender *)arg;
 
-	Debug(3, "video: display thread started\n");
+	Debug("video: display thread started\n");
 
 	pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
 	pthread_setcanceltype(PTHREAD_CANCEL_DEFERRED, NULL);
@@ -1659,7 +1659,7 @@ void VideoThreadExit(void)
 {
 	void *retval;
 
-	Debug(3, "video: video thread canceled\n");
+	Debug("video: video thread canceled\n");
 
 	if (DecodeThread) {
 #ifdef DEBUG
@@ -1667,11 +1667,11 @@ void VideoThreadExit(void)
 #endif
 		// FIXME: can't cancel locked
 		if (pthread_cancel(DecodeThread)) {
-			Error(_("video: can't queue cancel video display thread\n"));
+			Error("video: can't queue cancel video display thread\n");
 			fprintf(stderr, "VideoThreadExit: can't queue cancel video display thread\n");
 		}
 		if (pthread_join(DecodeThread, &retval) || retval != PTHREAD_CANCELED) {
-			Error(_("video: can't cancel video display thread\n"));
+			Error("video: can't cancel video display thread\n");
 			fprintf(stderr, "VideoThreadExit: can't cancel video display thread\n");
 		}
 		DecodeThread = 0;
@@ -1685,11 +1685,11 @@ void VideoThreadExit(void)
 		fprintf(stderr, "VideoThreadExit: cancel display thread\n");
 #endif
 		if (pthread_cancel(DisplayThread)) {
-			Error(_("video: can't cancel DisplayHandlerThread thread\n"));
+			Error("video: can't cancel DisplayHandlerThread thread\n");
 			fprintf(stderr, "VideoThreadExit: can't cancel DisplayHandlerThread thread\n");
 		}
 		if (pthread_join(DisplayThread, &retval) || retval != PTHREAD_CANCELED) {
-			Error(_("video: can't cancel video display thread\n"));
+			Error("video: can't cancel video display thread\n");
 			fprintf(stderr, "VideoThreadExit: can't cancel video display thread\n");
 		}
 		DisplayThread = 0;
@@ -1745,7 +1745,7 @@ VideoRender *VideoNewRender(VideoStream * stream)
 	VideoRender *render;
 
 	if (!(render = calloc(1, sizeof(*render)))) {
-		Error(_("video/DRM: out of memory\n"));
+		Error("video/DRM: out of memory\n");
 		return NULL;
 	}
 	atomic_set(&render->FramesFilled, 0);
@@ -1768,7 +1768,7 @@ void VideoDelRender(VideoRender * render)
     if (render) {
 #ifdef DEBUG
 		if (!pthread_equal(pthread_self(), DecodeThread)) {
-			Debug(3, "video: should only be called from inside the thread\n");
+			Debug("video: should only be called from inside the thread\n");
 		}
 #endif
 		free(render);
@@ -2247,7 +2247,7 @@ void VideoPlay(VideoRender * render)
 ///
 uint8_t *VideoGrab(int *size, int *width, int *height, int write_header)
 {
-    Debug(3, "video: no grab service\n");
+    Debug("video: no grab service\n");
 
     (void)write_header;
     (void)size;
@@ -2265,8 +2265,8 @@ uint8_t *VideoGrab(int *size, int *width, int *height, int write_header)
 ///
 uint8_t *VideoGrabService(int *size, int *width, int *height)
 {
-    Debug(3, "video: no grab service\n");
-	Warning(_("softhddev: grab unsupported\n"));
+    Debug("video: no grab service\n");
+	Warning("softhddev: grab unsupported\n");
 
     (void)size;
     (void)width;
@@ -2372,7 +2372,7 @@ void VideoInit(VideoRender * render)
 	render->buf_osd.height = render->mode.vdisplay;
 	if (SetupFB(render, &render->buf_osd, NULL)){
 		fprintf(stderr, "VideoOsdInit: SetupFB FB OSD failed\n");
-		Fatal(_("VideoOsdInit: SetupFB FB OSD failed!\n"));
+		Fatal("VideoOsdInit: SetupFB FB OSD failed!\n");
 	}
 #endif
 

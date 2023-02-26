@@ -705,7 +705,7 @@ static void *DisplayHandlerThread(void *arg)
 {
 	VideoRender * render = (VideoRender *)arg;
 
-	Debug(3, "video: display thread started\n");
+	Debug("video: display thread started\n");
 
 	pthread_setcancelstate (PTHREAD_CANCEL_ENABLE, NULL);
 	pthread_setcanceltype(PTHREAD_CANCEL_DEFERRED, NULL);
@@ -738,15 +738,15 @@ void VideoThreadExit(void)
     if (VideoThread) {
 		void *retval;
 
-		Debug(3, "video: video thread canceled\n");
+		Debug("video: video thread canceled\n");
 
 		// FIXME: can't cancel locked
 		if (pthread_cancel(VideoThread)) {
-			Error(_("video: can't queue cancel video display thread\n"));
+			Error("video: can't queue cancel video display thread\n");
 			fprintf(stderr, "VideoThreadExit: can't queue cancel video display thread\n");
 		}
 		if (pthread_join(VideoThread, &retval) || retval != PTHREAD_CANCELED) {
-			Error(_("video: can't cancel video display thread\n"));
+			Error("video: can't cancel video display thread\n");
 			fprintf(stderr, "VideoThreadExit: can't cancel video display thread\n");
 		}
 		VideoThread = 0;
@@ -790,7 +790,7 @@ VideoRender *VideoNewRender(VideoStream * stream)
 	VideoRender *render;
 
 	if (!(render = calloc(1, sizeof(*render)))) {
-		Error(_("video/MMAL: out of memory\n"));
+		Error("video/MMAL: out of memory\n");
 		return NULL;
 	}
 
@@ -976,7 +976,7 @@ void VideoPause( __attribute__ ((unused)) VideoRender * render)
 ///
 void VideoSetTrickSpeed(VideoRender * render, int speed)
 {
-	Debug(3, "video: set trick-speed %d\n", speed);
+	Debug("video: set trick-speed %d\n", speed);
 	render->TrickSpeed = speed;
 	render->TrickCounter = speed;
 	if (speed) {
@@ -1011,7 +1011,7 @@ void VideoPlay(VideoRender * render)
 ///
 uint8_t *VideoGrab(int *size, int *width, int *height, int write_header)
 {
-    Debug(3, "video: no grab service\n");
+    Debug("video: no grab service\n");
 
     (void)write_header;
     (void)size;
@@ -1029,8 +1029,8 @@ uint8_t *VideoGrab(int *size, int *width, int *height, int write_header)
 ///
 uint8_t *VideoGrabService(int *size, int *width, int *height)
 {
-    Debug(3, "video: no grab service\n");
-	Warning(_("softhddev: grab unsupported\n"));
+    Debug("video: no grab service\n");
+	Warning("softhddev: grab unsupported\n");
 
     (void)size;
     (void)width;

@@ -279,7 +279,7 @@ static void AudioNormalizer(int16_t * samples, int count)
 		} else {
 		    factor = 1000;
 		}
-		Debug(4, "audio/noramlize: avg %8d, fac=%6.3f, norm=%6.3f\n",
+		Debug("audio/noramlize: avg %8d, fac=%6.3f, norm=%6.3f\n",
 		    avg, factor / 1000.0, AudioNormalizeFactor / 1000.0);
 	    }
 
@@ -359,7 +359,7 @@ static void AudioCompressor(int16_t * samples, int count)
 		return;				// silent nothing todo
     }
 
-    Debug(4, "audio/compress: max %5d, fac=%6.3f, com=%6.3f\n", max_sample,
+    Debug("audio/compress: max %5d, fac=%6.3f, com=%6.3f\n", max_sample,
 	factor / 1000.0, AudioCompressionFactor / 1000.0);
 
     // apply compression factor
@@ -662,7 +662,7 @@ static void xrun_recovery(void)
 	err = snd_pcm_prepare(AlsaPCMHandle);
 	if (err < 0) {
 		state = snd_pcm_state(AlsaPCMHandle);
-		Error(_("audio/alsa: Can't recovery from xrun: %s pcm state: %s\n"),
+		Error("audio/alsa: Can't recovery from xrun: %s pcm state: %s\n",
 			snd_strerror(err), snd_pcm_state_name(state));
 	}
 }
@@ -682,17 +682,17 @@ static void AlsaFlushBuffers(void)
 	state = snd_pcm_state(AlsaPCMHandle);
 	if (state != SND_PCM_STATE_OPEN) {
 		if ((err = snd_pcm_drop(AlsaPCMHandle)) < 0) {
-			Error(_("audio: snd_pcm_drop(): %s\n"), snd_strerror(err));
+			Error("audio: snd_pcm_drop(): %s\n", snd_strerror(err));
 			fprintf(stderr, "AlsaFlushBuffers: snd_pcm_drop(): %s\n", snd_strerror(err));
 		}
 		// ****ing alsa crash, when in open state here
 		if ((err = snd_pcm_prepare(AlsaPCMHandle)) < 0) {
-			Error(_("audio: snd_pcm_prepare(): %s\n"), snd_strerror(err));
+			Error("audio: snd_pcm_prepare(): %s\n", snd_strerror(err));
 			fprintf(stderr, "AlsaFlushBuffers: snd_pcm_prepare(): %s\n",
 				snd_strerror(err));
 		}
 	state = snd_pcm_state(AlsaPCMHandle);
-	Debug(3, "audio/AlsaFlushBuffers: pcm state %s\n", snd_pcm_state_name(state));
+	Debug("audio/AlsaFlushBuffers: pcm state %s\n", snd_pcm_state_name(state));
 	}
 
 	RingBufferReset(AudioRingBuffer);
@@ -748,13 +748,13 @@ static int AlsaPlayer(void)
 			if (err >= 0) {
 				continue;
 			}
-			Error(_("audio/alsa: snd_pcm_avail_update(): %s\n"),
+			Error("audio/alsa: snd_pcm_avail_update(): %s\n",
 				snd_strerror(n));
 			return -1;
 		}
 		avail = snd_pcm_frames_to_bytes(AlsaPCMHandle, n);
 		if (avail < 256) {		// too much overhead
-			Debug(4, "audio/alsa: break state '%s'\n",
+			Debug("audio/alsa: break state '%s'\n",
 				snd_pcm_state_name(snd_pcm_state(AlsaPCMHandle)));
 			break;
 		}
@@ -793,18 +793,18 @@ static int AlsaPlayer(void)
 				if (err == -EAGAIN) {
 					continue;
 				}
-				Warning(_("audio/alsa: writei underrun error? '%s'\n"),
+				Warning("audio/alsa: writei underrun error? '%s'\n",
 					snd_strerror(err));
 				err = snd_pcm_recover(AlsaPCMHandle, err, 0);
 				if (err >= 0) {
 					continue;
 				}
-				Error(_("audio/alsa: snd_pcm_writei failed: %s\n"),
+				Error("audio/alsa: snd_pcm_writei failed: %s\n",
 					snd_strerror(err));
 				return -1;
 			}
 			// this could happen, if underrun happened
-			Warning(_("audio/alsa: not all frames written\n"));
+			Warning("audio/alsa: not all frames written\n");
 			avail = snd_pcm_frames_to_bytes(AlsaPCMHandle, err);
 			break;
 		}
@@ -828,7 +828,7 @@ static void AlsaInitPCM(void)
 
 		device = "default";
 	}
-	Info(_("audio/alsa: using %sdevice '%s'\n"),
+	Info("audio/alsa: using %sdevice '%s'\n",
 		Passthrough ? "pass-through " : "", device);
 #if 0
     // for AC3 pass-through try to set the non-audio bit, use AES0=6 to set spdif in raw mode
@@ -845,7 +845,7 @@ static void AlsaInitPCM(void)
 	    // no alsa parameters
 	    strcpy(buf + n, ":AES=6");
 	}
-	Debug(3, "audio/alsa: try '%s'\n", buf);
+	Debug("audio/alsa: try '%s'\n", buf);
     }
 #endif
 	// open none blocking; if device is already used, we don't want wait
@@ -854,12 +854,12 @@ static void AlsaInitPCM(void)
 
 		fprintf(stderr, "AlsaOpenPCM: playback open '%s' error: %s\n",
 			device, snd_strerror(err));
-		Fatal(_("audio/alsa: playback open '%s' error: %s\n"), device,
+		Fatal("audio/alsa: playback open '%s' error: %s\n", device,
 			snd_strerror(err));
 	}
 
 	if ((err = snd_pcm_nonblock(AlsaPCMHandle, 0)) < 0) {
-		Error(_("audio/alsa: can't set block mode: %s\n"), snd_strerror(err));
+		Error("audio/alsa: can't set block mode: %s\n", snd_strerror(err));
 	}
 }
 
@@ -905,7 +905,7 @@ static void AlsaInitMixer(void)
 			channel = "PCM";
 		}
     }
-    Debug(3, "audio/alsa: mixer %s - %s open\n", device, channel);
+    Debug("audio/alsa: mixer %s - %s open\n", device, channel);
     snd_mixer_open(&alsa_mixer, 0);
     if (alsa_mixer && snd_mixer_attach(alsa_mixer, device) >= 0
 		&& snd_mixer_selem_register(alsa_mixer, NULL, NULL) >= 0
@@ -922,7 +922,7 @@ static void AlsaInitMixer(void)
 			snd_mixer_selem_get_playback_volume_range(alsa_mixer_elem,
 				&alsa_mixer_elem_min, &alsa_mixer_elem_max);
 			AlsaRatio = 1000 * (alsa_mixer_elem_max - alsa_mixer_elem_min);
-			Debug(3, "audio/alsa: PCM mixer found %ld - %ld ratio %d\n",
+			Debug("audio/alsa: PCM mixer found %ld - %ld ratio %d\n",
 				alsa_mixer_elem_min, alsa_mixer_elem_max, AlsaRatio);
 			break;
 			}
@@ -933,7 +933,7 @@ static void AlsaInitMixer(void)
 		AlsaMixer = alsa_mixer;
 		AlsaMixerElem = alsa_mixer_elem;
     } else {
-		Error(_("audio/alsa: can't open mixer '%s'\n"), device);
+		Error("audio/alsa: can't open mixer '%s'\n", device);
     }
 }
 
@@ -973,7 +973,7 @@ static int AlsaSetup(int channels, int sample_rate, __attribute__ ((unused)) int
 
 	state = snd_pcm_state(AlsaPCMHandle);
 	if (state == SND_PCM_STATE_XRUN) {
-		Error(_("audio/AlsaSetup: recover from xrun pcm state: %s\n"),
+		Error("audio/AlsaSetup: recover from xrun pcm state: %s\n",
 			snd_pcm_state_name(state));
 		xrun_recovery();
 	}
@@ -1026,11 +1026,11 @@ static int AlsaSetup(int channels, int sample_rate, __attribute__ ((unused)) int
 		buffer_time))) {
 
 		state = snd_pcm_state(AlsaPCMHandle);
-		Fatal(_("audio/alsa: set params error: %s\n"
+		Fatal("audio/alsa: set params error: %s\n"
 			"AlsaSetup: Channels %d SampleRate %d\n"
 			"           HWChannels %d HWSampleRate %d SampleFormat %s\n"
 			"           Supports pause: %s mmap: %s\n"
-			"           AlsaBufferTime %dms pcm state: %s\n"),
+			"           AlsaBufferTime %dms pcm state: %s\n",
 			snd_strerror(err), channels, sample_rate, HwChannels,
 			HwSampleRate, snd_pcm_format_name(SND_PCM_FORMAT_S16),
 			AlsaCanPause ? "yes" : "no", AlsaUseMmap ? "yes" : "no",
@@ -1057,10 +1057,10 @@ static int AlsaSetup(int channels, int sample_rate, __attribute__ ((unused)) int
 		AudioStartThreshold = AudioRingBufferSize / 3;
 	}
 
-	Info(_("AlsaSetup: Channels %d SampleRate %d\n"
+	Info("AlsaSetup: Channels %d SampleRate %d\n"
 		"           HWChannels %d HWSampleRate %d SampleFormat %s\n"
 		"           Supports pause: %s mmap: %s\n"
-		"           AlsaBufferTime %dms AudioBufferTime %dms Threshold %ums\n"),
+		"           AlsaBufferTime %dms AudioBufferTime %dms Threshold %ums\n",
 		channels, sample_rate, HwChannels, HwSampleRate,
 		snd_pcm_format_name(SND_PCM_FORMAT_S16),
 		AlsaCanPause ? "yes" : "no", AlsaUseMmap ? "yes" : "no",
@@ -1141,12 +1141,12 @@ static void *AudioPlayHandlerThread(void *dummy)
 	for (;;) {
 		// check if we should stop the thread
 		if (AudioThreadStop) {
-			Debug(3, "audio: play thread stopped\n");
+			Debug("audio: play thread stopped\n");
 			fprintf(stderr, "AudioPlayHandlerThread: play thread stopped\n");
 			return PTHREAD_CANCELED;
 		}
 
-		Debug(3, "audio: wait on start condition\n");
+		Debug("audio: wait on start condition\n");
 		if (!AudioPaused) {
 //			fprintf(stderr, "AudioPlayHandlerThread: => AlsaFlushBuffers\n");
 			AlsaFlushBuffers();
@@ -1165,14 +1165,14 @@ static void *AudioPlayHandlerThread(void *dummy)
 #ifdef DEBUG
 		fprintf(stderr, "AudioPlayHandlerThread: nach pthread_cond_wait ----> %dms start\n",
 			(AudioUsedBytes() * 1000) / (HwSampleRate * HwChannels * AudioBytesProSample));
-		Debug(3, "audio: ----> %dms start\n", (AudioUsedBytes() * 1000)
+		Debug("audio: ----> %dms start\n", (AudioUsedBytes() * 1000)
 			/ (!HwSampleRate + !HwChannels +
 			HwSampleRate * HwChannels * AudioBytesProSample));
 #endif
 
 		do {
 			if (AudioThreadStop) {
-				Debug(3, "audio: play thread stopped\n");
+				Debug("audio: play thread stopped\n");
 				return PTHREAD_CANCELED;
 			}
 
@@ -1208,14 +1208,14 @@ static void AudioExitThread(void)
 {
     void *retval;
 
-    Debug(3, "audio: %s\n", __FUNCTION__);
+    Debug("audio: %s\n", __FUNCTION__);
 
     if (AudioThread) {
 	AudioThreadStop = 1;
 	AudioRunning = 1;		// wakeup thread, if needed
 	pthread_cond_signal(&AudioStartCond);
 	if (pthread_join(AudioThread, &retval) || retval != PTHREAD_CANCELED) {
-	    Error(_("audio: can't cancel play thread\n"));
+	    Error("audio: can't cancel play thread\n");
 	}
 	pthread_cond_destroy(&AudioStartCond);
 	pthread_mutex_destroy(&AudioRbMutex);
@@ -1258,7 +1258,7 @@ void AudioEnqueue(AVFrame *frame)
 	pthread_mutex_lock(&AudioRbMutex);
 	n = RingBufferWrite(AudioRingBuffer, buffer, count);
 	if (n != (size_t) count) {
-		Error(_("audio: can't place %d samples in ring buffer\n"), count);
+		Error("audio: can't place %d samples in ring buffer\n", count);
 		fprintf(stderr, "AudioEnqueue: can't place %d samples in ring buffer\n", count);
 	}
 	PTS = frame->pts + (frame->nb_samples * timebase->den /
@@ -1272,7 +1272,7 @@ void AudioEnqueue(AVFrame *frame)
 		skip = AudioSkip;
 		// FIXME: round to packet size
 
-		Debug(3, "audio: start? in Rb %4zdms to skip %dms\n",
+		Debug("audio: start? in Rb %4zdms to skip %dms\n",
 			n * 1000 / HwSampleRate / HwChannels / AudioBytesProSample,
 			skip * 1000 / HwSampleRate / HwChannels / AudioBytesProSample);
 #ifdef AV_SYNC_DEBUG
@@ -1407,7 +1407,7 @@ int AudioVideoReady(int64_t video_pts)
 
 	// no valid audio known
 	if (PTS == AV_NOPTS_VALUE) {
-		Debug(3, "audio: a/v start, no valid audio\n");
+		Debug("audio: a/v start, no valid audio\n");
 //		fprintf(stderr, "AudioVideoReady: can't a/v start, no valid PTS\n");
 		return -1;
 	}
@@ -1429,7 +1429,7 @@ int AudioVideoReady(int64_t video_pts)
 			AudioSkip = skip - used;
 			skip = used;
 		}
-		Debug(3, "AudioVideoReady: RB %" PRId64 "ms skip %dms to skip %dms\n",
+		Debug("AudioVideoReady: RB %" PRId64 "ms skip %dms to skip %dms\n",
 			used * 1000 / HwSampleRate / HwChannels / AudioBytesProSample,
 			skip * 1000 / HwSampleRate / HwChannels / AudioBytesProSample,
 			AudioSkip * 1000 / HwSampleRate / HwChannels / AudioBytesProSample);
@@ -1521,13 +1521,13 @@ int64_t AudioGetClock(void)
 	pthread_mutex_lock(&AudioRbMutex);
 	// delay in frames in alsa + kernel buffers
 	if (snd_pcm_delay(AlsaPCMHandle, &delay) < 0) {
-		//Debug(3, "audio/alsa: no hw delay\n");
+		//Debug("audio/alsa: no hw delay\n");
 		printf("AudioGetClock: no hw delay\n");
 		delay = 0L;
 	}
 
 	if (delay < 0) {
-		Info(_("AudioGetClock: delay < 0\n"));
+		Info("AudioGetClock: delay < 0\n");
 		delay = 0L;
 	}
 
@@ -1572,12 +1572,12 @@ void AudioPlay(void)
 	int err;
 
 	if (!AudioPaused && !AlsaCanPause) {
-		Debug(3, "audio: not paused, check the code\n");
+		Debug("audio: not paused, check the code\n");
 #ifdef DEBUG
 		fprintf(stderr, "AudioPlay: not paused, check the code\n");
 #endif
 	}
-	Debug(3, "AudioPlay: resumed\n");
+	Debug("AudioPlay: resumed\n");
 	if (AlsaCanPause) {
 		snd_pcm_state_t state;
 		state = snd_pcm_state(AlsaPCMHandle);
@@ -1586,7 +1586,7 @@ void AudioPlay(void)
 			fprintf(stderr, "AudioPlay: state paused, try snd_pcm_pause(0)!\n");
 #endif
 			if ((err = snd_pcm_pause(AlsaPCMHandle, 0))) {
-				Error(_("AudioPlay: snd_pcm_pause(): %s\n"), snd_strerror(err));
+				Error("AudioPlay: snd_pcm_pause(): %s\n", snd_strerror(err));
 			}
 		}
 	} else {
@@ -1605,13 +1605,13 @@ void AudioPause(void)
 	int err;
 
 	if (AudioPaused) {
-		Debug(3, "AudioPause: already paused, check the code\n");
+		Debug("AudioPause: already paused, check the code\n");
 #ifdef DEBUG
 		fprintf(stderr, "AudioPause: already paused, check the code\n");
 #endif
 	return;
 	}
-	Debug(3, "AudioPause: paused\n");
+	Debug("AudioPause: paused\n");
 	if (AlsaCanPause) {
 		snd_pcm_state_t state;
 		state = snd_pcm_state(AlsaPCMHandle);
@@ -1620,7 +1620,7 @@ void AudioPause(void)
 			fprintf(stderr, "AudioPlay: state running, try snd_pcm_pause(1)!\n");
 #endif
 			if ((err = snd_pcm_pause(AlsaPCMHandle, 1))) {
-				Error(_("AudioPause: snd_pcm_pause(): %s\n"), snd_strerror(err));
+				Error("AudioPause: snd_pcm_pause(): %s\n", snd_strerror(err));
 			}
 		}
 	} else {
@@ -1785,7 +1785,7 @@ void AudioInit(void)
 */
 void AudioExit(void)
 {
-	Debug(3, "audio: %s\n", __FUNCTION__);
+	Debug("audio: %s\n", __FUNCTION__);
 
 	AudioExitThread();
 	AlsaExit();

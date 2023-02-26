@@ -7,6 +7,8 @@
 #include <stdlib.h>
 #include <sys/ioctl.h>
 
+#include "misc.h"
+
 #ifdef WRITE_PNG
 #include <png.h>
 #endif

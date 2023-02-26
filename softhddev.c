@@ -117,6 +117,26 @@ void PrintStreamData(const uint8_t *data, int size)
 		data[27], data[28], data[29], data[30], data[31], data[32], data[33], data[34], size);
 }
 
+/**
+**	Read if there a PES packet length in PES header.
+**
+**	@returns 0 or 1
+*/
+static inline int PesHasLength(const uint8_t *p)
+{
+  return p[4] | p[5];
+}
+
+/**
+**	Read the PES packet length from PES header.
+**
+**	@returns length
+*/
+static inline int PesLength(const uint8_t *p)
+{
+  return 6 + p[4] * 256 + p[5];
+}
+
 //////////////////////////////////////////////////////////////////////////////
 //	Audio codec parser
 //////////////////////////////////////////////////////////////////////////////
@@ -254,8 +274,7 @@ static int MpegCheck(const uint8_t * data, int size)
 	    break;
     }
     if (0) {
-	Debug(3,
-	    "pesdemux: mpeg%s layer%d bitrate=%d samplerate=%d %d bytes\n",
+	Debug("pesdemux: mpeg%s layer%d bitrate=%d samplerate=%d %d bytes\n",
 	    mpeg25 ? "2.5" : mpeg2 ? "2" : "1", layer, bit_rate, sample_rate,
 	    frame_size);
     }
@@ -543,17 +562,17 @@ int PlayAudio(const uint8_t * data, int size, uint8_t id)
 	// ID 0xBD 0xC0-0xCF
 	// must be a PES start code
 	if (size < 9 || !data || data[0] || data[1] || data[2] != 0x01) {
-		Error(_("[softhddev] invalid PES audio packet\n"));
+		Error("[softhddev] invalid PES audio packet\n");
 		return size;
 	}
 	n = data[8];			// header size
 
 	if (size < 9 + n + 4) {		// wrong size
 		if (size == 9 + n) {
-			Warning(_("[softhddev] empty audio packet\n"));
+			Warning("[softhddev] empty audio packet\n");
 			fprintf(stderr, "PlayAudio: empty audio packet!\n");
 		} else {
-			Error(_("[softhddev] invalid audio packet %d bytes\n"), size);
+			Error("[softhddev] invalid audio packet %d bytes\n", size);
 			fprintf(stderr, "PlayAudio: invalid audio packet %d bytes\n", size);
 		}
 		fprintf(stderr, "PlayAudio: wrong size\n");
@@ -564,7 +583,7 @@ int PlayAudio(const uint8_t * data, int size, uint8_t id)
 		AudioAvPkt->pts =
 			(int64_t) (data[9] & 0x0E) << 29 | data[10] << 22 | (data[11] &
 			0xFE) << 14 | data[12] << 7 | (data[13] & 0xFE) >> 1;
-		//Debug(3, "audio: pts %#012" PRIx64 "\n", AudioAvPkt->pts);
+		//Debug("audio: pts %#012" PRIx64 "\n", AudioAvPkt->pts);
 	} else {
 		fprintf(stderr, "PlayAudio: No PTS!\n");
 	}
@@ -572,7 +591,7 @@ int PlayAudio(const uint8_t * data, int size, uint8_t id)
 	p = data + 9 + n;
 	n = size - 9 - n;			// skip pes header
 	if (n + AudioAvPkt->stream_index > AudioAvPkt->size) {
-		Fatal(_("[softhddev] audio buffer too small needed %d avail %d\n"),
+		Fatal("[softhddev] audio buffer too small needed %d avail %d\n",
 			n + AudioAvPkt->stream_index, AudioAvPkt->size);
 		fprintf(stderr, "PlayAudio: audio buffer too small needed %d avail %d\n",
 			n + AudioAvPkt->stream_index, AudioAvPkt->size);
@@ -582,12 +601,12 @@ int PlayAudio(const uint8_t * data, int size, uint8_t id)
 	if (AudioChannelID != id) {		// id changed audio track changed
 		AudioChannelID = id;
 		AudioCodecID = AV_CODEC_ID_NONE;
-		Debug(3, "audio/demux: new channel id\n");
+		Debug("audio/demux: new channel id\n");
 	}
 	// Private stream + LPCM ID
 	if ((id & 0xF0) == 0xA0) {
 		if (n < 7) {
-			Error(_("[softhddev] invalid LPCM audio packet %d bytes\n"), size);
+			Error("[softhddev] invalid LPCM audio packet %d bytes\n", size);
 			return size;
 		}
 /*		if (AudioCodecID != AV_CODEC_ID_PCM_DVD) {
@@ -596,7 +615,7 @@ int PlayAudio(const uint8_t * data, int size, uint8_t id)
 	    int channels;
 	    int bits_per_sample;
 
-	    Debug(3, "[softhddev]%s: LPCM %d sr:%d bits:%d chan:%d\n",
+	    Debug("[softhddev]%s: LPCM %d sr:%d bits:%d chan:%d\n",
 		__FUNCTION__, id, p[5] >> 4, (((p[5] >> 6) & 0x3) + 4) * 4,
 		(p[5] & 0x7) + 1);
 	    CodecAudioClose(MyAudioDecoder);
@@ -615,12 +634,12 @@ int PlayAudio(const uint8_t * data, int size, uint8_t id)
 //	    AudioSetBufferTime(400);
 //	    AudioSetup(&samplerate, &channels, 0);
 	    if (samplerate != samplerates[p[5] >> 4]) {
-		Error(_("[softhddev] LPCM %d sample-rate is unsupported\n"),
+		Error("[softhddev] LPCM %d sample-rate is unsupported\n",
 		    samplerates[p[5] >> 4]);
 		// FIXME: support resample
 	    }
 	    if (channels != (p[5] & 0x7) + 1) {
-		Error(_("[softhddev] LPCM %d channels are unsupported\n"),
+		Error("[softhddev] LPCM %d channels are unsupported\n",
 		    (p[5] & 0x7) + 1);
 		// FIXME: support resample
 	    }
@@ -702,7 +721,7 @@ int PlayAudio(const uint8_t * data, int size, uint8_t id)
 			}
 			avpkt = av_packet_alloc();
 			if (avpkt == NULL) {
-				Error(_("[softhddev] avpkt allocation failed\n"));
+				Error("[softhddev] avpkt allocation failed\n");
 				fprintf(stderr, "[softhddev] avpkt allocation failed\n");
 				continue;
 			};
@@ -763,7 +782,7 @@ void ResetChannelId(void)
 	fprintf(stderr, "ResetChannelId:\n");
 #endif
     AudioChannelID = -1;
-    Debug(3, "audio/demux: reset channel id\n");
+    Debug("audio/demux: reset channel id\n");
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -963,7 +982,7 @@ static void VideoPacketInit(VideoStream * stream)
 
 		avpkt = &stream->PacketRb[i];
 		if (av_new_packet(avpkt, VIDEO_BUFFER_SIZE)) {
-			Fatal(_("[softhddev] out of memory\n"));
+			Fatal("[softhddev] out of memory\n");
 		}
 		avpkt->size = 0;
 	}
@@ -1019,7 +1038,7 @@ static void VideoEnqueue(VideoStream * stream, int64_t pts, const void *data,
 
 	if ((size_t)(avpkt->size + size) >= avpkt->buf->size) {
 		int pkt_size = avpkt->size;
-		Warning(_("video: packet buffer too small for %d\n"),
+		Warning("video: packet buffer too small for %d\n",
 			avpkt->size + size);
 		av_grow_packet(avpkt, size);
 		avpkt->size = pkt_size;
@@ -1184,19 +1203,19 @@ int PlayVideo(const uint8_t * data, int size)
 			if (stream->CodecID == AV_CODEC_ID_NONE) {
 				// MPEG2 I-Frame
 				if (data[i + n + 3] == 0xb3) {
-					Debug(3, "video: mpeg2 detected\n");
+					Debug("video: mpeg2 detected\n");
 					stream->CodecID = AV_CODEC_ID_MPEG2VIDEO;
 					goto newstream;
 				}
 				// H264 I-Frame
 				if (data[i + n + 4] == 0x10 || data[i + n + 10] == 0x64) {
-					Debug(3, "video: H264 detected\n");
+					Debug("video: H264 detected\n");
 					stream->CodecID = AV_CODEC_ID_H264;
 					goto newstream;
 				}
 				// HEVC I-Frame
 				if (data[i + n + 5] == 0x10 || data[i + n + 10] == 0x40) {
-					Debug(3, "video: hevc detected\n");
+					Debug("video: hevc detected\n");
 					stream->CodecID = AV_CODEC_ID_HEVC;
 newstream:
 					stream->NewStream = 1;
@@ -1231,7 +1250,7 @@ newstream:
 void StillPicture(const uint8_t * data, int size)
 {
 	AVPacket *avpkt;
-	const uint8_t * pos;
+	const uchar * pos;
 	int size_rest;
 	int codec = AV_CODEC_ID_NONE;
 	int i;
@@ -1285,7 +1304,7 @@ void StillPicture(const uint8_t * data, int size)
 #endif
 		if ((size_t)(avpkt->size + pes_length - head_length - i) >= avpkt->buf->size) {
 			int pkt_size = avpkt->size;
-			Warning(_("video: packet buffer too small for %d\n"),
+			Warning("video: packet buffer too small for %d\n",
 				avpkt->size + pes_length - head_length - i);
 			av_grow_packet(avpkt, pes_length - head_length - i);
 			avpkt->size = pkt_size;
@@ -1666,7 +1685,7 @@ int SetPlayMode(int play_mode)
 		VideoThreadExit();
 		break;
 	case 3:			// audio only (black screen)
-		Debug(3, "softhddev: FIXME: audio only, silence video errors\n");
+		Debug("softhddev: FIXME: audio only, silence video errors\n");
 		VideoThreadWakeup(MyVideoStream->Render, 1, 1);
 		//Play();
 		break;
@@ -1770,7 +1789,7 @@ int64_t GetSTC(void)
 		return VideoGetClock(MyVideoStream->Render);
 	}
     // could happen during dettached
-    Warning(_("softhddev: %s called without hw decoder\n"), __FUNCTION__);
+    Warning("softhddev: %s called without hw decoder\n", __FUNCTION__);
     return AV_NOPTS_VALUE;
 }
 

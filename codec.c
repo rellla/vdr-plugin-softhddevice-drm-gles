@@ -98,7 +98,7 @@ VideoDecoder *CodecVideoNewDecoder(VideoRender * render)
     VideoDecoder *decoder;
 
     if (!(decoder = calloc(1, sizeof(*decoder)))) {
-		Fatal(_("codec: can't allocate vodeo decoder\n"));
+		Fatal("codec: can't allocate vodeo decoder\n");
     }
     decoder->Render = render;
 
@@ -233,7 +233,7 @@ void CodecVideoOpen(VideoDecoder * decoder, int codec_id, AVCodecParameters * Pa
 	if (err < 0) {
 		fprintf(stderr, "CodecVideoOpen: Error opening the decoder: %s\n",
 			av_err2str(err));
-		Fatal(_("CodecVideoOpen: Error opening the decoder: %s\n"),
+		Fatal("CodecVideoOpen: Error opening the decoder: %s\n",
 			av_err2str(err));
 	}
 }
@@ -337,7 +337,7 @@ int CodecVideoReceiveFrame(VideoDecoder * decoder, int no_deint)
 	int ret;
 
 	if (!(decoder->Frame = av_frame_alloc())) {
-		Fatal(_("CodecVideoReceiveFrame: can't allocate decoder frame\n"));
+		Fatal("CodecVideoReceiveFrame: can't allocate decoder frame\n");
 	}
 
 	pthread_mutex_lock(&CodecLockMutex);
@@ -433,10 +433,10 @@ AudioDecoder *CodecAudioNewDecoder(void)
     AudioDecoder *audio_decoder;
 
     if (!(audio_decoder = calloc(1, sizeof(*audio_decoder)))) {
-		Fatal(_("codec: can't allocate audio decoder\n"));
+		Fatal("codec: can't allocate audio decoder\n");
     }
     if (!(audio_decoder->Frame = av_frame_alloc())) {
-		Fatal(_("codec: can't allocate audio decoder frame buffer\n"));
+		Fatal("codec: can't allocate audio decoder frame buffer\n");
     }
 	audio_decoder->AudioCtx = NULL;
 
@@ -467,22 +467,22 @@ void CodecAudioOpen(AudioDecoder * audio_decoder, int codec_id,
 
 	if (codec_id == AV_CODEC_ID_AC3) {
 		if (!(codec = avcodec_find_decoder_by_name("ac3_fixed"))) {
-			Fatal(_("codec: codec ac3_fixed ID %#06x not found\n"), codec_id);
+			Fatal("codec: codec ac3_fixed ID %#06x not found\n", codec_id);
 		}
 	} else if (codec_id == AV_CODEC_ID_AAC) {
 		if (!(codec = avcodec_find_decoder_by_name("aac_fixed"))) {
-			Fatal(_("codec: codec aac_fixed ID %#06x not found\n"), codec_id);
+			Fatal("codec: codec aac_fixed ID %#06x not found\n", codec_id);
 		}
 	} else {
 		if (!(codec = avcodec_find_decoder(codec_id))) {
-			Fatal(_("codec: codec %s ID %#06x not found\n"),
+			Fatal("codec: codec %s ID %#06x not found\n",
 				avcodec_get_name(codec_id), codec_id);
 			// FIXME: errors aren't fatal
 		}
 	}
 
 	if (!(audio_decoder->AudioCtx = avcodec_alloc_context3(codec))) {
-		Fatal(_("codec: can't allocate audio codec context\n"));
+		Fatal("codec: can't allocate audio codec context\n");
 	}
 
 	audio_decoder->AudioCtx->pkt_timebase.num = timebase->num;
@@ -495,10 +495,10 @@ void CodecAudioOpen(AudioDecoder * audio_decoder, int codec_id,
 
 	// open codec
 	if (avcodec_open2(audio_decoder->AudioCtx, audio_decoder->AudioCtx->codec, NULL) < 0) {
-		Fatal(_("codec: can't open audio codec\n"));
+		Fatal("codec: can't open audio codec\n");
 	}
 #ifdef CODEC_DEBUG
-	Debug(3, "CodecAudioOpen: Codec %s found\n", audio_decoder->AudioCtx->codec->long_name);
+	Debug("CodecAudioOpen: Codec %s found\n", audio_decoder->AudioCtx->codec->long_name);
 	fprintf(stderr,"CodecAudioOpen: Codec %s found\n", audio_decoder->AudioCtx->codec->long_name);
 #endif
 }

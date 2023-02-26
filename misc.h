@@ -23,93 +23,164 @@
 
 /// @addtogroup misc
 /// @{
+extern int SysLogLevel;			///< how much information wanted
+
+#ifdef __cplusplus
+extern "C"
+{
+#endif
 
 #include <syslog.h>
 #include <stdarg.h>
 #include <time.h>			// clock_gettime
+#include <sys/syscall.h>
 
 //////////////////////////////////////////////////////////////////////////////
 //	Defines
 //////////////////////////////////////////////////////////////////////////////
 
-//////////////////////////////////////////////////////////////////////////////
-//	Declares
-//////////////////////////////////////////////////////////////////////////////
+#define L_DEBUG            (1 << 0)
+#define L_AV_SYNC          (1 << 1)
+#define L_SOUND            (1 << 2)
+#define L_OSD              (1 << 3)
+#define L_DRM              (1 << 4)
+#define L_CODEC            (1 << 5)
+#define L_STILL            (1 << 6)
+#define L_MEDIA            (1 << 7)
+#define L_OPENGL           (1 << 8)
+#define L_OPENGL_TIME      (1 << 9)
+#define L_OPENGL_TIME_ALL  (1 << 10)
 
-//////////////////////////////////////////////////////////////////////////////
-//	Variables
-//////////////////////////////////////////////////////////////////////////////
+typedef unsigned char uchar;
 
-extern int SysLogLevel;			///< how much information wanted
+/**
+**	Show error.
+*/
+#define Error(fmt...) (void)( (SysLogLevel > 0) ? Syslog(LOG_ERR, 0, fmt) : (void)0 )
+
+/**
+**	Show fatal error.
+*/
+#define Fatal(fmt...) do { Error(fmt); abort(); } while (0)
+
+/**
+**	Show warning.
+*/
+#define Warning(fmt...) (void)( (SysLogLevel > 1) ? Syslog(LOG_WARNING, 0, fmt) : (void)0 )
+
+/**
+**	Show info.
+*/
+#define Info(fmt...) (void)( (SysLogLevel > 2) ? Syslog(LOG_INFO, 0, fmt) : (void)0 )
+
+/**
+**	Show debug.
+*/
+#define Debug(fmt...) Syslog(LOG_DEBUG, L_DEBUG, fmt)
+
+/**
+**	Show debug with logging category.
+*/
+#define Debug2(cat, fmt...) Syslog(LOG_DEBUG, cat, fmt)
+
+#ifndef AV_NOPTS_VALUE
+#define AV_NOPTS_VALUE INT64_C(0x8000000000000000)
+#endif
 
 //////////////////////////////////////////////////////////////////////////////
 //	Prototypes
 //////////////////////////////////////////////////////////////////////////////
 
-static inline void Syslog(const int, const char *format, ...)
-    __attribute__ ((format(printf, 2, 3)));
+static inline void Syslog(const int, const int, const char *format, ...)
+    __attribute__ ((format(printf, 3, 4)));
 
 //////////////////////////////////////////////////////////////////////////////
 //	Inlines
 //////////////////////////////////////////////////////////////////////////////
 
-#ifdef DEBUG
-#define DebugLevel 4			/// private debug level
-#else
-#define DebugLevel 0			/// private debug level
-#endif
-
 /**
 **	Syslog output function.
-**
-**	- 0	fatal errors and errors
-**	- 1	warnings
-**	- 2	info
-**	- 3	important debug and fixme's
 */
-static inline void Syslog(const int level, const char *format, ...)
+static inline void Syslog(const int level, const int cat, const char *format, ...)
 {
-    if (SysLogLevel > level || DebugLevel > level) {
-	va_list ap;
-
-	va_start(ap, format);
-	vsyslog(LOG_ERR, format, ap);
-	va_end(ap);
-    }
-}
-
-/**
-**	Show error.
-*/
-#define Error(fmt...)	Syslog(0, fmt)
-
-/**
-**	Show fatal error.
-*/
-#define Fatal(fmt...)	do { Error(fmt); abort(); } while (0)
-
-/**
-**	Show warning.
-*/
-#define Warning(fmt...)	Syslog(1, fmt)
-
-/**
-**	Show info.
-*/
-#define Info(fmt...)	Syslog(2, fmt)
-
-/**
-**	Show debug.
-*/
+	int DebugLogLevel = 0;
 #ifdef DEBUG
-#define Debug(level, fmt...)	Syslog(level, fmt)
-#else
-#define Debug(level, fmt...)		/* disabled */
+	DebugLogLevel |= L_DEBUG;
 #endif
+#ifdef AV_SYNC_DEBUG
+	DebugLogLevel |= L_AV_SYNC;
+#endif
+#ifdef SOUND_DEBUG
+	DebugLogLevel |= L_SOUND;
+#endif
+#ifdef OSD_DEBUG
+	DebugLogLevel |= L_OSD;
+#endif
+#ifdef DRM_DEBUG
+	DebugLogLevel |= L_DRM;
+#endif
+#ifdef CODEC_DEBUG
+	DebugLogLevel |= L_CODEC;
+#endif
+#ifdef STILL_DEBUG
+	DebugLogLevel |= L_STILL;
+#endif
+#ifdef MEDIA_DEBUG
+	DebugLogLevel |= L_MEDIA;
+#endif
+#ifdef GL_DEBUG
+	DebugLogLevel |= L_OPENGL;
+#endif
+#ifdef GL_DEBUG_TIME
+	DebugLogLevel |= L_OPENGL_TIME;
+#endif
+#ifdef GL_DEBUG_TIME_ALL
+	DebugLogLevel |= L_OPENGL_TIME_ALL;
+#endif
+	va_list ap;
+	char fmt[256];
+	char prefix[20] = "";
 
-#ifndef AV_NOPTS_VALUE
-#define AV_NOPTS_VALUE INT64_C(0x8000000000000000)
-#endif
+	if (level == LOG_DEBUG) {
+		switch (DebugLogLevel & cat) {
+		case L_DEBUG:
+			break;
+		case L_AV_SYNC:
+			strcpy(prefix, "[AV_Sync]");
+			break;
+		case L_SOUND:
+			strcpy(prefix, "[Sound]");
+			break;
+		case L_OSD:
+			strcpy(prefix, "[Osd]");
+			break;
+		case L_DRM:
+			strcpy(prefix, "[Drm]");
+			break;
+		case L_CODEC:
+			strcpy(prefix, "[Codec]");
+			break;
+		case L_STILL:
+			strcpy(prefix, "[Still]");
+			break;
+		case L_MEDIA:
+			strcpy(prefix, "[Media]");
+			break;
+		case L_OPENGL:
+		case L_OPENGL_TIME:
+		case L_OPENGL_TIME_ALL:
+			strcpy(prefix, "[OpenGL]");
+			break;
+		default:
+			return;
+		}
+	}
+	pid_t threadId = syscall(__NR_gettid);
+	snprintf(fmt, sizeof(fmt), "[%d] [softhddevice]%s %s", threadId, prefix, format);
+	va_start(ap, format);
+	vsyslog(level, fmt, ap);
+	va_end(ap);
+}
 
 /**
 **	Nice time-stamp string.
@@ -155,26 +226,6 @@ static inline uint32_t GetMsTicks(void)
 }
 
 /**
-**	Read if there a PES packet length in PES header.
-**
-**	@returns 0 or 1
-*/
-static inline int PesHasLength(const uint8_t *p)
-{
-  return p[4] | p[5];
-}
-
-/**
-**	Read the PES packet length from PES header.
-**
-**	@returns length
-*/
-static inline int PesLength(const uint8_t *p)
-{
-  return 6 + p[4] * 256 + p[5];
-}
-
-/**
 **	Read the PES header length from PES header.
 **
 **	@returns length
@@ -183,5 +234,9 @@ static inline int PesHeadLength(const uint8_t *p)
 {
   return 9 + p[8];
 }
+
+#ifdef __cplusplus
+}
+#endif
 
 /// @}
