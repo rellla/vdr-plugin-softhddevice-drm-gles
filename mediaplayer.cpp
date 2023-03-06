@@ -191,7 +191,11 @@ void cSoftHdPlayer::SetEntry(int index)
 void cSoftHdPlayer::Player(const char *url)
 {
 	AVPacket packet;
+#if LIBAVFORMAT_VERSION_INT < AV_VERSION_INT(59,0,100)
 	AVCodec *video_codec;
+#else
+	const AVCodec *video_codec;
+#endif
 	int err = 0;
 	int audio_stream_index = 0;
 	int video_stream_index;
