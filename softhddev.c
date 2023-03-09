@@ -1017,7 +1017,7 @@ static void VideoEnqueue(VideoStream * stream, int64_t pts, const void *data,
 		avpkt->dts = AV_NOPTS_VALUE;
 	}
 
-	if (avpkt->size + size >= avpkt->buf->size) {
+	if ((size_t)(avpkt->size + size) >= avpkt->buf->size) {
 		int pkt_size = avpkt->size;
 		Warning(_("video: packet buffer too small for %d\n"),
 			avpkt->size + size);
@@ -1283,7 +1283,7 @@ void StillPicture(const uint8_t * data, int size)
 		fprintf(stderr, "StillPicture: memcpy avpkt.size %d size %d size_rest %d peslength %d headlength %d I %d\n",
 			avpkt->size, size, size_rest, pes_length, head_length, i);
 #endif
-		if (avpkt->size + pes_length - head_length - i >= avpkt->buf->size) {
+		if ((size_t)(avpkt->size + pes_length - head_length - i) >= avpkt->buf->size) {
 			int pkt_size = avpkt->size;
 			Warning(_("video: packet buffer too small for %d\n"),
 				avpkt->size + pes_length - head_length - i);
@@ -1459,7 +1459,7 @@ int PlayVideoPkts(AVPacket * pkt)
 	MyVideoStream->PacketWrite = (MyVideoStream->PacketWrite + 1) % VIDEO_PACKET_MAX;
 	atomic_inc(&MyVideoStream->PacketsFilled);
 
-	if (pkt->size > avpkt->buf->size) {
+	if ((size_t)pkt->size > avpkt->buf->size) {
 		fprintf(stderr, "PlayVideoPkts: grow packet buffer size by %d\n",
 			pkt->size - avpkt->buf->size + AV_INPUT_BUFFER_PADDING_SIZE);
 		av_grow_packet(avpkt, pkt->size - avpkt->buf->size +
