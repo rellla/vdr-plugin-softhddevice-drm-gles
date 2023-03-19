@@ -35,6 +35,7 @@ using std::ifstream;
 #include <vdr/videodir.h>
 
 #include "mediaplayer.h"
+#include "misc.h"
 
 extern "C"
 {
@@ -74,7 +75,7 @@ cSoftHdPlayer::cSoftHdPlayer(const char *Url)
 	}
 	Pause = 0;
 	Random = 0;
-//	fprintf(stderr, "cSoftHdPlayer: Player gestartet.\n");
+//	Debug2(L_MEDIA, "cSoftHdPlayer: Player gestartet.");
 }
 
 cSoftHdPlayer::~cSoftHdPlayer()
@@ -90,19 +91,19 @@ cSoftHdPlayer::~cSoftHdPlayer()
 		}
 	}
 
-//	fprintf(stderr, "cSoftHdPlayer: Player beendet.\n");
+//	Debug2(L_MEDIA, "cSoftHdPlayer: Player beendet.");
 }
 
 void cSoftHdPlayer::Activate(bool On)
 {
-//	fprintf(stderr, "cSoftHdPlayer: Activate %s\n", On ? "On" : "Off");
+//	Debug2(L_MEDIA, "cSoftHdPlayer: Activate %s", On ? "On" : "Off");
 	if (On)
 		Start();
 }
 
 void cSoftHdPlayer::Action(void)
 {
-//	fprintf(stderr, "cSoftHdPlayer: Action\n");
+//	Debug2(L_MEDIA, "cSoftHdPlayer: Action");
 	NoModify = 0;
 
 	if (strcasestr(Source, ".M3U") && !strcasestr(Source, ".M3U8")) {
@@ -142,7 +143,7 @@ void cSoftHdPlayer::ReadPL(const char *Playlist)
 
 	f.open(Playlist);
 	if (!f.good()) {
-		fprintf(stderr, "Mediaplayer: open PL %s failed\n", Playlist);
+		Error("Mediaplayer: open PL %s failed", Playlist);
 		return;
 	}
 
@@ -207,14 +208,14 @@ void cSoftHdPlayer::Player(const char *url)
 
 	AVFormatContext *format = avformat_alloc_context();
 	if (avformat_open_input(&format, url, NULL, NULL) != 0) {
-		fprintf(stderr, "Mediaplayer: Could not open file '%s'\n", url);
+		Error("Mediaplayer: Could not open file '%s'", url);
 		return;
 	}
 #ifdef MEDIA_DEBUG
 	av_dump_format(format, -1, url, 0);
 #endif
 	if (avformat_find_stream_info(format, NULL) < 0) {
-		fprintf(stderr, "Mediaplayer: Could not retrieve stream info from file '%s'\n", url);
+		Error("Mediaplayer: Could not retrieve stream info from file '%s'", url);
 		return;
 	}
 
@@ -231,9 +232,7 @@ void cSoftHdPlayer::Player(const char *url)
 		-1, -1, &video_codec, 0);
 
 	if (video_stream_index < 0) {
-#ifdef MEDIA_DEBUG
-		fprintf(stderr, "Player: stream does not seem to contain video\n");
-#endif
+		Debug2(L_MEDIA, "Player: stream does not seem to contain video");
 	} else {
 		 SetVideoCodec(video_codec->id,
 			format->streams[video_stream_index]->codecpar,
@@ -265,10 +264,8 @@ repeat:
 				}
 			}
 		} else {
-#ifdef MEDIA_DEBUG
-			fprintf(stderr, "Player: av_read_frame error: %s\n",
+			Debug2(L_MEDIA, "Player: av_read_frame error: %s",
 				av_err2str(err));
-#endif
 			StopPlay = 1;
 			continue;
 		}
@@ -319,7 +316,7 @@ cSoftHdPlayer *cSoftHdControl::pPlayer = NULL;
 cSoftHdControl::cSoftHdControl(const char *Url)
 :cControl(pPlayer = new cSoftHdPlayer(Url))
 {
-//	fprintf(stderr, "cSoftHdControl: Player gestartet.\n");
+//	Debug2(L_MEDIA, "cSoftHdControl: Player gestartet.");
 	pControl = this;
 	Close = 0;
 	pOsd = NULL;
@@ -333,16 +330,12 @@ cSoftHdControl::~cSoftHdControl()
 	delete pPlayer;
 	pPlayer = NULL;
 	pControl = NULL;
-#ifdef MEDIA_DEBUG
-	fprintf(stderr, "cSoftHdControl: Player beendet.\n");
-#endif
+	Debug2(L_MEDIA, "cSoftHdControl: Player beendet.");
 }
 
 void cSoftHdControl::Hide(void)
 {
-#ifdef MEDIA_DEBUG
-	fprintf(stderr, "[cSoftHdControl] Hide\n");
-#endif
+	Debug2(L_MEDIA, "[cSoftHdControl] Hide");
 	if (pOsd) {
 		delete pOsd;
 		pOsd = NULL;
@@ -352,9 +345,7 @@ void cSoftHdControl::Hide(void)
 void cSoftHdControl::ShowProgress(void)
 {
 	if (!pOsd) {
-#ifdef MEDIA_DEBUG
-		fprintf(stderr, "[cSoftHdControl] ShowProgress get OSD\n");
-#endif
+		Debug2(L_MEDIA, "[cSoftHdControl] ShowProgress get OSD");
 		pOsd = Skins.Current()->DisplayReplay(false);
 	}
 
@@ -449,9 +440,7 @@ cSoftHdMenu::cSoftHdMenu(const char *title, int c0, int c1, int c2, int c3,
 	Playlist.clear();
 
 	if (cSoftHdControl::Control() && cSoftHdControl::Control()->Player()->FirstEntry) {
-#ifdef MEDIA_DEBUG
-		fprintf(stderr, "cSoftHdMenu: pointer to cSoftHdControl exist.\n");
-#endif
+		Debug2(L_MEDIA, "cSoftHdMenu: pointer to cSoftHdControl exist.");
 		PlayListMenu();		// Test if PL!!!
 	} else {
 		MainMenu();
@@ -525,7 +514,7 @@ void cSoftHdMenu::SelectPL(void)
 	int n, i;
 
 	if ((n = scandir(cPlugin::ConfigDirectory("softhddevice-drm-gles"), &DirList, NULL, alphasort)) == -1) {
-		fprintf(stderr, "SelectPL: searching PL in %s failed (%d): %m\n",
+		Error("SelectPL: searching PL in %s failed (%d): %m",
 			cPlugin::ConfigDirectory("softhddevice-drm-gles"), errno);
 	} else {
 		Clear();
@@ -562,13 +551,13 @@ void cSoftHdMenu::FindFile(string SearchPath, FILE *playlist)
 	}
 
 	if ((n = scandir(sp, &DirList, NULL, alphasort)) == -1) {
-		fprintf(stderr, "FindFile: scanning directory %s failed (%d): %m\n", sp, errno);
+		Error("FindFile: scanning directory %s failed (%d): %m", sp, errno);
 	} else {
 		struct stat fileAttributs;
 		for (i = 0; i < n; i++) {
 			string str = SearchPath + "/" + DirList[i]->d_name;
 			if (stat(str.c_str(), &fileAttributs) == -1) {
-				fprintf(stderr, "FindFile: stat on %s failed (%d): %m\n", str.c_str(), errno);
+				Error("FindFile: stat on %s failed (%d): %m", str.c_str(), errno);
 			} else {
 			if (S_ISDIR(fileAttributs.st_mode) && DirList[i]->d_name[0] != '.') {
 				if (playlist) {
@@ -583,7 +572,7 @@ void cSoftHdMenu::FindFile(string SearchPath, FILE *playlist)
 		for (i = 0; i < n; i++) {
 			string str = SearchPath + "/" + DirList[i]->d_name;
 			if (stat(str.c_str(), &fileAttributs) == -1) {
-				fprintf(stderr, "FindFile: stat on %s failed (%d): %m\n", str.c_str(), errno);
+				Error("FindFile: stat on %s failed (%d): %m", str.c_str(), errno);
 			} else {
 			if (S_ISREG(fileAttributs.st_mode) && DirList[i]->d_name[0] != '.') {
 				if (playlist) {
@@ -756,7 +745,7 @@ void cSoftHdMenu::PlayMedia(const char *name)
 	if (!cSoftHdControl::Control()) {
 		cControl::Launch(new cSoftHdControl(aim.c_str()));
 	} else {
-		fprintf(stderr, "PlayMedia can't start %s\n",aim.c_str());
+		Error("PlayMedia can't start %s",aim.c_str());
 	}
 }
 
