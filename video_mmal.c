@@ -143,7 +143,7 @@ static void buffer_worker(VideoRender * render)
 		render->buffers_deint_out++;
 		status = mmal_port_send_buffer(render->deint->output[0], buffer);
 		if(status != MMAL_SUCCESS)
-			fprintf(stderr, "Failed send buffer to deinterlacer output port (%d, %s)\n",
+			Error("Failed send buffer to deinterlacer output port (%d, %s)",
 				status, mmal_status_to_string(status));
 	}
 }
@@ -168,7 +168,7 @@ static void vout_control_port_cb(__attribute__ ((unused)) MMAL_PORT_T *port,
 
 	if (buffer->cmd == MMAL_EVENT_ERROR) {
 		status = *(uint32_t *)buffer->data;
-		fprintf(stderr, "Vout MMAL error %"PRIx32" \"%s\"\n",
+		Error("Vout MMAL error %"PRIx32" \"%s\"",
 			status, mmal_status_to_string(status));
 	}
 
@@ -246,21 +246,21 @@ static void MmalClose(VideoRender * render)
 		if (render->deint->control && render->deint->control->is_enabled) {
 			status = mmal_port_disable(render->deint->control);
 			if (status != MMAL_SUCCESS) {
-				fprintf(stderr, "Failed to disable control port deint (status=%"PRIx32" %s)\n",
+				Error("Failed to disable control port deint (status=%"PRIx32" %s)",
 					status, mmal_status_to_string(status));
 			}
 		}
 		if (render->deint->input[0] && render->deint->input[0]->is_enabled) {
 			status = mmal_port_disable(render->deint->input[0]);
 			if (status != MMAL_SUCCESS) {
-				fprintf(stderr, "Failed to disable input port deint (status=%"PRIx32" %s)\n",
+				Error("Failed to disable input port deint (status=%"PRIx32" %s)",
 					status, mmal_status_to_string(status));
 			}
 		}
 		if (render->deint->output[0] && render->deint->output[0]->is_enabled) {
 			status = mmal_port_disable(render->deint->output[0]);
 			if (status != MMAL_SUCCESS) {
-				fprintf(stderr, "Failed to disable output port deint (status=%"PRIx32" %s)\n",
+				Error("Failed to disable output port deint (status=%"PRIx32" %s)",
 					status, mmal_status_to_string(status));
 			}
 		}
@@ -268,14 +268,14 @@ static void MmalClose(VideoRender * render)
 		if (render->deint && render->deint->is_enabled) {
 			status = mmal_component_disable(render->deint);
 			if (status != MMAL_SUCCESS) {
-				fprintf(stderr, "Failed to disable component deint (status=%"PRIx32" %s)\n",
+				Error("Failed to disable component deint (status=%"PRIx32" %s)",
 					status, mmal_status_to_string(status));
 			}
 		}
 		if (render->deint) {
 			status = mmal_component_destroy(render->deint);
 			if (status != MMAL_SUCCESS) {
-				fprintf(stderr, "Failed to destroy component deint (status=%"PRIx32" %s)\n",
+				Error("Failed to destroy component deint (status=%"PRIx32" %s)",
 					status, mmal_status_to_string(status));
 			}
 		}
@@ -288,14 +288,14 @@ static void MmalClose(VideoRender * render)
 	if (render->vout->control && render->vout->control->is_enabled) {
 		status = mmal_port_disable(render->vout->control);
 		if (status != MMAL_SUCCESS) {
-			fprintf(stderr, "Failed to disable control port (status=%"PRIx32" %s)\n",
+			Error("Failed to disable control port (status=%"PRIx32" %s)",
 				status, mmal_status_to_string(status));
 		}
 	}
 	if (render->vout->input[0] && render->vout->input[0]->is_enabled) {
 		status = mmal_port_disable(render->vout->input[0]);
 		if (status != MMAL_SUCCESS) {
-			fprintf(stderr, "Failed to disable input port (status=%"PRIx32" %s)\n",
+			Error("Failed to disable input port (status=%"PRIx32" %s)",
 				status, mmal_status_to_string(status));
 		}
 	}
@@ -303,14 +303,14 @@ static void MmalClose(VideoRender * render)
 	if (render->vout && render->vout->is_enabled) {
 		status = mmal_component_disable(render->vout);
 		if (status != MMAL_SUCCESS) {
-			fprintf(stderr, "Failed to disable Componente vout (status=%"PRIx32" %s)\n",
+			Error("Failed to disable Componente vout (status=%"PRIx32" %s)",
 				status, mmal_status_to_string(status));
 		}
 	}
 	if (render->vout) {
 		status = mmal_component_destroy(render->vout);
 		if (status != MMAL_SUCCESS) {
-			fprintf(stderr, "Failed to destroy Componente vout (status=%"PRIx32" %s)\n",
+			Error("Failed to destroy Componente vout (status=%"PRIx32" %s)",
 				status, mmal_status_to_string(status));
 		}
 	}
@@ -340,12 +340,12 @@ static void MmalChangeResolution(VideoRender * render,
 
 	status = mmal_component_create(MMAL_COMPONENT_DEFAULT_VIDEO_RENDERER, &render->vout);
 	if (status != MMAL_SUCCESS)
-		fprintf(stderr, "Failed to create MMAL render component %s (status=%"PRIx32" %s)\n",
+		Error("Failed to create MMAL render component %s (status=%"PRIx32" %s)",
 		    MMAL_COMPONENT_DEFAULT_VIDEO_RENDERER, status, mmal_status_to_string(status));
 
 	status = mmal_port_enable(render->vout->control, vout_control_port_cb);
 	if (status != MMAL_SUCCESS)
-		fprintf(stderr, "Failed to enable render control port %s (%x, %s)\n",
+		Error("Failed to enable render control port %s (%x, %s)",
 		    render->vout->control->name, status, mmal_status_to_string(status));
 
 	render->vout->input[0]->format->type = MMAL_ES_TYPE_VIDEO;
@@ -365,7 +365,7 @@ static void MmalChangeResolution(VideoRender * render,
 	render->vout->input[0]->format->flags = MMAL_ES_FORMAT_FLAG_FRAMED;
 	status = mmal_port_format_commit(render->vout->input[0]);
 	if (status != MMAL_SUCCESS)
-		fprintf(stderr, "Failed to commit format for render input port %s (status=%"PRIx32" %s)\n",
+		Error("Failed to commit format for render input port %s (status=%"PRIx32" %s)",
 		   render->vout->input[0]->name, status, mmal_status_to_string(status));
 
     // Set PARAMETER_DISPLAYREGION
@@ -381,24 +381,24 @@ static void MmalChangeResolution(VideoRender * render,
     param.set = MMAL_DISPLAY_SET_LAYER|MMAL_DISPLAY_SET_MODE;
     status = mmal_port_parameter_set(render->vout->input[0], &param.hdr);
     if(status != MMAL_SUCCESS && status != MMAL_ENOSYS)
-        fprintf(stderr, "cannot set vout Component (%d): %m\n", status);
+        Error("cannot set vout Component (%d): %m", status);
 */
 	render->vout->input[0]->buffer_size = render->vout->input[0]->buffer_size_recommended;
 	render->vout->input[0]->buffer_num = 50;
 	status = mmal_port_enable(render->vout->input[0], vout_input_port_cb);
 	if (status != MMAL_SUCCESS)
-		fprintf(stderr, "Failed to enable renderer input port %s (status=%"PRIx32" %s)\n",
+		Error("Failed to enable renderer input port %s (status=%"PRIx32" %s)",
 		    render->vout->input[0]->name, status, mmal_status_to_string(status));
 
 	status = mmal_component_enable(render->vout);
 	if (status != MMAL_SUCCESS)
-		fprintf(stderr, "Failed to enable renderer component %s (status=%"PRIx32" %s)\n",
+		Error("Failed to enable renderer component %s (status=%"PRIx32" %s)",
 			render->vout->name, status, mmal_status_to_string(status));
 
 	render->vout_input_pool = mmal_pool_create_with_allocator(render->vout->input[0]->buffer_num,
 		render->vout->input[0]->buffer_size, render->vout->input[0], pool_allocator_alloc, pool_allocator_free);
 	if(!render->vout_input_pool)
-		printf("Failed to create pool for vout input port (%d, %s)\n",
+		Error("Failed to create pool for vout input port (%d, %s)",
 			status, mmal_status_to_string(status));
 
 	render->vout_queue = mmal_queue_create();
@@ -408,7 +408,7 @@ static void MmalChangeResolution(VideoRender * render,
 		// Deinterlacer
 		status = mmal_component_create("vc.ril.image_fx", &render->deint);
 		if(status != MMAL_SUCCESS)
-			printf("Failed to create deinterlace component vc.ril.image_fx (%x, %s)\n",
+			Error("Failed to create deinterlace component vc.ril.image_fx (%x, %s)",
 				status, mmal_status_to_string(status));
 
 		// Param 3 is set 0 (full frame rate) Param 4 is set 1 (QPU usage)
@@ -416,42 +416,42 @@ static void MmalChangeResolution(VideoRender * render,
 			sizeof(imfx_param)}, MMAL_PARAM_IMAGEFX_DEINTERLACE_ADV, 4, {3, 0, 0, 1 }};
 		status = mmal_port_parameter_set(render->deint->output[0], &imfx_param.hdr);
 		if (status != MMAL_SUCCESS)
-			printf("Failed to configure MMAL component vc.ril.image_fx (status=%"PRIx32" %s)",
+			Error("Failed to configure MMAL component vc.ril.image_fx (status=%"PRIx32" %s)",
 					status, mmal_status_to_string(status));
 
 		status = mmal_port_enable(render->deint->control, deint_control_port_cb);
 		if(status != MMAL_SUCCESS)
-			printf("Failed to enable deinterlace control port %s (%x, %s)\n",
+			Error("Failed to enable deinterlace control port %s (%x, %s)",
 				render->vout->control->name, status, mmal_status_to_string(status));
 
 		mmal_format_copy(render->deint->input[0]->format, render->vout->input[0]->format);
 		status = mmal_port_format_commit(render->deint->input[0]);
 		if (status != MMAL_SUCCESS)
-			printf("Failed to commit deinterlace intput format (status=%"PRIx32" %s)\n",
+			Error("Failed to commit deinterlace intput format (status=%"PRIx32" %s)",
 				status, mmal_status_to_string(status));
 
 		status = mmal_port_parameter_set_uint32(render->deint->input[0],
 			MMAL_PARAMETER_EXTRA_BUFFERS, 5);
 		if (status != MMAL_SUCCESS)
-			printf("Failed to set MMAL_PARAMETER_EXTRA_BUFFERS on input deinterlacer port (status=%"PRIx32" %s)\n",
+			Error("Failed to set MMAL_PARAMETER_EXTRA_BUFFERS on input deinterlacer port (status=%"PRIx32" %s)",
 					status, mmal_status_to_string(status));
 
 		render->deint->input[0]->buffer_num = render->deint->input[0]->buffer_num_recommended;
 		render->deint->input[0]->buffer_size = render->deint->input[0]->buffer_size_min;
 		status = mmal_port_enable(render->deint->input[0], deint_input_port_cb);
 		if(status != MMAL_SUCCESS)
-			printf("Failed to enable deinterlace input port %s (%d, %s)\n",
+			Error("Failed to enable deinterlace input port %s (%d, %s)",
 				render->deint->input[0]->name, status, mmal_status_to_string(status));
 
 		mmal_format_copy(render->deint->output[0]->format, render->vout->input[0]->format);
 		status = mmal_port_format_commit(render->deint->output[0]);
 		if (status != MMAL_SUCCESS)
-			printf("Failed to commit deinterlace output format (status=%"PRIx32" %s)\n",
+			Error("Failed to commit deinterlace output format (status=%"PRIx32" %s)",
 				status, mmal_status_to_string(status));
 
 		status = mmal_component_enable(render->deint);
 		if(status != MMAL_SUCCESS)
-			printf("Failed to enable deinterlace component %s (%d, %s)\n",
+			Error("Failed to enable deinterlace component %s (%d, %s)",
 				render->deint->name, status, mmal_status_to_string(status));
 
 		render->deint->output[0]->buffer_num = render->deint->output[0]->buffer_num_recommended;
@@ -459,13 +459,13 @@ static void MmalChangeResolution(VideoRender * render,
 		render->deint->output[0]->userdata = (struct MMAL_PORT_USERDATA_T *)render;
 		status = mmal_port_enable(render->deint->output[0], deint_output_port_cb);
 		if(status != MMAL_SUCCESS)
-			printf("Failed to enable deinterlacer output port %s (%d, %s)\n",
+			Error("Failed to enable deinterlacer output port %s (%d, %s)",
 				render->deint->output[0]->name, status, mmal_status_to_string(status));
 
 		render->deint_input_pool = mmal_pool_create_with_allocator(render->deint->input[0]->buffer_num,
 			render->deint->input[0]->buffer_size, render->deint->input[0], pool_allocator_alloc, pool_allocator_free);
 		if(!render->deint_input_pool)
-			printf("Failed to create pool for deinterlacer input port (%d, %s)\n",
+			Error("Failed to create pool for deinterlacer input port (%d, %s)",
 			status, mmal_status_to_string(status));
 	}
 
@@ -491,7 +491,7 @@ dequeue:
 	buffer = mmal_queue_get(render->vout_queue);
 	// Debug segfault
 	if (buffer == NULL){
-		syslog(LOG_INFO, "MmalDisplayFrame: buffer are NULL!!! buffers in queue: %i buffers: %i\n",
+		Info("MmalDisplayFrame: buffer are NULL!!! buffers in queue: %i buffers: %i",
 			render->buffers_in_queue, render->buffers);
 		return;
 	}
@@ -528,12 +528,10 @@ dequeue:
 
 	if(diff > 35 && !render->TrickSpeed){
 		render->FramesDuped++;
-#ifdef AV_SYNC_DEBUG
-		fprintf(stderr, "FrameDuped Pkts %d deint %d Frames %d AudioUsedBytes %d audio %s video %s Delay %dms diff %dms\n",
+		Debug2(L_AV_SYNC, "FrameDuped Pkts %d deint %d Frames %d AudioUsedBytes %d audio %s video %s Delay %dms diff %dms",
 			VideoGetPackets(render->Stream), render->buffers_deint_out,
 			render->buffers_in_queue, AudioUsedBytes(), Timestamp2String(audio_clock),
 			Timestamp2String(video_clock), VideoAudioDelay, diff);
-#endif
 dupe:
 		rbuffer = mmal_queue_get(render->vout_input_pool->queue);
 		memcpy(rbuffer->data, buffer->data, buffer->length);
@@ -546,12 +544,10 @@ dupe:
 	}
 	if (diff < -5 && render->buffers_in_queue && !render->TrickSpeed) {
 		render->FramesDropped++;
-#ifdef AV_SYNC_DEBUG
-		fprintf(stderr, "FrameDropped Pkts %d deint %d Frames %d AudioUsedBytes %d audio %s video %s Delay %dms diff %dms\n",
+		Debug2(L_AV_SYNC, "FrameDropped Pkts %d deint %d Frames %d AudioUsedBytes %d audio %s video %s Delay %dms diff %dms",
 			VideoGetPackets(render->Stream), render->buffers_deint_out,
 			render->buffers_in_queue, AudioUsedBytes(), Timestamp2String(audio_clock),
 			Timestamp2String(video_clock), VideoAudioDelay, diff);
-#endif
 		if(frame)
 			av_frame_free(&frame);
 		mmal_buffer_header_release(buffer);
@@ -560,7 +556,7 @@ dupe:
 
 	//Debug
 //	uint32_t newtime = GetMsTicks();
-/*	fprintf(stderr, "vor Dec %3d buffers %2d queue %d deint_in %d deint_out %i Diff %5i Dup %i Drop %i Closing %i TSpeed %i TCount %i\n",
+/*	Debug2(L_AV_SYNC, "vor Dec %3d buffers %2d queue %d deint_in %d deint_out %i Diff %5i Dup %i Drop %i Closing %i TSpeed %i TCount %i",
 		VideoGetPackets(render->Stream), render->buffers,
 		render->buffers_in_queue, render->buffers_deint_in, render->buffers_deint_out,
 		diff, render->FramesDuped, render->FramesDropped,
@@ -577,7 +573,7 @@ dupe:
 	buffer->cmd = 0;
 	status = mmal_port_send_buffer(render->vout->input[0], buffer);
 	if(status != MMAL_SUCCESS)
-		fprintf(stderr, "Failed send buffer to renderer input port (%d, %s)\n",
+		Error("Failed send buffer to renderer input port (%d, %s)",
 			status, mmal_status_to_string(status));
 
 	render->StartCounter++;
@@ -705,7 +701,7 @@ static void *DisplayHandlerThread(void *arg)
 {
 	VideoRender * render = (VideoRender *)arg;
 
-	Debug("video: display thread started\n");
+	Debug("video: display thread started");
 
 	pthread_setcancelstate (PTHREAD_CANCEL_ENABLE, NULL);
 	pthread_setcanceltype(PTHREAD_CANCEL_DEFERRED, NULL);
@@ -738,16 +734,14 @@ void VideoThreadExit(void)
     if (VideoThread) {
 		void *retval;
 
-		Debug("video: video thread canceled\n");
+		Debug("video: video thread canceled");
 
 		// FIXME: can't cancel locked
 		if (pthread_cancel(VideoThread)) {
-			Error("video: can't queue cancel video display thread\n");
-			fprintf(stderr, "VideoThreadExit: can't queue cancel video display thread\n");
+			Error("video: can't queue cancel video display thread");
 		}
 		if (pthread_join(VideoThread, &retval) || retval != PTHREAD_CANCELED) {
-			Error("video: can't cancel video display thread\n");
-			fprintf(stderr, "VideoThreadExit: can't cancel video display thread\n");
+			Error("video: can't cancel video display thread");
 		}
 		VideoThread = 0;
 	}
@@ -790,7 +784,7 @@ VideoRender *VideoNewRender(VideoStream * stream)
 	VideoRender *render;
 
 	if (!(render = calloc(1, sizeof(*render)))) {
-		Error("video/MMAL: out of memory\n");
+		Error("video/MMAL: out of memory");
 		return NULL;
 	}
 
@@ -830,7 +824,7 @@ enum AVPixelFormat Video_get_format(__attribute__ ((unused))VideoRender * render
 			return AV_PIX_FMT_MMAL;
 		fmt++;
 	}
-	fprintf(stderr, "The MMAL pixel format not offered\n");
+	Error("The MMAL pixel format not offered");
 	return AV_PIX_FMT_NONE;
 }
 
@@ -853,7 +847,7 @@ void VideoRenderFrame(VideoRender * render,
 
 	if(render->Closing){
 		av_frame_free(&frame);
-		fprintf(stderr, "VideoRenderFrame: Closing %d\n", render->Closing);
+		Info("VideoRenderFrame: Closing %d", render->Closing);
 		return;
 	}
 
@@ -866,7 +860,7 @@ void VideoRenderFrame(VideoRender * render,
 		render->vout->input[0]->format->es->video.par.den = video_ctx->sample_aspect_ratio.den;
 		status = mmal_port_format_commit(render->vout->input[0]);
 		if (status != MMAL_SUCCESS){
-			fprintf(stderr, "Failed to commit format for render input port %s (status=%"PRIx32" %s)\n",
+			Error("Failed to commit format for render input port %s (status=%"PRIx32" %s)",
 			render->vout->input[0]->name, status, mmal_status_to_string(status));
 		} else {
 			render->par_num = video_ctx->sample_aspect_ratio.num;
@@ -876,7 +870,7 @@ void VideoRenderFrame(VideoRender * render,
 
 	buffer = (MMAL_BUFFER_HEADER_T *)frame->data[3];
 	if (buffer == NULL){
-		syslog(LOG_INFO, "VideoRenderFrame: buffer are NULL!!!\n");
+		Info("VideoRenderFrame: buffer are NULL!!!");
 		return;
 	}
 
@@ -891,7 +885,7 @@ void VideoRenderFrame(VideoRender * render,
 	qbuffer->user_data = frame;
 
 	if (qbuffer == NULL){
-		syslog(LOG_INFO, "VideoRenderFrame: qbuffer are NULL!!!\n");
+		Info("VideoRenderFrame: qbuffer are NULL!!!");
 		return;
 	}
 
@@ -932,10 +926,8 @@ void StartVideo(VideoRender * render)
 {
 	render->VideoPaused = 0;
 	render->StartCounter = 0;
-#ifdef DEBUG
-	fprintf(stderr, "StartVideo: reset PauseCondition StartCounter %d Closing %d TrickSpeed %d\n",
+	Debug("StartVideo: reset PauseCondition StartCounter %d Closing %d TrickSpeed %d",
 		render->StartCounter, render->Closing, render->TrickSpeed);
-#endif
 	pthread_cond_signal(&PauseCondition);
 }
 
@@ -962,9 +954,7 @@ void VideoSetClosing(VideoRender * render)
 */
 void VideoPause( __attribute__ ((unused)) VideoRender * render)
 {
-#ifdef DEBUG
-	fprintf(stderr, "VideoPause:\n");
-#endif
+	Debug("VideoPause:");
 	render->VideoPaused = 1;
 }
 
@@ -976,7 +966,7 @@ void VideoPause( __attribute__ ((unused)) VideoRender * render)
 ///
 void VideoSetTrickSpeed(VideoRender * render, int speed)
 {
-	Debug("video: set trick-speed %d\n", speed);
+	Debug("video: set trick-speed %d", speed);
 	render->TrickSpeed = speed;
 	render->TrickCounter = speed;
 	if (speed) {
@@ -992,9 +982,7 @@ void VideoSetTrickSpeed(VideoRender * render, int speed)
 */
 void VideoPlay(VideoRender * render)
 {
-#ifdef DEBUG
-	fprintf(stderr, "VideoPlay: Closing %d\n", render->Closing);
-#endif
+	Debug("VideoPlay: Closing %d", render->Closing);
 	if (render->TrickSpeed) {
 		render->TrickSpeed = 0;
 	}
@@ -1011,7 +999,7 @@ void VideoPlay(VideoRender * render)
 ///
 uint8_t *VideoGrab(int *size, int *width, int *height, int write_header)
 {
-    Debug("video: no grab service\n");
+    Debug("video: no grab service");
 
     (void)write_header;
     (void)size;
@@ -1029,8 +1017,8 @@ uint8_t *VideoGrab(int *size, int *width, int *height, int write_header)
 ///
 uint8_t *VideoGrabService(int *size, int *width, int *height)
 {
-    Debug("video: no grab service\n");
-	Warning("softhddev: grab unsupported\n");
+    Debug("video: no grab service");
+    Warning("softhddev: grab unsupported");
 
     (void)size;
     (void)width;
@@ -1080,7 +1068,7 @@ void VideoGetScreenSize(__attribute__ ((unused)) VideoRender * render,
 ///
 void VideoSetAudioDelay(int ms)
 {
-//	fprintf(stderr, "VideoSetAudioDelay %i\n", ms);
+//	Debug("VideoSetAudioDelay %i", ms);
     VideoAudioDelay = ms;
 }
 
@@ -1096,10 +1084,10 @@ void VideoInit(VideoRender * render)
 	bcm_host_init();
 	render->display = vc_dispmanx_display_open(0);
 	if (render->display == DISPMANX_NO_HANDLE)
-		fprintf(stderr, "VideoInit: Error cannot open dispmanx display\n");
+		Error("VideoInit: Error cannot open dispmanx display");
 
 	if(vc_dispmanx_vsync_callback(render->display, vsync_callback, render))
-		fprintf(stderr, "VideoInit: Error cannot open dispmanx vsync callback\n");
+		Error("VideoInit: Error cannot open dispmanx vsync callback");
 }
 
 ///
@@ -1110,7 +1098,7 @@ void VideoExit(VideoRender * render)
 	VideoThreadExit();
 
 	if(vc_dispmanx_vsync_callback(render->display, NULL, NULL))
-		fprintf(stderr, "Error: cannot close dispmanx vsync callback\n");
+		Error("Error: cannot close dispmanx vsync callback");
 }
 
 const char *VideoGetDecoderName(const char *codec_name)
