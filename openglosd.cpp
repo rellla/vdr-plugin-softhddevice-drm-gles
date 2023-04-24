@@ -94,6 +94,32 @@ finalise:
 }
 #endif
 
+void writePng(cOglFb *fb, int x, int y, int w, int h, bool oFb) {
+#ifdef WRITE_PNG
+    GL_CHECK(glFinish());
+    GLubyte result[w * h * 4];
+    static int scr_nr = 0;
+    char filename[40];
+
+    GLenum fbstatus;
+    GL_CHECK(fbstatus = glCheckFramebufferStatus(GL_FRAMEBUFFER));
+    if(fbstatus != GL_FRAMEBUFFER_COMPLETE)
+        Error("Framebuffer is not complete! %d", fbstatus);
+
+    GL_CHECK(glReadPixels(x, y, w, h, GL_RGBA, GL_UNSIGNED_BYTE, &result));
+    if (result) {
+        if (oFb) {
+            snprintf(filename, sizeof(filename), "/tmp/%03doFb.png", scr_nr++);
+        } else {
+            snprintf(filename, sizeof(filename), "/tmp/%03dbFb.png", scr_nr++);
+        }
+        writeImage(filename, w, h, &result, "osd");
+    }
+#else
+    return;
+#endif
+}
+
 void ConvertColor(const GLint &colARGB, glm::vec4 &col) {
     col.a = ((colARGB & 0xFF000000) >> 24) / 255.0;
     col.r = ((colARGB & 0x00FF0000) >> 16) / 255.0;
@@ -1225,6 +1251,9 @@ bool cOglCmdRenderFbToBufferFb::Execute(void) {
     VertexBuffers[vbTexture]->DrawArrays();
     GL_CHECK(glDisable(GL_SCISSOR_TEST));
     VertexBuffers[vbTexture]->Unbind();
+
+    // Read back bFb framebuffer
+//    writePng(buffer, 0, 0, buffer->Width(), buffer->Height(), false);
     buffer->Unbind();
 
     return true;
@@ -1269,6 +1298,7 @@ bool cOglCmdCopyBufferToOutputFb::Execute(void) {
     VertexBuffers[vbTexture]->SetShaderProjectionMatrix(oFb->Width(), oFb->Height());
     VertexBuffers[vbTexture]->SetShaderBorderColor(bcolor);
 
+    oFb->Bind();
     GL_CHECK(glViewport(0, 0, oFb->Width(), oFb->Height()));
     if (!fb->BindTexture())
         return false;
@@ -1284,25 +1314,10 @@ bool cOglCmdCopyBufferToOutputFb::Execute(void) {
         OsdDrawARGB(0, 0, oFb->Width(), oFb->Height(), 0, 0, 0, 0);
     else
         OsdClose();
+    // Read back oFb framebuffer
+    writePng(oFb, 0, 0, oFb->Width(), oFb->Height(), true);
+    oFb->Unbind();
 
-    // Read back framebuffer
-#ifdef WRITE_PNG
-    GL_CHECK(glFinish());
-    GLubyte result[oFb->Width() * oFb->Height() * 4];
-    static int scr_nr = 0;
-    char filename[40];
-
-    GLenum fbstatus;
-    GL_CHECK(fbstatus = glCheckFramebufferStatus(GL_FRAMEBUFFER));
-    if(fbstatus != GL_FRAMEBUFFER_COMPLETE)
-        Error("Framebuffer is not complete! %d", fbstatus);
-
-    GL_CHECK(glReadPixels(0, 0, oFb->Width(), oFb->Height(), GL_RGBA, GL_UNSIGNED_BYTE, &result));
-    if (result) {
-        snprintf(filename, sizeof(filename), "/tmp/oFb%03d.png", scr_nr++);
-        writeImage(filename, oFb->Width(), oFb->Height(), &result, "osd");
-    }
-#endif
     return true;
 }
 
