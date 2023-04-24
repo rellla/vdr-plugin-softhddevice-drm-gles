@@ -2661,7 +2661,7 @@ eOsdError cOglOsd::SetAreas(const tArea *Areas, int NumAreas) {
 */
     tArea area = { r.Left(), r.Top(), r.Right(), r.Bottom(), 32 };
 
-    //now we know the actuaL osd size, create double buffer frame buffer
+    //now we know the actual osd size, create double buffer frame buffer
     if (bFb) {
         oglThread->DoCmd(new cOglCmdDeleteFb(bFb));
         DestroyPixmap(oglPixmaps[0]);
