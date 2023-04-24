@@ -1188,6 +1188,7 @@ cOglCmdDeleteFb::cOglCmdDeleteFb(cOglFb *fb) : cOglCmd(fb) {
 }
 
 bool cOglCmdDeleteFb::Execute(void) {
+    GL_CHECK(glFinish());
     if (fb)
         delete fb;
     return true;
@@ -2423,17 +2424,7 @@ void cOglPixmap::DrawBitmap(const cPoint &Point, const cBitmap &Bitmap, tColor C
                                 Bitmap.Color(index)) : Bitmap.Color(index));
         }
 
-    int xNew = Point.X();
-    int yNew = Point.Y();
-
-/* fix from ua0lnj
-    if (Point.X() >= ViewPort().X() && Point.Y() >= ViewPort().Y()) {
-        xNew -= ViewPort().X();
-        yNew -= ViewPort().Y();
-    }
-*/
-
-    oglThread->DoCmd(new cOglCmdDrawImage(fb, argb, Bitmap.Width(), Bitmap.Height(), xNew, yNew, true));
+    oglThread->DoCmd(new cOglCmdDrawImage(fb, argb, Bitmap.Width(), Bitmap.Height(), Point.X(), Point.Y(), true));
     SetDirty();
     MarkDrawPortDirty(cRect(cPoint(xNew, yNew), cSize(Bitmap.Width(), Bitmap.Height())).Intersected(DrawPort().Size()));
 }
@@ -2459,11 +2450,6 @@ void cOglPixmap::DrawText(const cPoint &Point, const char *s, tColor ColorFg, tC
     int limitX = 0;
     int cw = Width ? Width : w;
     int ch = Height ? Height : h;
-
-/* fix from ua0lnj
-    if (Width > ViewPort().Width() && !x)
-        x = ViewPort().Width() - w;
-*/
 
     cRect r(x, y, cw, ch);
 
@@ -2514,17 +2500,6 @@ void cOglPixmap::DrawRectangle(const cRect &Rect, tColor Color) {
     int wNew = Rect.Width();
     int hNew = Rect.Height();
 
-/* fix from ua0lnj
-    if (Rect.Width() < 0) {
-        xNew -= Rect.Width();
-        wNew = 0;
-    }
-    if (Rect.Height() < 0) {
-        yNew -= Rect.Height();
-        hNew = 0;
-    }
-*/
-
     LOCK_PIXMAPS;
     oglThread->DoCmd(new cOglCmdDrawRectangle(fb, xNew, yNew, wNew, hNew, Color));
     SetDirty();
@@ -2540,17 +2515,6 @@ void cOglPixmap::DrawEllipse(const cRect &Rect, tColor Color, int Quadrants) {
     int wNew = Rect.Width();
     int hNew = Rect.Height();
 
-/* fix from ua0lnj
-    if (Rect.Width() < 0) {
-        xNew -= Rect.Width();
-        wNew = 0;
-    }
-    if (Rect.Height() < 0) {
-        yNew -= Rect.Height();
-        hNew = 0;
-    }
-*/
-
     LOCK_PIXMAPS;
     oglThread->DoCmd(new cOglCmdDrawEllipse(fb, xNew, yNew, wNew, hNew, Color, Quadrants));
     SetDirty();
@@ -2565,17 +2529,6 @@ void cOglPixmap::DrawSlope(const cRect &Rect, tColor Color, int Type) {
     int yNew = Rect.Y();
     int wNew = Rect.Width();
     int hNew = Rect.Height();
-
-/* fix from ua0lnj
-    if (Rect.Width() < 0) {
-        xNew -= Rect.Width();
-        wNew = 0;
-    }
-    if (Rect.Height() < 0) {
-        yNew -= Rect.Height();
-        hNew = 0;
-    }
-*/
 
     LOCK_PIXMAPS;
     oglThread->DoCmd(new cOglCmdDrawSlope(fb, xNew, yNew, wNew, hNew, Color, Type));
@@ -2607,39 +2560,40 @@ cOglOutputFb *cOglOsd::oFb = NULL;
 cOglOsd::cOglOsd(int Left, int Top, uint Level, std::shared_ptr<cOglThread> oglThread) : cOsd(Left, Top, Level) {
     this->oglThread = oglThread;
     bFb = NULL;
-    isSubtitleOsd = false;
+    if (Level == 10)
+        isSubtitleOsd = true;
+    else
+        isSubtitleOsd = false;
     int osdWidth = 0;
     int osdHeight = 0;
     double pixel_aspect;
     dirtyViewport = new cRect();
 
     GetScreenSize(&osdWidth, &osdHeight, &pixel_aspect);
-    Debug2(L_OPENGL, "cOglOsd osdLeft %d osdTop %d screenWidth %d screenHeight %d", Left, Top, osdWidth, osdHeight);
+    Debug2(L_OSD, "New Osd %p osdLeft %d osdTop %d screenWidth %d screenHeight %d", this, Left, Top, osdWidth, osdHeight);
 
     cSize maxPixmapSize(oglThread->MaxTextureSize(), oglThread->MaxTextureSize());
 
     if (!oFb) {
         oFb = new cOglOutputFb(osdWidth, osdHeight);
         oglThread->DoCmd(new cOglCmdInitOutputFb(oFb));
-/* fix from ua0lnj
-        oglThread->DoCmd(new cOglCmdFill(oFb, clrTransparent));
-*/
     }
 }
 
 cOglOsd::~cOglOsd() {
     if (!oglThread->Active())
         return;
-    oglThread->DoCmd(new cOglCmdFill(bFb, clrTransparent));
+
     oglThread->DoCmd(new cOglCmdBufferFill(oFb, clrTransparent));
-/* fix from ua0lnj
-    oglThread->DoCmd(new cOglCmdCopyBufferToOutputFb(bFb, oFb,
-                                                     Left() + (isSubtitleOsd ? oglPixMaps[0]->ViewPort().X() : 0),
-                                                     Top() + (isSubtitleOsd ? oglPixMaps[0]->ViewPort().Y() : 0), 0);
-*/
+
+    if (!bFb)
+        return;
+
+    Debug2(L_OSD, "Delete Osd %p", this);
+    oglThread->DoCmd(new cOglCmdFill(bFb, clrTransparent));
+
     oglThread->DoCmd(new cOglCmdCopyBufferToOutputFb(bFb, oFb, Left(), Top(), 0));
-//    SetActive(false);
-//    OsdClose();
+    SetActive(false); // OsdClose() in SetActive()
     oglThread->DoCmd(new cOglCmdDeleteFb(bFb));
     delete dirtyViewport;
 }
@@ -2655,10 +2609,6 @@ eOsdError cOglOsd::SetAreas(const tArea *Areas, int NumAreas) {
     for (int i = 0; i < NumAreas; i++)
         r.Combine(cRect(Areas[i].x1, Areas[i].y1, Areas[i].Width(), Areas[i].Height()));
 
-/* fix from ua0lnj
-    if (r.Left() && r.Top() && !isSubtitleOsd)
-        isSubtitleOsd = true;
-*/
     tArea area = { r.Left(), r.Top(), r.Right(), r.Bottom(), 32 };
 
     //now we know the actual osd size, create double buffer frame buffer
@@ -2708,21 +2658,29 @@ void cOglOsd::DestroyPixmap(cPixmap *Pixmap) {
             if (Pixmap->Layer() >= 0)
                 oglPixmaps[0]->MarkViewPortDirty(oglPixmaps[i]->ViewPort());
             oglPixmaps[i] = NULL;
-            cOsd::DestroyPixmap(Pixmap);
+            if (i)
+                cOsd::DestroyPixmap(Pixmap);
             return;
         }
     }
 }
 
 void cOglOsd::Flush(void) {
-    if (!oglThread->Active())
+    if (!oglThread->Active() || !Active())
         return;
+
+    Debug2(L_OSD, "Flush Osd %p", this);
     LOCK_PIXMAPS;
     // check for dirty areas
     dirtyViewport->Set(0, 0, 0, 0);
     for (int i = 0; i < oglPixmaps.Size(); i++)
-        if (oglPixmaps[i] && oglPixmaps[i]->Layer() >= 0 && oglPixmaps[i]->IsDirty())
-            dirtyViewport->Combine(oglPixmaps[i]->DirtyViewPort());
+        if (oglPixmaps[i] && oglPixmaps[i]->Layer() >= 0 && oglPixmaps[i]->IsDirty()) {
+            if (isSubtitleOsd) {
+                dirtyViewport->Combine(oglPixmaps[i]->DirtyViewPort().Size());
+            } else {
+                dirtyViewport->Combine(oglPixmaps[i]->DirtyViewPort());
+            }
+    }
 
     if (dirtyViewport->IsEmpty())
         return;
@@ -2744,16 +2702,16 @@ void cOglOsd::Flush(void) {
             if (oglPixmaps[i]->Layer () != layer)
                 continue;
 
-            if (!dirtyViewport->Intersects(oglPixmaps[i]->ViewPort()))
+            if (isSubtitleOsd && !dirtyViewport->Intersects(oglPixmaps[i]->ViewPort().Size()))
+                continue;
+
+            if (!isSubtitleOsd && !dirtyViewport->Intersects(oglPixmaps[i]->ViewPort()))
                 continue;
 
             oglThread->DoCmd(new cOglCmdRenderFbToBufferFb( oglPixmaps[i]->Fb(),
                                                             bFb,
-                                                            oglPixmaps[i]->ViewPort().X(),
-/* fix from ua0lnj
-                                                            (!isSubtitleOsd) ? oglPixmaps[i]->ViewPort().X() : 0,
-*/
-                                                            (!isSubtitleOsd) ? oglPixmaps[i]->ViewPort().Y() : 0,
+                                                            isSubtitleOsd ? 0 : oglPixmaps[i]->ViewPort().X(),
+                                                            isSubtitleOsd ? 0 : oglPixmaps[i]->ViewPort().Y(),
                                                             oglPixmaps[i]->Alpha(),
                                                             oglPixmaps[i]->DrawPort().X(),
                                                             oglPixmaps[i]->DrawPort().Y(),
@@ -2766,27 +2724,25 @@ void cOglOsd::Flush(void) {
     }
     //copy buffer to output framebuffer
     oglThread->DoCmd(new cOglCmdBufferFill(oFb, clrTransparent));
-/* fix from ua0lnj
+
     oglThread->DoCmd(new cOglCmdCopyBufferToOutputFb(bFb, oFb,
                                                      Left() + (isSubtitleOsd ? oglPixmaps[0]->ViewPort().X() : 0),
                                                      Top() + (isSubtitleOsd ? oglPixmaps[0]->ViewPort().Y() : 0), 1));
-*/
-    oglThread->DoCmd(new cOglCmdCopyBufferToOutputFb(bFb, oFb, Left(), Top(), 1));
 }
 
 void cOglOsd::DrawScaledBitmap(int x, int y, const cBitmap &Bitmap, double FactorX, double FactorY, bool AntiAlias) {
-    (void)FactorX;
-    (void)FactorY;
-    (void)AntiAlias;
-    int yNew = y - oglPixmaps[0]->ViewPort().Y();
-    oglPixmaps[0]->DrawBitmap(cPoint(x, yNew), Bitmap);
-/* fix from ua0lnj
     const cBitmap *b = &Bitmap;
+    int xNew = x;
+    int yNew = y;
     if (!DoubleEqual(FactorX, 1.0) || !DoubleEqual(FactorY, 1.0))
         b = b->Scaled(FactorX, FactorY, AntiAlias);
-    if (oglPixmaps[0])
-        oglPixmaps[0]->DrawBitmap(cPoint(x, y), *b);
+    if (oglPixmaps[0]) {
+        if (isSubtitleOsd && (x >= oglPixmaps[0]->ViewPort().X()))
+            xNew -= oglPixmaps[0]->ViewPort().X();
+        if (isSubtitleOsd && (y >= oglPixmaps[0]->ViewPort().Y()))
+            yNew -= oglPixmaps[0]->ViewPort().Y();
+        oglPixmaps[0]->DrawBitmap(cPoint(xNew, yNew), *b);
+    }
     if (b != &Bitmap)
         delete b;
-*/
 }
