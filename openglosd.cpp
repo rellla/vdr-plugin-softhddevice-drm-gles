@@ -2426,7 +2426,7 @@ void cOglPixmap::DrawBitmap(const cPoint &Point, const cBitmap &Bitmap, tColor C
 
     oglThread->DoCmd(new cOglCmdDrawImage(fb, argb, Bitmap.Width(), Bitmap.Height(), Point.X(), Point.Y(), true));
     SetDirty();
-    MarkDrawPortDirty(cRect(cPoint(xNew, yNew), cSize(Bitmap.Width(), Bitmap.Height())).Intersected(DrawPort().Size()));
+    MarkDrawPortDirty(cRect(cPoint(Point.X(), Point.Y()), cSize(Bitmap.Width(), Bitmap.Height())).Intersected(DrawPort().Size()));
 }
 
 void cOglPixmap::DrawText(const cPoint &Point, const char *s, tColor ColorFg, tColor ColorBg, const cFont *Font, int Width, int Height, int Alignment) {
