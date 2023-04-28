@@ -560,16 +560,16 @@ int PlayAudio(const uint8_t * data, int size, uint8_t id)
 	// ID 0xBD 0xC0-0xCF
 	// must be a PES start code
 	if (size < 9 || !data || data[0] || data[1] || data[2] != 0x01) {
-		Error("[softhddev] invalid PES audio packet");
+		Error("invalid PES audio packet");
 		return size;
 	}
 	n = data[8];			// header size
 
 	if (size < 9 + n + 4) {		// wrong size
 		if (size == 9 + n) {
-			Warning("[softhddev] empty audio packet");
+			Warning("empty audio packet");
 		} else {
-			Error("[softhddev] invalid audio packet %d bytes", size);
+			Error("invalid audio packet %d bytes", size);
 		}
 		Info("PlayAudio: wrong size");
 		return size;
@@ -587,7 +587,7 @@ int PlayAudio(const uint8_t * data, int size, uint8_t id)
 	p = data + 9 + n;
 	n = size - 9 - n;			// skip pes header
 	if (n + AudioAvPkt->stream_index > AudioAvPkt->size) {
-		Error("[softhddev] audio buffer too small needed %d avail %d",
+		Error("audio buffer too small needed %d avail %d",
 			n + AudioAvPkt->stream_index, AudioAvPkt->size);
 		AudioAvPkt->stream_index = 0;
 	}
@@ -600,7 +600,7 @@ int PlayAudio(const uint8_t * data, int size, uint8_t id)
 	// Private stream + LPCM ID
 	if ((id & 0xF0) == 0xA0) {
 		if (n < 7) {
-			Error("[softhddev] invalid LPCM audio packet %d bytes", size);
+			Error("invalid LPCM audio packet %d bytes", size);
 			return size;
 		}
 /*		if (AudioCodecID != AV_CODEC_ID_PCM_DVD) {
@@ -609,7 +609,7 @@ int PlayAudio(const uint8_t * data, int size, uint8_t id)
 	    int channels;
 	    int bits_per_sample;
 
-	    Debug("[softhddev]%s: LPCM %d sr:%d bits:%d chan:%d\n",
+	    Debug("%s: LPCM %d sr:%d bits:%d chan:%d\n",
 		__FUNCTION__, id, p[5] >> 4, (((p[5] >> 6) & 0x3) + 4) * 4,
 		(p[5] & 0x7) + 1);
 	    CodecAudioClose(MyAudioDecoder);
@@ -617,7 +617,7 @@ int PlayAudio(const uint8_t * data, int size, uint8_t id)
 	    bits_per_sample = (((p[5] >> 6) & 0x3) + 4) * 4;
 	    if (bits_per_sample != 16) {
 		Error(_
-		    ("[softhddev] LPCM %d bits per sample aren't supported"),
+		    ("LPCM %d bits per sample aren't supported"),
 		    bits_per_sample);
 		// FIXME: handle unsupported formats.
 	    }
@@ -628,12 +628,12 @@ int PlayAudio(const uint8_t * data, int size, uint8_t id)
 //	    AudioSetBufferTime(400);
 //	    AudioSetup(&samplerate, &channels, 0);
 	    if (samplerate != samplerates[p[5] >> 4]) {
-		Error("[softhddev] LPCM %d sample-rate is unsupported",
+		Error("LPCM %d sample-rate is unsupported",
 		    samplerates[p[5] >> 4]);
 		// FIXME: support resample
 	    }
 	    if (channels != (p[5] & 0x7) + 1) {
-		Error("[softhddev] LPCM %d channels are unsupported",
+		Error("LPCM %d channels are unsupported",
 		    (p[5] & 0x7) + 1);
 		// FIXME: support resample
 	    }
@@ -715,7 +715,7 @@ int PlayAudio(const uint8_t * data, int size, uint8_t id)
 			}
 			avpkt = av_packet_alloc();
 			if (avpkt == NULL) {
-				Error("[softhddev] avpkt allocation failed");
+				Error("avpkt allocation failed");
 				continue;
 			};
 			avpkt->data = (void *)p;
@@ -971,7 +971,7 @@ static void VideoPacketInit(VideoStream * stream)
 
 		avpkt = &stream->PacketRb[i];
 		if (av_new_packet(avpkt, VIDEO_BUFFER_SIZE)) {
-			Fatal("[softhddev] out of memory");
+			Fatal("out of memory");
 		}
 		avpkt->size = 0;
 	}
