@@ -5,6 +5,9 @@
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
+#ifdef GRIDPOINTS
+#include <string>
+#endif
 #include <sys/ioctl.h>
 
 #include "misc.h"
@@ -15,6 +18,18 @@
 
 /* This is needed for the GLES2 GL_CLAMP_TO_BORDER workaround */
 #define BORDERCOLOR 0x00000000
+
+/* This maybe useful for skin developing */
+#ifdef GRIDPOINTS
+#define GRIDPOINTSTEXT 1
+#define GRIDRECT 1
+#define GRIDTEXT 0
+#define GRIDPOINTSIZE    3
+#define GRIDPOINTOFFSET  4
+#define GRIDPOINTSTXTSIZE 14
+#define GRIDPOINTBG      clrTransparent
+#define GRIDPOINTCLR     0xFFFF0000
+#endif
 
 /****************************************************************************************
 * Helpers
@@ -2303,12 +2318,20 @@ cOglPixmap::cOglPixmap(std::shared_ptr<cOglThread> oglThread, int Layer, const c
 
     fb = new cOglFb(width, height, ViewPort.Width(), ViewPort.Height());
     dirty = true;
+
+#ifdef GRIDPOINTS
+    // Creates a tiny font with height GRIDPOINTSTXTSIZE
+    tinyfont = cFont::CreateFont(Setup.FontOsd, GRIDPOINTSTXTSIZE);
+#endif
 }
 
 cOglPixmap::~cOglPixmap(void) {
     if (!oglThread->Active())
         return;
     oglThread->DoCmd(new cOglCmdDeleteFb(fb));
+#ifdef GRIDPOINTS
+    delete tinyfont;
+#endif
 }
 
 void cOglPixmap::MarkViewPortDirty(const cRect &Rect) {
@@ -2378,6 +2401,9 @@ void cOglPixmap::DrawImage(const cPoint &Point, const cImage &Image) {
     memcpy(argb, Image.Data(), sizeof(tColor) * Image.Width() * Image.Height());
 
     oglThread->DoCmd(new cOglCmdDrawImage(fb, argb, Image.Width(), Image.Height(), Point.X(), Point.Y()));
+#ifdef GRIDRECT
+    DrawGridRect(cRect(Point.X(), Point.Y(), Image.Width(), Image.Height()), GRIDPOINTOFFSET, GRIDPOINTSIZE, GRIDPOINTCLR, GRIDPOINTBG, tinyfont);
+#endif
 
     SetDirty();
     MarkDrawPortDirty(cRect(Point, cSize(Image.Width(), Image.Height())).Intersected(DrawPort().Size()));
@@ -2389,6 +2415,9 @@ void cOglPixmap::DrawImage(const cPoint &Point, int ImageHandle) {
     if (ImageHandle < 0 && oglThread->GetImageRef(ImageHandle)) {
             sOglImage *img = oglThread->GetImageRef(ImageHandle);
             oglThread->DoCmd(new cOglCmdDrawTexture(fb, img, Point.X(), Point.Y()));
+#ifdef GRIDRECT
+            DrawGridRect(cRect(Point.X(), Point.Y(), img->width, img->height), GRIDPOINTOFFSET, GRIDPOINTSIZE, GRIDPOINTCLR, GRIDPOINTBG, tinyfont);
+#endif
     }
     /*
     Fallback to VDR implementation, needs to separate cSoftOsdProvider from softhddevice.cpp 
@@ -2404,7 +2433,9 @@ void cOglPixmap::DrawImage(const cPoint &Point, int ImageHandle) {
 void cOglPixmap::DrawPixel(const cPoint &Point, tColor Color) {
     cRect r(Point.X(), Point.Y(), 1, 1);
     oglThread->DoCmd(new cOglCmdDrawRectangle(fb, r.X(), r.Y(), r.Width(), r.Height(), Color));
-
+#ifdef GRIDRECT
+    DrawGridRect(cRect(r.X(), r.Y(), 0, 0), GRIDPOINTOFFSET, GRIDPOINTSIZE, GRIDPOINTCLR, GRIDPOINTBG, tinyfont);
+#endif
     SetDirty();
     MarkDrawPortDirty(r);
 }
@@ -2428,6 +2459,10 @@ void cOglPixmap::DrawBitmap(const cPoint &Point, const cBitmap &Bitmap, tColor C
         }
 
     oglThread->DoCmd(new cOglCmdDrawImage(fb, argb, Bitmap.Width(), Bitmap.Height(), Point.X(), Point.Y(), true));
+#ifdef GRIDRECT
+    DrawGridRect(cRect(Point.X(), Point.Y(), Bitmap.Width(), Bitmap.Height()), GRIDPOINTOFFSET, GRIDPOINTSIZE, GRIDPOINTCLR, GRIDPOINTBG, tinyfont);
+#endif
+
     SetDirty();
     MarkDrawPortDirty(cRect(cPoint(Point.X(), Point.Y()), cSize(Bitmap.Width(), Bitmap.Height())).Intersected(DrawPort().Size()));
 }
@@ -2490,21 +2525,25 @@ void cOglPixmap::DrawText(const cPoint &Point, const char *s, tColor ColorFg, tC
     }
     oglThread->DoCmd(new cOglCmdDrawText(fb, x, y, symbols, limitX, Font->FontName(), Font->Size(), ColorFg, len));
 
+#ifdef GRIDTEXT
+    DrawGridRect(cRect(x, y, cw, ch), GRIDPOINTOFFSET, GRIDPOINTSIZE, GRIDPOINTCLR, GRIDPOINTBG, tinyfont);
+#endif
+
     SetDirty();
     MarkDrawPortDirty(r);
 }
+
 
 void cOglPixmap::DrawRectangle(const cRect &Rect, tColor Color) {
     if (!oglThread->Active())
         return;
 
-    int xNew = Rect.X();
-    int yNew = Rect.Y();
-    int wNew = Rect.Width();
-    int hNew = Rect.Height();
-
     LOCK_PIXMAPS;
-    oglThread->DoCmd(new cOglCmdDrawRectangle(fb, xNew, yNew, wNew, hNew, Color));
+    oglThread->DoCmd(new cOglCmdDrawRectangle(fb, Rect.X(), Rect.Y(), Rect.Width(), Rect.Height(), Color));
+#ifdef GRIDRECT
+    DrawGridRect(Rect, GRIDPOINTOFFSET, GRIDPOINTSIZE, GRIDPOINTCLR, GRIDPOINTBG, tinyfont);
+#endif
+
     SetDirty();
     MarkDrawPortDirty(Rect);
 }
@@ -2513,13 +2552,12 @@ void cOglPixmap::DrawEllipse(const cRect &Rect, tColor Color, int Quadrants) {
     if (!oglThread->Active())
         return;
 
-    int xNew = Rect.X();
-    int yNew = Rect.Y();
-    int wNew = Rect.Width();
-    int hNew = Rect.Height();
-
     LOCK_PIXMAPS;
-    oglThread->DoCmd(new cOglCmdDrawEllipse(fb, xNew, yNew, wNew, hNew, Color, Quadrants));
+    oglThread->DoCmd(new cOglCmdDrawEllipse(fb, Rect.X(), Rect.Y(), Rect.Width(), Rect.Height(), Color, Quadrants));
+#ifdef GRIDRECT
+    DrawGridRect(Rect, GRIDPOINTOFFSET, GRIDPOINTSIZE, GRIDPOINTCLR, GRIDPOINTBG, tinyfont);
+#endif
+
     SetDirty();
     MarkDrawPortDirty(Rect);
 }
@@ -2528,13 +2566,12 @@ void cOglPixmap::DrawSlope(const cRect &Rect, tColor Color, int Type) {
     if (!oglThread->Active())
         return;
 
-    int xNew = Rect.X();
-    int yNew = Rect.Y();
-    int wNew = Rect.Width();
-    int hNew = Rect.Height();
-
     LOCK_PIXMAPS;
-    oglThread->DoCmd(new cOglCmdDrawSlope(fb, xNew, yNew, wNew, hNew, Color, Type));
+    oglThread->DoCmd(new cOglCmdDrawSlope(fb, Rect.X(), Rect.Y(), Rect.Width(), Rect.Height(), Color, Type));
+#ifdef GRIDRECT
+    DrawGridRect(Rect, GRIDPOINTOFFSET, GRIDPOINTSIZE, GRIDPOINTCLR, GRIDPOINTBG, tinyfont);
+#endif
+
     SetDirty();
     MarkDrawPortDirty(Rect);
 }
@@ -2554,6 +2591,101 @@ void cOglPixmap::Scroll(const cPoint &Dest, const cRect &Source) {
 void cOglPixmap::Pan(const cPoint &Dest, const cRect &Source) {
     Warning("Pan %d %d not implemented in OpenGl OSD", Source.X(), Dest.X());
 }
+
+#ifdef GRIDPOINTS
+void cOglPixmap::DrawGridText(const cPoint &Point, const char *s, tColor ColorFg, tColor ColorBg, const cFont *Font, int Width, int Height, int Alignment) {
+    if (!oglThread->Active())
+        return;
+    LOCK_PIXMAPS;
+    int len = s ? Utf8StrLen(s) : 0;
+    unsigned int *symbols = MALLOC(unsigned int, len + 1);
+    if (!symbols)
+        return;
+
+    if (len)
+        Utf8ToArray(s, symbols, len + 1);
+    else
+        symbols[0] = 0;
+
+    int x = Point.X();
+    int y = Point.Y();
+    int w = Font->Width(s);
+    int h = Font->Height();
+    int limitX = 0;
+    int cw = Width ? Width : w;
+    int ch = Height ? Height : h;
+
+    cRect r(x, y, cw, ch);
+
+    if (ColorBg != clrTransparent)
+        oglThread->DoCmd(new cOglCmdDrawRectangle(fb, r.X(), r.Y(), r.Width(), r.Height(), ColorBg));
+
+    if (Width || Height) {
+        limitX = x + cw;
+        if (Width) {
+            if ((Alignment & taLeft) != 0) {
+                if ((Alignment & taBorder) != 0)
+                    x += std::max(h / TEXT_ALIGN_BORDER, 1);
+                } else if ((Alignment & taRight) != 0) {
+                    if (w < Width)
+                        x += Width - w;
+                    if ((Alignment & taBorder) != 0)
+                        x -= std::max(h / TEXT_ALIGN_BORDER, 1);
+                } else { // taCentered
+                    if (w < Width)
+                        x += (Width - w) / 2;
+                }
+        }
+
+        if (Height) {
+            if ((Alignment & taTop) != 0)
+                ;
+            else if ((Alignment & taBottom) != 0) {
+                if (h < Height)
+                    y += Height - h;
+            } else { // taCentered
+                if (h < Height)
+                y += (Height - h) / 2;
+            }
+        }
+    }
+    oglThread->DoCmd(new cOglCmdDrawText(fb, x, y, symbols, limitX, Font->FontName(), Font->Size(), ColorFg, len));
+
+    SetDirty();
+    MarkDrawPortDirty(r);
+}
+
+void cOglPixmap::DrawGridRect(const cRect &Rect, int offset, int size, tColor clr, tColor bg, const cFont *font) {
+    int x1 = Rect.X() + offset;
+    int x2 = Rect.X() + Rect.Width() + offset;
+    int y1 = Rect.Y();
+    int y2 = Rect.Y() + Rect.Height();
+    char p1[10];
+    char p2[10];
+    char p3[10];
+    char p4[10];
+    sprintf(p1, "%d.%d", x1, y1);
+    sprintf(p2, "%d.%d", x2, y1);
+    sprintf(p3, "%d.%d", x1, y2);
+    sprintf(p4, "%d.%d", x2, y2);
+
+    oglThread->DoCmd(new cOglCmdDrawRectangle(fb, x1, y1, size, size, clr));
+#ifdef GRIDPOINTSTEXT
+    this->DrawGridText(cPoint(x1, y1), p1, clr, bg, font);
+#endif
+    if (Rect.Width() && Rect.Height()) {
+        oglThread->DoCmd(new cOglCmdDrawRectangle(fb, x2, y1, size, size, clr));
+        oglThread->DoCmd(new cOglCmdDrawRectangle(fb, x1, y2, size, size, clr));
+        oglThread->DoCmd(new cOglCmdDrawRectangle(fb, x2, y2, size, size, clr));
+#ifdef GRIDPOINTSTEXT
+        this->DrawGridText(cPoint(x2, y1), p2, clr, bg, font);
+        this->DrawGridText(cPoint(x1, y2), p3, clr, bg, font);
+        this->DrawGridText(cPoint(x2, y2), p4, clr, bg, font);
+#endif
+    }
+}
+#endif
+
 
 /******************************************************************************
 * cOglOsd

@@ -17,6 +17,7 @@ MMAL ?= 0
 GLES ?= $(shell pkg-config --exists glesv2 egl gbm && echo 1)
 	# enable this to write the OSD as png into /tmp (only GLES mode)
 PNG ?= 0
+GRID ?= 0
 
 CONFIG := #-DDEBUG 				# enable debug output+functions
 #CONFIG += -DAV_SYNC_DEBUG		# enable debug messages AV_SYNC
@@ -33,6 +34,9 @@ ifeq ($(GLES),1)
 CONFIG += -DUSE_GLES			# build with OpenGL/ES support
 ifeq ($(PNG),1)
 CONFIG += -DWRITE_PNG			# enable writing OSD to png file
+endif
+ifeq ($(GRID),1)
+CONFIG += -DGRIDPOINTS			# mark gridpoints
 endif
 endif
 

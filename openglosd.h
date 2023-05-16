@@ -548,6 +548,11 @@ private:
     cOglFb *fb;
     std::shared_ptr<cOglThread> oglThread;
     bool dirty;
+#ifdef GRIDPOINTS
+    cFont *tinyfont;
+    void DrawGridRect(const cRect &Rect, int offset, int size, tColor clr, tColor bg, const cFont *Font);
+    void DrawGridText(const cPoint &Point, const char *s, tColor ColorFg, tColor ColorBg, const cFont *Font, int Width = 0, int Height = 0, int Alignment = taDefault);
+#endif
 public:
     cOglPixmap(std::shared_ptr<cOglThread> oglThread, int Layer, const cRect &ViewPort, const cRect &DrawPort = cRect::Null);
     virtual ~cOglPixmap(void);
