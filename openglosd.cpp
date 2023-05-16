@@ -94,8 +94,8 @@ finalise:
 }
 #endif
 
-void writePng(cOglFb *fb, int x, int y, int w, int h, bool oFb) {
 #ifdef WRITE_PNG
+void writePng(cOglFb *fb, int x, int y, int w, int h, bool oFb) {
     GL_CHECK(glFinish());
     GLubyte result[w * h * 4];
     static int scr_nr = 0;
@@ -115,10 +115,8 @@ void writePng(cOglFb *fb, int x, int y, int w, int h, bool oFb) {
         }
         writeImage(filename, w, h, &result, "osd");
     }
-#else
-    return;
-#endif
 }
+#endif
 
 void ConvertColor(const GLint &colARGB, glm::vec4 &col) {
     col.a = ((colARGB & 0xFF000000) >> 24) / 255.0;
@@ -1253,8 +1251,10 @@ bool cOglCmdRenderFbToBufferFb::Execute(void) {
     GL_CHECK(glDisable(GL_SCISSOR_TEST));
     VertexBuffers[vbTexture]->Unbind();
 
+#ifdef WRITE_PNG
     // Read back bFb framebuffer
 //    writePng(buffer, 0, 0, buffer->Width(), buffer->Height(), false);
+#endif
     buffer->Unbind();
 
     return true;
@@ -1315,8 +1315,11 @@ bool cOglCmdCopyBufferToOutputFb::Execute(void) {
         OsdDrawARGB(0, 0, oFb->Width(), oFb->Height(), 0, 0, 0, 0);
     else
         OsdClose();
+
+#ifdef WRITE_PNG
     // Read back oFb framebuffer
     writePng(oFb, 0, 0, oFb->Width(), oFb->Height(), true);
+#endif
     oFb->Unbind();
 
     return true;
