@@ -72,6 +72,9 @@
 //	Variables
 //----------------------------------------------------------------------------
 int VideoAudioDelay;
+static int VideoDisplayWidth = 0;
+static int VideoDisplayHeight = 0;
+static uint32_t VideoDisplayRefresh = 0;
 
 static pthread_cond_t PauseCondition;
 static pthread_mutex_t PauseMutex;
@@ -472,6 +475,11 @@ static void free_properties(struct plane *plane)
 	free(plane->props_info);
 }
 
+void VideoSetDisplay(const char* resolution)
+{
+	sscanf(resolution, "%dx%d@%d", &VideoDisplayWidth, &VideoDisplayHeight, &VideoDisplayRefresh);
+}
+
 static int FindDevice(VideoRender * render)
 {
 	drmModeRes *resources;
@@ -516,7 +524,6 @@ static int FindDevice(VideoRender * render)
 
 	// find all available connectors
 	for (i = 0; i < resources->count_connectors; i++) {
-		vrefresh = 50;
 		connector = drmModeGetConnector(render->fd_drm, resources->connectors[i]);
 		if (!connector) {
 			Error("FindDevice: cannot retrieve DRM connector (%d): %m", errno);
@@ -533,44 +540,62 @@ static int FindDevice(VideoRender * render)
 			}
 			render->crtc_id = encoder->crtc_id;
 		}
-		// first, search for an UHD, FullHD or HDready display with 50Hz refresh rate
+		// search for manually set mode
+		if (VideoDisplayWidth) {
+			for (j = 0; j < connector->count_modes; j++) {
+				mode = &connector->modes[j];
+				if(mode->hdisplay == VideoDisplayWidth && mode->vdisplay == VideoDisplayHeight &&
+					mode->vrefresh == VideoDisplayRefresh &&
+					!(mode->flags & DRM_MODE_FLAG_INTERLACE)) {
+					memcpy(&render->mode, &connector->modes[j], sizeof(drmModeModeInfo));
+					break;
+				}
+			}
+		} else {
+		// search for an UHD, FullHD or HDready display with 50Hz refresh rate
 		// if found, use the one with the greatest resolution, otherwise do the same with 60Hz
 search_mode:
-		for (j = 0; j < connector->count_modes; j++) {
-			mode = &connector->modes[j];
-			// Mode UHD
-			if(mode->hdisplay == 3840 && mode->vdisplay == 2160 &&
-				mode->vrefresh == vrefresh &&
-				!(mode->flags & DRM_MODE_FLAG_INTERLACE)) {
-				memcpy(&render->mode, &connector->modes[j], sizeof(drmModeModeInfo));
-				break;
+			vrefresh = 50;
+			for (j = 0; j < connector->count_modes; j++) {
+				mode = &connector->modes[j];
+				// Mode UHD
+				if(mode->hdisplay == 3840 && mode->vdisplay == 2160 &&
+					mode->vrefresh == vrefresh &&
+					!(mode->flags & DRM_MODE_FLAG_INTERLACE)) {
+					memcpy(&render->mode, &connector->modes[j], sizeof(drmModeModeInfo));
+					break;
+				}
+				// Mode HD
+				if(mode->hdisplay == 1920 && mode->vdisplay == 1080 &&
+					mode->vrefresh == vrefresh &&
+					!(mode->flags & DRM_MODE_FLAG_INTERLACE)) {
+					memcpy(&render->mode, &connector->modes[j], sizeof(drmModeModeInfo));
+					break;
+				}
+				// Mode HDready
+				if(mode->hdisplay == 1280 && mode->vdisplay == 720 &&
+					mode->vrefresh == vrefresh &&
+					!(mode->flags & DRM_MODE_FLAG_INTERLACE)) {
+					memcpy(&render->mode, &connector->modes[j], sizeof(drmModeModeInfo));
+					break;
+				}
 			}
-			// Mode HD
-			if(mode->hdisplay == 1920 && mode->vdisplay == 1080 &&
-				mode->vrefresh == vrefresh &&
-				!(mode->flags & DRM_MODE_FLAG_INTERLACE)) {
-				memcpy(&render->mode, &connector->modes[j], sizeof(drmModeModeInfo));
-				break;
-			}
-			// Mode HDready
-			if(mode->hdisplay == 1280 && mode->vdisplay == 720 &&
-				mode->vrefresh == vrefresh &&
-				!(mode->flags & DRM_MODE_FLAG_INTERLACE)) {
-				memcpy(&render->mode, &connector->modes[j], sizeof(drmModeModeInfo));
-				break;
-			}
-		}
-		if (!render->mode.hdisplay || !render->mode.vdisplay) {
-			if (vrefresh == 50) {
-				vrefresh = 60;
-				goto search_mode;
+			if (!render->mode.hdisplay || !render->mode.vdisplay) {
+				if (vrefresh == 50) {
+					vrefresh = 60;
+					goto search_mode;
+				}
 			}
 		}
 		drmModeFreeConnector(connector);
 	}
 
-	if (!render->mode.hdisplay || !render->mode.vdisplay)
+	if (VideoDisplayWidth && (!render->mode.hdisplay || !render->mode.vdisplay)) {
+		Fatal("FindDevice: Could not find requested monitor mode %dx%d@%d! Give up!",
+			VideoDisplayWidth, VideoDisplayHeight, VideoDisplayRefresh);
+	} else if (!render->mode.hdisplay || !render->mode.vdisplay) {
 		Fatal("FindDevice: No Monitor Mode found! Give up!");
+	}
 
 	Info("FindDevice: Using Monitor Mode %dx%d@%d",
 		render->mode.hdisplay, render->mode.vdisplay, render->mode.vrefresh);

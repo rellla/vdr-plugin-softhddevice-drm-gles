@@ -132,6 +132,7 @@ Commandline:
     -a audio_device
     -p device for pass-through
     -c audio mixer channel name
+    -d display resolution (e.g. 1920x1080@50)
 
 SVDRP:
 ------

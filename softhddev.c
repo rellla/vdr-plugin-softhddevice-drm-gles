@@ -1826,6 +1826,7 @@ const char *CommandLineHelp(void)
     return "  -a device\taudio device (fe. alsa: hw:0,0)\n"
 	"  -p device\taudio device for pass-through (hw:0,1)\n"
 	"  -c channel\taudio mixer channel name (fe. PCM)\n"
+	"  -d resolution\tdisplay resolution (fe. 1920x1080@50)\n"
 	"\n";
 }
 
@@ -1842,7 +1843,7 @@ int ProcessArgs(int argc, char *const argv[])
     //
 
     for (;;) {
-	switch (getopt(argc, argv, "-a:c:p:")) {
+	switch (getopt(argc, argv, "-a:c:p:d:")) {
 	    case 'a':			// audio device for pcm
 		AudioSetDevice(optarg);
 		continue;
@@ -1851,6 +1852,9 @@ int ProcessArgs(int argc, char *const argv[])
 		continue;
 	    case 'p':			// pass-through audio device
 		AudioSetPassthroughDevice(optarg);
+		continue;
+	    case 'd':			// set display output
+		VideoSetDisplay(optarg);
 		continue;
 	    case EOF:
 		break;
