@@ -2861,6 +2861,14 @@ void cOglOsd::Flush(void) {
             if (!isSubtitleOsd && !dirtyViewport->Intersects(oglPixmaps[i]->ViewPort()))
                 continue;
 
+            if (oglPixmaps[i]->Layer() == 0)
+                oglThread->DoCmd(new cOglCmdDrawRectangle(bFb,
+                                 isSubtitleOsd ? 0 : oglPixmaps[i]->DirtyViewPort().X(),
+                                 isSubtitleOsd ? 0 : oglPixmaps[i]->DirtyViewPort().Y(),
+                                 oglPixmaps[i]->DirtyViewPort().Width(),
+                                 oglPixmaps[i]->DirtyViewPort().Height(),
+                                 clrTransparent));
+
             oglThread->DoCmd(new cOglCmdRenderFbToBufferFb( oglPixmaps[i]->Fb(),
                                                             bFb,
                                                             isSubtitleOsd ? 0 : oglPixmaps[i]->ViewPort().X(),
