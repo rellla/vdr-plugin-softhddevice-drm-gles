@@ -1209,7 +1209,7 @@ bool cOglCmdDeleteFb::Execute(void) {
 }
 
 //------------------ cOglCmdRenderFbToBufferFb --------------------
-cOglCmdRenderFbToBufferFb::cOglCmdRenderFbToBufferFb(cOglFb *fb, cOglFb *buffer, GLint x, GLint y, GLint transparency, GLint drawPortX, GLint drawPortY, GLint dirtyX, GLint dirtyTop, GLint dirtyWidth, GLint dirtyHeight) : cOglCmd(fb) {
+cOglCmdRenderFbToBufferFb::cOglCmdRenderFbToBufferFb(cOglFb *fb, cOglFb *buffer, GLint x, GLint y, GLint transparency, GLint drawPortX, GLint drawPortY, GLint dirtyX, GLint dirtyTop, GLint dirtyWidth, GLint dirtyHeight, bool copy) : cOglCmd(fb) {
     this->dirtyX = dirtyX;
     this->dirtyTop = dirtyTop;
     this->dirtyWidth = dirtyWidth;
@@ -1221,6 +1221,7 @@ cOglCmdRenderFbToBufferFb::cOglCmdRenderFbToBufferFb(cOglFb *fb, cOglFb *buffer,
     this->drawPortY = (GLfloat)drawPortY;
     this->transparency = transparency;
     this->bcolor = BORDERCOLOR;
+    this->copy = copy;
 }
 
 bool cOglCmdRenderFbToBufferFb::Execute(void) {
@@ -1259,6 +1260,8 @@ bool cOglCmdRenderFbToBufferFb::Execute(void) {
     buffer->Bind();
     if (!fb->BindTexture())
         return false;
+    if (copy)
+        VertexBuffers[vbTexture]->DisableBlending();
     VertexBuffers[vbTexture]->Bind();
     GL_CHECK(glEnable(GL_SCISSOR_TEST));
     GL_CHECK(glScissor(dirtyX, buffer->Height() - dirtyTop - dirtyHeight, dirtyWidth, dirtyHeight));
@@ -1272,6 +1275,8 @@ bool cOglCmdRenderFbToBufferFb::Execute(void) {
 //    if (ConfigWritePngs)
 //       writePng(buffer, 0, 0, buffer->Width(), buffer->Height(), false);
 #endif
+    if (copy)
+        VertexBuffers[vbTexture]->EnableBlending();
     buffer->Unbind();
 
     return true;
@@ -2874,7 +2879,8 @@ void cOglOsd::Flush(void) {
                                                             dirtyViewport->X(),
                                                             dirtyViewport->Top(),
                                                             dirtyViewport->Width(),
-                                                            dirtyViewport->Height()));
+                                                            dirtyViewport->Height(),
+                                                            (layer == 0 ? true : false)));
             oglPixmaps[i]->SetClean();
         }
     }
