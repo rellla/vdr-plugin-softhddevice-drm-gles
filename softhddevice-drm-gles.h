@@ -47,6 +47,11 @@ static class cSoftHdDevice *MyDevice;
 //////////////////////////////////////////////////////////////////////////////
 
 static char ConfigMakePrimary;		///< config primary wanted
+#ifdef USE_GLES
+#ifdef WRITE_PNG
+char ConfigWritePngs;			///< config write pngs from OSD
+#endif
+#endif
 static char ConfigHideMainMenuEntry;	///< config hide main menu entry
 static int ConfigVideoAudioDelay;	///< config audio delay
 static char ConfigAudioPassthrough;	///< config audio pass-through mask
@@ -161,6 +166,13 @@ class cMenuSetupSoft:public cMenuSetupPage
     /// @{
     int General;
     int MakePrimary;
+#ifdef USE_GLES
+#ifdef WRITE_PNG
+    int Debug;
+    int WritePngs;
+//    const char *pngVariant[4];
+#endif
+#endif
     int HideMainMenuEntry;
 
     int Audio;

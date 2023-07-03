@@ -195,6 +195,9 @@ msgstr "Erzeuge primäres Gerät"
 msgid "Hide main menu entry"
 msgstr "Verstecke Hauptmenüeintrag"
 
+msgid "Write OSD to file"
+msgstr "OSD in Datei schreiben"
+
 msgid "GPU mem used for image caching (MB)"
 msgstr ""
 

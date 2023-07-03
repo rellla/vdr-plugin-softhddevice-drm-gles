@@ -490,6 +490,14 @@ void cMenuSetupSoft::Create(void)
 
     current = Current();		// get current menu item index
     Clear();				// clear the menu
+#ifdef USE_GLES
+#ifdef WRITE_PNG
+//    pngVariant[0] = tr("none");
+//    pngVariant[1] = tr("output fb");
+//    pngVariant[2] = tr("render fb");
+//    pngVariant[3] = tr("both");
+#endif
+#endif
 
     //
     //	general
@@ -508,6 +516,18 @@ void cMenuSetupSoft::Create(void)
 	Add(new cMenuEditIntItem(tr("GPU mem used for image caching (MB)"), &MaxSizeGPUImageCache, 0, 4000));
 #endif
     }
+#ifdef USE_GLES
+#ifdef WRITE_PNG
+    //
+    //	debug
+    //
+    Add(CollapsedItem(tr("Debug"), Debug));
+    if (Debug) {
+	Add(new cMenuEditBoolItem(tr("Write OSD to file"), &WritePngs, trVDR("no"), trVDR("yes")));
+//	Add(new cMenuEditStraItem(tr("Write OSD to file"), &WritePngs, 4, pngVariant));
+    }
+#endif
+#endif
     //
     //	audio
     //
@@ -636,6 +656,11 @@ cMenuSetupSoft::cMenuSetupSoft(void)
     //
     General = 0;
     MakePrimary = ConfigMakePrimary;
+#ifdef USE_GLES
+#ifdef WRITE_PNG
+    WritePngs = ConfigWritePngs;
+#endif
+#endif
     HideMainMenuEntry = ConfigHideMainMenuEntry;
     //
     //	audio
@@ -677,6 +702,11 @@ cMenuSetupSoft::cMenuSetupSoft(void)
 void cMenuSetupSoft::Store(void)
 {
     SetupStore("MakePrimary", ConfigMakePrimary = MakePrimary);
+#ifdef USE_GLES
+#ifdef WRITE_PNG
+    SetupStore("WritePngs", ConfigWritePngs = WritePngs);
+#endif
+#endif
     SetupStore("HideMainMenuEntry", ConfigHideMainMenuEntry = HideMainMenuEntry);
     SetupStore("AudioDelay", ConfigVideoAudioDelay = AudioDelay);
     VideoSetAudioDelay(ConfigVideoAudioDelay);
@@ -1274,6 +1304,14 @@ bool cPluginSoftHdDevice::SetupParse(const char *name, const char *value)
 	ConfigMakePrimary = atoi(value);
 	return true;
     }
+#ifdef USE_GLES
+#ifdef WRITE_PNG
+    if (!strcasecmp(name, "WritePngs")) {
+	ConfigWritePngs = atoi(value);
+	return true;
+    }
+#endif
+#endif
     if (!strcasecmp(name, "HideMainMenuEntry")) {
 	ConfigHideMainMenuEntry = atoi(value);
 	return true;

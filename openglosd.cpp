@@ -14,6 +14,7 @@
 
 #ifdef WRITE_PNG
 #include <png.h>
+extern int ConfigWritePngs;
 #endif
 
 /* This is needed for the GLES2 GL_CLAMP_TO_BORDER workaround */
@@ -1268,7 +1269,8 @@ bool cOglCmdRenderFbToBufferFb::Execute(void) {
 
 #ifdef WRITE_PNG
     // Read back bFb framebuffer
-//    writePng(buffer, 0, 0, buffer->Width(), buffer->Height(), false);
+//    if (ConfigWritePngs)
+//       writePng(buffer, 0, 0, buffer->Width(), buffer->Height(), false);
 #endif
     buffer->Unbind();
 
@@ -1333,7 +1335,8 @@ bool cOglCmdCopyBufferToOutputFb::Execute(void) {
 
 #ifdef WRITE_PNG
     // Read back oFb framebuffer
-    writePng(oFb, 0, 0, oFb->Width(), oFb->Height(), true);
+    if (ConfigWritePngs)
+        writePng(oFb, 0, 0, oFb->Width(), oFb->Height(), true);
 #endif
     oFb->Unbind();
 
