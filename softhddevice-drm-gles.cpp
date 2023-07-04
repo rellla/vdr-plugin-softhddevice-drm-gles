@@ -521,8 +521,8 @@ void cMenuSetupSoft::Create(void)
     //
     //	debug
     //
-    Add(CollapsedItem(tr("Debug"), Debug));
-    if (Debug) {
+    Add(CollapsedItem(tr("Debug"), DebugMenu));
+    if (DebugMenu) {
 	Add(new cMenuEditBoolItem(tr("Write OSD to file"), &WritePngs, trVDR("no"), trVDR("yes")));
 //	Add(new cMenuEditStraItem(tr("Write OSD to file"), &WritePngs, 4, pngVariant));
     }
@@ -621,6 +621,11 @@ void cMenuSetupSoft::Create(void)
 eOSState cMenuSetupSoft::ProcessKey(eKeys key)
 {
     int old_General = General;
+#ifdef USE_GLES
+#ifdef WRITE_PNG
+    int old_DebugMenu = DebugMenu;
+#endif
+#endif
     int old_Audio = Audio;
     int old_AudioFilter = AudioFilter;
     int old_AudioEq = AudioEq;
@@ -636,6 +641,11 @@ eOSState cMenuSetupSoft::ProcessKey(eKeys key)
 			old_Audio != Audio || old_AudioFilter != AudioFilter ||
 			old_AudioEq != AudioEq || old_AudioNormalize != AudioNormalize ||
 			old_AudioCompression != AudioCompression ||
+#ifdef USE_GLES
+#ifdef WRITE_PNG
+			old_DebugMenu != DebugMenu ||
+#endif
+#endif
 			old_AudioPassthroughDefault != AudioPassthroughDefault) {
 			Create();			// update menu
 		}
@@ -658,6 +668,7 @@ cMenuSetupSoft::cMenuSetupSoft(void)
     MakePrimary = ConfigMakePrimary;
 #ifdef USE_GLES
 #ifdef WRITE_PNG
+    DebugMenu = 0;
     WritePngs = ConfigWritePngs;
 #endif
 #endif

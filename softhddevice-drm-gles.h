@@ -168,7 +168,7 @@ class cMenuSetupSoft:public cMenuSetupPage
     int MakePrimary;
 #ifdef USE_GLES
 #ifdef WRITE_PNG
-    int Debug;
+    int DebugMenu;
     int WritePngs;
 //    const char *pngVariant[4];
 #endif
