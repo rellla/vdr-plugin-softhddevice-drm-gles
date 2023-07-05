@@ -358,9 +358,9 @@ private:
     GLint dirtyTop;
     GLint dirtyWidth;
     GLint dirtyHeight;
-    bool copy;
+    bool alphablending;
 public:
-    cOglCmdRenderFbToBufferFb(cOglFb *fb, cOglFb *buffer, GLint x, GLint y, GLint transparency, GLint drawPortX, GLint drawPortY, GLint dirtyX, GLint dirtyTop, GLint dirtyWidth, GLint dirtyHeight, bool blend);
+    cOglCmdRenderFbToBufferFb(cOglFb *fb, cOglFb *buffer, GLint x, GLint y, GLint transparency, GLint drawPortX, GLint drawPortY, GLint dirtyX, GLint dirtyTop, GLint dirtyWidth, GLint dirtyHeight, bool alphablending);
     virtual ~cOglCmdRenderFbToBufferFb(void) {};
     virtual const char* Description(void) { return "Render Framebuffer to Buffer"; }
     virtual bool Execute(void);
