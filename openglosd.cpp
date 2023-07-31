@@ -2834,13 +2834,15 @@ void cOglOsd::Flush(void) {
     LOCK_PIXMAPS;
     // check for dirty areas
     dirtyViewport->Set(0, 0, 0, 0);
-    for (int i = 0; i < oglPixmaps.Size(); i++)
+    for (int i = 0; i < oglPixmaps.Size(); i++) {
         if (oglPixmaps[i] && oglPixmaps[i]->Layer() >= 0 && oglPixmaps[i]->IsDirty()) {
             if (isSubtitleOsd) {
                 dirtyViewport->Combine(oglPixmaps[i]->DirtyViewPort().Size());
             } else {
                 dirtyViewport->Combine(oglPixmaps[i]->DirtyViewPort());
             }
+            oglPixmaps[i]->SetClean();
+        }
     }
 
     if (dirtyViewport->IsEmpty())
@@ -2882,7 +2884,6 @@ void cOglOsd::Flush(void) {
                                                             dirtyViewport->Width(),
                                                             dirtyViewport->Height(),
                                                             alphablending));
-            oglPixmaps[i]->SetClean();
         }
     }
     //copy buffer to output framebuffer
