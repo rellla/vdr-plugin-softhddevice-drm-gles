@@ -1186,27 +1186,75 @@ int PlayVideo(const uint8_t * data, int size)
 		// ES start code 0x00 0x00 0x01
 		if (!data[i + n] && !data[i + n + 1] && data[i + n + 2] == 0x01) {
 			if (stream->CodecID == AV_CODEC_ID_NONE) {
-				// MPEG2 I-Frame
 				if (data[i + n + 3] == 0xb3) {
+				// MPEG2 I-Frame
 					Debug("video: mpeg2 detected");
+					Debug2(L_CODEC, "video: 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x",
+					       data[i + n],
+					       data[i + n + 1],
+					       data[i + n + 2],
+					       data[i + n + 3],
+					       data[i + n + 4],
+					       data[i + n + 5],
+					       data[i + n + 6],
+					       data[i + n + 7],
+					       data[i + n + 8],
+					       data[i + n + 9],
+					       data[i + n + 10]);
 					stream->CodecID = AV_CODEC_ID_MPEG2VIDEO;
 					goto newstream;
-				}
+				} else if (data[i + n + 3] == 0x09 && (data[i + n + 4] == 0x10 || data[i + n + 4] == 0xF0 || data[i + n + 10] == 0x64)) {
 				// H264 I-Frame
-				if (data[i + n + 4] == 0x10 || data[i + n + 10] == 0x64) {
 					Debug("video: H264 detected");
+					Debug2(L_CODEC, "video: 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x",
+					       data[i + n],
+					       data[i + n + 1],
+					       data[i + n + 2],
+					       data[i + n + 3],
+					       data[i + n + 4],
+					       data[i + n + 5],
+					       data[i + n + 6],
+					       data[i + n + 7],
+					       data[i + n + 8],
+					       data[i + n + 9],
+					       data[i + n + 10]);
 					stream->CodecID = AV_CODEC_ID_H264;
 					goto newstream;
-				}
+				} else if (data[i + n + 3] == 0x46 && (data[i + n + 5] == 0x10 || data[i + n + 5] == 0x50 || data[i + n + 10] == 0x40)) {
 				// HEVC I-Frame
-				if (data[i + n + 5] == 0x10 || data[i + n + 10] == 0x40) {
 					Debug("video: hevc detected");
+					Debug2(L_CODEC, "video: 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x",
+					       data[i + n],
+					       data[i + n + 1],
+					       data[i + n + 2],
+					       data[i + n + 3],
+					       data[i + n + 4],
+					       data[i + n + 5],
+					       data[i + n + 6],
+					       data[i + n + 7],
+					       data[i + n + 8],
+					       data[i + n + 9],
+					       data[i + n + 10]);
 					stream->CodecID = AV_CODEC_ID_HEVC;
 newstream:
 					stream->NewStream = 1;
 					stream->timebase.den = 90000;
 					stream->timebase.num = 1;
 					VideoEnqueue(stream, pts, data + i + n, size - i - n);
+				} else {
+				// Unknown Frame
+					Debug2(L_CODEC, "video: unknown startcode detected: 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x",
+					       data[i + n],
+					       data[i + n + 1],
+					       data[i + n + 2],
+					       data[i + n + 3],
+					       data[i + n + 4],
+					       data[i + n + 5],
+					       data[i + n + 6],
+					       data[i + n + 7],
+					       data[i + n + 8],
+					       data[i + n + 9],
+					       data[i + n + 10]);
 				}
 			} else {
 				VideoEnqueue(stream, pts, data + i + n, size - i - n);
