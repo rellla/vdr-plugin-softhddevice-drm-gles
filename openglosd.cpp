@@ -2372,8 +2372,7 @@ void cOglPixmap::SetClean(void) {
 
 void cOglPixmap::SetLayer(int Layer) {
     cPixmap::SetLayer(Layer);
-    if (cPixmap::Layer() >= 0 || Layer >= 0)
-        SetDirty();
+    SetDirty();
 }
 
 void cOglPixmap::SetAlpha(int Alpha) {
@@ -2835,7 +2834,7 @@ void cOglOsd::Flush(void) {
     // check for dirty areas
     dirtyViewport->Set(0, 0, 0, 0);
     for (int i = 0; i < oglPixmaps.Size(); i++) {
-        if (oglPixmaps[i] && oglPixmaps[i]->Layer() >= 0 && oglPixmaps[i]->IsDirty()) {
+        if (oglPixmaps[i] && oglPixmaps[i]->IsDirty()) {
             if (isSubtitleOsd) {
                 dirtyViewport->Combine(oglPixmaps[i]->DirtyViewPort().Size());
             } else {
