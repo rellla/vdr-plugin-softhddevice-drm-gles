@@ -418,7 +418,7 @@ static int Ac3Check(const uint8_t * data, int size)
 	if ((data[4] & 0xF0) == 0xF0) {	// invalid fscod fscod2
 	    return 0;
 	}
-	frame_size = ((data[2] & 0x03) << 8) + data[3] + 1;
+	frame_size = ((data[2] & 0x07) << 8) + data[3] + 1;
 	frame_size *= 2;
     } else {				// AC-3
 	int fscod;
@@ -1008,10 +1008,6 @@ static void VideoEnqueue(VideoStream * stream, int64_t pts, const void *data,
 {
 	AVPacket *avpkt;
 
-//	PrintStreamData(data, size);
-//	Info("VideoEnqueue: pts %s size %d",
-//		PtsTimestamp2String(pts), size);
-
 	avpkt = &stream->PacketRb[stream->PacketWrite];
 
 	if (pts != AV_NOPTS_VALUE) {
@@ -1182,6 +1178,7 @@ int PlayVideo(const uint8_t * data, int size)
 	}
 
 	n = PesHeadLength(data);	// PES header size
+
 	for (i = 0; (i < 2) && (i + 4 < size); i++) {
 		// ES start code 0x00 0x00 0x01
 		if (!data[i + n] && !data[i + n + 1] && data[i + n + 2] == 0x01) {
@@ -1499,7 +1496,6 @@ int PlayVideoPkts(AVPacket * pkt)
 	AVPacket *avpkt;
 
 	if (atomic_read(&MyVideoStream->PacketsFilled) >= VIDEO_PACKET_MAX - 10) {
-//		Error("PlayVideoPkts: failed! >= VIDEO_PACKET_MAX");
 		return 0;
 	}
 

@@ -97,7 +97,6 @@ void cSoftOsd::SetActive(bool on)
 cSoftOsd::cSoftOsd(int left, int top, uint level)
 :cOsd(left, top, level)
 {
-    Debug("%s:", __FUNCTION__);
     /* FIXME: OsdWidth/OsdHeight not correct!
      */
     Debug2(L_OSD, "OSD %s: %dx%d%+d%+d, %d", __FUNCTION__, OsdWidth(),
@@ -113,7 +112,6 @@ cSoftOsd::cSoftOsd(int left, int top, uint level)
 */
 cSoftOsd::~cSoftOsd(void)
 {
-    Debug("%s:", __FUNCTION__);
     Debug2(L_OSD, "OSD %s: level %d", __FUNCTION__, OsdLevel);
 
     SetActive(false);
@@ -355,7 +353,6 @@ void cSoftOsd::Flush(void)
 */
 cOsd *cSoftOsdProvider::CreateOsd(int left, int top, uint level)
 {
-    Debug("%s:", __FUNCTION__);
 #ifdef USE_GLES
     Debug2(L_OSD, "OSD %s: %d, %d, %d, using OpenGL OSD support", __FUNCTION__, left, top, level);
     if (StartOpenGlThread())

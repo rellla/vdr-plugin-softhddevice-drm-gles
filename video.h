@@ -96,8 +96,8 @@ struct _Drm_Render_
 //	int TrickCounter;			///< current trick speed counter
 	int VideoPaused;
 	int Closing;			///< flag about closing current stream
-	int Filter_Close;
 	int Filter_Bug;
+	int Filter_Frames;
 
 	int StartCounter;			///< counter for video start
 	int FramesDuped;			///< number of frames duplicated
