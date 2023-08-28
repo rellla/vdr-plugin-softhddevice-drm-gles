@@ -70,13 +70,27 @@ struct drm_buf {
 #endif
 };
 
+struct plane_properties {
+	uint64_t crtc_id;
+	uint64_t fb_id;
+	uint64_t crtc_x;
+	uint64_t crtc_y;
+	uint64_t crtc_w;
+	uint64_t crtc_h;
+	uint64_t src_x;
+	uint64_t src_y;
+	uint64_t src_w;
+	uint64_t src_h;
+	uint64_t zpos;
+};
+
 struct plane {
 	uint32_t plane_id;
 	uint64_t type;
-	uint64_t zpos;
 	drmModePlane *plane;
 	drmModeObjectProperties *props;
 	drmModePropertyRes **props_info;
+	struct plane_properties properties;
 };
 
 struct _Drm_Render_
@@ -125,10 +139,7 @@ struct _Drm_Render_
 	} video;
 	struct drm_buf *act_buf;
 	struct drm_buf bufs[36];
-	struct drm_buf buf_osd;
-#ifdef USE_GLES
-	struct drm_buf *buf_osd_gl;
-#endif
+	struct drm_buf *buf_osd;
 	struct drm_buf buf_black;
 	int use_zpos;
 	uint64_t zpos_overlay;
