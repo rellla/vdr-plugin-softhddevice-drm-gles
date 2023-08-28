@@ -1331,7 +1331,7 @@ page_flip_osd:
 
 			Debug2(L_DRM, "Frame2Display: SetPlaneZpos: video->plane_id %d -> zpos %lld, osd->plane_id %d -> zpos %lld",
 				render->planes[VIDEO_PLANE]->plane_id, render->planes[VIDEO_PLANE]->properties.zpos,
-				render->planes[OSD_PLANE]->plane_id, render->planes[VIDEO_PLANE]->properties.zpos);
+				render->planes[OSD_PLANE]->plane_id, render->planes[OSD_PLANE]->properties.zpos);
 		}
 
 		render->planes[OSD_PLANE]->properties.crtc_id = render->crtc_id;
