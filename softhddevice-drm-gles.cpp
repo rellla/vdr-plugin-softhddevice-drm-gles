@@ -1537,7 +1537,12 @@ bool cPluginSoftHdDevice::Service(const char *id, void *data)
 **	FIXME: translation?
 */
 static const char *SVDRPHelpText[] = {
-	"PLAY Url\n" "    Play the media from the given url.\n",
+	"PLAY Url\n" "\040   Play the media from the given url.\n",
+	"DETA\n"     "\040   Detach plugin.\n",
+	"ATTA\n"     "\040   Attach plugin.\n",
+	"SUSP\n"     "\040   Attach plugin.\n",
+	"RESU\n"     "\040   Resume plugin.\n",
+	"STAT\n"     "\040   Display SuspendMode of the plugin.\n",
 	NULL
 };
 
@@ -1563,13 +1568,62 @@ cString cPluginSoftHdDevice::SVDRPCommand(const char *command,
 		__attribute__ ((unused)) const char *option,
 		__attribute__ ((unused)) int &reply_code)
 {
+	// PLAY
 	if (!strcasecmp(command, "PLAY")) {
-		Debug2(L_MEDIA, "SVDRPCommand: %s %s", command, option);
+		Debug("SVDRPCommand: %s %s", command, option);
 		cControl::Launch(new cSoftHdControl(option));
 		return "PLAY url";
 	}
-
-    return NULL;
+	// DETA
+	if (!strcasecmp(command, "DETA")) {
+		Debug("SVDRPCommand: %s %s", command, option);
+		if (SuspendMode == SUSPEND_DETACHED)
+			return "SoftHdDevice is already detached";
+		SuspendMode = SUSPEND_DETACHED;
+		return "SoftHdDevice is detached";
+	}
+	// ATTA
+	if (!strcasecmp(command, "ATTA")) {
+		Debug("SVDRPCommand: %s %s", command, option);
+		if (SuspendMode != SUSPEND_DETACHED)
+			return "can't attach SoftHdDevice (is not detached)";
+		SuspendMode = NOT_SUSPENDED;
+		return "SoftHdDevice is attached";
+	}
+	// SUSP
+	if (!strcasecmp(command, "SUSP")) {
+		Debug("SVDRPCommand: %s %s", command, option);
+		if (SuspendMode != NOT_SUSPENDED)
+			return "SoftHdDevice is already detached";
+		SuspendMode = SUSPEND_NORMAL;
+		return "SoftHdDevice is suspended";
+	}
+	// RESU
+	if (!strcasecmp(command, "RESU")) {
+		Debug("SVDRPCommand: %s %s", command, option);
+		if (SuspendMode == NOT_SUSPENDED)
+			return "SoftHdDevice is already resumed";
+		if (SuspendMode != SUSPEND_NORMAL)
+			return "can't resume SoftHdDevice (is not suspended)";
+		SuspendMode = NOT_SUSPENDED;
+		return "SoftHdDevice is resumed";
+	}
+	// STAT
+	if (!strcasecmp(command, "STAT")) {
+		Debug("SVDRPCommand: %s %s", command, option);
+		reply_code = 910 + SuspendMode;
+		switch (SuspendMode) {
+		case SUSPEND_EXTERNAL:
+			return "SuspendMode is SUSPEND_EXTERNAL";
+		case NOT_SUSPENDED:
+			return "SuspendMode is NOT_SUSPENDED";
+		case SUSPEND_NORMAL:
+			return "SuspendMode is SUSPEND_NORMAL";
+		case SUSPEND_DETACHED:
+			return "SuspendMode is SUSPEND_DETACHED";
+		}
+	}
+	return NULL;
 }
 
 VDRPLUGINCREATOR(cPluginSoftHdDevice);	// Don't touch this!
