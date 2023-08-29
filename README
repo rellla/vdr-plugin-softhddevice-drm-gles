@@ -1,6 +1,6 @@
 Copyright (c) 2011 - 2013 by Johns.  All Rights Reserved.
 Copyright (c) 2018 - 2021 by zillevdr.  All Rights Reserved.
-Copyright (c) 2020 - 2022 by rellla.  All Rights Reserved.
+Copyright (c) 2020 - 2023 by rellla.  All Rights Reserved.
 
 License: AGPLv3
 
@@ -19,7 +19,6 @@ Install:
 --------
 	git clone https://github.com/rellla/vdr-plugin-softhddevice-drm-gles.git
 	cd vdr-plugin-softhddevice-drm-gles
-	For mmal (Raspberry Pi 2) set MMAL to 1 in Makefile.
 	make
 	make install
 
@@ -38,16 +37,15 @@ Requirement:
 ---------
         No running X!
 
-	media-video/vdr (version >=2.2.x)
+	vdr (version >=2.2.x)
 		Video Disk Recorder - turns a pc into a powerful set top box
 		for DVB.
 		http://www.tvdr.de/
 
-	media-video/ffmpeg
-		MMAL (RaspberryPi) 	version >=3.2
+	ffmpeg
 		v4l2-request (Rockchip, Allwinner)	WIP LE version
 
-	media-libs/alsa-lib
+	alsa-lib
 		Advanced Linux Sound Architecture Library
 		http://www.alsa-project.org
 
@@ -57,16 +55,9 @@ Requirement:
 		gbm (Mesa)
 		freetype2
 		glm - OpenGL Mathematics (GLM)
+		libpng (to write debug OSD pngs)
 
-TODO:
------
-	cleaning
-	testing
-	other devices
-	deinterlacing
-	passthrough
-
-Setup:	environment
+Setup:	environment (TODO, maybe outdated)
 ------
 	ALSA_DEVICE=default
 		alsa PCM device name
@@ -77,7 +68,7 @@ Setup:	environment
 	ALSA_MIXER_CHANNEL=PCM
 		alsa control channel name
 
-Setup: /etc/vdr/setup.conf
+Setup: /etc/vdr/setup.conf (TODO, maybe outdated)
 ------
 	softhddevice.MakePrimary = 0
 	0 = no change, 1 make softhddevice primary at start

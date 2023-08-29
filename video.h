@@ -54,10 +54,6 @@
 //----------------------------------------------------------------------------
 //	Typedefs
 //----------------------------------------------------------------------------
-#ifdef MMAL
-    /// Video hardware decoder typedef
-typedef struct _Mmal_Render_ VideoRender;
-#else
 struct drm_buf {
 	uint32_t width, height, size, pitch[4], handle[4], offset[4], fb_id;
 	uint8_t *plane[4];
@@ -119,7 +115,7 @@ struct _Drm_Render_
 	AVRational *timebase;		///< pointer to AVCodecContext pkts_timebase
 	int64_t pts;
 
-	int CodecMode;			/// 0: find codec by id, 1: set _mmal, 2: no mpeg hw,
+	int CodecMode;			/// 0: find codec by id, 2: no mpeg hw,
 							/// 3: set _v4l2m2m for H264
 	int NoHwDeint;			/// set if no hw deinterlacer
 
@@ -166,7 +162,7 @@ struct _Drm_Render_
 
     /// Video hardware decoder typedef
 typedef struct _Drm_Render_ VideoRender;
-#endif
+
     /// Video output stream typedef
 typedef struct __video_stream__ VideoStream; 		// in softhddev.h ?
 typedef struct _video_decoder_ VideoDecoder;

@@ -11,12 +11,11 @@ PLUGIN = softhddevice-drm-gles
 
 ### Configuration (edit this for your needs)
 
-	# enable this for MMAL (RaspberryPi 2)
-MMAL ?= 0
-	# Use OpenGL/ES for OSD? Disable autodetection by setting GLES=1 or GLES=0 with make command
+# Use OpenGL/ES for OSD? Disable autodetection by setting GLES=1 or GLES=0 with make command
 GLES ?= $(shell pkg-config --exists glesv2 egl gbm && echo 1)
-	# enable this to write the OSD as png into /tmp (only GLES mode)
+# enable this to write the OSD as png into /tmp (only GLES mode)
 PNG ?= 0
+# enable this to mark the corners of the rectangles on the OSD
 GRID ?= 0
 
 CONFIG := #-DDEBUG 				# enable debug output+functions
@@ -86,13 +85,6 @@ SOFILE = libvdr-$(PLUGIN).so
 
 ### softhddevice config
 
-ifeq ($(MMAL),1)
-CONFIG += -DMMAL
-INCLUDES += -I/opt/vc/include -I/opt/vc/include/interface/vcos/pthreads -I/opt/vc/include/interface/vmcs_host/linux
-LDFLAGS += -L/opt/vc/lib
-_CFLAGS += $(shell pkg-config --cflags alsa libavcodec libavfilter)
-LIBS += -lrt -lmmal -lmmal_core -lbcm_host -lvcos $(shell pkg-config --libs alsa libavcodec libavfilter)
-else
 _CFLAGS += $(shell pkg-config --cflags alsa libavcodec libavfilter libdrm)
 LIBS += $(shell pkg-config --libs alsa libavcodec libavfilter libdrm)
 ifeq ($(GLES),1)
@@ -121,7 +113,6 @@ _CFLAGS += $(shell pkg-config --cflags libpng)
 LIBS += $(shell pkg-config --libs libpng)
 endif
 endif
-endif
 
 ### Includes and Defines (add further entries here):
 
@@ -139,11 +130,7 @@ override CFLAGS	  += $(_CFLAGS) $(DEFINES) $(INCLUDES) \
 
 ### The object files (add further files here):
 
-ifeq ($(MMAL),1)
-OBJS = $(PLUGIN).o mediaplayer.o softhddev.o video_mmal.o audio.o codec.o ringbuffer.o
-else
 OBJS = $(PLUGIN).o mediaplayer.o softhddev.o video_drm.o audio.o codec.o ringbuffer.o
-endif
 
 ifeq ($(GLES),1)
 OBJS += openglosd.o
