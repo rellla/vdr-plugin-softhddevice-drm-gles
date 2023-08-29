@@ -42,7 +42,6 @@ endif
 ### The version number of this plugin (taken from the main source file):
 
 VERSION = $(shell grep 'static const char \*const VERSION *=' $(PLUGIN).cpp | awk '{ print $$7 }' | sed -e 's/[";]//g')
-GIT_REV = $(shell git describe --always 2>/dev/null)
 
 ### The directory environment:
 
@@ -118,8 +117,7 @@ endif
 
 INCLUDES +=
 
-DEFINES += -DPLUGIN_NAME_I18N='"$(PLUGIN)"' -D_GNU_SOURCE $(CONFIG) \
-	$(if $(GIT_REV), -DGIT_REV='"$(GIT_REV)"')
+DEFINES += -DPLUGIN_NAME_I18N='"$(PLUGIN)"' -D_GNU_SOURCE $(CONFIG)
 
 ### Make it standard
 
