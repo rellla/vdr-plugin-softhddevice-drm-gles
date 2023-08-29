@@ -85,7 +85,7 @@ int writeImage(char* filename, int width, int height, void *buffer, char* title)
 	if (title != NULL) {
 		png_text title_text;
 		title_text.compression = PNG_TEXT_COMPRESSION_NONE;
-		title_text.key = "Title";
+		title_text.key = strdup("Title");
 		title_text.text = title;
 		png_set_text(png_ptr, info_ptr, &title_text, 1);
 	}
@@ -111,7 +111,7 @@ finalise:
 #endif
 
 #ifdef WRITE_PNG
-void writePng(cOglFb *fb, int x, int y, int w, int h, bool oFb) {
+void writePng(int x, int y, int w, int h, bool oFb) {
     GL_CHECK(glFinish());
     GLubyte result[w * h * 4];
     static int scr_nr = 0;
@@ -123,14 +123,12 @@ void writePng(cOglFb *fb, int x, int y, int w, int h, bool oFb) {
         Error("Framebuffer is not complete! %d", fbstatus);
 
     GL_CHECK(glReadPixels(x, y, w, h, GL_RGBA, GL_UNSIGNED_BYTE, &result));
-    if (result) {
-        if (oFb) {
-            snprintf(filename, sizeof(filename), "/tmp/%03doFb.png", scr_nr++);
-        } else {
-            snprintf(filename, sizeof(filename), "/tmp/%03dbFb.png", scr_nr++);
-        }
-        writeImage(filename, w, h, &result, "osd");
+    if (oFb) {
+        snprintf(filename, sizeof(filename), "/tmp/%03doFb.png", scr_nr++);
+    } else {
+        snprintf(filename, sizeof(filename), "/tmp/%03dbFb.png", scr_nr++);
     }
+    writeImage(filename, w, h, &result, strdup("osd"));
 }
 #endif
 
@@ -1273,7 +1271,7 @@ bool cOglCmdRenderFbToBufferFb::Execute(void) {
 #ifdef WRITE_PNG
     // Read back bFb framebuffer
 //    if (ConfigWritePngs)
-//       writePng(buffer, 0, 0, buffer->Width(), buffer->Height(), false);
+//       writePng(0, 0, buffer->Width(), buffer->Height(), false);
 #endif
     if (!alphablending)
         VertexBuffers[vbTexture]->EnableBlending();
@@ -1341,7 +1339,7 @@ bool cOglCmdCopyBufferToOutputFb::Execute(void) {
 #ifdef WRITE_PNG
     // Read back oFb framebuffer
     if (ConfigWritePngs)
-        writePng(oFb, 0, 0, oFb->Width(), oFb->Height(), true);
+        writePng(0, 0, oFb->Width(), oFb->Height(), true);
 #endif
     oFb->Unbind();
 

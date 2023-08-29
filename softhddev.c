@@ -1186,7 +1186,7 @@ int PlayVideo(const uint8_t * data, int size)
 				if (data[i + n + 3] == 0xb3) {
 				// MPEG2 I-Frame
 					Debug("video: mpeg2 detected");
-					Debug2(L_CODEC, "video: 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x",
+					Debug2(L_CODEC, "video: 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x",
 					       data[i + n],
 					       data[i + n + 1],
 					       data[i + n + 2],
@@ -1203,7 +1203,7 @@ int PlayVideo(const uint8_t * data, int size)
 				} else if (data[i + n + 3] == 0x09 && (data[i + n + 4] == 0x10 || data[i + n + 4] == 0xF0 || data[i + n + 10] == 0x64)) {
 				// H264 I-Frame
 					Debug("video: H264 detected");
-					Debug2(L_CODEC, "video: 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x",
+					Debug2(L_CODEC, "video: 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x",
 					       data[i + n],
 					       data[i + n + 1],
 					       data[i + n + 2],
@@ -1220,7 +1220,7 @@ int PlayVideo(const uint8_t * data, int size)
 				} else if (data[i + n + 3] == 0x46 && (data[i + n + 5] == 0x10 || data[i + n + 5] == 0x50 || data[i + n + 10] == 0x40)) {
 				// HEVC I-Frame
 					Debug("video: hevc detected");
-					Debug2(L_CODEC, "video: 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x",
+					Debug2(L_CODEC, "video: 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x",
 					       data[i + n],
 					       data[i + n + 1],
 					       data[i + n + 2],
@@ -1240,7 +1240,7 @@ newstream:
 					VideoEnqueue(stream, pts, data + i + n, size - i - n);
 				} else {
 				// Unknown Frame
-					Debug2(L_CODEC, "video: unknown startcode detected: 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x",
+					Debug2(L_CODEC, "video: unknown startcode detected: 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x",
 					       data[i + n],
 					       data[i + n + 1],
 					       data[i + n + 2],
