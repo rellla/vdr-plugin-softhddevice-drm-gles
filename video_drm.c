@@ -292,7 +292,7 @@ void ReadHWPlatform(VideoRender * render)
 	size_t read_size;
 
 	txt_buf = (char *) calloc(bufsize, sizeof(char));
-	render->CodecMode = 0;
+	render->CodecMode = CODEC_BY_ID;
 	render->NoHwDeint = 0;
 
 	read_size = ReadLineFromFile(txt_buf, bufsize, "/sys/firmware/devicetree/base/compatible");
@@ -307,13 +307,13 @@ void ReadHWPlatform(VideoRender * render)
 
 		if (strstr(read_ptr, "bcm2711")) {
 			Info("ReadHWPlatform: bcm2711 found");
-			render->CodecMode = 3;	// set _v4l2m2m for H264
+			render->CodecMode = CODEC_V4L2M2M_H264;	// set _v4l2m2m for H264
 			render->NoHwDeint = 1;
 			break;
 		}
 		if (strstr(read_ptr, "amlogic")) {
 			Info("ReadHWPlatform: amlogic found");
-			render->CodecMode = 3;	// set _v4l2m2m for H264
+			render->CodecMode = CODEC_V4L2M2M_H264;	// set _v4l2m2m for H264
 			render->NoHwDeint = 1;
 			break;
 		}

@@ -51,6 +51,11 @@
 #define OSD_PLANE		1
 #define MAX_PLANES		2
 
+// CodecMode
+#define CODEC_BY_ID		0	///< find codec by id
+#define CODEC_NO_MPEG_HW	1	///< no mpeg hw
+#define CODEC_V4L2M2M_H264	2	///< set _v4l2m2m for H264
+
 //----------------------------------------------------------------------------
 //	Typedefs
 //----------------------------------------------------------------------------
@@ -115,8 +120,8 @@ struct _Drm_Render_
 	AVRational *timebase;		///< pointer to AVCodecContext pkts_timebase
 	int64_t pts;
 
-	int CodecMode;			/// 0: find codec by id, 2: no mpeg hw,
-							/// 3: set _v4l2m2m for H264
+	int CodecMode;			/// CODEC_BY_ID, CODEC_NO_MPEG_HW, CODEC_V4L2M2M_H264
+
 	int NoHwDeint;			/// set if no hw deinterlacer
 
 	AVFilterGraph *filter_graph;
