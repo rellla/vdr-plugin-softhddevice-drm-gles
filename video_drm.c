@@ -1856,6 +1856,7 @@ closing:
 int VideoFilterInit(VideoRender * render, const AVCodecContext * video_ctx,
 		AVFrame * frame)
 {
+	int ret;
 	char args[512];
 	const char *filter_descr = NULL;
 	const AVFilter *buffersrc  = avfilter_get_by_name("buffer");
@@ -1874,8 +1875,6 @@ int VideoFilterInit(VideoRender * render, const AVCodecContext * video_ctx,
 		}
 	} else if (frame->format == AV_PIX_FMT_YUV420P)
 		filter_descr = "scale";
-	Debug("VideoFilterInit: filter %s",
-		filter_descr);
 
 #if LIBAVFILTER_VERSION_INT < AV_VERSION_INT(7,16,100)
 	avfilter_register_all();
@@ -1884,34 +1883,44 @@ int VideoFilterInit(VideoRender * render, const AVCodecContext * video_ctx,
 	snprintf(args, sizeof(args),
 		"video_size=%dx%d:pix_fmt=%d:time_base=%d/%d:pixel_aspect=%d/%d",
 		video_ctx->width, video_ctx->height, frame->format,
-		video_ctx->time_base.num, video_ctx->time_base.den,
+		video_ctx->framerate.den, video_ctx->framerate.num,
 		video_ctx->sample_aspect_ratio.num, video_ctx->sample_aspect_ratio.den);
 
-	if (avfilter_graph_create_filter(&render->buffersrc_ctx, buffersrc, "src",
-		args, NULL, render->filter_graph) < 0) {
-		Error("VideoFilterInit: Cannot create buffer source");
+	Debug2(L_CODEC, "VideoFilterInit: filter %s \"%s\"",
+		filter_descr, args);
+
+	ret = avfilter_graph_create_filter(&render->buffersrc_ctx, buffersrc, "in",
+		args, NULL, render->filter_graph);
+	if (ret < 0) {
+		Error("VideoFilterInit: Cannot create buffer source (%d)", ret);
 		goto fail;
 	}
 
 	AVBufferSrcParameters *par = av_buffersrc_parameters_alloc();
 	par->format = AV_PIX_FMT_NONE;
 	par->hw_frames_ctx = frame->hw_frames_ctx;
-	if (av_buffersrc_parameters_set(render->buffersrc_ctx, par) < 0) {
-		Error("VideoFilterInit: Cannot av_buffersrc_parameters_set");
+	ret = av_buffersrc_parameters_set(render->buffersrc_ctx, par);
+	if (ret < 0) {
+		Error("VideoFilterInit: Cannot av_buffersrc_parameters_set (%d)", ret);
+		av_free(par);
 		goto fail;
 	}
 
 	av_free(par);
 
-	if (avfilter_graph_create_filter(&render->buffersink_ctx, buffersink, "out",
-		NULL, NULL, render->filter_graph) < 0)
-			Error("VideoFilterInit: Cannot create buffer sink");
+	ret = avfilter_graph_create_filter(&render->buffersink_ctx, buffersink, "out",
+		NULL, NULL, render->filter_graph);
+	if (ret < 0) {
+		Error("VideoFilterInit: Cannot create buffer sink (%d)", ret);
+		goto fail;
+	}
 
 	if (frame->format != AV_PIX_FMT_DRM_PRIME) {
 		enum AVPixelFormat pix_fmts[] = { AV_PIX_FMT_NV12, AV_PIX_FMT_NONE };
-		if (av_opt_set_int_list(render->buffersink_ctx, "pix_fmts", pix_fmts,
-				AV_PIX_FMT_NONE, AV_OPT_SEARCH_CHILDREN) < 0) {
-			Error("VideoFilterInit: Cannot set output pixel format");
+		ret = av_opt_set_int_list(render->buffersink_ctx, "pix_fmts", pix_fmts,
+			AV_PIX_FMT_NONE, AV_OPT_SEARCH_CHILDREN);
+		if (ret < 0) {
+			Error("VideoFilterInit: Cannot set output pixel format (%d)", ret);
 			goto fail;
 		}
 	}
@@ -1926,15 +1935,16 @@ int VideoFilterInit(VideoRender * render, const AVCodecContext * video_ctx,
 	inputs->pad_idx    = 0;
 	inputs->next       = NULL;
 
-	if ((avfilter_graph_parse_ptr(render->filter_graph, filter_descr,
-		&inputs, &outputs, NULL)) < 0) {
-
-		Error("VideoFilterInit: avfilter_graph_parse_ptr failed");
+	ret = avfilter_graph_parse_ptr(render->filter_graph, filter_descr,
+		&inputs, &outputs, NULL);
+	if (ret < 0) {
+		Error("VideoFilterInit: avfilter_graph_parse_ptr failed (%d)", ret);
 		goto fail;
 	}
 
-	if ((avfilter_graph_config(render->filter_graph, NULL)) < 0) {
-		Error("VideoFilterInit: avfilter_graph_config failed");
+	ret = avfilter_graph_config(render->filter_graph, NULL);
+	if (ret < 0) {
+		Error("VideoFilterInit: avfilter_graph_config failed (%d)", ret);
 		goto fail;
 	}
 
