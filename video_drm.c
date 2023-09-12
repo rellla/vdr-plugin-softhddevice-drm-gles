@@ -48,12 +48,10 @@
 #include <fcntl.h>
 #include <string.h>
 #include <sys/mman.h>
-//#include <sys/utsname.h>
 #include <drm_fourcc.h>
 #include <libavcodec/avcodec.h>
 #include <libavutil/hwcontext_drm.h>
 #include <libavutil/pixdesc.h>
-//#include <libavutil/time.h>
 #include <libavfilter/buffersink.h>
 #include <libavfilter/buffersrc.h>
 #include <libavutil/opt.h>
@@ -747,10 +745,6 @@ search_mode:
 	drmModeFreeEncoder(encoder);
 	drmModeFreeResources(resources);
 
-//	if (render->use_zpos &&
-//		(render->video_plane > render->osd_plane))
-//		render->use_zpos = 0;
-
 #ifdef USE_GLES
 	render->gbm_device = gbm_create_device(render->fd_drm);
 	if (!render->gbm_device) {
@@ -1052,14 +1046,6 @@ static int SetupFB(VideoRender * render, struct drm_buf *buf,
 
 	return 0;
 }
-
-/*static void Drm_page_flip_event( __attribute__ ((unused)) int fd,
-					__attribute__ ((unused)) unsigned int frame,
-					__attribute__ ((unused)) unsigned int sec,
-					__attribute__ ((unused)) unsigned int usec,
-					__attribute__ ((unused)) void *data)
-{
-}*/
 
 static void DestroyFB(int fd_drm, struct drm_buf *buf)
 {
@@ -1391,18 +1377,6 @@ static void *DisplayHandlerThread(void * arg)
 
 		if (drmHandleEvent(render->fd_drm, &render->ev) != 0)
 			Error("DisplayHandlerThread: drmHandleEvent failed!");
-
-/*
-		static uint32_t last_tick;
-		uint32_t tick;
-
-		tick = GetMsTicks();
-		if (tick - last_tick > 21) {
-			Debug2(L_AV_SYNC, "DisplayHandlerThread: StartCounter %4d FramesFilled %d %dms",
-				render->StartCounter, atomic_read(&render->FramesFilled), tick - last_tick);
-		}
-		last_tick = tick;
-*/
 
 		if (render->Closing &&
 		    (!render->act_buf || (render->act_buf->fb_id == render->buf_black.fb_id))) {
@@ -2354,12 +2328,8 @@ void VideoInit(VideoRender * render)
 	render->OsdShown = 0;
 
 	// init variables page flip
-//    if (render->ev.page_flip_handler != Drm_page_flip_event) {
-		memset(&render->ev, 0, sizeof(render->ev));
-//		render->ev.version = DRM_EVENT_CONTEXT_VERSION;
-		render->ev.version = 2;
-//		render->ev.page_flip_handler = Drm_page_flip_event;
-//	}
+	memset(&render->ev, 0, sizeof(render->ev));
+	render->ev.version = 2;
 
 	// Wakeup DisplayHandlerThread
 	VideoThreadWakeup(render, 0, 1);
