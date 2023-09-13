@@ -1139,8 +1139,10 @@ static void Frame2Display(VideoRender * render)
 
 	drmModeAtomicReqPtr ModeReq;
 	uint32_t flags = DRM_MODE_PAGE_FLIP_EVENT;
-	if (!(ModeReq = drmModeAtomicAlloc()))
+	if (!(ModeReq = drmModeAtomicAlloc())) {
 		Error("Frame2Display: cannot allocate atomic request (%d): %m", errno);
+		return;
+	}
 
 	if (render->Closing) {
 closing:
@@ -1342,14 +1344,13 @@ page_flip_osd:
 			DumpPlaneProperties(render->planes[VIDEO_PLANE]);
 
 		drmModeAtomicFree(ModeReq);
-		Fatal("Frame2Display: page flip failed (%d): %m", errno);
+		Error("Frame2Display: page flip failed (%d): %m", errno);
 	}
 
 	drmModeAtomicFree(ModeReq);
 
-	if (render->lastframe) {
+	if (render->lastframe)
 		av_frame_free(&render->lastframe);
-	}
 	if (render->act_buf)
 		render->lastframe = render->act_buf->frame;
 }
