@@ -2189,7 +2189,6 @@ void cOglThread::Action(void) {
         startWait->Signal();
         return;
     }
-    Info("OpenGL context initialized");
 
     if (!InitShaders()) {
         Error("Could not initiate shaders");
@@ -2197,7 +2196,6 @@ void cOglThread::Action(void) {
         startWait->Signal();
         return;
     }
-    Info("Shaders initialized");
 
     if (!InitVertexBuffers()) {
         Error("Vertex Buffers NOT initialized");
@@ -2205,7 +2203,6 @@ void cOglThread::Action(void) {
         startWait->Signal();
         return;
     }
-    Info("Vertex buffers initialized");
 
     GL_CHECK(glGetIntegerv(GL_MAX_TEXTURE_SIZE, &maxTextureSize));
     Debug2(L_OPENGL, "Maximum Pixmap size: %dx%dpx", maxTextureSize, maxTextureSize);
@@ -2214,6 +2211,7 @@ void cOglThread::Action(void) {
     startWait->Signal();
     stalled = false;
 
+    Info("OpenGL context initialized");
 #ifdef GL_DEBUG_TIME
     uint64_t start_flush = 0;
     uint64_t end_flush = 0;
@@ -2254,9 +2252,9 @@ void cOglThread::Action(void) {
             stalled = false;
     }
 
-    Info("Cleaning up OpenGL stuff");
+    Debug2(L_OPENGL, "Cleaning up OpenGL stuff");
     Cleanup();
-    Info("OpenGL Worker Thread Ended");
+    Debug2(L_OPENGL, "OpenGL worker thread ended");
 }
 
 bool cOglThread::InitOpenGL(void) {
@@ -2265,7 +2263,7 @@ bool cOglThread::InitOpenGL(void) {
         Fatal("failed to get VideoRender");
     }
 
-    Info("Init OpenGL context");
+    Debug2(L_OPENGL, "Init OpenGL context");
 
     // Wait for the EGL context to be created
     while(!render->GlInit) {
@@ -2275,13 +2273,14 @@ bool cOglThread::InitOpenGL(void) {
 
     eglAcquireContext(); /* eglMakeCurrent with new eglSurface */
 
-    GL_CHECK(Info("  GL Version: \"%s\"", glGetString(GL_VERSION)));
-    GL_CHECK(Info("  GL Vendor: \"%s\"", glGetString(GL_VENDOR)));
-    GL_CHECK(Info("  GL Extensions: \"%s\"", glGetString(GL_EXTENSIONS)));
-    GL_CHECK(Info("  GL Renderer: \"%s\"", glGetString(GL_RENDERER)));
+    GL_CHECK(Debug2(L_OPENGL, "  GL Version: \"%s\"", glGetString(GL_VERSION)));
+    GL_CHECK(Debug2(L_OPENGL, "  GL Vendor: \"%s\"", glGetString(GL_VENDOR)));
+    GL_CHECK(Debug2(L_OPENGL, "  GL Extensions: \"%s\"", glGetString(GL_EXTENSIONS)));
+    GL_CHECK(Debug2(L_OPENGL, "  GL Renderer: \"%s\"", glGetString(GL_RENDERER)));
 
     VertexBuffers[vbText]->EnableBlending();
     GL_CHECK(glDisable(GL_DEPTH_TEST));
+    Debug2(L_OPENGL, "Init OpenGL context done");
     return true;
 }
 
@@ -2292,6 +2291,7 @@ bool cOglThread::InitShaders(void) {
             return false;
         Shaders[i] = shader;
     }
+    Debug2(L_OPENGL, "Shaders initialized");
     return true;
 }
 
@@ -2307,6 +2307,7 @@ bool cOglThread::InitVertexBuffers(void) {
             return false;
         VertexBuffers[i] = vb;
     }
+    Debug2(L_OPENGL, "Vertex buffers initialized");
     return true;
 }
 

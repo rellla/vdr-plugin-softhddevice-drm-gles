@@ -304,13 +304,13 @@ void ReadHWPlatform(VideoRender * render)
 	while(read_size) {
 
 		if (strstr(read_ptr, "bcm2711")) {
-			Info("ReadHWPlatform: bcm2711 found");
+			Debug2(L_DRM, "ReadHWPlatform: bcm2711 found");
 			render->CodecMode = CODEC_V4L2M2M_H264;	// set _v4l2m2m for H264
 			render->NoHwDeint = 1;
 			break;
 		}
 		if (strstr(read_ptr, "amlogic")) {
-			Info("ReadHWPlatform: amlogic found");
+			Debug2(L_DRM, "ReadHWPlatform: amlogic found");
 			render->CodecMode = CODEC_V4L2M2M_H264;	// set _v4l2m2m for H264
 			render->NoHwDeint = 1;
 			break;
@@ -779,11 +779,11 @@ search_mode:
 		Error("FindDevice: eglInitialize failed");
 	}
 
-	Info("FindDevice: Using display %p with EGL version %d.%d", render->eglDisplay, iMajorVersion, iMinorVersion);
-	EGL_CHECK(Info("  EGL Version: \"%s\"", eglQueryString(render->eglDisplay, EGL_VERSION)));
-	EGL_CHECK(Info("  EGL Vendor: \"%s\"", eglQueryString(render->eglDisplay, EGL_VENDOR)));
-	EGL_CHECK(Info("  EGL Extensions: \"%s\"", eglQueryString(render->eglDisplay, EGL_EXTENSIONS)));
-	EGL_CHECK(Info("  EGL APIs: \"%s\"", eglQueryString(render->eglDisplay, EGL_CLIENT_APIS)));
+	Debug2(L_OPENGL, "FindDevice: Using display %p with EGL version %d.%d", render->eglDisplay, iMajorVersion, iMinorVersion);
+	EGL_CHECK(Debug2(L_OPENGL, "  EGL Version: \"%s\"", eglQueryString(render->eglDisplay, EGL_VERSION)));
+	EGL_CHECK(Debug2(L_OPENGL, "  EGL Vendor: \"%s\"", eglQueryString(render->eglDisplay, EGL_VENDOR)));
+	EGL_CHECK(Debug2(L_OPENGL, "  EGL Extensions: \"%s\"", eglQueryString(render->eglDisplay, EGL_EXTENSIONS)));
+	EGL_CHECK(Debug2(L_OPENGL, "  EGL APIs: \"%s\"", eglQueryString(render->eglDisplay, EGL_CLIENT_APIS)));
 
 	EGLConfig eglConfig = get_config();
 
@@ -804,12 +804,10 @@ search_mode:
 	EGL_CHECK(eglQuerySurface(render->eglDisplay, render->eglSurface, EGL_WIDTH, &s_width));
 	EGL_CHECK(eglQuerySurface(render->eglDisplay, render->eglSurface, EGL_HEIGHT, &s_height));
 
-	if (render->eglSurface != EGL_NO_SURFACE) {
-		Info("FindDevice: EGLSurface for %d x %d BO created", s_width, s_height);
-		Debug2(L_OPENGL, "FindDevice: EGLSurface %p on EGLDisplay %p for %d x %d BO created", render->eglSurface, render->eglDisplay, s_width, s_height);
-	}
+	Debug2(L_OPENGL, "FindDevice: EGLSurface %p on EGLDisplay %p for %d x %d BO created", render->eglSurface, render->eglDisplay, s_width, s_height);
 
 	render->GlInit = 1;
+	Info("EGL context initialized");
 #endif
 
 	Info("FindDevice: DRM setup - CRTC: %i video_plane: %i (%s %lld) osd_plane: %i (%s %lld) use_zpos: %d",

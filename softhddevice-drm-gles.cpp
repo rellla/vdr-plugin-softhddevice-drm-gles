@@ -393,26 +393,26 @@ bool cSoftOsdProvider::StartOpenGlThread(void) {
         oglThread.reset();
     }
     cCondWait wait;
-    Debug("Trying to start openGL worker thread");
+    Debug2(L_OPENGL, "Trying to start OpenGL worker thread");
     oglThread.reset(new cOglThread(&wait, ConfigMaxSizeGPUImageCache));
     wait.Wait();
 
     if (oglThread->Active()) {
-        Debug("openGL Thread successfully started");
+        Info("OpenGL worker thread started");
         return true;
     }
 
-    Debug("openGL Thread NOT started");
+    Debug2(L_OPENGL, "OpenGL worker thread NOT started");
     return false;
 }
 
 void cSoftOsdProvider::StopOpenGlThread(void) {
-    Debug("stopping openGL worker thread");
+    Debug2(L_OPENGL, "stopping OpenGL worker thread");
     if (oglThread) {
         oglThread->Stop();
     }
     oglThread.reset();
-    Debug("openGL worker thread stopped");
+    Info("OpenGL worker thread stopped");
 }
 #endif
 

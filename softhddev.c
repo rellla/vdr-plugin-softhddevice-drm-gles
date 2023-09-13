@@ -537,13 +537,13 @@ int PlayAudio(const uint8_t * data, int size, uint8_t id)
 	AudioAvPkt->pts = AV_NOPTS_VALUE;
 
 	if (SkipAudio) {	// skip audio
-		Info("PlayAudio: skip audio");
+		Debug("PlayAudio: skip audio");
 		return size;
 	}
 	// hard limit buffer full: don't overrun audio buffers on replay
 	// stream freezed
 	if ((AudioFreeBytes() < AUDIO_MIN_BUFFER_FREE) || (StreamFreezed)){
-		Info("PlayAudio: StreamFreezed");
+		Debug("PlayAudio: StreamFreezed");
 		return 0;
 	}
 	if (NewAudioStream) {
@@ -853,7 +853,7 @@ void ParseResolutionH264(int *width, int *height)
 		}
 	}
 	if (!m_pStart) {
-		Info("ParseResolutionH264: No m_pStart %p Pkt %p Packets %d i %d",
+		Debug("ParseResolutionH264: No m_pStart %p Pkt %p Packets %d i %d",
 			m_pStart, avpkt, VideoGetPackets(), i);
 		PrintStreamData(avpkt->data, avpkt->size);
 		return;
