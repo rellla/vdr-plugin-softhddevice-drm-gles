@@ -539,8 +539,8 @@ static int FindDevice(VideoRender * render)
 		} else {
 		// search for an UHD, FullHD or HDready display with 50Hz refresh rate
 		// if found, use the one with the greatest resolution, otherwise do the same with 60Hz
-search_mode:
 			vrefresh = 50;
+search_mode:
 			for (j = 0; j < connector->count_modes; j++) {
 				mode = &connector->modes[j];
 				// Mode UHD
