@@ -296,11 +296,11 @@ int CodecVideoSendPacket(VideoDecoder * decoder, const AVPacket * avpkt)
 		ret = avcodec_send_packet(decoder->VideoCtx, avpkt);
 	}
 	pthread_mutex_unlock(&CodecLockMutex);
+	if (ret == AVERROR(EAGAIN))
+		return 1;
 	if (ret < 0)
 		Debug2(L_CODEC, "CodecVideoSendPacket: send_packet ret: %s",
 			av_err2str(ret));
-	if (ret == AVERROR(EAGAIN))
-		return 1;
 	return 0;
 }
 
