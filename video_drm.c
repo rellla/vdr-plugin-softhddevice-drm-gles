@@ -1145,7 +1145,7 @@ static void Frame2Display(VideoRender * render)
 	if (render->Closing) {
 closing:
 		// set a black FB
-		Debug("Frame2Display: set a black FB");
+		Debug("Frame2Display: closing, set a black FB");
 		buf = &render->buf_black;
 		goto page_flip;
 	}
@@ -1156,9 +1156,10 @@ dequeue:
 			goto closing;
 		// We had draw activity on the osd buffer
 		if (render->buf_osd && render->buf_osd->dirty) {
-			Debug2(L_DRM, "Frame2Display: goto page_flip_osd");
+			Debug2(L_DRM, "Frame2Display: no video, set a black FB instead");
+			buf = &render->buf_black;
 			render->act_buf = NULL;
-			goto page_flip_osd;
+			goto page_flip;
 		}
 		usleep(10000);
 	}
@@ -1306,7 +1307,6 @@ page_flip:
 	SetPlane(ModeReq, render->planes[VIDEO_PLANE]);
 
 // handle the osd plane
-page_flip_osd:
 	// We had draw activity on the osd buffer
 	if (render->buf_osd && render->buf_osd->dirty) {
 		if (render->use_zpos) {
