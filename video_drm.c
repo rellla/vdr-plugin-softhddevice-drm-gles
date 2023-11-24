@@ -1218,7 +1218,8 @@ audioclock:
 
 	if (diff < -5 && !render->TrickSpeed && !(abs(diff) > 5000)) {
 		render->FramesDropped++;
-		Debug2(L_AV_SYNC, "FrameDropped Pkts %d deint %d Frames %d AudioUsedBytes %d audio %s video %s Delay %dms diff %dms",
+		Debug2(L_AV_SYNC, "FrameDropped (drop %d, dup %d) Pkts %d deint %d Frames %d AudioUsedBytes %d audio %s video %s Delay %dms diff %dms",
+			render->FramesDropped, render->FramesDuped,
 			VideoGetPackets(), atomic_read(&render->FramesDeintFilled),
 			atomic_read(&render->FramesFilled), AudioUsedBytes(), Timestamp2String(audio_pts),
 			Timestamp2String(video_pts), VideoAudioDelay, diff);
@@ -1231,7 +1232,8 @@ audioclock:
 
 	if (diff > 35 && !render->TrickSpeed && !(abs(diff) > 5000)) {
 		render->FramesDuped++;
-		Debug2(L_AV_SYNC, "FrameDuped Pkts %d deint %d Frames %d AudioUsedBytes %d audio %s video %s Delay %dms diff %dms",
+		Debug2(L_AV_SYNC, "FrameDuped (drop %d, dup %d) Pkts %d deint %d Frames %d AudioUsedBytes %d audio %s video %s Delay %dms diff %dms",
+			render->FramesDropped, render->FramesDuped,
 			VideoGetPackets(), atomic_read(&render->FramesDeintFilled),
 			atomic_read(&render->FramesFilled), AudioUsedBytes(), Timestamp2String(audio_pts),
 			Timestamp2String(video_pts), VideoAudioDelay, diff);
