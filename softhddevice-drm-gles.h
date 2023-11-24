@@ -169,6 +169,7 @@ class cMenuSetupSoft:public cMenuSetupPage
 //    const char *pngVariant[4];
 #endif
 #endif
+    int Statistics;
     int HideMainMenuEntry;
 
     int Audio;

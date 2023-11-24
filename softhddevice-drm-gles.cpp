@@ -513,6 +513,21 @@ void cMenuSetupSoft::Create(void)
 	Add(new cMenuEditIntItem(tr("GPU mem used for image caching (MB)"), &MaxSizeGPUImageCache, 0, 4000));
 #endif
     }
+
+    //
+    //	statistics
+    //
+    Add(CollapsedItem(tr("Statistics"), Statistics));
+    if (Statistics) {
+	int duped;
+	int dropped;
+	int counter;
+	GetStats(&duped, &dropped, &counter);
+	Add(new cOsdItem(cString::sprintf(tr
+		(" Frames duped(%d) dropped(%d) total(%d)"),
+		duped, dropped, counter), osUnknown, false));
+    }
+
 #ifdef USE_GLES
 #ifdef WRITE_PNG
     //
@@ -623,6 +638,7 @@ eOSState cMenuSetupSoft::ProcessKey(eKeys key)
     int old_DebugMenu = DebugMenu;
 #endif
 #endif
+    int old_Statistics = Statistics;
     int old_Audio = Audio;
     int old_AudioFilter = AudioFilter;
     int old_AudioEq = AudioEq;
@@ -643,6 +659,7 @@ eOSState cMenuSetupSoft::ProcessKey(eKeys key)
 			old_DebugMenu != DebugMenu ||
 #endif
 #endif
+			old_Statistics != Statistics ||
 			old_AudioPassthroughDefault != AudioPassthroughDefault) {
 			Create();			// update menu
 		}
@@ -669,6 +686,7 @@ cMenuSetupSoft::cMenuSetupSoft(void)
     WritePngs = ConfigWritePngs;
 #endif
 #endif
+    Statistics = 0;
     HideMainMenuEntry = ConfigHideMainMenuEntry;
     //
     //	audio
