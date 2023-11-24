@@ -465,17 +465,11 @@ void cSoftHdMenu::MainMenu(void)
 	int dropped;
 	int counter;
 
-	current = Current();		// get current menu item index
+	current = Current();			// get current menu item index
 	Clear();				// clear the menu
 
 	Add(new cOsdItem(hk(tr(" play file / make play list")), osUser1));
 	Add(new cOsdItem(hk(tr(" select play list")), osUser2));
-	Add(new cOsdItem(NULL, osUnknown, false));
-	Add(new cOsdItem(NULL, osUnknown, false));
-	GetStats(&duped, &dropped, &counter);
-	Add(new cOsdItem(cString::sprintf(tr
-		(" Frames duped(%d) dropped(%d) total(%d)"),
-		duped, dropped, counter), osUnknown, false));
 
 	SetCurrent(Get(current));		// restore selected menu entry
 	Display();
