@@ -746,6 +746,19 @@ search_mode:
 	drmModeFreeResources(resources);
 
 #ifdef USE_GLES
+	if (DisableOglOsd) {
+		Info("FindDevice: DRM setup - CRTC: %i video_plane: %i (%s %lld) osd_plane: %i (%s %lld) use_zpos: %d",
+			render->crtc_id, render->planes[VIDEO_PLANE]->plane_id,
+			render->planes[VIDEO_PLANE]->type == DRM_PLANE_TYPE_PRIMARY ? "PRIMARY" : "OVERLAY",
+			render->planes[VIDEO_PLANE]->properties.zpos,
+			render->planes[OSD_PLANE]->plane_id,
+			render->planes[OSD_PLANE]->type == DRM_PLANE_TYPE_PRIMARY ? "PRIMARY" : "OVERLAY",
+			render->planes[OSD_PLANE]->properties.zpos,
+			render->use_zpos);
+
+		return 0;
+	}
+
 	render->gbm_device = gbm_create_device(render->fd_drm);
 	if (!render->gbm_device) {
 		Error("FindDevice: failed to create gbm device!");
@@ -1398,29 +1411,34 @@ static void *DisplayHandlerThread(void * arg)
 void VideoOsdClear(VideoRender * render)
 {
 #ifdef USE_GLES
-	struct drm_buf *buf;
+	if (DisableOglOsd) {
+		memset((void *)render->buf_osd->plane[0], 0,
+			(size_t)(render->buf_osd->pitch[0] * render->buf_osd->height));
+	} else {
+		struct drm_buf *buf;
 
-	EGL_CHECK(eglSwapBuffers(render->eglDisplay, render->eglSurface));
-	render->next_bo = gbm_surface_lock_front_buffer(render->gbm_surface);
-	assert(render->next_bo);
+		EGL_CHECK(eglSwapBuffers(render->eglDisplay, render->eglSurface));
+		render->next_bo = gbm_surface_lock_front_buffer(render->gbm_surface);
+		assert(render->next_bo);
 
-	buf = drm_get_buf_from_bo(render, render->next_bo);
-	if (!buf) {
-		Error("Failed to get GL buffer");
-		return;
+		buf = drm_get_buf_from_bo(render, render->next_bo);
+		if (!buf) {
+			Error("Failed to get GL buffer");
+			return;
+		}
+
+		render->buf_osd = buf;
+
+		// release old buffer for writing again
+		if (render->bo)
+			gbm_surface_release_buffer(render->gbm_surface, render->bo);
+
+		// rotate bos and create and keep bo as old_bo to make it free'able
+		render->old_bo = render->bo;
+		render->bo = render->next_bo;
+
+		Debug2(L_OPENGL, "VideoOsdClear(GL): eglSwapBuffers eglDisplay %p eglSurface %p (%i x %i, %i)", render->eglDisplay, render->eglSurface, buf->width, buf->height, buf->pitch[0]);
 	}
-
-	render->buf_osd = buf;
-
-	// release old buffer for writing again
-	if (render->bo)
-		gbm_surface_release_buffer(render->gbm_surface, render->bo);
-
-	// rotate bos and create and keep bo as old_bo to make it free'able
-	render->old_bo = render->bo;
-	render->bo = render->next_bo;
-
-	Debug2(L_OPENGL, "VideoOsdClear(GL): eglSwapBuffers eglDisplay %p eglSurface %p (%i x %i, %i)", render->eglDisplay, render->eglSurface, buf->width, buf->height, buf->pitch[0]);
 #else
 	memset((void *)render->buf_osd->plane[0], 0,
 		(size_t)(render->buf_osd->pitch[0] * render->buf_osd->height));
@@ -1442,46 +1460,43 @@ void VideoOsdClear(VideoRender * render)
 ///	@param x	x-coordinate on screen of argb image
 ///	@param y	y-coordinate on screen of argb image
 ///
-#ifdef USE_GLES
-void VideoOsdDrawARGB(VideoRender * render, __attribute__ ((unused)) int xi,
-		__attribute__ ((unused)) int yi,  __attribute__ ((unused)) int width,
-		__attribute__ ((unused)) int height, __attribute__ ((unused)) int pitch,
-		__attribute__ ((unused)) const uint8_t * argb,
-		__attribute__ ((unused)) int x,  __attribute__ ((unused)) int y)
-#else
 void VideoOsdDrawARGB(VideoRender * render, __attribute__ ((unused)) int xi,
 		__attribute__ ((unused)) int yi, __attribute__ ((unused)) int width,
 		int height, int pitch, const uint8_t * argb, int x, int y)
-#endif
 {
 #ifdef USE_GLES
-	struct drm_buf *buf;
+	if (DisableOglOsd) {
+		for (int i = 0; i < height; ++i) {
+			memcpy(render->buf_osd->plane[0] + x * 4 + (i + y) * render->buf_osd->pitch[0],
+				argb + i * pitch, (size_t)pitch);
+		}
+	} else {
+		struct drm_buf *buf;
 
-	EGL_CHECK(eglSwapBuffers(render->eglDisplay, render->eglSurface));
-	render->next_bo = gbm_surface_lock_front_buffer(render->gbm_surface);
-	assert(render->next_bo);
+		EGL_CHECK(eglSwapBuffers(render->eglDisplay, render->eglSurface));
+		render->next_bo = gbm_surface_lock_front_buffer(render->gbm_surface);
+		assert(render->next_bo);
 
-	buf = drm_get_buf_from_bo(render, render->next_bo);
-	if (!buf) {
-		Error("Failed to get GL buffer");
-		return;
+		buf = drm_get_buf_from_bo(render, render->next_bo);
+		if (!buf) {
+			Error("Failed to get GL buffer");
+			return;
+		}
+
+		render->buf_osd = buf;
+
+		// release old buffer for writing again
+		if (render->bo)
+			gbm_surface_release_buffer(render->gbm_surface, render->bo);
+
+		// rotate bos and create and keep bo as old_bo to make it free'able
+		render->old_bo = render->bo;
+		render->bo = render->next_bo;
+
+		Debug2(L_OPENGL, "VideoOsdDrawARGB(GL): eglSwapBuffers eglDisplay %p eglSurface %p (%i x %i, %i)", render->eglDisplay, render->eglSurface, buf->width, buf->height, buf->pitch[0]);
 	}
-
-	render->buf_osd = buf;
-
-	// release old buffer for writing again
-	if (render->bo)
-		gbm_surface_release_buffer(render->gbm_surface, render->bo);
-
-	// rotate bos and create and keep bo as old_bo to make it free'able
-	render->old_bo = render->bo;
-	render->bo = render->next_bo;
-
-	Debug2(L_OPENGL, "VideoOsdDrawARGB(GL): eglSwapBuffers eglDisplay %p eglSurface %p (%i x %i, %i)", render->eglDisplay, render->eglSurface, buf->width, buf->height, buf->pitch[0]);
 #else
-	int i;
-
-	for (i = 0; i < height; ++i) {
+	for (int i = 0; i < height; ++i) {
 		memcpy(render->buf_osd->plane[0] + x * 4 + (i + y) * render->buf_osd->pitch[0],
 			argb + i * pitch, (size_t)pitch);
 	}
@@ -2243,6 +2258,17 @@ void VideoInit(VideoRender * render)
 	if (SetupFB(render, render->buf_osd, NULL)){
 		Fatal("VideoOsdInit: SetupFB FB OSD failed!");
 	}
+#else
+	if (DisableOglOsd) {
+		if (!render->buf_osd)
+			render->buf_osd = calloc(1, sizeof(struct drm_buf));
+		render->buf_osd->pix_fmt = DRM_FORMAT_ARGB8888;
+		render->buf_osd->width = render->mode.hdisplay;
+		render->buf_osd->height = render->mode.vdisplay;
+		if (SetupFB(render, render->buf_osd, NULL)){
+			Fatal("VideoOsdInit: SetupFB FB OSD failed!");
+		}
+	}
 #endif
 
 	// black fb
@@ -2294,6 +2320,21 @@ void VideoInit(VideoRender * render)
 	render->planes[OSD_PLANE]->properties.src_h = render->buf_osd->height;
 
 	SetPlane(ModeReq, render->planes[OSD_PLANE]);
+#else
+	if (DisableOglOsd) {
+		render->planes[OSD_PLANE]->properties.crtc_id = render->crtc_id;
+		render->planes[OSD_PLANE]->properties.fb_id = render->buf_osd->fb_id;
+		render->planes[OSD_PLANE]->properties.crtc_x = 0;
+		render->planes[OSD_PLANE]->properties.crtc_y = 0;
+		render->planes[OSD_PLANE]->properties.crtc_w = render->mode.hdisplay;
+		render->planes[OSD_PLANE]->properties.crtc_h = render->mode.vdisplay;
+		render->planes[OSD_PLANE]->properties.src_x = 0;
+		render->planes[OSD_PLANE]->properties.src_y = 0;
+		render->planes[OSD_PLANE]->properties.src_w = render->buf_osd->width;
+		render->planes[OSD_PLANE]->properties.src_h = render->buf_osd->height;
+
+		SetPlane(ModeReq, render->planes[OSD_PLANE]);
+	}
 #endif
 	if (render->use_zpos) {
 		render->planes[VIDEO_PLANE]->properties.zpos = render->zpos_overlay;
@@ -2360,11 +2401,17 @@ void VideoExit(VideoRender * render)
 
 		DestroyFB(render->fd_drm, &render->buf_black);
 #ifdef USE_GLES
-		if (render->next_bo)
-			gbm_bo_destroy(render->next_bo);
-
-		if (render->old_bo)
-			gbm_bo_destroy(render->old_bo);
+		if (DisableOglOsd) {
+			if (render->buf_osd) {
+				DestroyFB(render->fd_drm, render->buf_osd);
+				free(render->buf_osd);
+			}
+		} else {
+			if (render->next_bo)
+				gbm_bo_destroy(render->next_bo);
+			if (render->old_bo)
+				gbm_bo_destroy(render->old_bo);
+		}
 #else
 		if (render->buf_osd) {
 			DestroyFB(render->fd_drm, render->buf_osd);

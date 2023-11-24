@@ -44,6 +44,7 @@ static class cSoftHdDevice *MyDevice;
 
 static char ConfigMakePrimary;		///< config primary wanted
 #ifdef USE_GLES
+int DisableOglOsd;			///< disable OpenGL Osd (command line parameter)
 #ifdef WRITE_PNG
 char ConfigWritePngs;			///< config write pngs from OSD
 #endif

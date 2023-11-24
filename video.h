@@ -253,5 +253,9 @@ extern int VideoCodecMode(VideoRender *);
 
 extern const char * VideoGetDecoderName(const char *);
 
+#ifdef USE_GLES
+extern int DisableOglOsd;
+#endif
+
 /// @}
 #endif

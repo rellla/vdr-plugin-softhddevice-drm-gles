@@ -354,9 +354,18 @@ void cSoftOsd::Flush(void)
 cOsd *cSoftOsdProvider::CreateOsd(int left, int top, uint level)
 {
 #ifdef USE_GLES
-    Debug2(L_OSD, "OSD %s: %d, %d, %d, using OpenGL OSD support", __FUNCTION__, left, top, level);
-    if (StartOpenGlThread())
+    if (DisableOglOsd) {
+        Debug2(L_OSD, "OSD %s: %d, %d, %d, OpenGL disabled, using software rendering", __FUNCTION__, left, top, level);
+        return Osd = new cSoftOsd(left, top, level);
+    }
+
+    if (StartOpenGlThread()) {
+        Debug2(L_OSD, "OSD %s: %d, %d, %d, using OpenGL OSD support", __FUNCTION__, left, top, level);
         return Osd = new cOglOsd(left, top, level, oglThread);
+    }
+
+    Debug2(L_OSD, "OSD %s: %d, %d, %d, OpenGL failed, using software rendering", __FUNCTION__, left, top, 999);
+    DisableOglOsd = 1;
     return Osd = new cSoftOsd(left, top, 999);
 #else
     Debug2(L_OSD, "OSD %s: %d, %d, %d", __FUNCTION__, left, top, level);
@@ -381,11 +390,17 @@ const cImage *cSoftOsdProvider::GetImageData(int ImageHandle) {
 
 void cSoftOsdProvider::OsdSizeChanged(void) {
     // cleanup OpenGL context
-    cSoftOsdProvider::StopOpenGlThread();
+    if (!DisableOglOsd)
+        cSoftOsdProvider::StopOpenGlThread();
     cSoftOsdProvider::UpdateOsdSize();
 }
 
 bool cSoftOsdProvider::StartOpenGlThread(void) {
+    if (DisableOglOsd) {
+        Debug2(L_OPENGL, "OpenGL OSD disabled, OpenGL worker thread NOT started");
+        return false;
+    }
+
     if (oglThread.get()) {
         if (oglThread->Active()) {
             return true;
@@ -425,7 +440,8 @@ cSoftOsdProvider::cSoftOsdProvider(void)
     Debug("%s:", __FUNCTION__);
     Debug2(L_OSD, "OSD %s:", __FUNCTION__);
 #ifdef USE_GLES
-    StopOpenGlThread();
+    if (!DisableOglOsd)
+        StopOpenGlThread();
 #endif
 }
 
@@ -436,7 +452,8 @@ cSoftOsdProvider::~cSoftOsdProvider()
 {
     Debug2(L_OSD, "%s:", __FUNCTION__);
 #ifdef USE_GLES
-    StopOpenGlThread();
+    if (!DisableOglOsd)
+        StopOpenGlThread();
 #endif
 }
 
@@ -510,7 +527,9 @@ void cMenuSetupSoft::Create(void)
 	//	osd
 	//
 #ifdef USE_GLES
-	Add(new cMenuEditIntItem(tr("GPU mem used for image caching (MB)"), &MaxSizeGPUImageCache, 0, 4000));
+	if (!DisableOglOsd) {
+		Add(new cMenuEditIntItem(tr("GPU mem used for image caching (MB)"), &MaxSizeGPUImageCache, 0, 4000));
+	}
 #endif
     }
 
@@ -526,6 +545,14 @@ void cMenuSetupSoft::Create(void)
 	Add(new cOsdItem(cString::sprintf(tr
 		(" Frames duped(%d) dropped(%d) total(%d)"),
 		duped, dropped, counter), osUnknown, false));
+#ifdef USE_GLES
+	Add(new cOsdItem(cString::sprintf(tr
+		(" OSD: Using %s rendering"), DisableOglOsd ? "software" : "hardware"), osUnknown, false));
+#else
+	Add(new cOsdItem(cString::sprintf(tr
+		(" OSD: Using software rendering")), osUnknown, false));
+#endif
+
     }
 
 #ifdef USE_GLES
@@ -533,10 +560,12 @@ void cMenuSetupSoft::Create(void)
     //
     //	debug
     //
-    Add(CollapsedItem(tr("Debug"), DebugMenu));
-    if (DebugMenu) {
-	Add(new cMenuEditBoolItem(tr("Write OSD to file"), &WritePngs, trVDR("no"), trVDR("yes")));
-//	Add(new cMenuEditStraItem(tr("Write OSD to file"), &WritePngs, 4, pngVariant));
+    if (!DisableOglOsd) {
+	Add(CollapsedItem(tr("Debug"), DebugMenu));
+	if (DebugMenu) {
+		Add(new cMenuEditBoolItem(tr("Write OSD to file"), &WritePngs, trVDR("no"), trVDR("yes")));
+//		Add(new cMenuEditStraItem(tr("Write OSD to file"), &WritePngs, 4, pngVariant));
+	}
     }
 #endif
 #endif

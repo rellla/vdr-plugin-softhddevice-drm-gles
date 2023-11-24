@@ -54,6 +54,9 @@
 //////////////////////////////////////////////////////////////////////////////
 
 extern int ConfigAudioBufferTime;	///< config size ms of audio buffer
+#ifdef USE_GLES
+extern int DisableOglOsd;		///< disable OpenGL OSD (command line parameter)
+#endif
 
 static volatile char StreamFreezed;	///< stream freezed
 
@@ -1871,6 +1874,10 @@ const char *CommandLineHelp(void)
 	"  -p device\taudio device for pass-through (hw:0,1)\n"
 	"  -c channel\taudio mixer channel name (fe. PCM)\n"
 	"  -d resolution\tdisplay resolution (fe. 1920x1080@50)\n"
+#ifdef USE_GLES
+	"  -w workaround\tenable/disable workarounds\n"
+	"\tdisable-ogl-osd disable openGL osd\n"
+#endif
 	"\n";
 }
 
@@ -1887,7 +1894,11 @@ int ProcessArgs(int argc, char *const argv[])
     //
 
     for (;;) {
+#ifdef USE_GLES
+	switch (getopt(argc, argv, "-a:c:p:d:w:")) {
+#else
 	switch (getopt(argc, argv, "-a:c:p:d:")) {
+#endif
 	    case 'a':			// audio device for pcm
 		AudioSetDevice(optarg);
 		continue;
@@ -1900,6 +1911,17 @@ int ProcessArgs(int argc, char *const argv[])
 	    case 'd':			// set display output
 		VideoSetDisplay(optarg);
 		continue;
+#ifdef USE_GLES
+	    case 'w':			// workarounds
+		if (!strcasecmp("disable-ogl-osd", optarg)) {
+		    DisableOglOsd = 1;
+		} else {
+		    fprintf(stderr, _("Workaround '%s' unsupported\n"),
+			optarg);
+		    return 0;
+		}
+		continue;
+#endif
 	    case EOF:
 		break;
 	    case '-':
