@@ -124,6 +124,8 @@ Commandline:
     -p device for pass-through
     -c audio mixer channel name
     -d display resolution (e.g. 1920x1080@50)
+    -w workarounds
+	disable-ogl-osd (to disable HW accelerated OSD)
 
 SVDRP:
 ------

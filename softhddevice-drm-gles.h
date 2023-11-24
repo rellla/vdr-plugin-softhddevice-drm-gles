@@ -35,7 +35,7 @@ static const char *const DESCRIPTION =
 trNOOP("A software and GPU emulated HD device");
 
     /// vdr-plugin text of main menu entry
-static const char *MAINMENUENTRY = trNOOP("SoftHdDevice-drm-gles");
+static const char *MAINMENUENTRY = trNOOP("SHD Media Player");
 
     /// single instance of softhddevice plugin device.
 static class cSoftHdDevice *MyDevice;
@@ -44,6 +44,7 @@ static class cSoftHdDevice *MyDevice;
 
 static char ConfigMakePrimary;		///< config primary wanted
 #ifdef USE_GLES
+int DisableOglOsd;			///< disable OpenGL Osd (command line parameter)
 #ifdef WRITE_PNG
 char ConfigWritePngs;			///< config write pngs from OSD
 #endif
@@ -169,6 +170,7 @@ class cMenuSetupSoft:public cMenuSetupPage
 //    const char *pngVariant[4];
 #endif
 #endif
+    int Statistics;
     int HideMainMenuEntry;
 
     int Audio;
