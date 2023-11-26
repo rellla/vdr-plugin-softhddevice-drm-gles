@@ -2275,8 +2275,8 @@ void VideoInit(VideoRender * render)
 
 	// black fb
 	render->buf_black.pix_fmt = DRM_FORMAT_NV12;
-	render->buf_black.width = 720;
-	render->buf_black.height = 576;
+	render->buf_black.width = render->mode.hdisplay;
+	render->buf_black.height = render->mode.vdisplay;
 	if (SetupFB(render, &render->buf_black, NULL))
 		Error("VideoInit: SetupFB black FB %i x %i failed",
 			render->buf_black.width, render->buf_black.height);
