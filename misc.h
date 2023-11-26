@@ -189,8 +189,8 @@ static inline void Syslog(const int level, const int cat, const char *format, ..
 */
 static inline const char *Timestamp2String(int64_t ts)
 {
-	static char buf[4][16];
-	static int idx;
+	static char buf[3][16];
+	static int idx = 0;
 
 	if (ts == (int64_t) AV_NOPTS_VALUE) {
 		return "--:--:--.---";
