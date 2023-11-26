@@ -938,24 +938,27 @@ static int SetupFB(VideoRender * render, struct drm_buf *buf,
 	buf->offset[0] = buf->offset[1] = buf->offset[2] = buf->offset[3] = 0;
 
 	if (primedata) {
+		// we have no DRM objects yet, so return
+		if (!primedata->nb_objects)
+			return 1;
 
 		if (!render->buffers) {
-		for (int object = 0; object < primedata->nb_objects; object++) {
+			for (int object = 0; object < primedata->nb_objects; object++) {
 
-			Debug2(L_DRM, "SetupFB:  %d x %d nb_objects %i Handle %i size %zu modifier %" PRIx64 "",
-				buf->width, buf->height, primedata->nb_objects, primedata->objects[object].fd,
-				primedata->objects[object].size, primedata->objects[object].format_modifier);
-		}
-		for (int layer = 0; layer < primedata->nb_layers; layer++) {
-			Debug2(L_DRM, "SetupFB: nb_layers %d nb_planes %d pix_fmt %4.4s",
-				primedata->nb_layers, primedata->layers[layer].nb_planes,
-				(char *)&primedata->layers[layer].format);
-
-			for (int plane = 0; plane < primedata->layers[layer].nb_planes; plane++) {
-				Debug2(L_DRM, "SetupFB: nb_planes %d object_index %i",
-					primedata->layers[layer].nb_planes, primedata->layers[layer].planes[plane].object_index);
+				Debug2(L_DRM, "SetupFB:  %d x %d nb_objects %i Handle %i size %zu modifier %" PRIx64 "",
+					buf->width, buf->height, primedata->nb_objects, primedata->objects[object].fd,
+					primedata->objects[object].size, primedata->objects[object].format_modifier);
 			}
-		}
+			for (int layer = 0; layer < primedata->nb_layers; layer++) {
+				Debug2(L_DRM, "SetupFB: nb_layers %d nb_planes %d pix_fmt %4.4s",
+					primedata->nb_layers, primedata->layers[layer].nb_planes,
+					(char *)&primedata->layers[layer].format);
+
+				for (int plane = 0; plane < primedata->layers[layer].nb_planes; plane++) {
+					Debug2(L_DRM, "SetupFB: nb_planes %d object_index %i",
+						primedata->layers[layer].nb_planes, primedata->layers[layer].planes[plane].object_index);
+				}
+			}
 		}
 
 		buf->pix_fmt = primedata->layers[0].format;
@@ -1171,7 +1174,6 @@ dequeue:
 		if (render->buf_osd && render->buf_osd->dirty) {
 			Debug2(L_DRM, "Frame2Display: no video, set a black FB instead");
 			buf = &render->buf_black;
-			render->act_buf = NULL;
 			goto page_flip;
 		}
 		usleep(10000);
@@ -1196,7 +1198,7 @@ dequeue:
 		buf->fd_prime = primedata->objects[0].fd;
 
 		if (SetupFB(render, buf, primedata)) {
-			av_frame_free(&frame);	// SIGSEGV
+			av_frame_free(&frame);
 			return;
 		} else {
 			render->buffers++;
@@ -1364,7 +1366,7 @@ page_flip:
 
 	if (render->lastframe)
 		av_frame_free(&render->lastframe);
-	if (render->act_buf)
+	if (render->act_buf && (render->act_buf->fb_id != render->buf_black.fb_id))
 		render->lastframe = render->act_buf->frame;
 }
 
