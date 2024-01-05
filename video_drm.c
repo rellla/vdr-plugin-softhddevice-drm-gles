@@ -311,6 +311,7 @@ void ReadHWPlatform(VideoRender * render)
 		}
 		if (strstr(read_ptr, "amlogic")) {
 			render->CodecMode |= CODEC_V4L2M2M_H264;	// set _v4l2m2m for H264
+//			render->CodecMode |= CODEC_NO_MPEG_HW;	// set _v4l2m2m for H264
 			render->NoHwDeint = 1;
 			Debug2(L_DRM, "ReadHWPlatform: amlogic found, disable hardware deinterlacer");
 			break;
@@ -894,6 +895,7 @@ struct drm_buf *drm_get_buf_from_bo(VideoRender *render, struct gbm_bo *bo)
 
 		if (modifiers[0]) {
 			mod_flags = DRM_MODE_FB_MODIFIERS;
+//			mod_flags = DRM_MODE_FB_INTERLACED;
 			Debug2(L_DRM, "drm_get_buf_from_bo: Using modifier %" PRIx64 "", modifiers[0]);
 		}
 
@@ -1727,7 +1729,10 @@ void EnqueueFB(VideoRender * render, AVFrame *inframe)
 			buf = &render->bufs[i];
 			buf->width = (uint32_t)inframe->width;
 			buf->height = (uint32_t)inframe->height;
+//			buf->pix_fmt = inframe->format;
 			buf->pix_fmt = DRM_FORMAT_NV12;
+//			if (buf->width == 720)
+//				buf->pix_fmt = DRM_FORMAT_YUV420;
 
 			if (SetupFB(render, buf, NULL, 1)) {
 				Error("EnqueueFB: SetupFB FB %i x %i failed",
@@ -2092,6 +2097,9 @@ fillframe:
 
 	if (frame->format == AV_PIX_FMT_YUV420P || (frame->interlaced_frame &&
 		frame->format == AV_PIX_FMT_DRM_PRIME && !render->NoHwDeint)) {
+//	if ((frame->format == AV_PIX_FMT_YUV420P && !render->NoHwDeint) ||
+//	    (frame->interlaced_frame && frame->format == AV_PIX_FMT_DRM_PRIME && !render->NoHwDeint)) {
+//		Debug2(L_CODEC, "VideoRenderFrame: loop 1");
 
 		if (!FilterThread) {
 			Debug2(L_CODEC, "VideoRenderFrame: try init FilterThread");
