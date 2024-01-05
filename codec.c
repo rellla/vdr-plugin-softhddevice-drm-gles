@@ -173,6 +173,9 @@ void CodecVideoOpen(VideoDecoder * decoder, int codec_id, AVCodecParameters * Pa
 	decoder->VideoCtx->codec_id = codec_id;
 	decoder->VideoCtx->get_format = Codec_get_format;
 	decoder->VideoCtx->opaque = decoder;
+//	decoder->VideoCtx->debug = FF_DEBUG_PICT_INFO;
+//	decoder->VideoCtx->workaround_bugs = FF_BUG_AUTODETECT;
+//	decoder->VideoCtx->flags = AV_CODEC_FLAG_COPY_OPAQUE;
 
 	if (strstr(codec->name, "_v4l2")) {
 		Debug2(L_CODEC, "CodecVideoOpen: Codec %s found", codec->long_name);
@@ -189,9 +192,18 @@ void CodecVideoOpen(VideoDecoder * decoder, int codec_id, AVCodecParameters * Pa
 			decoder->VideoCtx->coded_height = Par->height;
 			Debug2(L_CODEC, "CodecVideoOpen: from Par: width %d height %d", decoder->VideoCtx->coded_width, decoder->VideoCtx->coded_height);
 		}
+/*
+	} else {
+		Debug2(L_CODEC, "CodecVideoOpen: Codec %s found", codec->long_name);
+		decoder->VideoCtx->coded_width = 720;
+		decoder->VideoCtx->coded_height = 576;
+		decoder->VideoCtx->bits_per_coded_sample = 12;
+*/
 	}
 
 //	decoder->VideoCtx->flags |= AV_CODEC_FLAG_BITEXACT;
+//	decoder->VideoCtx->flags |= AV_CODEC_FLAG_UNALIGNED;
+//	decoder->VideoCtx->flags |= AV_CODEC_FLAG_COPY_QPAQUE;
 //	decoder->VideoCtx->flags2 |= AV_CODEC_FLAG2_FAST;
 //	decoder->VideoCtx->flags |= AV_CODEC_FLAG_TRUNCATED;
 //	if (codec->capabilities & AV_CODEC_CAP_DR1)
