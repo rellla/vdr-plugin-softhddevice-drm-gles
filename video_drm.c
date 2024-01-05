@@ -928,7 +928,7 @@ struct drm_buf *drm_get_buf_from_bo(VideoRender *render, struct gbm_bo *bo)
 #endif
 
 static int SetupFB(VideoRender * render, struct drm_buf *buf,
-			AVDRMFrameDescriptor *primedata)
+			AVDRMFrameDescriptor *primedata, int renderbuffer)
 {
 	struct drm_mode_create_dumb creq;
 	uint64_t modifier[4] = { 0, 0, 0, 0 };
@@ -1034,8 +1034,10 @@ static int SetupFB(VideoRender * render, struct drm_buf *buf,
 		Fatal("SetupFB: cannot create modifiers framebuffer (%d): %m", errno);
 	}
 
-	if (primedata)
+	if (primedata) {
+		render->buffers += renderbuffer;
 		return 0;
+	}
 
 	struct drm_mode_map_dumb mreq;
 	memset(&mreq, 0, sizeof(struct drm_mode_map_dumb));
@@ -1054,6 +1056,7 @@ static int SetupFB(VideoRender * render, struct drm_buf *buf,
 	buf->plane[1] = buf->plane[0] + buf->offset[1];
 	buf->plane[2] = buf->plane[0] + buf->offset[2];
 
+	render->buffers += renderbuffer;
 	if (!render->buffers)
 		Debug2(L_DRM, "SetupFB: fb_id %d width %d height %d pix_fmt %4.4s",
 			buf->fb_id, buf->width, buf->height, (char *)&buf->pix_fmt);
@@ -1197,11 +1200,9 @@ dequeue:
 		buf->height = (uint32_t)frame->height;
 		buf->fd_prime = primedata->objects[0].fd;
 
-		if (SetupFB(render, buf, primedata)) {
+		if (SetupFB(render, buf, primedata, 1)) {
 			av_frame_free(&frame);
 			return;
-		} else {
-			render->buffers++;
 		}
 	}
 
@@ -1685,11 +1686,9 @@ void EnqueueFB(VideoRender * render, AVFrame *inframe)
 			buf->height = (uint32_t)inframe->height;
 			buf->pix_fmt = DRM_FORMAT_NV12;
 
-			if (SetupFB(render, buf, NULL))
+			if (SetupFB(render, buf, NULL, 1)) {
 				Error("EnqueueFB: SetupFB FB %i x %i failed",
 					buf->width, buf->height);
-			else {
-				render->buffers++;
 			}
 
 			if (drmPrimeHandleToFD(render->fd_drm, buf->handle[0],
@@ -2262,7 +2261,7 @@ void VideoInit(VideoRender * render)
 	render->buf_osd->pix_fmt = DRM_FORMAT_ARGB8888;
 	render->buf_osd->width = render->mode.hdisplay;
 	render->buf_osd->height = render->mode.vdisplay;
-	if (SetupFB(render, render->buf_osd, NULL)){
+	if (SetupFB(render, render->buf_osd, NULL, 0)){
 		Fatal("VideoOsdInit: SetupFB FB OSD failed!");
 	}
 #else
@@ -2272,7 +2271,7 @@ void VideoInit(VideoRender * render)
 		render->buf_osd->pix_fmt = DRM_FORMAT_ARGB8888;
 		render->buf_osd->width = render->mode.hdisplay;
 		render->buf_osd->height = render->mode.vdisplay;
-		if (SetupFB(render, render->buf_osd, NULL)){
+		if (SetupFB(render, render->buf_osd, NULL, 0)){
 			Fatal("VideoOsdInit: SetupFB FB OSD failed!");
 		}
 	}
@@ -2282,7 +2281,7 @@ void VideoInit(VideoRender * render)
 	render->buf_black.pix_fmt = DRM_FORMAT_NV12;
 	render->buf_black.width = render->mode.hdisplay;
 	render->buf_black.height = render->mode.vdisplay;
-	if (SetupFB(render, &render->buf_black, NULL))
+	if (SetupFB(render, &render->buf_black, NULL, 0))
 		Error("VideoInit: SetupFB black FB %i x %i failed",
 			render->buf_black.width, render->buf_black.height);
 
