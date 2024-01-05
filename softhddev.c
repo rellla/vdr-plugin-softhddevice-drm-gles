@@ -1104,6 +1104,7 @@ int VideoDecodeInput(VideoStream * stream)
 	}
 
 	if (stream->NewStream && stream->CodecID != AV_CODEC_ID_NONE) {
+		Debug("VideoDecodeInput: New Stream!");
 		CodecVideoOpen(stream->Decoder, stream->CodecID, stream->Par,
 			&stream->timebase);
 		stream->NewStream = 0;
@@ -1656,7 +1657,7 @@ void GetScreenSize(int *width, int *height, double *pixel_aspect)
 void GetVideoSize(int *width, int *height, double *aspect_ratio)
 {
 	VideoGetVideoSize(MyVideoStream->Decoder, width, height, aspect_ratio);
-	Debug("GetVideoSize: %d x %d @ %f", *width, *height, *aspect_ratio);
+//	Debug("GetVideoSize: %d x %d @ %f", *width, *height, *aspect_ratio);
 }
 
 void *GetVideoRender()
