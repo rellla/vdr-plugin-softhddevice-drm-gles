@@ -129,7 +129,7 @@ void CodecVideoOpen(VideoDecoder * decoder, int codec_id, AVCodecParameters * Pa
 	static AVBufferRef *hw_device_ctx = NULL;
 	int err;
 
-	if (VideoCodecMode(decoder->Render) == CODEC_V4L2M2M_H264 && codec_id == AV_CODEC_ID_H264) {
+	if (VideoCodecMode(decoder->Render) & CODEC_V4L2M2M_H264 && codec_id == AV_CODEC_ID_H264) {
 		if (!(codec = avcodec_find_decoder_by_name(VideoGetDecoderName(
 			avcodec_get_name(codec_id)))))
 
@@ -141,7 +141,7 @@ void CodecVideoOpen(VideoDecoder * decoder, int codec_id, AVCodecParameters * Pa
 			Error("CodecVideoOpen: The video codec %s is not present in libavcodec",
 				avcodec_get_name(codec_id));
 
-		if (!(VideoCodecMode(decoder->Render) == CODEC_NO_MPEG_HW && codec_id == AV_CODEC_ID_MPEG2VIDEO)) {
+		if (!(VideoCodecMode(decoder->Render) & CODEC_NO_MPEG_HW && codec_id == AV_CODEC_ID_MPEG2VIDEO)) {
 			for (int n = 0; ; n++) {
 				const AVCodecHWConfig *cfg = avcodec_get_hw_config(codec, n);
 				if (!cfg) {

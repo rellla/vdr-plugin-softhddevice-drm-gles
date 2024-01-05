@@ -52,9 +52,9 @@
 #define MAX_PLANES		2
 
 // CodecMode
-#define CODEC_BY_ID		0	///< find codec by id
-#define CODEC_NO_MPEG_HW	1	///< no mpeg hw
-#define CODEC_V4L2M2M_H264	2	///< set _v4l2m2m for H264
+#define CODEC_BY_ID		1 << 0	///< find codec by id
+#define CODEC_NO_MPEG_HW	1 << 1	///< no mpeg hw
+#define CODEC_V4L2M2M_H264	1 << 2	///< set _v4l2m2m for H264
 
 //----------------------------------------------------------------------------
 //	Typedefs
