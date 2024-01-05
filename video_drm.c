@@ -1727,6 +1727,11 @@ void EnqueueFB(VideoRender * render, AVFrame *inframe)
 	av_frame_free(&inframe);
 
 fillframe:
+	if (render->Closing) {
+		av_frame_free(&frame);
+		return;
+	}
+
 	pthread_mutex_lock(&DisplayQueue);
 	if (atomic_read(&render->FramesFilled) < VIDEO_SURFACES_MAX) {
 		render->FramesRb[render->FramesWrite] = frame;
