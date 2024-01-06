@@ -28,6 +28,7 @@ CONFIG += -DCODEC_DEBUG		# enable debug messages in codec configuration
 #CONFIG += -DMEDIA_DEBUG		# media player debug
 #CONFIG += -DGL_DEBUG			# enable debug messages OpenGL/ES OSD
 #CONFIG += -DGL_DEBUG_TIME #-DGL_DEBUG_TIME_ALL # enable time measurement debug messages OpenGL/ES OSD
+CONFIG += -DFFMPEG_DEBUG # enable ffmpeg debug messages
 
 ifeq ($(GLES),1)
 CONFIG += -DUSE_GLES			# build with OpenGL/ES support
