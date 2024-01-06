@@ -1391,7 +1391,7 @@ page_flip:
 		render->planes[OSD_PLANE]->properties.src_h = render->OsdShown ? render->buf_osd->height : 0;
 
 		SetPlane(ModeReq, render->planes[OSD_PLANE]);
-		Debug2(L_DRM, "Frame2Display: SetPlane OSD (fb = %lld)", render->planes[OSD_PLANE]->properties.fb_id);
+//		Debug2(L_DRM, "Frame2Display: SetPlane OSD (fb = %lld)", render->planes[OSD_PLANE]->properties.fb_id);
 		render->buf_osd->dirty = 0;
 	}
 
@@ -1838,11 +1838,11 @@ getinframe:
 		if (atomic_read(&render->FramesDeintFilled)) {
 			frame = render->FramesDeintRb[render->FramesDeintRead];
 			if (frame->format == AV_PIX_FMT_NV12)
-				Debug2(L_CODEC, "FilterHandlerThread: frame is AV_PIX_FMT_NV12");
+				Debug2(L_DEINT, "FilterHandlerThread: frame is AV_PIX_FMT_NV12");
 			else if (frame->format == AV_PIX_FMT_YUV420P)
-				Debug2(L_CODEC, "FilterHandlerThread: frame is AV_PIX_FMT_YUV420P");
+				Debug2(L_DEINT, "FilterHandlerThread: frame is AV_PIX_FMT_YUV420P");
 			else
-				Debug2(L_CODEC, "FilterHandlerThread: frame format is unknown");
+				Debug2(L_DEINT, "FilterHandlerThread: frame format is unknown");
 			render->FramesDeintRead = (render->FramesDeintRead + 1) % VIDEO_SURFACES_MAX;
 			atomic_dec(&render->FramesDeintFilled);
 			if (frame->interlaced_frame) {
@@ -1895,13 +1895,13 @@ fillframe:
 				if (render->Filter_Bug)
 					filt_frame->pts = filt_frame->pts / 2;	// ffmpeg bug
 				render->Filter_Frames--;
-				Debug2(L_CODEC, "FilterHandlerThread: EnqueueFB filt_frame AV_PIX_FMT_NV12");
+				Debug2(L_DEINT, "FilterHandlerThread: EnqueueFB filt_frame AV_PIX_FMT_NV12");
 				EnqueueFB(render, filt_frame);
 			} else if (filt_frame->format == AV_PIX_FMT_YUV420P) {
 				if (render->Filter_Bug)
 					filt_frame->pts = filt_frame->pts / 2;	// ffmpeg bug
 				render->Filter_Frames--;
-				Debug2(L_CODEC, "FilterHandlerThread: EnqueueFB filt_frame AV_PIX_FMT_YUV420P");
+				Debug2(L_DEINT, "FilterHandlerThread: EnqueueFB filt_frame AV_PIX_FMT_YUV420P");
 				EnqueueFB(render, filt_frame);
 			} else {
 				pthread_mutex_lock(&DisplayQueue);
