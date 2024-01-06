@@ -581,21 +581,38 @@ static void CodecNoopCallback( __attribute__ ((unused))
 }
 
 /**
+**	log callback
+*/
+static void CodecLogCallback( __attribute__ ((unused))
+    void *ptr, __attribute__ ((unused))
+    int level, __attribute__ ((unused))
+    const char *fmt, va_list vl)
+{
+	char format[256];
+	char prefix[20] = "";
+	pid_t threadId = syscall(__NR_gettid);
+
+	strcpy(prefix, "[FFMpeg]");
+	snprintf(format, sizeof(format), "[%d] [softhddevice]%s %s", threadId, prefix, fmt);
+
+	vsyslog(level, format, vl);
+}
+
+/**
 **	Codec init
 */
 void CodecInit(void)
 {
-#ifndef DEBUG
-    // disable display ffmpeg error messages
-    av_log_set_callback(CodecNoopCallback);
+#ifdef FFMPEG_DEBUG
+	av_log_set_level(AV_LOG_DEBUG);
+//	av_log_set_level(AV_LOG_ERROR );
+	av_log_set_callback(CodecLogCallback);
 #else
-    (void)CodecNoopCallback;
-//		av_log_set_level(AV_LOG_DEBUG);
-//		av_log_set_level(AV_LOG_ERROR );
+	av_log_set_callback(CodecNoopCallback);
 #endif
 
 #if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(58,18,100)
-    avcodec_register_all();		// register all formats and codecs
+	avcodec_register_all();		// register all formats and codecs
 #endif
 	pthread_mutex_init(&CodecLockMutex, NULL);
 }
