@@ -201,6 +201,15 @@ void CodecVideoOpen(VideoDecoder * decoder, int codec_id, AVCodecParameters * Pa
 */
 	}
 
+	if (codec->capabilities & AV_CODEC_CAP_DRAW_HORIZ_BAND)
+		Debug2(L_CODEC, "CodecVideoOpen: AV_CODEC_CAP_DRAW_HORIZ_BAND");
+	if (codec->capabilities & AV_CODEC_CAP_DR1)
+		Debug2(L_CODEC, "CodecVideoOpen: AV_CODEC_CAP_DR1");
+	if (codec->capabilities & AV_CODEC_CAP_HARDWARE)
+		Debug2(L_CODEC, "CodecVideoOpen: AV_CODEC_CAP_HARDWARE");
+	if (codec->capabilities & AV_CODEC_CAP_HYBRID)
+		Debug2(L_CODEC, "CodecVideoOpen: AV_CODEC_CAP_HYBRID");
+
 //	decoder->VideoCtx->flags |= AV_CODEC_FLAG_BITEXACT;
 //	decoder->VideoCtx->flags |= AV_CODEC_FLAG_UNALIGNED;
 //	decoder->VideoCtx->flags |= AV_CODEC_FLAG_COPY_QPAQUE;

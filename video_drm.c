@@ -991,7 +991,7 @@ static int SetupFB(VideoRender * render, struct drm_buf *buf,
 		memset(&creq, 0, sizeof(struct drm_mode_create_dumb));
 		creq.width = buf->width;
 		creq.height = buf->height;
-		// 32 bpp for ARGB, 8 bpp for YUV420 and NV12
+		// 32 bpp for ARGB, 12 bpp for YUV420 and NV12
 		if (buf->pix_fmt == DRM_FORMAT_ARGB8888)
 			creq.bpp = 32;
 		else
@@ -1005,6 +1005,8 @@ static int SetupFB(VideoRender * render, struct drm_buf *buf,
 		}
 
 		buf->size = creq.size;
+		Debug2(L_DRM, "SetupFB: Created dumg scanout buffer width %d, height %d, bpp %d, size %d, pitch %d",
+	                 creq.width, creq.height, creq.bpp, creq.size, creq.pitch);
 
 		if (buf->pix_fmt == DRM_FORMAT_YUV420) {
 			buf->pitch[0] = buf->width;
@@ -1709,6 +1711,7 @@ enum AVPixelFormat Video_get_format(__attribute__ ((unused))VideoRender * render
 				av_get_pix_fmt_name(video_ctx->sw_pix_fmt), video_ctx->codec->name);
 			return AV_PIX_FMT_YUV420P;
 		}
+
 		fmt++;
 	}
 	Warning("Video_get_format: No pixel format found! Set default format.");
@@ -1897,15 +1900,10 @@ fillframe:
 				render->Filter_Frames--;
 				Debug2(L_DEINT, "FilterHandlerThread: EnqueueFB filt_frame AV_PIX_FMT_NV12");
 				EnqueueFB(render, filt_frame);
-			} else if (filt_frame->format == AV_PIX_FMT_YUV420P) {
-				if (render->Filter_Bug)
-					filt_frame->pts = filt_frame->pts / 2;	// ffmpeg bug
-				render->Filter_Frames--;
-				Debug2(L_DEINT, "FilterHandlerThread: EnqueueFB filt_frame AV_PIX_FMT_YUV420P");
-				EnqueueFB(render, filt_frame);
 			} else {
 				pthread_mutex_lock(&DisplayQueue);
 				if (atomic_read(&render->FramesFilled) < VIDEO_SURFACES_MAX) {
+					Debug2(L_DEINT, "FilterHandlerThread: Move filt_frame");
 					render->FramesRb[render->FramesWrite] = filt_frame;
 					render->FramesWrite = (render->FramesWrite + 1) % VIDEO_SURFACES_MAX;
 					atomic_inc(&render->FramesFilled);
