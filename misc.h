@@ -67,12 +67,12 @@ typedef unsigned char uchar;
 /**
 **	Show warning.
 */
-#define Warning(fmt...) (void)( (SysLogLevel > 1) ? Syslog(LOG_WARNING, 0, fmt) : (void)0 )
+#define Warning(fmt...) (void)( (SysLogLevel > 0) ? Syslog(LOG_WARNING, 0, fmt) : (void)0 )
 
 /**
 **	Show info.
 */
-#define Info(fmt...) (void)( (SysLogLevel > 2) ? Syslog(LOG_INFO, 0, fmt) : (void)0 )
+#define Info(fmt...) (void)( (SysLogLevel > 0) ? Syslog(LOG_INFO, 0, fmt) : (void)0 )
 
 /**
 **	Show debug.

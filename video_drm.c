@@ -250,18 +250,18 @@ void SetChangePlanes(drmModeAtomicReqPtr ModeReq, int back)
 
 void DumpPlaneProperties(struct plane *plane)
 {
-	Info("DumpPlaneProperties (plane_id = %d):", plane->plane_id);
-	Info("  CRTC ID: %lld", plane->properties.crtc_id);
-	Info("  FB ID  : %lld", plane->properties.fb_id);
-	Info("  CRTC X : %lld", plane->properties.crtc_x);
-	Info("  CRTC Y : %lld", plane->properties.crtc_y);
-	Info("  CRTC W : %lld", plane->properties.crtc_w);
-	Info("  CRTC H : %lld", plane->properties.crtc_h);
-	Info("  SRC X  : %lld", plane->properties.src_x);
-	Info("  SRC Y  : %lld", plane->properties.src_y);
-	Info("  SRC W  : %lld", plane->properties.src_w);
-	Info("  SRC H  : %lld", plane->properties.src_h);
-	Info("  ZPOS   : %lld", plane->properties.zpos);
+	Debug2(L_DRM, "DumpPlaneProperties (plane_id = %d):", plane->plane_id);
+	Debug2(L_DRM, "  CRTC ID: %lld", plane->properties.crtc_id);
+	Debug2(L_DRM, "  FB ID  : %lld", plane->properties.fb_id);
+	Debug2(L_DRM, "  CRTC X : %lld", plane->properties.crtc_x);
+	Debug2(L_DRM, "  CRTC Y : %lld", plane->properties.crtc_y);
+	Debug2(L_DRM, "  CRTC W : %lld", plane->properties.crtc_w);
+	Debug2(L_DRM, "  CRTC H : %lld", plane->properties.crtc_h);
+	Debug2(L_DRM, "  SRC X  : %lld", plane->properties.src_x);
+	Debug2(L_DRM, "  SRC Y  : %lld", plane->properties.src_y);
+	Debug2(L_DRM, "  SRC W  : %lld", plane->properties.src_w);
+	Debug2(L_DRM, "  SRC H  : %lld", plane->properties.src_h);
+	Debug2(L_DRM, "  ZPOS   : %lld", plane->properties.zpos);
 }
 
 size_t ReadLineFromFile(char *buf, size_t size, char * file)
@@ -2367,7 +2367,9 @@ void VideoInit(VideoRender * render)
 		Error("VideoInit: FindDevice() failed");
 	}
 
+	Debug2(L_DRM, "VideoInit: After FindDevice");
 	ReadHWPlatform(render);
+	Debug2(L_DRM, "VideoInit: After ReadHWPlatform");
 
 	render->bufs[0].width = render->bufs[1].width = 0;
 	render->bufs[0].height = render->bufs[1].height = 0;
@@ -2394,6 +2396,7 @@ void VideoInit(VideoRender * render)
 			Fatal("VideoOsdInit: SetupFB FB OSD failed!");
 		}
 	}
+	Debug2(L_DRM, "VideoInit: After SetupFB OSD");
 #endif
 
 	// black fb
@@ -2410,6 +2413,7 @@ void VideoInit(VideoRender * render)
 		if (i < render->buf_black.width * render->buf_black.height / 2)
 		render->buf_black.plane[1][i] = 0x80;
 	}
+	Debug2(L_DRM, "VideoInit: After SetupFB Black");
 
 	// save actual modesetting
 	render->saved_crtc = drmModeGetCrtc(render->fd_drm, render->crtc_id);
@@ -2483,6 +2487,10 @@ void VideoInit(VideoRender * render)
 	// Black Buffer for video plane
 	SetPlane(ModeReq, render->planes[VIDEO_PLANE]);
 
+	Debug2(L_DRM, "VideoInit: Before final atomic commit");
+	DumpPlaneProperties(render->planes[OSD_PLANE]);
+	DumpPlaneProperties(render->planes[VIDEO_PLANE]);
+
 	if (drmModeAtomicCommit(render->fd_drm, ModeReq, flags, NULL) != 0) {
 		DumpPlaneProperties(render->planes[OSD_PLANE]);
 		DumpPlaneProperties(render->planes[VIDEO_PLANE]);
@@ -2490,6 +2498,8 @@ void VideoInit(VideoRender * render)
 		drmModeAtomicFree(ModeReq);
 		Fatal("VideoInit: cannot set atomic mode (%d): %m", errno);
 	}
+	sleep(1);
+	Debug2(L_DRM, "VideoInit: After final atomic commit");
 
 	drmModeAtomicFree(ModeReq);
 
@@ -2499,8 +2509,10 @@ void VideoInit(VideoRender * render)
 	memset(&render->ev, 0, sizeof(render->ev));
 	render->ev.version = 2;
 
+	Debug2(L_DRM, "VideoInit: Before VideoThreadWakeup");
 	// Wakeup DisplayHandlerThread
 	VideoThreadWakeup(render, 0, 1);
+	Debug2(L_DRM, "VideoInit: After VideoThreadWakeup");
 }
 
 ///

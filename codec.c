@@ -644,9 +644,9 @@ static void CodecLogCallback( __attribute__ ((unused))
 void CodecInit(void)
 {
 #ifdef FFMPEG_DEBUG
-	av_log_set_level(AV_LOG_DEBUG);
+//	av_log_set_level(AV_LOG_DEBUG);
 //	av_log_set_level(AV_LOG_ERROR );
-	av_log_set_callback(CodecLogCallback);
+	av_log_set_callback(CodecNoopCallback);
 #else
 	av_log_set_callback(CodecNoopCallback);
 #endif
