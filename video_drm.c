@@ -466,12 +466,61 @@ void VideoSetDisplay(const char* resolution)
 	sscanf(resolution, "%dx%d@%d", &VideoDisplayWidth, &VideoDisplayHeight, &VideoDisplayRefresh);
 }
 
+static drmModeConnector *find_drm_connector(int fd, drmModeRes *resources)
+{
+	drmModeConnector *connector = NULL;
+	int i;
+
+	for (i = 0; i < resources->count_connectors; i++) {
+		connector = drmModeGetConnector(fd, resources->connectors[i]);
+		if (connector && connector->connection == DRM_MODE_CONNECTED) {
+			break;
+		}
+		drmModeFreeConnector(connector);
+		connector = NULL;
+	}
+	return connector;
+}
+
+static int32_t find_crtc_for_encoder(const drmModeRes *resources, const drmModeEncoder *encoder) {
+	int i;
+
+	for (i = 0; i < resources->count_crtcs; i++) {
+		const uint32_t crtc_mask = 1 << i;
+		const uint32_t crtc_id = resources->crtcs[i];
+		if (encoder->possible_crtcs & crtc_mask) {
+			return crtc_id;
+		}
+	}
+
+	return -1;
+}
+
+static int32_t find_crtc_for_connector(VideoRender *render, const drmModeRes *resources, const drmModeConnector *connector) {
+	int i;
+
+	for (i = 0; i < connector->count_encoders; i++) {
+		const uint32_t encoder_id = connector->encoders[i];
+		drmModeEncoder *encoder = drmModeGetEncoder(render->fd_drm, encoder_id);
+
+		if (encoder) {
+			const int32_t crtc_id = find_crtc_for_encoder(resources, encoder);
+			drmModeFreeEncoder(encoder);
+			if (crtc_id != 0) {
+				return crtc_id;
+			}
+		}
+	}
+
+	return -1;
+}
+
 static int FindDevice(VideoRender * render)
 {
 	drmModeRes *resources;
 	drmModeConnector *connector;
-	drmModeEncoder *encoder = 0;
-	drmModeModeInfo *mode;
+	drmModeEncoder *encoder = NULL;
+	drmModeModeInfo *mode = NULL;
 	drmModePlane *plane;
 	drmModePlaneRes *plane_res;
 	uint32_t vrefresh;
@@ -508,87 +557,129 @@ static int FindDevice(VideoRender * render)
 		resources->count_connectors, resources->count_crtcs,
 		resources->count_encoders);
 
-	// find all available connectors
-	for (i = 0; i < resources->count_connectors; i++) {
-		connector = drmModeGetConnector(render->fd_drm, resources->connectors[i]);
-		if (!connector) {
-			Error("FindDevice: cannot retrieve DRM connector (%d): %m", errno);
-			return -errno;
-		}
+	// find a connected connectors
+	connector = find_drm_connector(render->fd_drm, resources);
+	if (!connector) {
+		Error("FindDevice: cannot retrieve DRM connector (%d): %m", errno);
+		return -errno;
+	}
+	render->connector_id = connector->connector_id;
 
-		if (connector != NULL && connector->connection == DRM_MODE_CONNECTED && connector->count_modes > 0) {
-			render->connector_id = connector->connector_id;
+	// test
+	int area;
+	for (j = 0, area = 0; j < connector->count_modes; j++) {
+		mode = &connector->modes[j];
+		Debug2(L_DRM, "FindDevice: Tested Mode: %dx%d@%d", mode->hdisplay, mode->vdisplay, mode->vrefresh);
+		if (mode->type & DRM_MODE_TYPE_PREFERRED)
+			Debug2(L_DRM, "FindDevice: Preferred Mode: %dx%d@%d", mode->hdisplay, mode->vdisplay, mode->vrefresh);
 
-			// FIXME: use default encoder/crtc pair
-			if ((encoder = drmModeGetEncoder(render->fd_drm, connector->encoder_id)) == NULL){
-				Error("FindDevice: cannot retrieve encoder (%d): %m", errno);
-				return -errno;
-			}
-			render->crtc_id = encoder->crtc_id;
+		int current_area = mode->hdisplay * mode->vdisplay;
+		if (current_area > area) {
+			Debug2(L_DRM, "FindDevice: Last Mode: %dx%d@%d", mode->hdisplay, mode->vdisplay, mode->vrefresh);
+			area = current_area;
 		}
-		// search for manually set mode
-		if (VideoDisplayWidth) {
-			for (j = 0; j < connector->count_modes; j++) {
-				mode = &connector->modes[j];
-				if(mode->hdisplay == VideoDisplayWidth && mode->vdisplay == VideoDisplayHeight &&
-					mode->vrefresh == VideoDisplayRefresh &&
-					!(mode->flags & DRM_MODE_FLAG_INTERLACE)) {
-					memcpy(&render->mode, &connector->modes[j], sizeof(drmModeModeInfo));
-					break;
-				}
-			}
-		} else {
-		// search for an UHD, FullHD or HDready display with 50Hz refresh rate
-		// if found, use the one with the greatest resolution, otherwise do the same with 60Hz
-			vrefresh = 50;
-search_mode:
-			for (j = 0; j < connector->count_modes; j++) {
-				mode = &connector->modes[j];
-				// Mode UHD
-				if(mode->hdisplay == 3840 && mode->vdisplay == 2160 &&
-					mode->vrefresh == vrefresh &&
-					!(mode->flags & DRM_MODE_FLAG_INTERLACE)) {
-					memcpy(&render->mode, &connector->modes[j], sizeof(drmModeModeInfo));
-					break;
-				}
-				// Mode HD
-				if(mode->hdisplay == 1920 && mode->vdisplay == 1080 &&
-					mode->vrefresh == vrefresh &&
-					!(mode->flags & DRM_MODE_FLAG_INTERLACE)) {
-					memcpy(&render->mode, &connector->modes[j], sizeof(drmModeModeInfo));
-					break;
-				}
-				// Mode HDready
-				if(mode->hdisplay == 1280 && mode->vdisplay == 720 &&
-					mode->vrefresh == vrefresh &&
-					!(mode->flags & DRM_MODE_FLAG_INTERLACE)) {
-					memcpy(&render->mode, &connector->modes[j], sizeof(drmModeModeInfo));
-					break;
-				}
-			}
-			if (!render->mode.hdisplay || !render->mode.vdisplay) {
-				if (vrefresh == 50) {
-					vrefresh = 60;
-					goto search_mode;
-				}
-			}
-		}
-		drmModeFreeConnector(connector);
 	}
 
-	if (VideoDisplayWidth && (!render->mode.hdisplay || !render->mode.vdisplay)) {
-		Fatal("FindDevice: Could not find requested monitor mode %dx%d@%d! Give up!",
-			VideoDisplayWidth, VideoDisplayHeight, VideoDisplayRefresh);
-	} else if (!render->mode.hdisplay || !render->mode.vdisplay) {
+	// find user requested mode
+	if (VideoDisplayWidth) {
+		for (j = 0; j < connector->count_modes; j++) {
+			mode = &connector->modes[j];
+			if(mode->hdisplay == VideoDisplayWidth && mode->vdisplay == VideoDisplayHeight &&
+				mode->vrefresh == VideoDisplayRefresh &&
+				!(mode->flags & DRM_MODE_FLAG_INTERLACE)) {
+				memcpy(&render->mode, &connector->modes[j], sizeof(drmModeModeInfo));
+				break;
+			}
+		}
+		if (!mode) {
+			Warning("FindDevice: User requested mode not found, try default modes");
+		}
+	}
+
+	// find default mode
+	// search for an UHD, FullHD or HDready display with 50Hz refresh rate
+	// if found, use the one with the greatest resolution, otherwise do the same with 60Hz
+
+	if (!mode) {
+		vrefresh = 50;
+search_mode:
+		for (j = 0; j < connector->count_modes; j++) {
+			mode = &connector->modes[j];
+			// Mode UHD
+			if(mode->hdisplay == 3840 && mode->vdisplay == 2160 &&
+				mode->vrefresh == vrefresh &&
+				!(mode->flags & DRM_MODE_FLAG_INTERLACE)) {
+				memcpy(&render->mode, &connector->modes[j], sizeof(drmModeModeInfo));
+				break;
+			}
+			// Mode HD
+			if(mode->hdisplay == 1920 && mode->vdisplay == 1080 &&
+				mode->vrefresh == vrefresh &&
+				!(mode->flags & DRM_MODE_FLAG_INTERLACE)) {
+				memcpy(&render->mode, &connector->modes[j], sizeof(drmModeModeInfo));
+				break;
+			}
+			// Mode HDready
+			if(mode->hdisplay == 1280 && mode->vdisplay == 720 &&
+				mode->vrefresh == vrefresh &&
+				!(mode->flags & DRM_MODE_FLAG_INTERLACE)) {
+				memcpy(&render->mode, &connector->modes[j], sizeof(drmModeModeInfo));
+				break;
+			}
+		}
+
+		if (!render->mode.hdisplay || !render->mode.vdisplay) {
+			if (vrefresh == 50) {
+				vrefresh = 60;
+				goto search_mode;
+			}
+		}
+	}
+
+	if (!render->mode.hdisplay || !render->mode.vdisplay) {
 		Fatal("FindDevice: No Monitor Mode found! Give up!");
 	}
 
-	Info("FindDevice: Using Monitor Mode %dx%d@%d",
-		render->mode.hdisplay, render->mode.vdisplay, render->mode.vrefresh);
+	// find encoder
+	for (j = 0; j < resources->count_encoders; i++) {
+		encoder = drmModeGetEncoder(render->fd_drm, resources->encoders[i]);
+			if (encoder->encoder_id == connector->encoder_id)
+				break;
+			drmModeFreeEncoder(encoder);
+			encoder = NULL;
+	}
+
+	if (encoder) {
+		render->crtc_id = encoder->crtc_id;
+		Debug2(L_DRM, "FindDevice: have encoder, render->crtc_id %d", render->crtc_id);
+	} else {
+		int32_t crtc_id = find_crtc_for_connector(render, resources, connector);
+		if (crtc_id == -1) {
+			Error("FindDevice: No crtc found!");
+			return -errno;
+		}
+
+		render->crtc_id = crtc_id;
+		Debug2(L_DRM, "FindDevice: have no encoder, render->crtc_id %d", render->crtc_id);
+	}
+
+	for (i = 0; i < resources->count_crtcs; i++) {
+		if (resources->crtcs[i] == render->crtc_id) {
+			render->crtc_index = i;
+			break;
+		}
+	}
+
+	Info("FindDevice: Using Monitor Mode %dx%d@%d, crtc_id %d crtc_idx %d",
+		render->mode.hdisplay, render->mode.vdisplay, render->mode.vrefresh, render->crtc_id, render->crtc_index);
+
+
+	drmModeFreeConnector(connector);
+
 
 	// find first plane
 	if ((plane_res = drmModeGetPlaneResources(render->fd_drm)) == NULL)
-		Error("FindDevice: cannot retrieve PlaneResources (%d): %m", errno);
+		Fatal("FindDevice: cannot retrieve PlaneResources (%d): %m", errno);
 
 	for (i = 0; i < MAX_PLANES; i++) {
 		render->planes[i] = calloc(1, sizeof(struct plane));
@@ -603,72 +694,79 @@ search_mode:
 	for (k = 0; k < plane_res->count_planes; k++) {
 		plane = drmModeGetPlane(render->fd_drm, plane_res->planes[k]);
 
-		if (plane == NULL)
+		if (plane == NULL) {
 			Error("FindDevice: cannot query DRM-KMS plane %d", k);
-
-		for (i = 0; i < resources->count_crtcs; i++) {
-			if (plane->possible_crtcs & (1 << i))
-				break;
+			continue;
 		}
 
 		uint64_t type;
 		uint64_t zpos;
-		if (GetPropertyValue(render->fd_drm, plane_res->planes[k],
-				     DRM_MODE_OBJECT_PLANE, "type", &type)) {
-			Debug2(L_DRM, "FindDevice: Failed to get property 'type'");
-		}
-		if (GetPropertyValue(render->fd_drm, plane_res->planes[k],
-				     DRM_MODE_OBJECT_PLANE, "zpos", &zpos)) {
-			Debug2(L_DRM, "FindDevice: Failed to get property 'zpos'");
-		} else {
-			render->use_zpos = 1;
-		}
-
-		// If more then 2 crtcs this must rewriten!!!
-		Debug2(L_DRM, "FindDevice: Plane id %i crtc_id %i possible_crtcs %i possible CRTC %i type %s",
-			plane->plane_id, plane->crtc_id, plane->possible_crtcs, resources->crtcs[i],
-			(type == DRM_PLANE_TYPE_PRIMARY) ? "primary plane" :
-			(type == DRM_PLANE_TYPE_OVERLAY) ? "overlay plane" :
-			(type == DRM_PLANE_TYPE_CURSOR) ? "cursor plane" : "No plane type");
 		char pixelformats[256];
-		strcpy(pixelformats, "FindDevice: PixelFormats");
-		// test pixel format and plane caps
-		for (l = 0; l < plane->count_formats; l++) {
-			if (encoder->possible_crtcs & plane->possible_crtcs) {
-				char tmp[10];
-				snprintf(tmp, sizeof(tmp), " %4.4s", (char *)&plane->formats[l]);
-				strcat(pixelformats, tmp);
-				switch (plane->formats[l]) {
-					case DRM_FORMAT_NV12:
-						if (type == DRM_PLANE_TYPE_PRIMARY && !best_primary_video_plane.plane_id) {
-							best_primary_video_plane.plane_id = plane->plane_id;
-							best_primary_video_plane.type = type;
-							best_primary_video_plane.properties.zpos = zpos;
-						}
-						if (type == DRM_PLANE_TYPE_OVERLAY && !best_overlay_video_plane.plane_id) {
-							best_overlay_video_plane.plane_id = plane->plane_id;
-							best_overlay_video_plane.type = type;
-							best_overlay_video_plane.properties.zpos = zpos;
-						}
-						break;
-					case DRM_FORMAT_ARGB8888:
-						if (type == DRM_PLANE_TYPE_PRIMARY) {
-							best_primary_osd_plane.plane_id = plane->plane_id;
-							best_primary_osd_plane.type = type;
-							best_primary_osd_plane.properties.zpos = zpos;
-						}
-						if (type == DRM_PLANE_TYPE_OVERLAY) {
-							best_overlay_osd_plane.plane_id = plane->plane_id;
-							best_overlay_osd_plane.type = type;
-							best_overlay_osd_plane.properties.zpos = zpos;
-						}
-						break;
-					default:
-						break;
+
+		if (plane->possible_crtcs & (1 << render->crtc_index)) {
+			if (GetPropertyValue(render->fd_drm, plane_res->planes[k],
+					     DRM_MODE_OBJECT_PLANE, "type", &type)) {
+				Debug2(L_DRM, "FindDevice: Failed to get property 'type'");
+			}
+			if (GetPropertyValue(render->fd_drm, plane_res->planes[k],
+					     DRM_MODE_OBJECT_PLANE, "zpos", &zpos)) {
+				Debug2(L_DRM, "FindDevice: Failed to get property 'zpos'");
+			} else {
+				render->use_zpos = 1;
+			}
+
+			// If more then 2 crtcs this must rewriten!!!
+			Debug2(L_DRM, "FindDevice: %s: id %i possible_crtcs %i possible CRTC %i ",
+				(type == DRM_PLANE_TYPE_PRIMARY) ? "PRIMARY " :
+				(type == DRM_PLANE_TYPE_OVERLAY) ? "OVERLAY " :
+				(type == DRM_PLANE_TYPE_CURSOR) ? "CURSOR " : "UNKNOWN",
+				plane->plane_id, plane->possible_crtcs, resources->crtcs[i]);
+			strcpy(pixelformats, "            ");
+
+			// test pixel format and plane caps
+			for (l = 0; l < plane->count_formats; l++) {
+				if (encoder->possible_crtcs & plane->possible_crtcs) {
+					char tmp[10];
+					switch (plane->formats[l]) {
+						case DRM_FORMAT_NV12:
+							snprintf(tmp, sizeof(tmp), " %4.4s", (char *)&plane->formats[l]);
+							strcat(pixelformats, tmp);
+							if (type == DRM_PLANE_TYPE_PRIMARY && !best_primary_video_plane.plane_id) {
+								best_primary_video_plane.plane_id = plane->plane_id;
+								best_primary_video_plane.type = type;
+								best_primary_video_plane.properties.zpos = zpos;
+								strcat(pixelformats, "!  ");
+							}
+							if (type == DRM_PLANE_TYPE_OVERLAY && !best_overlay_video_plane.plane_id) {
+								best_overlay_video_plane.plane_id = plane->plane_id;
+								best_overlay_video_plane.type = type;
+								best_overlay_video_plane.properties.zpos = zpos;
+								strcat(pixelformats, "!  ");
+							}
+							break;
+						case DRM_FORMAT_ARGB8888:
+							snprintf(tmp, sizeof(tmp), " %4.4s", (char *)&plane->formats[l]);
+							strcat(pixelformats, tmp);
+							if (type == DRM_PLANE_TYPE_PRIMARY) {
+								best_primary_osd_plane.plane_id = plane->plane_id;
+								best_primary_osd_plane.type = type;
+								best_primary_osd_plane.properties.zpos = zpos;
+								strcat(pixelformats, "!  ");
+							}
+							if (type == DRM_PLANE_TYPE_OVERLAY) {
+								best_overlay_osd_plane.plane_id = plane->plane_id;
+								best_overlay_osd_plane.type = type;
+								best_overlay_osd_plane.properties.zpos = zpos;
+								strcat(pixelformats, "!  ");
+							}
+							break;
+						default:
+							break;
+					}
 				}
 			}
+			Debug2(L_DRM, pixelformats);
 		}
-		Debug2(L_DRM, pixelformats);
 		drmModeFreePlane(plane);
 	}
 
@@ -2468,9 +2566,11 @@ void VideoInit(VideoRender * render)
 #endif
 	if (render->use_zpos) {
 		render->planes[VIDEO_PLANE]->properties.zpos = render->zpos_overlay;
-		render->planes[OSD_PLANE]->properties.zpos = render->zpos_primary;
 		SetPlaneZpos(ModeReq, render->planes[VIDEO_PLANE]);
+#ifndef USE_GLES
+		render->planes[OSD_PLANE]->properties.zpos = render->zpos_primary;
 		SetPlaneZpos(ModeReq, render->planes[OSD_PLANE]);
+#endif
 	}
 
 	render->planes[VIDEO_PLANE]->properties.crtc_id = render->crtc_id;
@@ -2486,13 +2586,17 @@ void VideoInit(VideoRender * render)
 
 	// Black Buffer for video plane
 	SetPlane(ModeReq, render->planes[VIDEO_PLANE]);
-
+	sleep(1);
 	Debug2(L_DRM, "VideoInit: Before final atomic commit");
+#ifndef USE_GLES
 	DumpPlaneProperties(render->planes[OSD_PLANE]);
+#endif
 	DumpPlaneProperties(render->planes[VIDEO_PLANE]);
 
 	if (drmModeAtomicCommit(render->fd_drm, ModeReq, flags, NULL) != 0) {
+#ifndef USE_GLES
 		DumpPlaneProperties(render->planes[OSD_PLANE]);
+#endif
 		DumpPlaneProperties(render->planes[VIDEO_PLANE]);
 
 		drmModeAtomicFree(ModeReq);
