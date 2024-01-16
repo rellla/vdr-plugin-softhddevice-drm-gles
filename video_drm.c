@@ -466,6 +466,58 @@ void VideoSetDisplay(const char* resolution)
 	sscanf(resolution, "%dx%d@%d", &VideoDisplayWidth, &VideoDisplayHeight, &VideoDisplayRefresh);
 }
 
+static int get_resources(int fd, drmModeRes **resources)
+{
+	*resources = drmModeGetResources(fd);
+	if (*resources == NULL) {
+		Error("FindDevice: cannot retrieve DRM resources (%d): %m", errno);
+		return -1;
+	}
+	return 0;
+}
+
+#define MAX_DRM_DEVICES 64
+static int find_drm_device(drmModeRes **resources)
+{
+	drmDevicePtr devices[MAX_DRM_DEVICES] = { NULL };
+	int num_devices, fd = -1;
+
+	num_devices = drmGetDevices2(0, devices,MAX_DRM_DEVICES);
+	if (num_devices < 0) {
+		Error("FindDevice: drmGetDevices2 failed: %s", strerror(-num_devices));
+		return fd;
+	}
+
+	for (int i = 0; i < num_devices && fd < 0; i++) {
+		drmDevicePtr device = devices[i];
+		int ret;
+
+		if (!(device->available_nodes & (1 << DRM_NODE_PRIMARY)))
+			continue;
+		fd = open(device->nodes[DRM_NODE_PRIMARY], O_RDWR);
+		if (fd < 0)
+			continue;
+
+		if (TestCaps(fd)) {
+			close(fd);
+			fd = -1;
+			continue;
+		}
+
+		ret = get_resources(fd, resources);
+		if (!ret)
+			break;
+		close(fd);
+		fd = -1;
+	}
+	drmFreeDevices(devices, num_devices);
+
+	if (fd < 0)
+		Error("FindDevice: no drm device found!");
+
+	return fd;
+}
+
 static drmModeConnector *find_drm_connector(int fd, drmModeRes *resources)
 {
 	drmModeConnector *connector = NULL;
@@ -482,7 +534,8 @@ static drmModeConnector *find_drm_connector(int fd, drmModeRes *resources)
 	return connector;
 }
 
-static int32_t find_crtc_for_encoder(const drmModeRes *resources, const drmModeEncoder *encoder) {
+static int32_t find_crtc_for_encoder(const drmModeRes *resources, const drmModeEncoder *encoder)
+{
 	int i;
 
 	for (i = 0; i < resources->count_crtcs; i++) {
@@ -496,7 +549,8 @@ static int32_t find_crtc_for_encoder(const drmModeRes *resources, const drmModeE
 	return -1;
 }
 
-static int32_t find_crtc_for_connector(VideoRender *render, const drmModeRes *resources, const drmModeConnector *connector) {
+static int32_t find_crtc_for_connector(VideoRender *render, const drmModeRes *resources, const drmModeConnector *connector)
+{
 	int i;
 
 	for (i = 0; i < connector->count_encoders; i++) {
@@ -515,6 +569,78 @@ static int32_t find_crtc_for_connector(VideoRender *render, const drmModeRes *re
 	return -1;
 }
 
+static int init_gbm(VideoRender *render, int w, int h, uint32_t format, uint64_t modifier)
+{
+	render->gbm_device = gbm_create_device(render->fd_drm);
+	if (!render->gbm_device) {
+		Error("FindDevice: failed to create gbm device!");
+		return -1;
+	}
+
+	render->gbm_surface = gbm_surface_create(render->gbm_device, w, h, format, modifier);
+	if (!render->gbm_surface) {
+		Error("FindDevice: failed to create %d x %d surface bo", w, h);
+		return -1;
+	}
+
+	return 0;
+}
+
+#ifdef USE_GLES
+static int init_egl(VideoRender *render)
+{
+	EGLint iMajorVersion, iMinorVersion;
+
+	PFNEGLGETPLATFORMDISPLAYEXTPROC get_platform_display = (PFNEGLGETPLATFORMDISPLAYEXTPROC)eglGetProcAddress("eglGetPlatformDisplayEXT");
+	assert(get_platform_display != NULL);
+	PFNEGLCREATEPLATFORMWINDOWSURFACEEXTPROC get_platform_surface = (PFNEGLCREATEPLATFORMWINDOWSURFACEEXTPROC)eglGetProcAddress("eglCreatePlatformWindowSurfaceEXT");
+	assert(get_platform_surface != NULL);
+
+	EGL_CHECK(render->eglDisplay = get_platform_display(EGL_PLATFORM_GBM_KHR, render->gbm_device, NULL));
+	if (!render->eglDisplay) {
+		Error("FindDevice: failed to get eglDisplay");
+		return -1;
+	}
+
+	if (!eglInitialize(render->eglDisplay, &iMajorVersion, &iMinorVersion)) {
+		Error("FindDevice: eglInitialize failed");
+		return -1;
+	}
+
+	Debug2(L_OPENGL, "FindDevice: Using display %p with EGL version %d.%d", render->eglDisplay, iMajorVersion, iMinorVersion);
+	EGL_CHECK(Debug2(L_OPENGL, "  EGL Version: \"%s\"", eglQueryString(render->eglDisplay, EGL_VERSION)));
+	EGL_CHECK(Debug2(L_OPENGL, "  EGL Vendor: \"%s\"", eglQueryString(render->eglDisplay, EGL_VENDOR)));
+	EGL_CHECK(Debug2(L_OPENGL, "  EGL Extensions: \"%s\"", eglQueryString(render->eglDisplay, EGL_EXTENSIONS)));
+	EGL_CHECK(Debug2(L_OPENGL, "  EGL APIs: \"%s\"", eglQueryString(render->eglDisplay, EGL_CLIENT_APIS)));
+
+	EGLConfig eglConfig = get_config();
+
+	EGL_CHECK(eglBindAPI(EGL_OPENGL_ES_API));
+	EGL_CHECK(render->eglContext = eglCreateContext(render->eglDisplay, eglConfig, EGL_NO_CONTEXT, context_attribute_list));
+	if (!render->eglContext) {
+		Error("FindDevice: failed to create eglContext");
+		return -1;
+	}
+
+	EGL_CHECK(render->eglSurface = get_platform_surface(render->eglDisplay, eglConfig, render->gbm_surface, NULL));
+	if (render->eglSurface == EGL_NO_SURFACE) {
+		Error("FindDevice: failed to create eglSurface");
+		return -1;
+	}
+
+	EGLint s_width, s_height;
+	EGL_CHECK(eglQuerySurface(render->eglDisplay, render->eglSurface, EGL_WIDTH, &s_width));
+	EGL_CHECK(eglQuerySurface(render->eglDisplay, render->eglSurface, EGL_HEIGHT, &s_height));
+
+	Debug2(L_OPENGL, "FindDevice: EGLSurface %p on EGLDisplay %p for %d x %d BO created", render->eglSurface, render->eglDisplay, s_width, s_height);
+
+	render->GlInit = 1;
+	Info("EGL context initialized");
+
+	return 0;
+}
+#endif
+
 static int FindDevice(VideoRender * render)
 {
 	drmModeRes *resources;
@@ -527,37 +653,19 @@ static int FindDevice(VideoRender * render)
 	uint32_t k, l;
 	int i, j;
 
-	render->fd_drm = open("/dev/dri/card0", O_RDWR);
+	// find a drm device
+	render->fd_drm = find_drm_device(&resources);
+
 	if (render->fd_drm < 0) {
-		Debug2(L_DRM, "FindDevice: cannot open /dev/dri/card0!");
-		return -errno;
-	}
-
-	if (TestCaps(render->fd_drm)) {
-		close(render->fd_drm);
-
-		render->fd_drm = open("/dev/dri/card1", O_RDWR);
-		if (render->fd_drm < 0) {
-			Debug2(L_DRM, "FindDevice: cannot open /dev/dri/card1!");
-			return -errno;
-		}
-
-		if (TestCaps(render->fd_drm)) {
-			Error("FindDevice: No DRM device available!");
-			return -1;
-		}
-	}
-
-	if ((resources = drmModeGetResources(render->fd_drm)) == NULL){
-		Error("FindDevice: cannot retrieve DRM resources (%d): %m", errno);
-		return -errno;
+		Error("FindDevice: Could not open device!");
+		return -1;
 	}
 
 	Debug2(L_DRM, "FindDevice: DRM have %i connectors, %i crtcs, %i encoders",
 		resources->count_connectors, resources->count_crtcs,
 		resources->count_encoders);
 
-	// find a connected connectors
+	// find a connected connector
 	connector = find_drm_connector(render->fd_drm, resources);
 	if (!connector) {
 		Error("FindDevice: cannot retrieve DRM connector (%d): %m", errno);
@@ -565,88 +673,57 @@ static int FindDevice(VideoRender * render)
 	}
 	render->connector_id = connector->connector_id;
 
-	// test
-	int area;
-	for (j = 0, area = 0; j < connector->count_modes; j++) {
-		mode = &connector->modes[j];
-		Debug2(L_DRM, "FindDevice: Tested Mode: %dx%d@%d", mode->hdisplay, mode->vdisplay, mode->vrefresh);
-		if (mode->type & DRM_MODE_TYPE_PREFERRED)
-			Debug2(L_DRM, "FindDevice: Preferred Mode: %dx%d@%d", mode->hdisplay, mode->vdisplay, mode->vrefresh);
-
-		int current_area = mode->hdisplay * mode->vdisplay;
-		if (current_area > area) {
-			Debug2(L_DRM, "FindDevice: Last Mode: %dx%d@%d", mode->hdisplay, mode->vdisplay, mode->vrefresh);
-			area = current_area;
-		}
-	}
-
 	// find user requested mode
 	if (VideoDisplayWidth) {
 		for (j = 0; j < connector->count_modes; j++) {
-			mode = &connector->modes[j];
-			if(mode->hdisplay == VideoDisplayWidth && mode->vdisplay == VideoDisplayHeight &&
-				mode->vrefresh == VideoDisplayRefresh &&
-				!(mode->flags & DRM_MODE_FLAG_INTERLACE)) {
-				memcpy(&render->mode, &connector->modes[j], sizeof(drmModeModeInfo));
+			drmModeModeInfo *current_mode = &connector->modes[j];
+			if(current_mode->hdisplay == VideoDisplayWidth && current_mode->vdisplay == VideoDisplayHeight &&
+			   current_mode->vrefresh == VideoDisplayRefresh && !(current_mode->flags & DRM_MODE_FLAG_INTERLACE)) {
+				mode = current_mode;
+				Debug2(L_DRM, "FindDevice: Use user requested mode: %dx%d@%d", mode->hdisplay, mode->vdisplay, mode->vrefresh);
 				break;
 			}
 		}
-		if (!mode) {
+		if (!mode)
 			Warning("FindDevice: User requested mode not found, try default modes");
-		}
 	}
 
-	// find default mode
-	// search for an UHD, FullHD or HDready display with 50Hz refresh rate
-	// if found, use the one with the greatest resolution, otherwise do the same with 60Hz
+	// find preferred mode or the highest resolution mode
+	if (!mode) {
+		int area;
+		for (j = 0, area = 0; j < connector->count_modes; j++) {
+			drmModeModeInfo *current_mode = &connector->modes[j];
+			if (current_mode->type & DRM_MODE_TYPE_PREFERRED) {
+				mode = current_mode;
+				break;
+			}
+
+			int current_area = current_mode->hdisplay * current_mode->vdisplay;
+			if (current_area > area) {
+				mode = current_mode;
+				area = current_area;
+			}
+		}
+		if (mode)
+			Debug2(L_DRM, "FindDevice: Use %s: %dx%d@%d",
+				mode->type & DRM_MODE_TYPE_PREFERRED ? "preferred default mode" : "mode with the highest resolution",
+				mode->hdisplay, mode->vdisplay, mode->vrefresh);
+	}
 
 	if (!mode) {
-		vrefresh = 50;
-search_mode:
-		for (j = 0; j < connector->count_modes; j++) {
-			mode = &connector->modes[j];
-			// Mode UHD
-			if(mode->hdisplay == 3840 && mode->vdisplay == 2160 &&
-				mode->vrefresh == vrefresh &&
-				!(mode->flags & DRM_MODE_FLAG_INTERLACE)) {
-				memcpy(&render->mode, &connector->modes[j], sizeof(drmModeModeInfo));
-				break;
-			}
-			// Mode HD
-			if(mode->hdisplay == 1920 && mode->vdisplay == 1080 &&
-				mode->vrefresh == vrefresh &&
-				!(mode->flags & DRM_MODE_FLAG_INTERLACE)) {
-				memcpy(&render->mode, &connector->modes[j], sizeof(drmModeModeInfo));
-				break;
-			}
-			// Mode HDready
-			if(mode->hdisplay == 1280 && mode->vdisplay == 720 &&
-				mode->vrefresh == vrefresh &&
-				!(mode->flags & DRM_MODE_FLAG_INTERLACE)) {
-				memcpy(&render->mode, &connector->modes[j], sizeof(drmModeModeInfo));
-				break;
-			}
-		}
-
-		if (!render->mode.hdisplay || !render->mode.vdisplay) {
-			if (vrefresh == 50) {
-				vrefresh = 60;
-				goto search_mode;
-			}
-		}
+		Error("FindDevice: No monitor mode found! Give up!");
+		return -1;
 	}
 
-	if (!render->mode.hdisplay || !render->mode.vdisplay) {
-		Fatal("FindDevice: No Monitor Mode found! Give up!");
-	}
+	memcpy(&render->mode, mode, sizeof(drmModeModeInfo));
 
 	// find encoder
 	for (j = 0; j < resources->count_encoders; i++) {
 		encoder = drmModeGetEncoder(render->fd_drm, resources->encoders[i]);
-			if (encoder->encoder_id == connector->encoder_id)
-				break;
-			drmModeFreeEncoder(encoder);
-			encoder = NULL;
+		if (encoder->encoder_id == connector->encoder_id)
+			break;
+		drmModeFreeEncoder(encoder);
+		encoder = NULL;
 	}
 
 	if (encoder) {
@@ -673,19 +750,20 @@ search_mode:
 	Info("FindDevice: Using Monitor Mode %dx%d@%d, crtc_id %d crtc_idx %d",
 		render->mode.hdisplay, render->mode.vdisplay, render->mode.vrefresh, render->crtc_id, render->crtc_index);
 
-
 	drmModeFreeConnector(connector);
 
+	// find planes
+	if ((plane_res = drmModeGetPlaneResources(render->fd_drm)) == NULL) {
+		Error("FindDevice: cannot retrieve PlaneResources (%d): %m", errno);
+		return -1;
+	}
 
-	// find first plane
-	if ((plane_res = drmModeGetPlaneResources(render->fd_drm)) == NULL)
-		Fatal("FindDevice: cannot retrieve PlaneResources (%d): %m", errno);
-
+	// allocate local plane structs
 	for (i = 0; i < MAX_PLANES; i++) {
 		render->planes[i] = calloc(1, sizeof(struct plane));
 	}
 
-	// test and list the planes
+	// test and list the local plane structs
 	struct plane best_primary_video_plane = { .plane_id = 0}; // is the NV12 capable primary plane with the lowest plane_id
 	struct plane best_overlay_video_plane = { .plane_id = 0}; // is the NV12 capable overlay plane with the lowest plane_id
 	struct plane best_primary_osd_plane = { .plane_id = 0};   // is the AR24 capable primary plane with the highest plane_id
@@ -715,7 +793,6 @@ search_mode:
 				render->use_zpos = 1;
 			}
 
-			// If more then 2 crtcs this must rewriten!!!
 			Debug2(L_DRM, "FindDevice: %s: id %i possible_crtcs %i possible CRTC %i ",
 				(type == DRM_PLANE_TYPE_PRIMARY) ? "PRIMARY " :
 				(type == DRM_PLANE_TYPE_OVERLAY) ? "OVERLAY " :
@@ -770,6 +847,7 @@ search_mode:
 		drmModeFreePlane(plane);
 	}
 
+	// debug output
 	if (best_primary_video_plane.plane_id) {
 		Debug2(L_DRM, "FindDevice: best_primary_video_plane: plane_id %d, type %s, zpos %lld",
 			best_primary_video_plane.plane_id, best_primary_video_plane.type == DRM_PLANE_TYPE_PRIMARY ? "PRIMARY" : "OVERLAY", best_primary_video_plane.properties.zpos);
@@ -804,14 +882,15 @@ search_mode:
 		render->planes[OSD_PLANE]->properties.zpos = render->zpos_primary = best_primary_osd_plane.properties.zpos;
 		render->use_zpos = 1;
 	} else {
-		Fatal("FindDevice: No suitable planes found!");
+		Error("FindDevice: No suitable planes found!");
+		return -1;
 	}
 
 	// fill the plane's properties to speed up SetPropertyRequest later
 	get_properties(render->fd_drm, render->planes[VIDEO_PLANE]->plane_id, render->planes[VIDEO_PLANE]);
 	get_properties(render->fd_drm, render->planes[OSD_PLANE]->plane_id, render->planes[OSD_PLANE]);
 
-	// Check, if we can set z-order (meson has fixed z-order, which cannot be changed)
+	// Check, if we can set z-order (meson and rpi have fixed z-order, which cannot be changed)
 	if (render->use_zpos && CheckZpos(render, render->planes[VIDEO_PLANE], render->planes[VIDEO_PLANE]->properties.zpos)) {
 		render->use_zpos = 0;
 	}
@@ -844,84 +923,6 @@ search_mode:
 	drmModeFreeEncoder(encoder);
 	drmModeFreeResources(resources);
 
-#ifdef USE_GLES
-	if (DisableOglOsd) {
-		Info("FindDevice: DRM setup - CRTC: %i video_plane: %i (%s %lld) osd_plane: %i (%s %lld) use_zpos: %d",
-			render->crtc_id, render->planes[VIDEO_PLANE]->plane_id,
-			render->planes[VIDEO_PLANE]->type == DRM_PLANE_TYPE_PRIMARY ? "PRIMARY" : "OVERLAY",
-			render->planes[VIDEO_PLANE]->properties.zpos,
-			render->planes[OSD_PLANE]->plane_id,
-			render->planes[OSD_PLANE]->type == DRM_PLANE_TYPE_PRIMARY ? "PRIMARY" : "OVERLAY",
-			render->planes[OSD_PLANE]->properties.zpos,
-			render->use_zpos);
-
-		return 0;
-	}
-
-	render->gbm_device = gbm_create_device(render->fd_drm);
-	if (!render->gbm_device) {
-		Error("FindDevice: failed to create gbm device!");
-		return -1;
-	}
-
-	int w, h;
-	double pixel_aspect;
-	GetScreenSize(&w, &h, &pixel_aspect);
-
-	render->gbm_surface = gbm_surface_create(render->gbm_device, w, h, DRM_FORMAT_ARGB8888, GBM_BO_USE_SCANOUT | GBM_BO_USE_RENDERING);
-	if (!render->gbm_surface) {
-		Error("FindDevice: failed to create %d x %d surface bo", w, h);
-		return -1;
-	}
-
-	EGLint iMajorVersion, iMinorVersion;
-
-	PFNEGLGETPLATFORMDISPLAYEXTPROC get_platform_display = (PFNEGLGETPLATFORMDISPLAYEXTPROC)eglGetProcAddress("eglGetPlatformDisplayEXT");
-	assert(get_platform_display != NULL);
-	PFNEGLCREATEPLATFORMWINDOWSURFACEEXTPROC get_platform_surface = (PFNEGLCREATEPLATFORMWINDOWSURFACEEXTPROC)eglGetProcAddress("eglCreatePlatformWindowSurfaceEXT");
-	assert(get_platform_surface != NULL);
-
-	EGL_CHECK(render->eglDisplay = get_platform_display(EGL_PLATFORM_GBM_KHR, render->gbm_device, NULL));
-	if (!render->eglDisplay) {
-		Error("FindDevice: failed to get eglDisplay");
-		return -1;
-	}
-
-	if (!eglInitialize(render->eglDisplay, &iMajorVersion, &iMinorVersion)) {
-		Error("FindDevice: eglInitialize failed");
-	}
-
-	Debug2(L_OPENGL, "FindDevice: Using display %p with EGL version %d.%d", render->eglDisplay, iMajorVersion, iMinorVersion);
-	EGL_CHECK(Debug2(L_OPENGL, "  EGL Version: \"%s\"", eglQueryString(render->eglDisplay, EGL_VERSION)));
-	EGL_CHECK(Debug2(L_OPENGL, "  EGL Vendor: \"%s\"", eglQueryString(render->eglDisplay, EGL_VENDOR)));
-	EGL_CHECK(Debug2(L_OPENGL, "  EGL Extensions: \"%s\"", eglQueryString(render->eglDisplay, EGL_EXTENSIONS)));
-	EGL_CHECK(Debug2(L_OPENGL, "  EGL APIs: \"%s\"", eglQueryString(render->eglDisplay, EGL_CLIENT_APIS)));
-
-	EGLConfig eglConfig = get_config();
-
-	EGL_CHECK(eglBindAPI(EGL_OPENGL_ES_API));
-	EGL_CHECK(render->eglContext = eglCreateContext(render->eglDisplay, eglConfig, EGL_NO_CONTEXT, context_attribute_list));
-	if (!render->eglContext) {
-		Error("FindDevice: failed to create eglContext");
-		return -1;
-	}
-
-	EGL_CHECK(render->eglSurface = get_platform_surface(render->eglDisplay, eglConfig, render->gbm_surface, NULL));
-	if (render->eglSurface == EGL_NO_SURFACE) {
-		Error("FindDevice: failed to create eglSurface");
-		return -1;
-	}
-
-	EGLint s_width, s_height;
-	EGL_CHECK(eglQuerySurface(render->eglDisplay, render->eglSurface, EGL_WIDTH, &s_width));
-	EGL_CHECK(eglQuerySurface(render->eglDisplay, render->eglSurface, EGL_HEIGHT, &s_height));
-
-	Debug2(L_OPENGL, "FindDevice: EGLSurface %p on EGLDisplay %p for %d x %d BO created", render->eglSurface, render->eglDisplay, s_width, s_height);
-
-	render->GlInit = 1;
-	Info("EGL context initialized");
-#endif
-
 	Info("FindDevice: DRM setup - CRTC: %i video_plane: %i (%s %lld) osd_plane: %i (%s %lld) use_zpos: %d",
 		render->crtc_id, render->planes[VIDEO_PLANE]->plane_id,
 		render->planes[VIDEO_PLANE]->type == DRM_PLANE_TYPE_PRIMARY ? "PRIMARY" : "OVERLAY",
@@ -930,6 +931,27 @@ search_mode:
 		render->planes[OSD_PLANE]->type == DRM_PLANE_TYPE_PRIMARY ? "PRIMARY" : "OVERLAY",
 		render->planes[OSD_PLANE]->properties.zpos,
 		render->use_zpos);
+
+#ifdef USE_GLES
+	if (DisableOglOsd)
+		return 0;
+
+	// init gbm
+	int w, h;
+	double pixel_aspect;
+	GetScreenSize(&w, &h, &pixel_aspect);
+
+	if (init_gbm(render, w, h, DRM_FORMAT_ARGB8888, GBM_BO_USE_SCANOUT | GBM_BO_USE_RENDERING)) {
+		Error("FindDevice: failed to init gbm device and surface!");
+		return -1;
+	}
+
+	// init egl
+	if (init_egl(render)) {
+		Error("FindDevice: failed to init egl!");
+		return -1;
+	}
+#endif
 
 	return 0;
 }
