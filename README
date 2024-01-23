@@ -141,9 +141,14 @@ SVDRP:
 	Play a media file from web:
 	svdrpsend plug softhddevice-drm-gles PLAY http://www.media-server/path_to_file/media_file.mp4
 
-Known Bugs:
+Known Bugs/ TODO:
 -----------
-	PASSTHROUGH is broken
+	- PASSTHROUGH is broken
+	- rewind is somewhat broken
+	- rpi4/5: is basically working but shows artifacts in the upper half
+	- amlogic: mpeg2/ 576i is broken
+	- attach/detach isn't implemented
+	- grabbing is not implemented (possibly hard to implement, maybe via kmsgrab)
 
 Optional:
 ---------
