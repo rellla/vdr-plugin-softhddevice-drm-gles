@@ -2059,12 +2059,15 @@ int VideoFilterInit(VideoRender * render, const AVCodecContext * video_ctx,
 	int ret;
 	char args[512];
 	const char *filter_descr = NULL;
+	render->filter_graph = avfilter_graph_alloc();
+	if (!render->filter_graph) {
+		Error("VideoFilterInit: Cannot alloc filter graph");
+		return -1;
+	}
+
+	render->Filter_Bug = 0;
 	const AVFilter *buffersrc  = avfilter_get_by_name("buffer");
 	const AVFilter *buffersink = avfilter_get_by_name("buffersink");
-	AVFilterInOut *outputs = avfilter_inout_alloc();
-	AVFilterInOut *inputs  = avfilter_inout_alloc();
-	render->filter_graph = avfilter_graph_alloc();
-	render->Filter_Bug = 0;
 
 	Debug2(L_CODEC, "VideoFilterInit: frame->format %d width %d height %d flags %d data[0] %p",
 		frame->format, frame->width, frame->height, frame->flags, frame->data[0]);
@@ -2116,17 +2119,20 @@ int VideoFilterInit(VideoRender * render, const AVCodecContext * video_ctx,
 		args, NULL, render->filter_graph);
 	if (ret < 0) {
 		Error("VideoFilterInit: Cannot create buffer source (%d)", ret);
-		goto fail;
+		avfilter_graph_free(&render->filter_graph);
+		return -1;
 	}
 
 	AVBufferSrcParameters *par = av_buffersrc_parameters_alloc();
+	memset(par, 0, sizeof(*par));
 	par->format = AV_PIX_FMT_NONE;
 	par->hw_frames_ctx = frame->hw_frames_ctx;
 	ret = av_buffersrc_parameters_set(render->buffersrc_ctx, par);
 	if (ret < 0) {
 		Error("VideoFilterInit: Cannot av_buffersrc_parameters_set (%d)", ret);
 		av_free(par);
-		goto fail;
+		avfilter_graph_free(&render->filter_graph);
+		return -1;
 	}
 
 	av_free(par);
@@ -2135,18 +2141,25 @@ int VideoFilterInit(VideoRender * render, const AVCodecContext * video_ctx,
 		NULL, NULL, render->filter_graph);
 	if (ret < 0) {
 		Error("VideoFilterInit: Cannot create buffer sink (%d)", ret);
-		goto fail;
+		avfilter_graph_free(&render->filter_graph);
+		return -1;
 	}
 
-	if (frame->format != AV_PIX_FMT_DRM_PRIME) {
-		enum AVPixelFormat pix_fmts[] = { AV_PIX_FMT_NV12, AV_PIX_FMT_NONE };
-		ret = av_opt_set_int_list(render->buffersink_ctx, "pix_fmts", pix_fmts,
+//	if (frame->format != AV_PIX_FMT_DRM_PRIME) {
+		enum AVPixelFormat pix_fmts[] = { AV_PIX_FMT_DRM_PRIME, AV_PIX_FMT_YUV420P, AV_PIX_FMT_NONE };
+		ret = av_opt_set_int_list(render->buffersink_ctx, "pix_fmts", &pix_fmts[0],
 			AV_PIX_FMT_NONE, AV_OPT_SEARCH_CHILDREN);
 		if (ret < 0) {
 			Error("VideoFilterInit: Cannot set output pixel format (%d)", ret);
-			goto fail;
+			avfilter_graph_free(&render->filter_graph);
+			return -1;
 		}
-	}
+//	}
+
+// av_buffersink_set_alloc_video_frame ??
+
+	AVFilterInOut *outputs = avfilter_inout_alloc();
+	AVFilterInOut *inputs  = avfilter_inout_alloc();
 
 	outputs->name       = av_strdup("in");
 	outputs->filter_ctx = render->buffersrc_ctx;
@@ -2160,26 +2173,24 @@ int VideoFilterInit(VideoRender * render, const AVCodecContext * video_ctx,
 
 	ret = avfilter_graph_parse_ptr(render->filter_graph, filter_descr,
 		&inputs, &outputs, NULL);
+	avfilter_inout_free(&inputs);
+	avfilter_inout_free(&outputs);
 	if (ret < 0) {
 		Error("VideoFilterInit: avfilter_graph_parse_ptr failed (%d)", ret);
-		goto fail;
+		avfilter_graph_free(&render->filter_graph);
+		return -1;
 	}
 
 	ret = avfilter_graph_config(render->filter_graph, NULL);
 	if (ret < 0) {
 		Error("VideoFilterInit: avfilter_graph_config failed (%d)", ret);
-		goto fail;
+		avfilter_graph_free(&render->filter_graph);
+		return -1;
 	}
 
-	avfilter_inout_free(&inputs);
-	avfilter_inout_free(&outputs);
-
 	return 0;
-
+/*
 fail:
-	avfilter_inout_free(&inputs);
-	avfilter_inout_free(&outputs);
-
 	if (!render->NoHwDeint) {
 		Warning("VideoFilterInit: can't config HW Deinterlacer!");
 		render->NoHwDeint = 1;
@@ -2188,6 +2199,7 @@ fail:
 	avfilter_graph_free(&render->filter_graph);
 
 	return -1;
+*/
 }
 
 ///
@@ -2213,8 +2225,10 @@ fillframe:
 		return;
 	}
 
-	if (frame->format == AV_PIX_FMT_YUV420P || (frame->interlaced_frame &&
-		frame->format == AV_PIX_FMT_DRM_PRIME && !render->NoHwDeint)) {
+//	if (frame->format == AV_PIX_FMT_YUV420P || (frame->interlaced_frame &&
+//		frame->format == AV_PIX_FMT_DRM_PRIME && !render->NoHwDeint)) {
+	if (frame->format == AV_PIX_FMT_YUV420P ||
+	   (frame->interlaced_frame && frame->format == AV_PIX_FMT_DRM_PRIME)) {
 //	if ((frame->format == AV_PIX_FMT_YUV420P && !render->NoHwDeint) ||
 //	    (frame->interlaced_frame && frame->format == AV_PIX_FMT_DRM_PRIME && !render->NoHwDeint)) {
 //		Debug2(L_CODEC, "VideoRenderFrame: loop 1");
