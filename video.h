@@ -145,7 +145,7 @@ struct _Drm_Render_
 	int use_zpos;
 	uint64_t zpos_overlay;
 	uint64_t zpos_primary;
-	uint32_t connector_id, crtc_id;
+	uint32_t connector_id, crtc_id, crtc_index;
 	struct plane *planes[MAX_PLANES];
 	AVFrame *lastframe;
 	int buffers;
