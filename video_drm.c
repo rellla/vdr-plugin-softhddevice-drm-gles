@@ -1974,11 +1974,14 @@ int VideoFilterInit(VideoRender * render, const AVCodecContext * video_ctx,
 	int ret;
 	char args[512];
 	const char *filter_descr = NULL;
+	render->filter_graph = avfilter_graph_alloc();
+	if (!render->filter_graph) {
+		Error("VideoFilterInit: Cannot alloc filter graph");
+		return -1;
+	}
+
 	const AVFilter *buffersrc  = avfilter_get_by_name("buffer");
 	const AVFilter *buffersink = avfilter_get_by_name("buffersink");
-	AVFilterInOut *outputs = avfilter_inout_alloc();
-	AVFilterInOut *inputs  = avfilter_inout_alloc();
-	render->filter_graph = avfilter_graph_alloc();
 	render->Filter_Bug = 0;
 
 	if (frame->interlaced_frame) {
@@ -2008,17 +2011,20 @@ int VideoFilterInit(VideoRender * render, const AVCodecContext * video_ctx,
 		args, NULL, render->filter_graph);
 	if (ret < 0) {
 		Error("VideoFilterInit: Cannot create buffer source (%d)", ret);
-		goto fail;
+		avfilter_graph_free(&render->filter_graph);
+		return -1;
 	}
 
 	AVBufferSrcParameters *par = av_buffersrc_parameters_alloc();
+	memset(par, 0, sizeof(*par));
 	par->format = AV_PIX_FMT_NONE;
 	par->hw_frames_ctx = frame->hw_frames_ctx;
 	ret = av_buffersrc_parameters_set(render->buffersrc_ctx, par);
 	if (ret < 0) {
 		Error("VideoFilterInit: Cannot av_buffersrc_parameters_set (%d)", ret);
 		av_free(par);
-		goto fail;
+		avfilter_graph_free(&render->filter_graph);
+		return -1;
 	}
 
 	av_free(par);
@@ -2027,7 +2033,8 @@ int VideoFilterInit(VideoRender * render, const AVCodecContext * video_ctx,
 		NULL, NULL, render->filter_graph);
 	if (ret < 0) {
 		Error("VideoFilterInit: Cannot create buffer sink (%d)", ret);
-		goto fail;
+		avfilter_graph_free(&render->filter_graph);
+		return -1;
 	}
 
 	if (frame->format != AV_PIX_FMT_DRM_PRIME) {
@@ -2036,9 +2043,13 @@ int VideoFilterInit(VideoRender * render, const AVCodecContext * video_ctx,
 			AV_PIX_FMT_NONE, AV_OPT_SEARCH_CHILDREN);
 		if (ret < 0) {
 			Error("VideoFilterInit: Cannot set output pixel format (%d)", ret);
-			goto fail;
+			avfilter_graph_free(&render->filter_graph);
+			return -1;
 		}
 	}
+
+	AVFilterInOut *outputs = avfilter_inout_alloc();
+	AVFilterInOut *inputs  = avfilter_inout_alloc();
 
 	outputs->name       = av_strdup("in");
 	outputs->filter_ctx = render->buffersrc_ctx;
@@ -2052,34 +2063,23 @@ int VideoFilterInit(VideoRender * render, const AVCodecContext * video_ctx,
 
 	ret = avfilter_graph_parse_ptr(render->filter_graph, filter_descr,
 		&inputs, &outputs, NULL);
+	avfilter_inout_free(&inputs);
+	avfilter_inout_free(&outputs);
+
 	if (ret < 0) {
 		Error("VideoFilterInit: avfilter_graph_parse_ptr failed (%d)", ret);
-		goto fail;
+		avfilter_graph_free(&render->filter_graph);
+		return -1;
 	}
 
 	ret = avfilter_graph_config(render->filter_graph, NULL);
 	if (ret < 0) {
 		Error("VideoFilterInit: avfilter_graph_config failed (%d)", ret);
-		goto fail;
+		avfilter_graph_free(&render->filter_graph);
+		return -1;
 	}
-
-	avfilter_inout_free(&inputs);
-	avfilter_inout_free(&outputs);
 
 	return 0;
-
-fail:
-	avfilter_inout_free(&inputs);
-	avfilter_inout_free(&outputs);
-
-	if (!render->NoHwDeint) {
-		Warning("VideoFilterInit: can't config HW Deinterlacer!");
-		render->NoHwDeint = 1;
-	}
-
-	avfilter_graph_free(&render->filter_graph);
-
-	return -1;
 }
 
 ///
