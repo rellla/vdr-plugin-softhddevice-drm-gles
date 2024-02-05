@@ -129,17 +129,25 @@ void CodecVideoOpen(VideoDecoder * decoder, int codec_id, AVCodecParameters * Pa
 	static AVBufferRef *hw_device_ctx = NULL;
 	int err;
 
+	Debug2(L_TEMP, "CodecVideoOpen: try to open codec %s", avcodec_get_name(codec_id));
 	if (VideoCodecMode(decoder->Render) & CODEC_V4L2M2M_H264 && codec_id == AV_CODEC_ID_H264) {
 		if (!(codec = avcodec_find_decoder_by_name(VideoGetDecoderName(
 			avcodec_get_name(codec_id)))))
 
 			Error("CodecVideoOpen: The video codec %s is not present in libavcodec",
 				VideoGetDecoderName(avcodec_get_name(codec_id)));
+		else {
+			Debug2(L_TEMP, "CodecVideoOpen: avcodec_find_decoder_by_name found %s",
+				VideoGetDecoderName(avcodec_get_name(codec_id)));
+		}
 	} else {
-
 		if (!(codec = avcodec_find_decoder(codec_id)))
 			Error("CodecVideoOpen: The video codec %s is not present in libavcodec",
 				avcodec_get_name(codec_id));
+		else {
+			Debug2(L_TEMP, "CodecVideoOpen: avcodec_find_decoder found %s",
+				VideoGetDecoderName(avcodec_get_name(codec_id)));
+		}
 
 		if (!(VideoCodecMode(decoder->Render) & CODEC_NO_MPEG_HW && codec_id == AV_CODEC_ID_MPEG2VIDEO)) {
 			for (int n = 0; ; n++) {
@@ -179,39 +187,56 @@ void CodecVideoOpen(VideoDecoder * decoder, int codec_id, AVCodecParameters * Pa
 			decoder->VideoCtx->coded_width = width;
 			decoder->VideoCtx->coded_height = height;
 		} else {
+			Debug2(L_TEMP, "CodecVideoOpen: Par->width %d Par->height %d", Par->width, Par->height);
 			decoder->VideoCtx->coded_width = Par->width;
 			decoder->VideoCtx->coded_height = Par->height;
 		}
 	}
+
+	if (codec->capabilities & AV_CODEC_CAP_DRAW_HORIZ_BAND)
+		Debug2(L_TEMP, "CodecVideoOpen: AV_CODEC_CAP_DRAW_HORIZ_BAND");
+	if (codec->capabilities & AV_CODEC_CAP_DR1)
+		Debug2(L_TEMP, "CodecVideoOpen: AV_CODEC_CAP_DR1");
+	if (codec->capabilities & AV_CODEC_CAP_HARDWARE)
+		Debug2(L_TEMP, "CodecVideoOpen: AV_CODEC_CAP_HARDWARE");
+	if (codec->capabilities & AV_CODEC_CAP_HYBRID)
+		Debug2(L_TEMP, "CodecVideoOpen: AV_CODEC_CAP_HYBRID");
 
 //	decoder->VideoCtx->flags |= AV_CODEC_FLAG_BITEXACT;
 //	decoder->VideoCtx->flags2 |= AV_CODEC_FLAG2_FAST;
 //	decoder->VideoCtx->flags |= AV_CODEC_FLAG_TRUNCATED;
 //	if (codec->capabilities & AV_CODEC_CAP_DR1)
 //		Debug2(L_CODEC, "[CodecVideoOpen] AV_CODEC_CAP_DR1 => get_buffer()");
+	Debug2(L_TEMP, "CodecVideoOpen: check AV_CODEC_CAP_FRAME_THREADS and AV_CODEC_CAP_SLICE_THREADS");
 	if (codec->capabilities & AV_CODEC_CAP_FRAME_THREADS ||
 		AV_CODEC_CAP_SLICE_THREADS) {
 		decoder->VideoCtx->thread_count = 4;
 		Debug2(L_CODEC, "CodecVideoOpen: decoder use %d threads",
 			decoder->VideoCtx->thread_count);
 	}
+	Debug2(L_TEMP, "CodecVideoOpen: check AV_CODEC_CAP_SLICE_THREADS");
 	if (codec->capabilities & AV_CODEC_CAP_SLICE_THREADS){
 		decoder->VideoCtx->thread_type = FF_THREAD_SLICE;
 		Debug2(L_CODEC, "CodecVideoOpen: decoder use THREAD_SLICE threads");
 	}
 
 	if (type) {
+		Debug2(L_TEMP, "CodecVideoOpen: try init HW decoder");
 		if (av_hwdevice_ctx_create(&hw_device_ctx, type, NULL, NULL, 0) < 0)
 			Error("CodecVideoOpen: Error init the HW decoder");
-		else
+		else {
 			decoder->VideoCtx->hw_device_ctx = av_buffer_ref(hw_device_ctx);
+			Debug2(L_TEMP, "CodecVideoOpen: referencing HW decoder");
+		}
 	}
 
 	if (Par) {
+		Debug2(L_TEMP, "CodecVideoOpen: try to insert parameters to context");
 		if ((avcodec_parameters_to_context(decoder->VideoCtx, Par)) < 0)
 			Error("CodecVideoOpen: insert parameters to context failed!");
 	}
 	if (timebase) {
+		Debug2(L_TEMP, "CodecVideoOpen: timebase num %d den %d", timebase->num, timebase->den);
 		decoder->VideoCtx->pkt_timebase.num = timebase->num;
 		decoder->VideoCtx->pkt_timebase.den = timebase->den;
 	}
@@ -220,6 +245,8 @@ void CodecVideoOpen(VideoDecoder * decoder, int codec_id, AVCodecParameters * Pa
 		Fatal("CodecVideoOpen: Error opening the decoder: %s",
 			av_err2str(err));
 	}
+
+	Debug2(L_CODEC, "CodecVideoOpen: decoder opened");
 }
 
 /**
