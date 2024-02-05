@@ -50,6 +50,7 @@ extern "C"
 #define L_OPENGL           (1 << 8)
 #define L_OPENGL_TIME      (1 << 9)
 #define L_OPENGL_TIME_ALL  (1 << 10)
+#define L_TEMP             (1 << 11)
 
 typedef unsigned char uchar;
 
@@ -137,6 +138,9 @@ static inline void Syslog(const int level, const int cat, const char *format, ..
 #ifdef GL_DEBUG_TIME_ALL
 	DebugLogLevel |= L_OPENGL_TIME_ALL;
 #endif
+#ifdef TEMP_DEBUG
+	DebugLogLevel |= L_TEMP;
+#endif
 	va_list ap;
 	char fmt[256];
 	char prefix[20] = "";
@@ -170,6 +174,9 @@ static inline void Syslog(const int level, const int cat, const char *format, ..
 		case L_OPENGL_TIME:
 		case L_OPENGL_TIME_ALL:
 			strcpy(prefix, "[OpenGL]");
+			break;
+		case L_TEMP:
+			strcpy(prefix, "[temp]");
 			break;
 		default:
 			return;

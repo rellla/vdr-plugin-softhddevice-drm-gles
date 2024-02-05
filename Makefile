@@ -29,6 +29,7 @@ CONFIG := #-DDEBUG 				# enable debug output+functions
 #CONFIG += -DGL_DEBUG			# enable debug messages OpenGL/ES OSD
 #CONFIG += -DGL_DEBUG_TIME #-DGL_DEBUG_TIME_ALL # enable time measurement debug messages OpenGL/ES OSD
 #CONFIG += -DFFMPEG_DEBUG # enable ffmpeg debug messages
+#CONFIG += -DTEMP_DEBUG # temporary debug messages
 
 ifeq ($(GLES),1)
 CONFIG += -DUSE_GLES			# build with OpenGL/ES support
