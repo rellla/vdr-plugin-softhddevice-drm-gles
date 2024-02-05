@@ -1126,26 +1126,29 @@ static int SetupFB(VideoRender * render, struct drm_buf *buf,
 		if (buf->pix_fmt == DRM_FORMAT_YUV420) {
 			buf->pitch[0] = buf->width;
 			buf->pitch[2] = buf->pitch[1] = buf->pitch[0] / 2;
-
 			buf->offset[0] = 0;
 			buf->offset[1] = buf->pitch[0] * buf->height;
 			buf->offset[2] = buf->offset[1] + buf->pitch[1] * buf->height / 2;
 			buf->handle[2] = buf->handle[1] = buf->handle[0] = creq.handle;
+			Debug2(L_TEMP, "SetupFB: DRM_FORMAT_YUV420, pitch[0]: %d, pitch[1]: %d, pitch[2]: %d, offset[0]: %d, offset[1]: %d, offset[2]: %d",
+			                buf->pitch[0], buf->pitch[1], buf->pitch[2], buf->offset[0], buf->offset[1], buf->offset[2]);
 		}
 
 		if (buf->pix_fmt == DRM_FORMAT_NV12) {
 			buf->pitch[1] = buf->pitch[0] = buf->width;
-
 			buf->offset[0] = 0;
 			buf->offset[1] = buf->pitch[0] * buf->height;
 			buf->handle[1] = buf->handle[0] = creq.handle;
+			Debug2(L_TEMP, "SetupFB: DRM_FORMAT_NV12, pitch[0]: %d, pitch[1]: %d, offset[0]: %d, offset[1]: %d",
+			                buf->pitch[0], buf->pitch[1], buf->offset[0], buf->offset[1]);
 		}
 
 		if (buf->pix_fmt == DRM_FORMAT_ARGB8888) {
 			buf->pitch[0] = creq.pitch;
-
 			buf->offset[0] = 0;
 			buf->handle[0] = creq.handle;
+			Debug2(L_TEMP, "SetupFB: DRM_FORMAT_ARGB8888, pitch[0]: %d, offset[0]: %d",
+			                buf->pitch[0], buf->offset[0]);
 		}
 	}
 
@@ -1192,9 +1195,8 @@ static int SetupFB(VideoRender * render, struct drm_buf *buf,
 	buf->plane[2] = buf->plane[0] + buf->offset[2];
 
 	render->buffers += renderbuffer;
-	if (!render->buffers)
-		Debug2(L_DRM, "SetupFB: fb_id %d width %d height %d pix_fmt %4.4s",
-			buf->fb_id, buf->width, buf->height, (char *)&buf->pix_fmt);
+	Debug2(L_TEMP, "SetupFB: buf->plane[0] %p buf->plane[1] %p buf->plane[2] %p render->buffers %d",
+		buf->plane[0], buf->plane[1], buf->plane[2], render->buffers);
 
 	return 0;
 }
@@ -1254,6 +1256,7 @@ static void CleanDisplayThread(VideoRender * render)
 
 dequeue:
 	if (atomic_read(&render->FramesFilled)) {
+		Debug2(L_TEMP, "CleanDisplayThread: dequeue render->FramesFilled %d", render->FramesFilled);
 		frame = render->FramesRb[render->FramesRead];
 		render->FramesRead = (render->FramesRead + 1) % VIDEO_SURFACES_MAX;
 		atomic_dec(&render->FramesFilled);
@@ -1836,6 +1839,9 @@ void EnqueueFB(VideoRender * render, AVFrame *inframe)
 		}
 	}
 
+//	Debug2(L_TEMP, "EnqueueFB: inframe->width %d inframe->height %d inframe->linesize[0] %d inframe->linesize[1] %d sample_aspect_ratio.num %d sample_aspect_ratio.den %d",
+//		inframe->width, inframe->height, inframe->linesize[0], inframe->linesize[1],
+//		inframe->sample_aspect_ratio.num, inframe->sample_aspect_ratio.den);
 	buf = &render->bufs[render->enqueue_buffer];
 
 	for (i = 0; i < inframe->height; ++i) {
@@ -1902,6 +1908,17 @@ static void *FilterHandlerThread(void * arg)
 getinframe:
 		if (atomic_read(&render->FramesDeintFilled)) {
 			frame = render->FramesDeintRb[render->FramesDeintRead];
+			switch(frame->format) {
+			case AV_PIX_FMT_NV12:
+				Debug2(L_TEMP, "FilterHandlerThread: frame is AV_PIX_FMT_NV12");
+				break;
+			case AV_PIX_FMT_YUV420P:
+				Debug2(L_TEMP, "FilterHandlerThread: frame is AV_PIX_FMT_YUV420P");
+				break;
+			default:
+				Debug2(L_TEMP, "FilterHandlerThread: frame format is unknown");
+				break;
+			}
 			render->FramesDeintRead = (render->FramesDeintRead + 1) % VIDEO_SURFACES_MAX;
 			atomic_dec(&render->FramesDeintFilled);
 			if (frame->interlaced_frame) {
@@ -1951,11 +1968,16 @@ fillframe:
 				break;
 			}
 			if (filt_frame->format == AV_PIX_FMT_NV12) {
+				Debug2(L_TEMP, "FilterHandlerThread: EnqueueFB filt_frame AV_PIX_FMT_NV12");
 				if (render->Filter_Bug)
 					filt_frame->pts = filt_frame->pts / 2;	// ffmpeg bug
 				render->Filter_Frames--;
 				EnqueueFB(render, filt_frame);
 			} else {
+				if (filt_frame->format == AV_PIX_FMT_YUV420P)
+					Debug2(L_TEMP, "FilterHandlerThread: EnqueueFB filt_frame AV_PIX_FMT_YUV420P");
+				else
+					Debug2(L_TEMP, "FilterHandlerThread: EnqueueFB filt_frame %d", filt_frame->format);
 				pthread_mutex_lock(&DisplayQueue);
 				if (atomic_read(&render->FramesFilled) < VIDEO_SURFACES_MAX) {
 					render->FramesRb[render->FramesWrite] = filt_frame;
@@ -2003,15 +2025,24 @@ int VideoFilterInit(VideoRender * render, const AVCodecContext * video_ctx,
 	const AVFilter *buffersink = avfilter_get_by_name("buffersink");
 	render->Filter_Bug = 0;
 
+	Debug2(L_TEMP, "VideoFilterInit: frame->format %d width %d height %d flags %d data[0] %p framerate num %d den %d",
+		frame->format, frame->width, frame->height, frame->flags, frame->data[0], video_ctx->framerate.num, video_ctx->framerate.den);
+
 	if (frame->interlaced_frame) {
-		if (frame->format == AV_PIX_FMT_DRM_PRIME)
+		if (frame->format == AV_PIX_FMT_DRM_PRIME) {
 			filter_descr = "deinterlace_v4l2m2m";
-		else if (frame->format == AV_PIX_FMT_YUV420P) {
+			Debug2(L_TEMP, "VideoFilterInit: frame is interlaced! frame->format = AV_PIX_FMT_DRM_PRIME, filter_descr = %s", filter_descr);
+		} else if (frame->format == AV_PIX_FMT_YUV420P) {
 			filter_descr = "bwdif=1:-1:0";
 			render->Filter_Bug = 1;
+			Debug2(L_TEMP, "VideoFilterInit: frame is interlaced! frame->format = AV_PIX_FMT_YUV420P, filter_descr = %s, set Filter_Bug", filter_descr);
 		}
-	} else if (frame->format == AV_PIX_FMT_YUV420P)
+	} else if (frame->format == AV_PIX_FMT_YUV420P) {
 		filter_descr = "scale";
+		Debug2(L_TEMP, "VideoFilterInit: fame is not interlaced! frame->format = AV_PIX_FMT_YUV420P, filter_descr = %s", filter_descr);
+	} else {
+		Debug2(L_TEMP, "VideoFilterInit: frame not interlaced! frame->format = %d", frame->format);
+	}
 
 #if LIBAVFILTER_VERSION_INT < AV_VERSION_INT(7,16,100)
 	avfilter_register_all();
@@ -2126,6 +2157,12 @@ fillframe:
 
 	if (frame->format == AV_PIX_FMT_YUV420P || (frame->interlaced_frame &&
 		frame->format == AV_PIX_FMT_DRM_PRIME && !render->NoHwDeint)) {
+		if (frame->format == AV_PIX_FMT_YUV420P)
+			Debug2(L_TEMP, "VideoRenderFrame: frame->format is AV_PIX_FMT_YUV420P, %sinterlaced frame and hw deint %s",
+			       frame->interlaced_frame ? "" : "no ", render->NoHwDeint ? "disabled" : "enabled");
+		else
+			Debug2(L_TEMP, "VideoRenderFrame: frame->format is AV_PIX_FMT_PRIME, %sinterlaced frame and hw deint %s",
+			       frame->interlaced_frame ? "" : "no ", render->NoHwDeint ? "disabled" : "enabled");
 
 		if (!FilterThread) {
 			Debug2(L_CODEC, "VideoRenderFrame: try init FilterThread");
@@ -2150,6 +2187,8 @@ fillframe:
 		}
 	} else {
 		if (frame->format == AV_PIX_FMT_DRM_PRIME) {
+			Debug2(L_TEMP, "VideoRenderFrame: frame->format is AV_PIX_FMT_PRIME, %sinterlaced frame and hw deint %s",
+			       frame->interlaced_frame ? "" : "no ", render->NoHwDeint ? "disabled" : "enabled");
 			pthread_mutex_lock(&DisplayQueue);
 			if (atomic_read(&render->FramesFilled) < VIDEO_SURFACES_MAX && !render->Filter_Frames) {
 				render->FramesRb[render->FramesWrite] = frame;
@@ -2161,8 +2200,9 @@ fillframe:
 				usleep(10000);
 				goto fillframe;
 			}
-
 		} else {
+			Debug2(L_TEMP, "VideoRenderFrame: frame->format is %d, %sinterlaced frame and hw deint %s",
+			       frame->format, frame->interlaced_frame ? "" : "no ", render->NoHwDeint ? "disabled" : "enabled");
 			EnqueueFB(render, frame);
 		}
 	}
