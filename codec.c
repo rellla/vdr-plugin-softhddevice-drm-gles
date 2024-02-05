@@ -129,6 +129,7 @@ void CodecVideoOpen(VideoDecoder * decoder, int codec_id, AVCodecParameters * Pa
 	static AVBufferRef *hw_device_ctx = NULL;
 	int err;
 
+	Debug2(L_CODEC, "CodecVideoOpen: try to open codec %s", avcodec_get_name(codec_id));
 	if (VideoCodecMode(decoder->Render) & CODEC_V4L2M2M_H264 && codec_id == AV_CODEC_ID_H264) {
 		if (!(codec = avcodec_find_decoder_by_name(VideoGetDecoderName(
 			avcodec_get_name(codec_id)))))
@@ -220,6 +221,8 @@ void CodecVideoOpen(VideoDecoder * decoder, int codec_id, AVCodecParameters * Pa
 		Fatal("CodecVideoOpen: Error opening the decoder: %s",
 			av_err2str(err));
 	}
+
+	Debug2(L_CODEC, "CodecVideoOpen: decoder opened");
 }
 
 /**
