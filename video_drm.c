@@ -1147,11 +1147,20 @@ static int SetupFB(VideoRender * render, struct drm_buf *buf,
 		}
 	}
 
-	if (drmModeAddFB2WithModifiers(render->fd_drm, buf->width, buf->height, buf->pix_fmt,
-			buf->handle, buf->pitch, buf->offset, modifier, &buf->fb_id, mod_flags)) {
+	int ret = -1;
+	ret = drmModeAddFB2WithModifiers(render->fd_drm, buf->width, buf->height, buf->pix_fmt,
+					 buf->handle, buf->pitch, buf->offset, modifier, &buf->fb_id, mod_flags);
 
-		Fatal("SetupFB: cannot create modifiers framebuffer (%d): %m", errno);
+	if (ret) {
+		if (mod_flags)
+			Error("SetupFB: cannot create modifiers framebuffer (%d): %m", errno);
+
+		ret = drmModeAddFB2(render->fd_drm, buf->width, buf->height, buf->pix_fmt,
+			buf->handle, buf->pitch, buf->offset, &buf->fb_id, 0);
 	}
+
+	if (ret)
+		Fatal("SetupFB: cannot create framebuffer (%d): %m", errno);
 
 	if (primedata) {
 		render->buffers += renderbuffer;
