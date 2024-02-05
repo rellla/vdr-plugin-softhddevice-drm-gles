@@ -304,13 +304,13 @@ void ReadHWPlatform(VideoRender * render)
 	while(read_size) {
 
 		if (strstr(read_ptr, "bcm2711")) {
-			Debug2(L_DRM, "ReadHWPlatform: bcm2711 found");
+			Debug2(L_DRM, "ReadHWPlatform: bcm2711 found, disable HW deinterlacer");
 			render->CodecMode |= CODEC_V4L2M2M_H264;	// set _v4l2m2m for H264
 			render->NoHwDeint = 1;
 			break;
 		}
 		if (strstr(read_ptr, "amlogic")) {
-			Debug2(L_DRM, "ReadHWPlatform: amlogic found");
+			Debug2(L_DRM, "ReadHWPlatform: amlogic found, disable HW deinterlacer");
 			render->CodecMode |= CODEC_V4L2M2M_H264;	// set _v4l2m2m for H264
 			render->NoHwDeint = 1;
 			break;
@@ -1058,23 +1058,25 @@ static int SetupFB(VideoRender * render, struct drm_buf *buf,
 
 	if (primedata) {
 		// we have no DRM objects yet, so return
-		if (!primedata->nb_objects)
+		if (!primedata->nb_objects) {
+			Warning("SetupFB: No primedata objects available!");
 			return 1;
+		}
 
 		if (!render->buffers) {
 			for (int object = 0; object < primedata->nb_objects; object++) {
 
-				Debug2(L_DRM, "SetupFB:  %d x %d nb_objects %i Handle %i size %zu modifier %" PRIx64 "",
+				Debug2(L_DRM, "SetupFB: PRIMEDATA %d x %d nb_objects %i Handle %i size %zu modifier %" PRIx64 "",
 					buf->width, buf->height, primedata->nb_objects, primedata->objects[object].fd,
 					primedata->objects[object].size, primedata->objects[object].format_modifier);
 			}
 			for (int layer = 0; layer < primedata->nb_layers; layer++) {
-				Debug2(L_DRM, "SetupFB: nb_layers %d nb_planes %d pix_fmt %4.4s",
+				Debug2(L_DRM, "SetupFB: PRIMEDATA nb_layers %d nb_planes %d pix_fmt %4.4s",
 					primedata->nb_layers, primedata->layers[layer].nb_planes,
 					(char *)&primedata->layers[layer].format);
 
 				for (int plane = 0; plane < primedata->layers[layer].nb_planes; plane++) {
-					Debug2(L_DRM, "SetupFB: nb_planes %d object_index %i",
+					Debug2(L_DRM, "SetupFB: PRIMEDATA nb_planes %d object_index %i",
 						primedata->layers[layer].nb_planes, primedata->layers[layer].planes[plane].object_index);
 				}
 			}
@@ -1087,7 +1089,7 @@ static int SetupFB(VideoRender * render, struct drm_buf *buf,
 			if (drmPrimeFDToHandle(render->fd_drm,
 				primedata->objects[primedata->layers[0].planes[plane].object_index].fd, &buf->handle[plane])) {
 
-				Error("SetupFB: Failed to retrieve the Prime Handle %i size %zu (%d): %m",
+				Error("SetupFB: PRIMEDATA Failed to retrieve the Prime Handle %i size %zu (%d): %m",
 					primedata->objects[primedata->layers[0].planes[plane].object_index].fd,
 					primedata->objects[primedata->layers[0].planes[plane].object_index].size, errno);
 				return -errno;
@@ -1164,8 +1166,13 @@ static int SetupFB(VideoRender * render, struct drm_buf *buf,
 
 	if (primedata) {
 		render->buffers += renderbuffer;
+		Debug2(L_DRM, "SetupFB: PRIMEDATA Added FB fb_id %d width %d height %d pix_fmt %4.4s, render->buffers %d",
+			buf->fb_id, buf->width, buf->height, (char *)&buf->pix_fmt, render->buffers);
 		return 0;
 	}
+
+	Debug2(L_DRM, "SetupFB: Added FB fb_id %d width %d height %d pix_fmt %4.4s",
+		buf->fb_id, buf->width, buf->height, (char *)&buf->pix_fmt);
 
 	struct drm_mode_map_dumb mreq;
 	memset(&mreq, 0, sizeof(struct drm_mode_map_dumb));
@@ -1783,14 +1790,17 @@ enum AVPixelFormat Video_get_format(__attribute__ ((unused))VideoRender * render
 		AVCodecContext * video_ctx, const enum AVPixelFormat *fmt)
 {
 	while (*fmt != AV_PIX_FMT_NONE) {
-		Debug2(L_CODEC, "Video_get_format: PixelFormat %s ctx_fmt %s sw_pix_fmt %s Codecname: %s",
-			av_get_pix_fmt_name(*fmt), av_get_pix_fmt_name(video_ctx->pix_fmt),
-			av_get_pix_fmt_name(video_ctx->sw_pix_fmt), video_ctx->codec->name);
 		if (*fmt == AV_PIX_FMT_DRM_PRIME) {
+			Debug2(L_CODEC, "Video_get_format (AV_PIX_FMT_DRM_PRIME): PixelFormat: %s video_ctx->pix_fmt: %s sw_pix_fmt: %s Codecname: %s",
+				av_get_pix_fmt_name(*fmt), av_get_pix_fmt_name(video_ctx->pix_fmt),
+				av_get_pix_fmt_name(video_ctx->sw_pix_fmt), video_ctx->codec->name);
 			return AV_PIX_FMT_DRM_PRIME;
 		}
 
 		if (*fmt == AV_PIX_FMT_YUV420P) {
+			Debug2(L_CODEC, "Video_get_format (AV_PIX_FMT_YUV420P): PixelFormat: %s video_ctx->pix_fmt: %s sw_pix_fmt: %s Codecname: %s",
+				av_get_pix_fmt_name(*fmt), av_get_pix_fmt_name(video_ctx->pix_fmt),
+				av_get_pix_fmt_name(video_ctx->sw_pix_fmt), video_ctx->codec->name);
 			return AV_PIX_FMT_YUV420P;
 		}
 		fmt++;
@@ -2013,7 +2023,7 @@ int VideoFilterInit(VideoRender * render, const AVCodecContext * video_ctx,
 		video_ctx->framerate.den, video_ctx->framerate.num,
 		video_ctx->sample_aspect_ratio.num, video_ctx->sample_aspect_ratio.den);
 
-	Debug2(L_CODEC, "VideoFilterInit: filter %s \"%s\"",
+	Debug2(L_CODEC, "VideoFilterInit: filter=\"%s\" args=\"%s\"",
 		filter_descr, args);
 
 	ret = avfilter_graph_create_filter(&render->buffersrc_ctx, buffersrc, "in",
@@ -2118,10 +2128,13 @@ fillframe:
 		frame->format == AV_PIX_FMT_DRM_PRIME && !render->NoHwDeint)) {
 
 		if (!FilterThread) {
+			Debug2(L_CODEC, "VideoRenderFrame: try init FilterThread");
 			if (VideoFilterInit(render, video_ctx, frame)) {
 				av_frame_free(&frame);
+				Debug2(L_CODEC, "VideoRenderFrame: init FilterThread failed");
 				return;
 			} else {
+				Debug2(L_CODEC, "VideoRenderFrame: init FilterThread created");
 				pthread_create(&FilterThread, NULL, FilterHandlerThread, render);
 				pthread_setname_np(FilterThread, "softhddev deint");
 			}
@@ -2409,6 +2422,7 @@ void VideoInit(VideoRender * render)
 	render->buf_black.pix_fmt = DRM_FORMAT_NV12;
 	render->buf_black.width = render->mode.hdisplay;
 	render->buf_black.height = render->mode.vdisplay;
+	Debug2(L_DRM, "Videoinit: Try to create a black FB");
 	if (SetupFB(render, &render->buf_black, NULL, 0))
 		Error("VideoInit: SetupFB black FB %i x %i failed",
 			render->buf_black.width, render->buf_black.height);
