@@ -1656,7 +1656,7 @@ void GetScreenSize(int *width, int *height, double *pixel_aspect)
 void GetVideoSize(int *width, int *height, double *aspect_ratio)
 {
 	VideoGetVideoSize(MyVideoStream->Decoder, width, height, aspect_ratio);
-	Debug("GetVideoSize: %d x %d @ %f", *width, *height, *aspect_ratio);
+//	Debug("GetVideoSize: %d x %d @ %f", *width, *height, *aspect_ratio);
 }
 
 void *GetVideoRender()
