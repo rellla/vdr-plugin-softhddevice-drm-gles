@@ -2426,7 +2426,7 @@ void cOglPixmap::DrawImage(const cPoint &Point, int ImageHandle) {
     DrawScaledImage(Point, ImageHandle);
 }
 
-void cOglPixmap::DrawScaledImage(const cPoint &Point, const cImage &Image, double FactorX, double FactorY, bool AntiAlias) {
+void cOglPixmap::DrawScaledImage(const cPoint &Point, const cImage &Image, double FactorX, double FactorY, __attribute__ ((unused)) bool AntiAlias) {
     if (!oglThread->Active())
         return;
     tColor *argb = MALLOC(tColor, Image.Width() * Image.Height());
@@ -2442,7 +2442,7 @@ void cOglPixmap::DrawScaledImage(const cPoint &Point, const cImage &Image, doubl
     MarkDrawPortDirty(cRect(Point, cSize(Image.Width() * FactorX, Image.Height() * FactorY)).Intersected(DrawPort().Size()));
 }
 
-void cOglPixmap::DrawScaledImage(const cPoint &Point, int ImageHandle, double FactorX, double FactorY, bool AntiAlias) {
+void cOglPixmap::DrawScaledImage(const cPoint &Point, int ImageHandle, double FactorX, double FactorY, __attribute__ ((unused)) bool AntiAlias) {
     if (!oglThread->Active())
         return;
     if (ImageHandle < 0 && oglThread->GetImageRef(ImageHandle)) {
