@@ -1104,6 +1104,8 @@ int VideoDecodeInput(VideoStream * stream)
 	}
 
 	if (stream->NewStream && stream->CodecID != AV_CODEC_ID_NONE) {
+		// temp debug
+		Debug("VideoDecodeInput: New Stream!");
 		CodecVideoOpen(stream->Decoder, stream->CodecID, stream->Par,
 			&stream->timebase);
 		stream->NewStream = 0;
