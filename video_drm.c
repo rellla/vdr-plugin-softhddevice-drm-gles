@@ -568,6 +568,16 @@ static int32_t find_crtc_for_connector(VideoRender *render, const drmModeRes *re
 	return -1;
 }
 
+static void Frame2Display(VideoRender * render);
+
+static void Drm_page_flip_event(int fd, unsigned int frame, unsigned int sec, unsigned int usec, void *data)
+{
+	VideoRender *render = (VideoRender *)GetVideoRender();
+	render->pflip_pending = false;
+	if (!render->cleanup)
+		Frame2Display(render);
+}
+
 static int init_gbm(VideoRender *render, int w, int h, uint32_t format, uint64_t modifier)
 {
 	render->gbm_device = gbm_create_device(render->fd_drm);
@@ -1293,7 +1303,7 @@ static void Frame2Display(VideoRender * render)
 	int i;
 
 	drmModeAtomicReqPtr ModeReq;
-	uint32_t flags = DRM_MODE_PAGE_FLIP_EVENT;
+	uint32_t flags = DRM_MODE_PAGE_FLIP_EVENT | DRM_MODE_ATOMIC_NONBLOCK;
 	if (!(ModeReq = drmModeAtomicAlloc())) {
 		Error("Frame2Display: cannot allocate atomic request (%d): %m", errno);
 		return;
@@ -1502,6 +1512,7 @@ page_flip:
 	}
 
 	drmModeAtomicFree(ModeReq);
+	render->pflip_pending = true;
 
 	if (render->lastframe)
 		av_frame_free(&render->lastframe);
@@ -1519,8 +1530,11 @@ static void *DisplayHandlerThread(void * arg)
 	pthread_setcancelstate (PTHREAD_CANCEL_ENABLE, NULL);
 	pthread_setcanceltype(PTHREAD_CANCEL_DEFERRED, NULL);
 
+	Frame2Display(render);
+
 	while (1) {
 		pthread_testcancel();
+		FD_SET(render->fd_drm, &render->fds);
 
 		if (render->VideoPaused) {
 			pthread_mutex_lock(&PauseMutex);
@@ -1528,10 +1542,14 @@ static void *DisplayHandlerThread(void * arg)
 			pthread_mutex_unlock(&PauseMutex);
 		}
 
-		Frame2Display(render);
-
-		if (drmHandleEvent(render->fd_drm, &render->ev) != 0)
-			Error("DisplayHandlerThread: drmHandleEvent failed!");
+		int ret = select(render->fd_drm + 1, &render->fds, NULL, NULL, NULL);
+		if (ret < 0) {
+			Error("DisplayHandlerThread: select() failed with %d: %m", errno);
+			break;
+		} else if (FD_ISSET(render->fd_drm, &render->fds)) {
+			if (drmHandleEvent(render->fd_drm, &render->ev))
+				Error("DisplayHandlerThread: drmHandleEvent failed!");
+		}
 
 		if (render->Closing &&
 		    (!render->act_buf || (render->act_buf->fb_id == render->buf_black.fb_id))) {
@@ -2562,8 +2580,12 @@ void VideoInit(VideoRender * render)
 	render->OsdShown = 0;
 
 	// init variables page flip
-	memset(&render->ev, 0, sizeof(render->ev));
-	render->ev.version = 2;
+	if (render->ev.page_flip_handler != Drm_page_flip_event) {
+		FD_ZERO(&render->fds);
+		memset(&render->ev, 0, sizeof(render->ev));
+		render->ev.version = 2;
+		render->ev.page_flip_handler = Drm_page_flip_event;
+	}
 
 	// Wakeup DisplayHandlerThread
 	VideoThreadWakeup(render, 0, 1);
@@ -2577,6 +2599,12 @@ void VideoExit(VideoRender * render)
 	VideoThreadExit();
 
 	if (render) {
+		render->cleanup = true;
+		while (render->pflip_pending) {
+			if (drmHandleEvent(render->fd_drm, &render->ev))
+				break;
+		}
+
 		// restore saved CRTC configuration
 		if (render->saved_crtc){
 			drmModeSetCrtc(render->fd_drm, render->saved_crtc->crtc_id, render->saved_crtc->buffer_id,
