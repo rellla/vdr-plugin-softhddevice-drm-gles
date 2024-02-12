@@ -65,6 +65,7 @@
 #include "video.h"
 #include "audio.h"
 #include "codec.h"
+#include "drm.h"
 
 //----------------------------------------------------------------------------
 //	Variables
@@ -231,24 +232,6 @@ void SetPlane(drmModeAtomicReqPtr ModeReq, struct plane *plane)
 	SetPlanePropertyRequest(ModeReq, plane->plane_id, "SRC_Y", plane->properties.src_y);
 	SetPlanePropertyRequest(ModeReq, plane->plane_id, "SRC_W", plane->properties.src_w << 16);
 	SetPlanePropertyRequest(ModeReq, plane->plane_id, "SRC_H", plane->properties.src_h << 16);
-}
-
-///
-/// If primary plane support only rgb and overlay plane nv12
-/// must the zpos change. At the end it must change back.
-/// @param backward		if set change to origin.
-///
-void SetChangePlanes(drmModeAtomicReqPtr ModeReq, int back)
-{
-	VideoRender *render = (VideoRender *)GetVideoRender();
-	if (!render) {
-		Fatal("failed to get VideoRender");
-	}
-
-	render->planes[VIDEO_PLANE]->properties.zpos = back ? render->zpos_overlay : render->zpos_primary;
-	render->planes[OSD_PLANE]->properties.zpos = back ? render->zpos_primary : render->zpos_overlay;
-	SetPlaneZpos(ModeReq, render->planes[VIDEO_PLANE]);
-	SetPlaneZpos(ModeReq, render->planes[OSD_PLANE]);
 }
 
 void DumpPlaneProperties(struct plane *plane)
