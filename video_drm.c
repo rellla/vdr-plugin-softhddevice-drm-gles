@@ -1914,9 +1914,9 @@ fillframe:
 	else render->enqueue_buffer++;
 }
 
-/**
-**	Filter thread.
-*/
+///
+//	Filter thread.
+//
 static void *FilterHandlerThread(void * arg)
 {
 	VideoRender * render = (VideoRender *)arg;
@@ -2021,12 +2021,12 @@ closing:
 	pthread_exit((void *)pthread_self());
 }
 
-/**
-**	Filter init.
-**
-**	@retval 0	filter initialised
-**	@retval	-1	filter initialise failed
-*/
+///
+//	Filter init.
+//
+//	@retval 0	filter initialised
+//	@retval	-1	filter initialise failed
+//
 int VideoFilterInit(VideoRender * render, const AVCodecContext * video_ctx,
 		AVFrame * frame)
 {
@@ -2288,9 +2288,9 @@ void VideoSetClosing(VideoRender * render)
 	render->TrickSpeed = 0;
 }
 
-/**
-**	Pause video.
-*/
+///
+//	Pause video.
+//
 void VideoPause(VideoRender * render)
 {
 	Debug("VideoPause:");
@@ -2316,9 +2316,9 @@ void VideoSetTrickSpeed(VideoRender * render, int speed)
 	}
 }
 
-/**
-**	Play video.
-*/
+///
+//	Play video.
+//
 void VideoPlay(VideoRender * render)
 {
 	Debug("VideoPlay:");
