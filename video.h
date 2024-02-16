@@ -101,6 +101,12 @@ struct _Drm_Render_
 	int FramesDeintRead;			///< read pointer
 	atomic_t FramesDeintFilled;		///< how many of the buffer is used
 
+	AVFrame  *FramesDeintOutRb[VIDEO_SURFACES_MAX];
+	int FramesDeintOut;			///< read pointer
+
+	AVFrame  *FramesEnqueueRb[VIDEO_SURFACES_MAX];
+	int FramesEnqueue;			///< read pointer
+
 	AVFrame  *FramesRb[VIDEO_SURFACES_MAX];
 	int FramesWrite;			///< write pointer
 	int FramesRead;			///< read pointer
