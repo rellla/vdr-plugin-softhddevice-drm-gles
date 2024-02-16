@@ -308,7 +308,7 @@ void ReadHWPlatform(VideoRender * render)
 
 		if (strstr(read_ptr, "bcm2711")) {
 			Debug2(L_DRM, "ReadHWPlatform: bcm2711 found, disable HW deinterlacer");
-			render->CodecMode |= CODEC_V4L2M2M_H264;	// set _v4l2m2m for H264
+			render->CodecMode |= CODEC_V4L2M2M_H264 | CODEC_NO_MPEG_HW;	// set _v4l2m2m for H264, disable mpeg hw decoder
 			render->NoHwDeint = 1;
 			break;
 		}
