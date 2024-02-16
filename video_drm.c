@@ -568,6 +568,15 @@ static int32_t find_crtc_for_connector(VideoRender *render, const drmModeRes *re
 	return -1;
 }
 
+static void Frame2Display(VideoRender * render, int init);
+
+static void Drm_page_flip_event(int fd, unsigned int frame, unsigned int sec, unsigned int usec, void *data)
+{
+	VideoRender *render = (VideoRender *)GetVideoRender();
+	render->pflip_pending = false;
+	Frame2Display(render, 0);
+}
+
 static int init_gbm(VideoRender *render, int w, int h, uint32_t format, uint64_t modifier)
 {
 	render->gbm_device = gbm_create_device(render->fd_drm);
@@ -1248,31 +1257,26 @@ static void CleanDisplayThread(VideoRender * render)
 	AVFrame *frame;
 	int i;
 
-	if (render->lastframe) {
-		av_frame_free(&render->lastframe);
-	}
-
 dequeue:
 	if (atomic_read(&render->FramesFilled)) {
 		frame = render->FramesRb[render->FramesRead];
 		render->FramesRead = (render->FramesRead + 1) % VIDEO_SURFACES_MAX;
 		atomic_dec(&render->FramesFilled);
-		av_frame_free(&frame);
+		av_frame_unref(frame);
 		goto dequeue;
 	}
 
 	// Destroy FBs
 	if (render->buffers) {
-		for (i = 0; i < render->buffers; ++i) {
+		Debug2(L_DRM, "CleanDisplayThread: destroying %d render->buffers", render->buffers);
+		for (i = 0; render->buffers > 0; ++i) {
 			DestroyFB(render->fd_drm, &render->bufs[i]);
+			render->buffers--;
 		}
-		render->buffers = 0;
 		render->enqueue_buffer = 0;
 	}
 
 	pthread_cond_signal(&WaitCleanCondition);
-
-	render->Closing = 0;
 
 	Debug("CleanDisplayThread: DRM cleaned.");
 }
@@ -1280,7 +1284,7 @@ dequeue:
 ///
 ///	Draw a video frame.
 ///
-static void Frame2Display(VideoRender * render)
+static void Frame2Display(VideoRender * render, int init)
 {
 	struct drm_buf *buf = 0;
 	AVFrame *frame = NULL;
@@ -1290,16 +1294,19 @@ static void Frame2Display(VideoRender * render)
 	int i;
 
 	drmModeAtomicReqPtr ModeReq;
-	uint32_t flags = DRM_MODE_PAGE_FLIP_EVENT;
+	uint32_t flags = DRM_MODE_PAGE_FLIP_EVENT | DRM_MODE_ATOMIC_NONBLOCK;
 	if (!(ModeReq = drmModeAtomicAlloc())) {
 		Error("Frame2Display: cannot allocate atomic request (%d): %m", errno);
 		return;
 	}
 
-	if (render->Closing) {
+	if (render->Closing || init) {
 closing:
 		// set a black FB
-		Debug("Frame2Display: closing, set a black FB");
+		if (init)
+			Debug("Frame2Display: initial Frame2Display, set a black FB");
+		if (render->Closing)
+			Debug("Frame2Display: closing, set a black FB");
 		buf = &render->buf_black;
 		goto page_flip;
 	}
@@ -1499,11 +1506,7 @@ page_flip:
 	}
 
 	drmModeAtomicFree(ModeReq);
-
-	if (render->lastframe)
-		av_frame_free(&render->lastframe);
-	if (render->act_buf && (render->act_buf->fb_id != render->buf_black.fb_id))
-		render->lastframe = render->act_buf->frame;
+	render->pflip_pending = true;
 }
 
 ///
@@ -1516,8 +1519,12 @@ static void *DisplayHandlerThread(void * arg)
 	pthread_setcancelstate (PTHREAD_CANCEL_ENABLE, NULL);
 	pthread_setcanceltype(PTHREAD_CANCEL_DEFERRED, NULL);
 
+	Debug2(L_DRM, "DisplayHandlerThread: starting");
+	Frame2Display(render, 1);
+
 	while (1) {
 		pthread_testcancel();
+		FD_SET(render->fd_drm, &render->fds);
 
 		if (render->VideoPaused) {
 			pthread_mutex_lock(&PauseMutex);
@@ -1525,16 +1532,21 @@ static void *DisplayHandlerThread(void * arg)
 			pthread_mutex_unlock(&PauseMutex);
 		}
 
-		Frame2Display(render);
-
-		if (drmHandleEvent(render->fd_drm, &render->ev) != 0)
-			Error("DisplayHandlerThread: drmHandleEvent failed!");
+		int ret = select(render->fd_drm + 1, &render->fds, NULL, NULL, NULL);
+		if (ret < 0) {
+			Error("DisplayHandlerThread: select() failed with %d: %m", errno);
+			break;
+		} else if (FD_ISSET(render->fd_drm, &render->fds)) {
+			if (drmHandleEvent(render->fd_drm, &render->ev))
+				Error("DisplayHandlerThread: drmHandleEvent failed!");
+		}
 
 		if (render->Closing &&
 		    (!render->act_buf || (render->act_buf->fb_id == render->buf_black.fb_id))) {
 			CleanDisplayThread(render);
 		}
 	}
+	Debug2(L_DRM, "DisplayHandlerThread: stopped");
 	pthread_exit((void *)pthread_self());
 }
 
@@ -2518,8 +2530,12 @@ void VideoInit(VideoRender * render)
 	render->OsdShown = 0;
 
 	// init variables page flip
-	memset(&render->ev, 0, sizeof(render->ev));
-	render->ev.version = 2;
+	if (render->ev.page_flip_handler != Drm_page_flip_event) {
+		FD_ZERO(&render->fds);
+		memset(&render->ev, 0, sizeof(render->ev));
+		render->ev.version = 2;
+		render->ev.page_flip_handler = Drm_page_flip_event;
+	}
 
 	// Wakeup DisplayHandlerThread
 	VideoThreadWakeup(render, 0, 1);
