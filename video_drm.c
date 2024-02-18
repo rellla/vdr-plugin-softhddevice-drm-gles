@@ -95,6 +95,41 @@ static pthread_mutex_t DisplayQueue;
 //	Helper functions
 //----------------------------------------------------------------------------
 
+static void write_frame(AVFrame *frame)
+{
+	static int seq = 0;
+	static int nr = 0;
+
+	if (seq % 100 == 0 && seq < 1001) {
+		char filename[40];
+		snprintf(filename, sizeof(filename), "/tmp/%03dframe.raw", nr++);
+		Debug2(L_DRM, "EnqueueFB: write %s", filename);
+
+		FILE *fp = NULL;
+		fp = fopen(filename, "wb");
+		if (fp == NULL)
+			Fatal("write_frame: could not open file pointer");
+
+		uint32_t pitchY = frame->linesize[0];
+		uint32_t pitchU = frame->linesize[1];
+
+		uint8_t *avY = frame->data[0];
+		uint8_t *avU = frame->data[1];
+
+		for (int i = 0; i < frame->height; ++i) {
+			fwrite(avY, frame->width, 1, fp);
+			avY += pitchY;
+		}
+		for (int i = 0; i < frame->height / 2; ++i) {
+			fwrite(avU, frame->width, 1, fp);
+			avU += pitchU;
+		}
+
+		fclose(fp);
+	}
+	seq++;
+}
+
 static void ReleaseFrame( __attribute__ ((unused)) void *opaque, uint8_t *data)
 {
 	AVDRMFrameDescriptor *primedata = (AVDRMFrameDescriptor *)data;
@@ -297,7 +332,7 @@ void ReadHWPlatform(VideoRender * render)
 		}
 		if (strstr(read_ptr, "amlogic")) {
 			Debug2(L_DRM, "ReadHWPlatform: amlogic found, disable HW deinterlacer");
-			render->CodecMode |= CODEC_V4L2M2M_H264;	// set _v4l2m2m for H264
+			render->CodecMode |= CODEC_V4L2M2M_H264 | CODEC_NO_MPEG_HW;	// set _v4l2m2m for H264
 			render->NoHwDeint = 1;
 			break;
 		}
@@ -556,7 +591,7 @@ static int32_t find_crtc_for_connector(VideoRender *render, const drmModeRes *re
 
 static void Frame2Display(VideoRender * render, int init);
 
-static void Drm_page_flip_event(int fd, unsigned int frame, unsigned int sec, unsigned int usec, void *data)
+static void Drm_page_flip_event(__attribute__ ((unused)) int fd, __attribute__ ((unused)) unsigned int frame, __attribute__ ((unused)) unsigned int sec, __attribute__ ((unused)) unsigned int usec, __attribute__ ((unused)) void *data)
 {
 	VideoRender *render = (VideoRender *)GetVideoRender();
 	render->pflip_pending = false;
@@ -1833,15 +1868,11 @@ void EnqueueFB(VideoRender * render, AVFrame *inframe)
 			buf->height = (uint32_t)inframe->height;
 			buf->pix_fmt = DRM_FORMAT_NV12;
 
-			if (SetupFB(render, buf, NULL, 1)) {
-				Fatal("EnqueueFB: SetupFB FB %i x %i failed",
-					buf->width, buf->height);
-			}
+			if (SetupFB(render, buf, NULL, 1))
+				Fatal("EnqueueFB: SetupFB FB %i x %i failed", buf->width, buf->height);
 
-			if (drmPrimeHandleToFD(render->fd_drm, buf->handle[0],
-				DRM_CLOEXEC | DRM_RDWR, &buf->fd_prime))
-				Fatal("EnqueueFB: Failed to retrieve the Prime FD (%d): %m",
-					errno);
+			if (drmPrimeHandleToFD(render->fd_drm, buf->handle[0], DRM_CLOEXEC | DRM_RDWR, &buf->fd_prime))
+				Fatal("EnqueueFB: Failed to retrieve the Prime FD (%d): %m", errno);
 		}
 	}
 
@@ -1856,6 +1887,8 @@ void EnqueueFB(VideoRender * render, AVFrame *inframe)
 			inframe->data[1] + i * inframe->linesize[1], inframe->width);
 	}
 
+// 	write_frame(inframe);
+
 	frame = render->FramesEnqueueRb[render->FramesEnqueue];
 
 	frame->pts = inframe->pts;
@@ -1866,7 +1899,43 @@ void EnqueueFB(VideoRender * render, AVFrame *inframe)
 	frame->sample_aspect_ratio.den = inframe->sample_aspect_ratio.den;
 
 	primedata = av_mallocz(sizeof(AVDRMFrameDescriptor));
-	primedata->objects[0].fd = buf->fd_prime;
+	primedata->nb_layers = 1;
+	primedata->layers[0].format = DRM_FORMAT_NV12;
+
+	int j, nb_objects = 0;
+	for (j = 0; j < 4 && buf->handle[j]; j++) {
+		size_t size;
+		int dup = 0, k, obj;
+
+		size = buf->offset[j] + buf->height * buf->pitch[j];
+
+		for (k = 0; k < j; k++) {
+			if (buf->handle[j] == buf->handle[k]) {
+				dup = 1;
+				break;
+			}
+		}
+
+		if (dup) {
+			obj = primedata->layers[0].planes[k].object_index;
+			if (primedata->objects[k].size < size)
+				primedata->objects[k].size = size;
+			primedata->layers[0].planes[j].object_index = obj;
+			primedata->layers[0].planes[j].offset = buf->offset[j];
+			primedata->layers[0].planes[j].pitch = buf->pitch[j];
+		} else {
+			obj = nb_objects++;
+			primedata->objects[obj].fd = buf->fd_prime;
+			primedata->objects[obj].size = size;
+			primedata->objects[obj].format_modifier = DRM_FORMAT_MOD_INVALID;
+			primedata->layers[0].planes[j].object_index = obj;
+			primedata->layers[0].planes[j].offset = buf->offset[j];
+			primedata->layers[0].planes[j].pitch = buf->pitch[j];
+		}
+	}
+	primedata->nb_objects = nb_objects;
+	primedata->layers[0].nb_planes = j;
+
 	frame->data[0] = (uint8_t *)primedata;
 	frame->buf[0] = av_buffer_create((uint8_t *)primedata, sizeof(*primedata),
 				ReleaseFrame, NULL, AV_BUFFER_FLAG_READONLY);
