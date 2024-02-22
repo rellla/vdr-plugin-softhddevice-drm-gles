@@ -102,11 +102,6 @@ VideoDecoder *CodecVideoNewDecoder(VideoRender * render)
     }
     decoder->Render = render;
 
-    for (int i = 0; i < CODEC_FRAMES_MAX; i++) {
-        Debug2(L_CODEC, "CodecVideoNewDecoder: alloc decoder->FrameRb[%d]", i);
-        decoder->FrameRb[i] = av_frame_alloc();
-    }
-
     return decoder;
 }
 
@@ -117,13 +112,6 @@ VideoDecoder *CodecVideoNewDecoder(VideoRender * render)
 */
 void CodecVideoDelDecoder(VideoDecoder * decoder)
 {
-    for (int i = 0; i < CODEC_FRAMES_MAX; i++) {
-        if (decoder->FrameRb[i]) {
-            Debug2(L_CODEC, "CodecVideoDelDecoder: free decoder->FrameRb[%d]", i);
-            av_frame_free(&decoder->FrameRb[i]);
-        }
-    }
-
     free(decoder);
 }
 
@@ -246,12 +234,6 @@ void CodecVideoClose(VideoDecoder * decoder)
 {
 	Debug2(L_CODEC, "CodecVideoClose: VideoCtx %p", decoder->VideoCtx);
 	pthread_mutex_lock(&CodecLockMutex);
-
-	for (int i = 0; i < CODEC_FRAMES_MAX; i++) {
-		Debug2(L_CODEC, "CodecVideoClose: unref decoder->FrameRb[%d]", i);
-		av_frame_unref(decoder->FrameRb[i]);
-	}
-
 	if (decoder->VideoCtx) {
 		avcodec_free_context(&decoder->VideoCtx);
 	}
@@ -337,27 +319,31 @@ int CodecVideoReceiveFrame(VideoDecoder * decoder, int no_deint)
 {
 	int ret;
 
+	if (!(decoder->Frame = av_frame_alloc())) {
+		Fatal("CodecVideoReceiveFrame: can't allocate decoder frame");
+	}
+
 	pthread_mutex_lock(&CodecLockMutex);
-	AVFrame *frame = decoder->FrameRb[decoder->FrameRbRead];
 	if (decoder->VideoCtx) {
-		ret = avcodec_receive_frame(decoder->VideoCtx, frame);
+		ret = avcodec_receive_frame(decoder->VideoCtx, decoder->Frame);
 	} else {
+		av_frame_free(&decoder->Frame);
 		pthread_mutex_unlock(&CodecLockMutex);
 		return 1;
 	}
 	pthread_mutex_unlock(&CodecLockMutex);
 
-	if (frame->flags == AV_FRAME_FLAG_CORRUPT)
+	if (decoder->Frame->flags == AV_FRAME_FLAG_CORRUPT)
 		Debug2(L_CODEC, "CodecVideoReceiveFrame: AV_FRAME_FLAG_CORRUPT");
 
 	if (!ret) {
 		if (no_deint) {
-			frame->interlaced_frame = 0;
+			decoder->Frame->interlaced_frame = 0;
 			Debug2(L_CODEC, "CodecVideoReceiveFrame: interlaced_frame = 0");
 		}
-		VideoRenderFrame(decoder->Render, decoder->VideoCtx, frame);
-		decoder->FrameRbRead = (decoder->FrameRbRead + 1) % CODEC_FRAMES_MAX;
+		VideoRenderFrame(decoder->Render, decoder->VideoCtx, decoder->Frame);
 	} else {
+		av_frame_free(&decoder->Frame);
 		if (ret != AVERROR(EAGAIN))
 			Debug2(L_CODEC, "CodecVideoReceiveFrame: receive_frame ret: %s", av_err2str(ret));
 	}

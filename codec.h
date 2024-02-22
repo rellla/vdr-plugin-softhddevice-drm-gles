@@ -36,8 +36,6 @@
 #define CodecEAC3 0x08			///< E-AC-3 bit mask
 #define CodecDTS 0x10			///< DTS bit mask (planned)
 
-#define CODEC_FRAMES_MAX 10
-
 //----------------------------------------------------------------------------
 //	Video
 //----------------------------------------------------------------------------
@@ -49,8 +47,7 @@ struct _video_decoder_
     VideoRender *Render;		///< video hardware decoder
 
     AVCodecContext *VideoCtx;		///< video codec context
-    AVFrame *FrameRb[CODEC_FRAMES_MAX];	///< decoded video frame ringbuffer
-    int FrameRbRead;
+    AVFrame *Frame;			///< decoded video frame
 };
 
 //----------------------------------------------------------------------------

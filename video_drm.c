@@ -81,9 +81,6 @@ static pthread_mutex_t PauseMutex;
 static pthread_cond_t WaitCleanCondition;
 static pthread_mutex_t WaitCleanMutex;
 
-static pthread_cond_t WaitFilterCondition;
-static pthread_mutex_t WaitFilterMutex;
-
 static pthread_t DecodeThread;		///< video decode thread
 
 static pthread_t FilterThread;
@@ -1315,11 +1312,6 @@ dequeue:
 	atomic_dec(&render->FramesFilled);
 	primedata = (AVDRMFrameDescriptor *)frame->data[0];
 
-	if (!primedata) {
-		av_frame_unref(frame);
-		goto dequeue;
-	}
-
 	// search or made fd / FB combination
 	for (i = 0; i < render->buffers; i++) {
 		if (render->bufs[i].fd_prime == primedata->objects[0].fd) {
@@ -1334,7 +1326,7 @@ dequeue:
 		buf->fd_prime = primedata->objects[0].fd;
 
 		if (SetupFB(render, buf, primedata, 1)) {
-			av_frame_unref(frame);
+			av_frame_free(&frame);
 			return;
 		}
 	}
@@ -1372,7 +1364,7 @@ audioclock:
 			VideoGetPackets(), atomic_read(&render->FramesDeintFilled),
 			atomic_read(&render->FramesFilled), AudioUsedBytes(), Timestamp2String(audio_pts),
 			Timestamp2String(video_pts), VideoAudioDelay, diff);
-		av_frame_unref(frame);
+		av_frame_free(&frame);
 
 		if (!render->StartCounter)
 			render->StartCounter++;
@@ -1657,7 +1649,7 @@ static void *DecodeHandlerThread(void *arg)
 {
 	VideoRender * render = (VideoRender *)arg;
 
-	Debug("video: decoding thread started");
+	Debug("video: display thread started");
 
 	pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
 	pthread_setcanceltype(PTHREAD_CANCEL_DEFERRED, NULL);
@@ -1670,8 +1662,6 @@ static void *DecodeHandlerThread(void *arg)
 			usleep(10000);
 		}
 	}
-	Debug("video: decoding thread ended");
-
 	pthread_exit((void *)pthread_self());
 }
 
@@ -1716,15 +1706,8 @@ void VideoThreadWakeup(VideoRender * render, int decoder, int display)
 {
 	Debug("VideoThreadWakeup: VideoThreadWakeup");
 
-	for (int i = 0; i < VIDEO_SURFACES_MAX; i++) {
-		if (!render->FramesEnqueueRb[i])
-			render->FramesEnqueueRb[i] = av_frame_alloc();
-		if (!render->FramesDeintOutRb[i])
-			render->FramesDeintOutRb[i] = av_frame_alloc();
-	}
-
 	if (decoder && !DecodeThread) {
-		Debug("VideoThreadWakeup: DecodeThreadWakeup");
+		Debug("DisplayThreadWakeup: VideoThreadWakeup");
 		pthread_cond_init(&PauseCondition,NULL);
 		pthread_mutex_init(&PauseMutex, NULL);
 
@@ -1834,13 +1817,13 @@ void EnqueueFB(VideoRender * render, AVFrame *inframe)
 			buf->pix_fmt = DRM_FORMAT_NV12;
 
 			if (SetupFB(render, buf, NULL, 1)) {
-				Fatal("EnqueueFB: SetupFB FB %i x %i failed",
+				Error("EnqueueFB: SetupFB FB %i x %i failed",
 					buf->width, buf->height);
 			}
 
 			if (drmPrimeHandleToFD(render->fd_drm, buf->handle[0],
 				DRM_CLOEXEC | DRM_RDWR, &buf->fd_prime))
-				Fatal("EnqueueFB: Failed to retrieve the Prime FD (%d): %m",
+				Error("EnqueueFB: Failed to retrieve the Prime FD (%d): %m",
 					errno);
 		}
 	}
@@ -1856,8 +1839,7 @@ void EnqueueFB(VideoRender * render, AVFrame *inframe)
 			inframe->data[1] + i * inframe->linesize[1], inframe->width);
 	}
 
-	frame = render->FramesEnqueueRb[render->FramesEnqueue];
-
+	frame = av_frame_alloc();
 	frame->pts = inframe->pts;
 	frame->width = inframe->width;
 	frame->height = inframe->height;
@@ -1871,11 +1853,11 @@ void EnqueueFB(VideoRender * render, AVFrame *inframe)
 	frame->buf[0] = av_buffer_create((uint8_t *)primedata, sizeof(*primedata),
 				ReleaseFrame, NULL, AV_BUFFER_FLAG_READONLY);
 
-	av_frame_unref(inframe);
+	av_frame_free(&inframe);
 
 fillframe:
 	if (render->Closing) {
-		av_frame_unref(frame);
+		av_frame_free(&frame);
 		return;
 	}
 
@@ -1891,7 +1873,6 @@ fillframe:
 		goto fillframe;
 	}
 
-	render->FramesEnqueue = (render->FramesEnqueue + 1) % (VIDEO_SURFACES_MAX);
 	if (render->enqueue_buffer == VIDEO_SURFACES_MAX + 1)
 		render->enqueue_buffer = 0;
 	else render->enqueue_buffer++;
@@ -1905,12 +1886,6 @@ static void *FilterHandlerThread(void * arg)
 	VideoRender * render = (VideoRender *)arg;
 	AVFrame *frame = 0;
 	int ret = 0;
-
-	// If FilterHandlerThread is started before VideoThreadWakeup ?!
-	for (int i = 0; i < VIDEO_SURFACES_MAX; i++) {
-		if (!render->FramesDeintOutRb[i])
-			render->FramesDeintOutRb[i] = av_frame_alloc();
-	}
 
 	while (1) {
 		while (!atomic_read(&render->FramesDeintFilled) && !render->Closing) {
@@ -1929,7 +1904,7 @@ getinframe:
 		}
 		if (render->Closing) {
 			if (frame) {
-				av_frame_unref(frame);
+				av_frame_free(&frame);
 			}
 			if (atomic_read(&render->FramesDeintFilled)) {
 				goto getinframe;
@@ -1941,28 +1916,30 @@ getinframe:
 			frame, AV_BUFFERSRC_FLAG_KEEP_REF) < 0) {
 			Warning("FilterHandlerThread: can't add_frame.");
 		} else {
-			av_frame_unref(frame);
+			av_frame_free(&frame);
 		}
 
 		while (1) {
-			AVFrame *filt_frame = render->FramesDeintOutRb[render->FramesDeintOut];
+			AVFrame *filt_frame = av_frame_alloc();
 			ret = av_buffersink_get_frame(render->buffersink_ctx, filt_frame);
 
 			if (ret == AVERROR(EAGAIN)) {
+				av_frame_free(&filt_frame);
 				break;
 			}
 			if (ret == AVERROR_EOF) {
+				av_frame_free(&filt_frame);
 				goto closing;
 			}
 			if (ret < 0) {
 				Error("FilterHandlerThread: can't get filtered frame: %s",
 					av_err2str(ret));
+				av_frame_free(&filt_frame);
 				break;
 			}
-			render->FramesDeintOut = (render->FramesDeintOut + 1) % VIDEO_SURFACES_MAX;
 fillframe:
 			if (render->Closing) {
-				av_frame_unref(filt_frame);
+				av_frame_free(&filt_frame);
 				break;
 			}
 			if (filt_frame->format == AV_PIX_FMT_NV12) {
@@ -1988,17 +1965,9 @@ fillframe:
 	}
 
 closing:
-	for (int i = 0; i < VIDEO_SURFACES_MAX; i++) {
-		if (render->FramesDeintOutRb[i]) {
-			Debug2(L_DRM, "FilterHandlerThread: av_frame_unref FramesDeintOutRb[%d]", i);
-			av_frame_unref(render->FramesDeintOutRb[i]);
-		}
-	}
-
 	avfilter_graph_free(&render->filter_graph);
 	render->Filter_Frames = 0;
-	pthread_cond_signal(&WaitFilterCondition);
-	Debug("FilterHandlerThread: Exiting");
+	Debug("FilterHandlerThread: Thread Exit.");
 	pthread_cleanup_push(ThreadExitHandler, render);
 	pthread_cleanup_pop(1);
 	pthread_exit((void *)pthread_self());
@@ -2121,9 +2090,6 @@ int VideoFilterInit(VideoRender * render, const AVCodecContext * video_ctx,
 		return -1;
 	}
 
-	pthread_cond_init(&WaitFilterCondition,NULL);
-	pthread_mutex_init(&WaitFilterMutex, NULL);
-
 	return 0;
 }
 
@@ -2146,7 +2112,7 @@ void VideoRenderFrame(VideoRender * render,
 	}
 fillframe:
 	if (render->Closing) {
-		av_frame_unref(frame);
+		av_frame_free(&frame);
 		return;
 	}
 
@@ -2156,7 +2122,7 @@ fillframe:
 		if (!FilterThread) {
 			Debug2(L_CODEC, "VideoRenderFrame: try to create FilterThread");
 			if (VideoFilterInit(render, video_ctx, frame)) {
-				av_frame_unref(frame);
+				av_frame_free(&frame);
 				return;
 			} else {
 				Debug2(L_CODEC, "VideoRenderFrame: FilterThread created");
@@ -2238,32 +2204,13 @@ void VideoSetClosing(VideoRender * render)
 		if (render->VideoPaused) {
 			StartVideo(render);
 		}
-		if (FilterThread) {
-			pthread_mutex_lock(&WaitFilterMutex);
-			Debug("VideoSetClosing: wait for FilterThread stop");
-			pthread_cond_wait(&WaitFilterCondition, &WaitFilterMutex);
-			pthread_mutex_unlock(&WaitFilterMutex);
-			Debug("VideoSetClosing: FilterThread stopped");
-		}
+
 
 		pthread_mutex_lock(&WaitCleanMutex);
-		Debug("VideoSetClosing: wait for DisplayThreadCleanup");
+		Debug("VideoSetClosing: pthread_cond_wait");
 		pthread_cond_wait(&WaitCleanCondition, &WaitCleanMutex);
 		pthread_mutex_unlock(&WaitCleanMutex);
-		Debug("VideoSetClosing: DisplayThread cleaned up");
-
-		for (int i = 0; i < VIDEO_SURFACES_MAX; i++) {
-			if (render->FramesEnqueueRb[i]) {
-				Debug2(L_DRM, "VideoSetClosing: av_frame_free FramesEnqueueRb[%d]", i);
-				av_frame_free(&render->FramesEnqueueRb[i]);
-			}
-			if (render->FramesDeintOutRb[i]) {
-				Debug2(L_DRM, "VideoSetClosing: av_frame_free FramesDeintOutRb[%d]", i);
-				av_frame_free(&render->FramesDeintOutRb[i]);
-			}
-		}
-
-		render->Closing = 0;
+		Debug("VideoSetClosing: NACH pthread_cond_wait");
 	}
 	render->StartCounter = 0;
 	render->FramesDuped = 0;
