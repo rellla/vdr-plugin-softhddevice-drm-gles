@@ -1692,7 +1692,7 @@ int SetPlayMode(int play_mode)
 		//Play(); Play is a vdr command!!!
 		break;
 	case 2:			// audio only
-		VideoThreadExit();
+		VideoThreadExit(MyVideoStream->Render);
 		break;
 	case 3:			// audio only (black screen)
 		Debug("softhddev: FIXME: audio only, silence video errors");

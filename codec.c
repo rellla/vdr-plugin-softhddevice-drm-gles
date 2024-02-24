@@ -318,38 +318,36 @@ int CodecVideoSendPacket(VideoDecoder * decoder, const AVPacket * avpkt)
 int CodecVideoReceiveFrame(VideoDecoder * decoder, int no_deint)
 {
 	int ret;
-
-	if (!(decoder->Frame = av_frame_alloc())) {
-		Fatal("CodecVideoReceiveFrame: can't allocate decoder frame");
-	}
+	AVFrame *frame = VideoGetFreeFrame(decoder->Render);
+	if (!frame)
+		Fatal("CodecVideoReceiveFrame: can't get allocated decoder frame");
 
 	pthread_mutex_lock(&CodecLockMutex);
 	if (decoder->VideoCtx) {
-		ret = avcodec_receive_frame(decoder->VideoCtx, decoder->Frame);
+		ret = avcodec_receive_frame(decoder->VideoCtx, frame);
 	} else {
-		av_frame_free(&decoder->Frame);
+		VideoReleaseFrame(decoder->Render, frame);
 		pthread_mutex_unlock(&CodecLockMutex);
 		return 1;
 	}
 	pthread_mutex_unlock(&CodecLockMutex);
 
-	if (decoder->Frame->flags == AV_FRAME_FLAG_CORRUPT)
+	if (frame->flags == AV_FRAME_FLAG_CORRUPT)
 		Debug2(L_CODEC, "CodecVideoReceiveFrame: AV_FRAME_FLAG_CORRUPT");
 
 	if (!ret) {
 		if (no_deint) {
-			decoder->Frame->interlaced_frame = 0;
+			frame->interlaced_frame = 0;
 			Debug2(L_CODEC, "CodecVideoReceiveFrame: interlaced_frame = 0");
 		}
-		VideoRenderFrame(decoder->Render, decoder->VideoCtx, decoder->Frame);
+		VideoRenderFrame(decoder->Render, decoder->VideoCtx, frame);
 	} else {
-		av_frame_free(&decoder->Frame);
 		if (ret != AVERROR(EAGAIN))
 			Debug2(L_CODEC, "CodecVideoReceiveFrame: receive_frame ret: %s", av_err2str(ret));
+		VideoReleaseFrame(decoder->Render, frame);
+		return 1;
 	}
 
-	if (ret == AVERROR(EAGAIN))
-		return 1;
 	return 0;
 }
 

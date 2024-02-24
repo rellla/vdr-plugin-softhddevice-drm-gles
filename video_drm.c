@@ -84,13 +84,45 @@ static pthread_mutex_t WaitCleanMutex;
 static pthread_t DecodeThread;		///< video decode thread
 
 static pthread_t FilterThread;
+static pthread_mutex_t FilterQueue;
 
 static pthread_t DisplayThread;
 static pthread_mutex_t DisplayQueue;
 
+static pthread_mutex_t FrameCacheMutex;;
+
 //----------------------------------------------------------------------------
 //	Helper functions
 //----------------------------------------------------------------------------
+
+AVFrame *VideoGetFreeFrame(VideoRender *render)
+{
+	AVFrame *ret = NULL;
+
+	pthread_mutex_lock(&FrameCacheMutex);
+	for (int i = 0; i < ALLOCATED_FRAMES_MAX; i++) {
+		if (render->avframes[i].used == 0) {
+			render->avframes[i].used = 1;
+			ret = render->avframes[i].frame;
+			break;
+		}
+	}
+	pthread_mutex_unlock(&FrameCacheMutex);
+
+	return ret;
+}
+
+void VideoReleaseFrame(VideoRender *render, AVFrame *frame)
+{
+	pthread_mutex_lock(&FrameCacheMutex);
+	for (int i = 0; i < ALLOCATED_FRAMES_MAX; i++) {
+		if (render->avframes[i].frame == frame) {
+			av_frame_unref(render->avframes[i].frame);
+			render->avframes[i].used = 0;
+		}
+	}
+	pthread_mutex_unlock(&FrameCacheMutex);
+}
 
 static void ReleaseFrame( __attribute__ ((unused)) void *opaque, uint8_t *data)
 {
@@ -1109,7 +1141,7 @@ static int SetupFB(VideoRender * render, struct drm_buf *buf,
 		if (buf->pix_fmt == DRM_FORMAT_ARGB8888)
 			creq.bpp = 32;
 		else
-			creq.bpp = 12;
+			creq.bpp = 12; // TODO: enough? 8-aligned?
 
 		if (drmIoctl(render->fd_drm, DRM_IOCTL_MODE_CREATE_DUMB, &creq) < 0){
 			Error("SetupFB: cannot create dumb buffer (%d): %m", errno);
@@ -1251,17 +1283,21 @@ static void CleanDisplayThread(VideoRender * render)
 			Error("DisplayHandlerThread: drmHandleEvent failed!");
 	}
 
-	if (render->lastframe) {
-		av_frame_free(&render->lastframe);
-	}
-
 dequeue:
+	pthread_mutex_lock(&DisplayQueue);
 	if (atomic_read(&render->FramesFilled)) {
 		frame = render->FramesRb[render->FramesRead];
 		render->FramesRead = (render->FramesRead + 1) % VIDEO_SURFACES_MAX;
 		atomic_dec(&render->FramesFilled);
-		av_frame_free(&frame);
+		VideoReleaseFrame(render, frame);
+		pthread_mutex_unlock(&DisplayQueue);
 		goto dequeue;
+	}
+	pthread_mutex_unlock(&DisplayQueue);
+
+	if (render->lastframe) {
+		VideoReleaseFrame(render, render->lastframe);
+		render->lastframe = NULL;
 	}
 
 	// Destroy FBs
@@ -1275,8 +1311,8 @@ dequeue:
 
 	pthread_cond_signal(&WaitCleanCondition);
 
-	render->cleanup = false;
 	render->Closing = 0;
+	render->cleanup = false;
 
 	Debug("CleanDisplayThread: DRM cleaned.");
 }
@@ -1306,7 +1342,7 @@ static void Frame2Display(VideoRender * render, int init)
 	if (render->Closing || init) {
 closing:
 		// set a black FB
-		Debug("Frame2Display: %sset a black FB", render->Closing ? "closing, " : "first page flip, ");
+		Debug2(L_DRM, "Frame2Display: %sset a black FB", render->Closing ? "closing, " : "first page flip, ");
 		buf = &render->buf_black;
 		goto page_flip;
 	}
@@ -1324,10 +1360,19 @@ dequeue:
 		usleep(10000);
 	}
 
+	pthread_mutex_lock(&DisplayQueue);
 	frame = render->FramesRb[render->FramesRead];
 	render->FramesRead = (render->FramesRead + 1) % VIDEO_SURFACES_MAX;
 	atomic_dec(&render->FramesFilled);
+	pthread_mutex_unlock(&DisplayQueue);
 	primedata = (AVDRMFrameDescriptor *)frame->data[0];
+
+	// TODO: check, if this is still possible
+	if (!primedata) {
+		Warning("Frame2Display: primedata == NULL!");
+		VideoReleaseFrame(render, frame);
+		goto dequeue;
+	}
 
 	// search or made fd / FB combination
 	for (i = 0; i < render->buffers; i++) {
@@ -1343,7 +1388,7 @@ dequeue:
 		buf->fd_prime = primedata->objects[0].fd;
 
 		if (SetupFB(render, buf, primedata, 1)) {
-			av_frame_free(&frame);
+			VideoReleaseFrame(render, frame);
 			return;
 		}
 	}
@@ -1381,7 +1426,7 @@ audioclock:
 			VideoGetPackets(), atomic_read(&render->FramesDeintFilled),
 			atomic_read(&render->FramesFilled), AudioUsedBytes(), Timestamp2String(audio_pts),
 			Timestamp2String(video_pts), VideoAudioDelay, diff);
-		av_frame_free(&frame);
+		VideoReleaseFrame(render, frame);
 
 		if (!render->StartCounter)
 			render->StartCounter++;
@@ -1508,7 +1553,7 @@ page_flip:
 	drmModeAtomicFree(ModeReq);
 
 	if (render->lastframe)
-		av_frame_free(&render->lastframe);
+		VideoReleaseFrame(render, render->lastframe);
 	if (render->act_buf && (render->act_buf->fb_id != render->buf_black.fb_id))
 		render->lastframe = render->act_buf->frame;
 
@@ -1520,6 +1565,7 @@ page_flip:
 ///
 static void *DisplayHandlerThread(void * arg)
 {
+	Debug2(L_DRM, "DisplayHandlerThread: Starting");
 	VideoRender * render = (VideoRender *)arg;
 
 	pthread_setcancelstate (PTHREAD_CANCEL_ENABLE, NULL);
@@ -1549,8 +1595,12 @@ static void *DisplayHandlerThread(void * arg)
 		if (render->Closing &&
 		    (!render->act_buf || (render->act_buf->fb_id == render->buf_black.fb_id))) {
 			CleanDisplayThread(render);
+			// do we really want to stop the thread?
+			DisplayThread = 0;
+			break;
 		}
 	}
+	Debug2(L_DRM, "DisplayHandlerThread: Stopped");
 	pthread_exit((void *)pthread_self());
 }
 
@@ -1670,7 +1720,7 @@ static void *DecodeHandlerThread(void *arg)
 {
 	VideoRender * render = (VideoRender *)arg;
 
-	Debug("video: display thread started");
+	Debug("DecodeHandlerThread: starting");
 
 	pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
 	pthread_setcanceltype(PTHREAD_CANCEL_DEFERRED, NULL);
@@ -1683,25 +1733,26 @@ static void *DecodeHandlerThread(void *arg)
 			usleep(10000);
 		}
 	}
+	Debug("DecodeHandlerThread: stopped");
 	pthread_exit((void *)pthread_self());
 }
 
 ///
 ///	Exit and cleanup video threads.
 ///
-void VideoThreadExit(void)
+void VideoThreadExit(VideoRender *render)
 {
 	void *retval;
 
 	Debug("video: video thread canceled");
 
 	if (DecodeThread) {
-		Debug("VideoThreadExit: cancel decode thread");
+		Debug("VideoThreadExit: cancel DecodeHandlerThread");
 		// FIXME: can't cancel locked
 		if (pthread_cancel(DecodeThread))
-			Error("VideoThreadExit: can't queue cancel video display thread");
+			Error("VideoThreadExit: can't queue cancel DecodeHandlerThread");
 		if (pthread_join(DecodeThread, &retval) || retval != PTHREAD_CANCELED)
-			Error("VideoThreadExit: can't cancel video display thread");
+			Error("VideoThreadExit: can't cancel DecodeHandlerThread");
 		DecodeThread = 0;
 
 		pthread_cond_destroy(&PauseCondition);
@@ -1709,13 +1760,19 @@ void VideoThreadExit(void)
 	}
 
 	if (DisplayThread) {
-		Debug("VideoThreadExit: cancel display thread");
+		Debug("VideoThreadExit: cancel DisplayHandlerThread");
 		if (pthread_cancel(DisplayThread))
-			Error("VideoThreadExit: can't cancel DisplayHandlerThread thread");
+			Error("VideoThreadExit: can't cancel DisplayHandlerThread");
 		if (pthread_join(DisplayThread, &retval) || retval != PTHREAD_CANCELED)
-			Error("VideoThreadExit: can't cancel video display thread");
+			Error("VideoThreadExit: can't cancel DisplayHandlerThread");
 		DisplayThread = 0;
 	}
+
+	for (int i = 0; i < ALLOCATED_FRAMES_MAX; i++) {
+		if (render->avframes[i].frame)
+			av_frame_free(&render->avframes[i].frame);
+	}
+	pthread_mutex_destroy(&FrameCacheMutex);
 }
 
 ///
@@ -1725,10 +1782,15 @@ void VideoThreadExit(void)
 ///
 void VideoThreadWakeup(VideoRender * render, int decoder, int display)
 {
-	Debug("VideoThreadWakeup: VideoThreadWakeup");
+	pthread_mutex_init(&FrameCacheMutex, NULL);
+	for (int i = 0; i < ALLOCATED_FRAMES_MAX; i++) {
+		if (!render->avframes[i].frame) {
+			render->avframes[i].frame = av_frame_alloc();
+		}
+	}
 
 	if (decoder && !DecodeThread) {
-		Debug("DisplayThreadWakeup: VideoThreadWakeup");
+		Debug("VideoThreadWakeup: wakeup DecodeHandlerThread");
 		pthread_cond_init(&PauseCondition,NULL);
 		pthread_mutex_init(&PauseMutex, NULL);
 
@@ -1740,7 +1802,7 @@ void VideoThreadWakeup(VideoRender * render, int decoder, int display)
 	}
 
 	if (display && !DisplayThread) {
-		Debug("VideoThreadWakeup: DisplayThreadWakeup");
+		Debug("VideoThreadWakeup: wakeup DisplayHandlerThread");
 		pthread_create(&DisplayThread, NULL, DisplayHandlerThread, render);
 	}
 }
@@ -1860,13 +1922,18 @@ void EnqueueFB(VideoRender * render, AVFrame *inframe)
 			inframe->data[1] + i * inframe->linesize[1], inframe->width);
 	}
 
-	frame = av_frame_alloc();
+	frame = VideoGetFreeFrame(render);
+	if (!frame)
+		Fatal("EnqueueFB: no free frame available");
+
 	frame->pts = inframe->pts;
 	frame->width = inframe->width;
 	frame->height = inframe->height;
 	frame->format = AV_PIX_FMT_DRM_PRIME;
 	frame->sample_aspect_ratio.num = inframe->sample_aspect_ratio.num;
 	frame->sample_aspect_ratio.den = inframe->sample_aspect_ratio.den;
+//	frame->linesize[0] = inframe->linesize[0]; // TODO: needed?
+//	frame->linesize[1] = inframe->linesize[1]; // TODO: needed?
 
 	primedata = av_mallocz(sizeof(AVDRMFrameDescriptor));
 	primedata->objects[0].fd = buf->fd_prime;
@@ -1874,11 +1941,11 @@ void EnqueueFB(VideoRender * render, AVFrame *inframe)
 	frame->buf[0] = av_buffer_create((uint8_t *)primedata, sizeof(*primedata),
 				ReleaseFrame, NULL, AV_BUFFER_FLAG_READONLY);
 
-	av_frame_free(&inframe);
+	VideoReleaseFrame(render, inframe);
 
 fillframe:
 	if (render->Closing) {
-		av_frame_free(&frame);
+		VideoReleaseFrame(render, frame);
 		return;
 	}
 
@@ -1913,6 +1980,7 @@ static void *FilterHandlerThread(void * arg)
 			usleep(10000);
 		}
 getinframe:
+		pthread_mutex_lock(&FilterQueue);
 		if (atomic_read(&render->FramesDeintFilled)) {
 			frame = render->FramesDeintRb[render->FramesDeintRead];
 			render->FramesDeintRead = (render->FramesDeintRead + 1) % VIDEO_SURFACES_MAX;
@@ -1923,9 +1991,11 @@ getinframe:
 				render->Filter_Frames++;
 			}
 		}
+		pthread_mutex_unlock(&FilterQueue);
+
 		if (render->Closing) {
 			if (frame) {
-				av_frame_free(&frame);
+				VideoReleaseFrame(render, frame);
 			}
 			if (atomic_read(&render->FramesDeintFilled)) {
 				goto getinframe;
@@ -1937,32 +2007,43 @@ getinframe:
 			frame, AV_BUFFERSRC_FLAG_KEEP_REF) < 0) {
 			Warning("FilterHandlerThread: can't add_frame.");
 		} else {
-			av_frame_free(&frame);
+			VideoReleaseFrame(render, frame);
 		}
 
 		while (1) {
-			AVFrame *filt_frame = av_frame_alloc();
+			AVFrame *filt_frame = VideoGetFreeFrame(render);
+			if (!filt_frame)
+				Fatal("FilterHandlerThread: no free frame available");
+
 			ret = av_buffersink_get_frame(render->buffersink_ctx, filt_frame);
 
 			if (ret == AVERROR(EAGAIN)) {
-				av_frame_free(&filt_frame);
+				VideoReleaseFrame(render, filt_frame);
 				break;
 			}
 			if (ret == AVERROR_EOF) {
-				av_frame_free(&filt_frame);
+				VideoReleaseFrame(render, filt_frame);
 				goto closing;
 			}
 			if (ret < 0) {
 				Error("FilterHandlerThread: can't get filtered frame: %s",
 					av_err2str(ret));
-				av_frame_free(&filt_frame);
+				VideoReleaseFrame(render, filt_frame);
 				break;
 			}
 fillframe:
-			if (render->Closing) {
-				av_frame_free(&filt_frame);
+			// TODO: check if this is still possible
+			if (filt_frame->width == 0 || filt_frame->height == 0) {
+				Warning("FilterHandlerThread: frame with 0x0 arrived!");
+				VideoReleaseFrame(render, filt_frame);
 				break;
 			}
+
+			if (render->Closing) {
+				VideoReleaseFrame(render, filt_frame);
+				break;
+			}
+
 			if (filt_frame->format == AV_PIX_FMT_NV12) {
 				if (render->Filter_Bug)
 					filt_frame->pts = filt_frame->pts / 2;	// ffmpeg bug
@@ -2016,7 +2097,19 @@ int VideoFilterInit(VideoRender * render, const AVCodecContext * video_ctx,
 	const AVFilter *buffersink = avfilter_get_by_name("buffersink");
 	render->Filter_Bug = 0;
 
-	if (frame->interlaced_frame) {
+	// frame->interlaced_frame isn't good to indicate an interlaced stream
+	int interlaced = frame->interlaced_frame;
+	if (video_ctx->framerate.num > 0) {
+		if (video_ctx->framerate.num / video_ctx->framerate.den > 30)
+			interlaced = 0;
+		else
+			interlaced = 1;
+	}
+
+	if (video_ctx->codec_id == AV_CODEC_ID_HEVC)
+		interlaced = 0;
+
+	if (interlaced) {
 		if (frame->format == AV_PIX_FMT_DRM_PRIME)
 			filter_descr = "deinterlace_v4l2m2m";
 		else if (frame->format == AV_PIX_FMT_YUV420P) {
@@ -2133,17 +2226,17 @@ void VideoRenderFrame(VideoRender * render,
 	}
 fillframe:
 	if (render->Closing) {
-		av_frame_free(&frame);
+		VideoReleaseFrame(render, frame);
 		return;
 	}
 
-	if (frame->format == AV_PIX_FMT_YUV420P || (frame->interlaced_frame &&
-		frame->format == AV_PIX_FMT_DRM_PRIME && !render->NoHwDeint)) {
+	if (frame->format == AV_PIX_FMT_YUV420P && frame->interlaced_frame ||
+           (frame->format == AV_PIX_FMT_DRM_PRIME && frame->interlaced_frame && !render->NoHwDeint)) {
 
 		if (!FilterThread) {
 			Debug2(L_CODEC, "VideoRenderFrame: try to create FilterThread");
 			if (VideoFilterInit(render, video_ctx, frame)) {
-				av_frame_free(&frame);
+				VideoReleaseFrame(render, frame);
 				return;
 			} else {
 				Debug2(L_CODEC, "VideoRenderFrame: FilterThread created");
@@ -2152,11 +2245,14 @@ fillframe:
 			}
 		}
 
+		pthread_mutex_lock(&FilterQueue);
 		if (atomic_read(&render->FramesDeintFilled) < VIDEO_SURFACES_MAX) {
 			render->FramesDeintRb[render->FramesDeintWrite] = frame;
 			render->FramesDeintWrite = (render->FramesDeintWrite + 1) % VIDEO_SURFACES_MAX;
 			atomic_inc(&render->FramesDeintFilled);
+			pthread_mutex_unlock(&FilterQueue);
 		} else {
+			pthread_mutex_unlock(&FilterQueue);
 			usleep(10000);
 			goto fillframe;
 		}
@@ -2173,7 +2269,6 @@ fillframe:
 				usleep(10000);
 				goto fillframe;
 			}
-
 		} else {
 			EnqueueFB(render, frame);
 		}
@@ -2225,7 +2320,6 @@ void VideoSetClosing(VideoRender * render)
 		if (render->VideoPaused) {
 			StartVideo(render);
 		}
-
 
 		pthread_mutex_lock(&WaitCleanMutex);
 		Debug("VideoSetClosing: pthread_cond_wait");
@@ -2550,7 +2644,7 @@ void VideoInit(VideoRender * render)
 ///
 void VideoExit(VideoRender * render)
 {
-	VideoThreadExit();
+	VideoThreadExit(render);
 
 	if (render) {
 		// restore saved CRTC configuration
