@@ -1400,10 +1400,10 @@ page_flip:
 	uint64_t DispY = 0;
 
 	if (render->video.is_scaled) {
-		DispWidth = render->video.width;
-		DispHeight = render->video.height;
-		DispX = render->video.x;
-		DispY = render->video.y;
+		DispWidth = (uint64_t)render->video.width;
+		DispHeight = (uint64_t)render->video.height;
+		DispX = (uint64_t)render->video.x;
+		DispY = (uint64_t)render->video.y;
 	}
 
 	uint64_t PicWidth = DispWidth;
