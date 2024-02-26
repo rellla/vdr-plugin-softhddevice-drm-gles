@@ -574,18 +574,9 @@ void CodecAudioFlushBuffers(AudioDecoder * decoder)
 //----------------------------------------------------------------------------
 
 /**
-**	Empty log callback
+**	log callbacks
 */
-static void CodecNoopCallback( __attribute__ ((unused))
-    void *ptr, __attribute__ ((unused))
-    int level, __attribute__ ((unused))
-    const char *fmt, __attribute__ ((unused)) va_list vl)
-{
-}
-
-/**
-**	log callback
-*/
+#ifdef FFMPEG_DEBUG
 static void CodecLogCallback( __attribute__ ((unused))
     void *ptr, __attribute__ ((unused))
     int level, __attribute__ ((unused))
@@ -600,6 +591,14 @@ static void CodecLogCallback( __attribute__ ((unused))
 
 	vsyslog(LOG_INFO, format, vl);
 }
+#else
+static void CodecNoopCallback( __attribute__ ((unused))
+    void *ptr, __attribute__ ((unused))
+    int level, __attribute__ ((unused))
+    const char *fmt, __attribute__ ((unused)) va_list vl)
+{
+}
+#endif
 
 /**
 **	Codec init
