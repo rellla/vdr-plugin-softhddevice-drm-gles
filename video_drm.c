@@ -645,8 +645,8 @@ static int FindDevice(VideoRender * render)
 	drmModeModeInfo *mode = NULL;
 	drmModePlane *plane;
 	drmModePlaneRes *plane_res;
-	uint32_t k, l;
-	int i, j;
+	int i;
+	uint32_t j, k;
 
 	// find a drm device
 	render->fd_drm = find_drm_device(&resources);
@@ -669,8 +669,8 @@ static int FindDevice(VideoRender * render)
 
 	// find a user requested mode
 	if (VideoDisplayWidth) {
-		for (j = 0; j < connector->count_modes; j++) {
-			drmModeModeInfo *current_mode = &connector->modes[j];
+		for (i = 0; i < connector->count_modes; i++) {
+			drmModeModeInfo *current_mode = &connector->modes[i];
 			if(current_mode->hdisplay == VideoDisplayWidth && current_mode->vdisplay == VideoDisplayHeight &&
 			   current_mode->vrefresh == VideoDisplayRefresh && !(current_mode->flags & DRM_MODE_FLAG_INTERLACE)) {
 				mode = current_mode;
@@ -685,8 +685,8 @@ static int FindDevice(VideoRender * render)
 	// find preferred mode or the highest resolution mode
 	if (!mode) {
 		int area;
-		for (j = 0, area = 0; j < connector->count_modes; j++) {
-			drmModeModeInfo *current_mode = &connector->modes[j];
+		for (i = 0, area = 0; i < connector->count_modes; i++) {
+			drmModeModeInfo *current_mode = &connector->modes[i];
 			if (current_mode->type & DRM_MODE_TYPE_PREFERRED) {
 				mode = current_mode;
 				break;
@@ -712,7 +712,7 @@ static int FindDevice(VideoRender * render)
 	memcpy(&render->mode, mode, sizeof(drmModeModeInfo));
 
 	// find encoder
-	for (j = 0; j < resources->count_encoders; i++) {
+	for (i = 0; i < resources->count_encoders; i++) {
 		encoder = drmModeGetEncoder(render->fd_drm, resources->encoders[i]);
 		if (encoder->encoder_id == connector->encoder_id)
 			break;
@@ -764,11 +764,11 @@ static int FindDevice(VideoRender * render)
 	struct plane best_primary_osd_plane = { .plane_id = 0};   // is the AR24 capable primary plane with the highest plane_id
 	struct plane best_overlay_osd_plane = { .plane_id = 0};   // is the AR24 capable overlay plane with the highest plane_id
 
-	for (k = 0; k < plane_res->count_planes; k++) {
-		plane = drmModeGetPlane(render->fd_drm, plane_res->planes[k]);
+	for (j = 0; j < plane_res->count_planes; j++) {
+		plane = drmModeGetPlane(render->fd_drm, plane_res->planes[j]);
 
 		if (plane == NULL) {
-			Error("FindDevice: cannot query DRM-KMS plane %d", k);
+			Error("FindDevice: cannot query DRM-KMS plane %d", j);
 			continue;
 		}
 
@@ -777,31 +777,31 @@ static int FindDevice(VideoRender * render)
 		char pixelformats[256];
 
 		if (plane->possible_crtcs & (1 << render->crtc_index)) {
-			if (GetPropertyValue(render->fd_drm, plane_res->planes[k],
+			if (GetPropertyValue(render->fd_drm, plane_res->planes[j],
 					     DRM_MODE_OBJECT_PLANE, "type", &type)) {
 				Debug2(L_DRM, "FindDevice: Failed to get property 'type'");
 			}
-			if (GetPropertyValue(render->fd_drm, plane_res->planes[k],
+			if (GetPropertyValue(render->fd_drm, plane_res->planes[j],
 					     DRM_MODE_OBJECT_PLANE, "zpos", &zpos)) {
 				Debug2(L_DRM, "FindDevice: Failed to get property 'zpos'");
 			} else {
 				render->use_zpos = 1;
 			}
 
-			Debug2(L_DRM, "FindDevice: %s: id %i possible_crtcs %i possible CRTC %i ",
+			Debug2(L_DRM, "FindDevice: %s: id %i possible_crtcs %i",
 				(type == DRM_PLANE_TYPE_PRIMARY) ? "PRIMARY " :
 				(type == DRM_PLANE_TYPE_OVERLAY) ? "OVERLAY " :
 				(type == DRM_PLANE_TYPE_CURSOR) ? "CURSOR " : "UNKNOWN",
-				plane->plane_id, plane->possible_crtcs, resources->crtcs[i]);
+				plane->plane_id, plane->possible_crtcs);
 			strcpy(pixelformats, "            ");
 
 			// test pixel format and plane caps
-			for (l = 0; l < plane->count_formats; l++) {
+			for (k = 0; k < plane->count_formats; k++) {
 				if (encoder->possible_crtcs & plane->possible_crtcs) {
 					char tmp[10];
-					switch (plane->formats[l]) {
+					switch (plane->formats[k]) {
 						case DRM_FORMAT_NV12:
-							snprintf(tmp, sizeof(tmp), " %4.4s", (char *)&plane->formats[l]);
+							snprintf(tmp, sizeof(tmp), " %4.4s", (char *)&plane->formats[k]);
 							strcat(pixelformats, tmp);
 							if (type == DRM_PLANE_TYPE_PRIMARY && !best_primary_video_plane.plane_id) {
 								best_primary_video_plane.plane_id = plane->plane_id;
@@ -817,7 +817,7 @@ static int FindDevice(VideoRender * render)
 							}
 							break;
 						case DRM_FORMAT_ARGB8888:
-							snprintf(tmp, sizeof(tmp), " %4.4s", (char *)&plane->formats[l]);
+							snprintf(tmp, sizeof(tmp), " %4.4s", (char *)&plane->formats[k]);
 							strcat(pixelformats, tmp);
 							if (type == DRM_PLANE_TYPE_PRIMARY) {
 								best_primary_osd_plane.plane_id = plane->plane_id;
