@@ -131,6 +131,9 @@ struct _Drm_Render_
 	drmModeModeInfo mode;
 	drmModeCrtc *saved_crtc;
 	drmEventContext ev;
+	fd_set fds;
+	bool pflip_pending;
+	bool cleanup;
 	struct {
 		int x;
 		int y;
