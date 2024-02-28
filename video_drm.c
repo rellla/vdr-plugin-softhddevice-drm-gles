@@ -1295,9 +1295,14 @@ dequeue:
 	}
 	pthread_mutex_unlock(&DisplayQueue);
 
-	if (render->lastframe) {
-		VideoReleaseFrame(render, render->lastframe);
-		render->lastframe = NULL;
+	// release the rotated frames
+	if (render->frametorelease) {
+		VideoReleaseFrame(render, render->frametorelease);
+		render->frametorelease = NULL;
+	}
+	if (render->displayedframe) {
+		VideoReleaseFrame(render, render->displayedframe);
+		render->displayedframe = NULL;
 	}
 
 	// Destroy FBs
@@ -1552,10 +1557,11 @@ page_flip:
 
 	drmModeAtomicFree(ModeReq);
 
-	if (render->lastframe)
-		VideoReleaseFrame(render, render->lastframe);
-	if (render->act_buf && (render->act_buf->fb_id != render->buf_black.fb_id))
-		render->lastframe = render->act_buf->frame;
+	// rotate the frames to be able to release them at the right time
+	if (render->frametorelease)
+		VideoReleaseFrame(render, render->frametorelease);
+	render->frametorelease = render->displayedframe;
+	render->displayedframe = frame; // can be NULL
 
 	render->pflip_pending = true;
 }
@@ -1575,7 +1581,9 @@ static void *DisplayHandlerThread(void * arg)
 
 	while (1) {
 		pthread_testcancel();
-		FD_SET(render->fd_drm, &render->fds);
+		fd_set fds;
+		FD_ZERO(&fds);
+		FD_SET(render->fd_drm, &fds);
 
 		if (render->VideoPaused) {
 			pthread_mutex_lock(&PauseMutex);
@@ -1583,11 +1591,11 @@ static void *DisplayHandlerThread(void * arg)
 			pthread_mutex_unlock(&PauseMutex);
 		}
 
-		int ret = select(render->fd_drm + 1, &render->fds, NULL, NULL, NULL);
+		int ret = select(render->fd_drm + 1, &fds, NULL, NULL, NULL);
 		if (ret < 0) {
 			Error("DisplayHandlerThread: select() failed with %d: %m", errno);
 			break;
-		} else if (FD_ISSET(render->fd_drm, &render->fds)) {
+		} else if (FD_ISSET(render->fd_drm, &fds)) {
 			if (drmHandleEvent(render->fd_drm, &render->ev))
 				Error("DisplayHandlerThread: drmHandleEvent failed!");
 		}
@@ -1595,9 +1603,7 @@ static void *DisplayHandlerThread(void * arg)
 		if (render->Closing &&
 		    (!render->act_buf || (render->act_buf->fb_id == render->buf_black.fb_id))) {
 			CleanDisplayThread(render);
-			// do we really want to stop the thread?
-			DisplayThread = 0;
-			break;
+			Frame2Display(render, 1); // trigger the next page flip
 		}
 	}
 	Debug2(L_DRM, "DisplayHandlerThread: Stopped");
@@ -2629,7 +2635,6 @@ void VideoInit(VideoRender * render)
 
 	// init variables page flip
 	if (render->ev.page_flip_handler != Drm_page_flip_event) {
-		FD_ZERO(&render->fds);
 		memset(&render->ev, 0, sizeof(render->ev));
 		render->ev.version = 2;
 		render->ev.page_flip_handler = Drm_page_flip_event;

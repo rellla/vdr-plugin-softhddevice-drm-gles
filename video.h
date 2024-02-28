@@ -139,7 +139,6 @@ struct _Drm_Render_
 	drmModeModeInfo mode;
 	drmModeCrtc *saved_crtc;
 	drmEventContext ev;
-	fd_set fds;
 	bool pflip_pending;
 	bool cleanup;
 	struct {
@@ -158,7 +157,8 @@ struct _Drm_Render_
 	uint64_t zpos_primary;
 	uint32_t connector_id, crtc_id, crtc_index;
 	struct plane *planes[MAX_PLANES];
-	AVFrame *lastframe;
+	AVFrame *displayedframe;
+	AVFrame *frametorelease;
 	int buffers;
 	int enqueue_buffer;
 	int OsdShown;
