@@ -1843,23 +1843,16 @@ void EnqueueFB(VideoRender * render, AVFrame *inframe)
 
 	av_frame_free(&inframe);
 
-fillframe:
 	if (render->Closing) {
 		av_frame_free(&frame);
 		return;
 	}
 
 	pthread_mutex_lock(&DisplayQueue);
-	if (atomic_read(&render->FramesFilled) < VIDEO_SURFACES_MAX) {
-		render->FramesRb[render->FramesWrite] = frame;
-		render->FramesWrite = (render->FramesWrite + 1) % VIDEO_SURFACES_MAX;
-		atomic_inc(&render->FramesFilled);
-		pthread_mutex_unlock(&DisplayQueue);
-	} else {
-		pthread_mutex_unlock(&DisplayQueue);
-		usleep(10000);
-		goto fillframe;
-	}
+	render->FramesRb[render->FramesWrite] = frame;
+	render->FramesWrite = (render->FramesWrite + 1) % VIDEO_SURFACES_MAX;
+	atomic_inc(&render->FramesFilled);
+	pthread_mutex_unlock(&DisplayQueue);
 
 	if (render->enqueue_buffer == VIDEO_SURFACES_MAX + 1)
 		render->enqueue_buffer = 0;
@@ -1930,24 +1923,24 @@ fillframe:
 				av_frame_free(&filt_frame);
 				break;
 			}
-			if (filt_frame->format == AV_PIX_FMT_NV12) {
-				if (render->Filter_Bug)
-					filt_frame->pts = filt_frame->pts / 2;	// ffmpeg bug
-				render->Filter_Frames--;
-				EnqueueFB(render, filt_frame);
-			} else {
-				pthread_mutex_lock(&DisplayQueue);
-				if (atomic_read(&render->FramesFilled) < VIDEO_SURFACES_MAX) {
+
+			if (atomic_read(&render->FramesFilled) < VIDEO_SURFACES_MAX) {
+				if (filt_frame->format == AV_PIX_FMT_NV12) {
+					if (render->Filter_Bug)
+						filt_frame->pts = filt_frame->pts / 2;	// ffmpeg bug
+					render->Filter_Frames--;
+					EnqueueFB(render, filt_frame);
+				} else {
+					pthread_mutex_lock(&DisplayQueue);
 					render->FramesRb[render->FramesWrite] = filt_frame;
 					render->FramesWrite = (render->FramesWrite + 1) % VIDEO_SURFACES_MAX;
 					atomic_inc(&render->FramesFilled);
 					pthread_mutex_unlock(&DisplayQueue);
 					render->Filter_Frames--;
-				} else {
-					pthread_mutex_unlock(&DisplayQueue);
-					usleep(10000);
-					goto fillframe;
 				}
+			} else {
+				usleep(10000);
+				goto fillframe;
 			}
 		}
 	}
