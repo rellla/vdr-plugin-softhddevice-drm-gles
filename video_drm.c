@@ -2055,10 +2055,22 @@ int VideoFilterInit(VideoRender * render, const AVCodecContext * video_ctx,
 	const AVFilter *buffersink = avfilter_get_by_name("buffersink");
 	render->Filter_Bug = 0;
 
-	if (frame->interlaced_frame) {
-		if (frame->format == AV_PIX_FMT_DRM_PRIME)
+	int interlaced = frame->interlaced_frame;
+
+	if (video_ctx->framerate.num > 0) {
+		if (video_ctx->framerate.num / video_ctx->framerate.den > 30)
+			interlaced = 0;
+		else
+			interlaced = 1;
+	}
+
+	if (video_ctx->codec_id == AV_CODEC_ID_HEVC)
+		interlaced = 0;
+
+	if (interlaced) {
+		if (frame->format == AV_PIX_FMT_DRM_PRIME) {
 			filter_descr = "deinterlace_v4l2m2m";
-		else if (frame->format == AV_PIX_FMT_YUV420P) {
+		} else if (frame->format == AV_PIX_FMT_YUV420P) {
 			filter_descr = "bwdif=1:-1:0";
 			render->Filter_Bug = 1;
 		}
@@ -2072,8 +2084,10 @@ int VideoFilterInit(VideoRender * render, const AVCodecContext * video_ctx,
 	snprintf(args, sizeof(args),
 		"video_size=%dx%d:pix_fmt=%d:time_base=%d/%d:pixel_aspect=%d/%d",
 		video_ctx->width, video_ctx->height, frame->format,
-		video_ctx->framerate.den, video_ctx->framerate.num,
-		video_ctx->sample_aspect_ratio.num, video_ctx->sample_aspect_ratio.den);
+		video_ctx->pkt_timebase.num ? video_ctx->pkt_timebase.num : 1,
+		video_ctx->pkt_timebase.num ? video_ctx->pkt_timebase.den : 1,
+		video_ctx->sample_aspect_ratio.num != 0 ? video_ctx->sample_aspect_ratio.num : 1,
+		video_ctx->sample_aspect_ratio.num != 0 ? video_ctx->sample_aspect_ratio.den : 1);
 
 	Debug2(L_CODEC, "VideoFilterInit: filter=\"%s\" args=\"%s\"",
 		filter_descr, args);

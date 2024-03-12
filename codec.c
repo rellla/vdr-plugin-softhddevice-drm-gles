@@ -169,6 +169,7 @@ void CodecVideoOpen(VideoDecoder * decoder, int codec_id, AVCodecParameters * Pa
 	decoder->VideoCtx->codec_id = codec_id;
 	decoder->VideoCtx->get_format = Codec_get_format;
 	decoder->VideoCtx->opaque = decoder;
+	decoder->VideoCtx->workaround_bugs = FF_BUG_AUTODETECT;
 
 	if (strstr(codec->name, "_v4l2")) {
 		int width;
