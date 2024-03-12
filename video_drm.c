@@ -551,6 +551,23 @@ static int32_t find_crtc_for_connector(VideoRender *render, const drmModeRes *re
 	return -1;
 }
 
+static void Frame2Display(VideoRender *render);
+
+static void Drm_page_flip_event(__attribute__ ((unused)) int fd,
+                                __attribute__ ((unused)) unsigned int frame,
+                                __attribute__ ((unused)) unsigned int sec,
+                                __attribute__ ((unused)) unsigned int usec,
+                                __attribute__ ((unused)) void *data)
+{
+	VideoRender *render = (VideoRender *)GetVideoRender();
+	render->pflip_pending = false;
+	if (render->frametorelease)
+		VideoUnrefFrame(render, render->frametorelease);
+
+	// NULL if buf_black
+	render->frametorelease = render->act_buf->frame;
+}
+
 static int init_gbm(VideoRender *render, int w, int h, uint32_t format, uint64_t modifier)
 {
 	render->gbm_device = gbm_create_device(render->fd_drm);
@@ -1231,8 +1248,9 @@ static void CleanDisplayThread(VideoRender * render)
 	AVFrame *frame;
 	int i;
 
-	if (render->lastframe) {
-		av_frame_free(&render->lastframe);
+	while(render->pflip_pending) {
+		if (drmHandleEvent(render->fd_drm, &render->ev))
+			Error("DisplayHandlerThread: drmHandleEvent failed!");
 	}
 
 dequeue:
@@ -1242,6 +1260,11 @@ dequeue:
 		atomic_dec(&render->FramesFilled);
 		av_frame_free(&frame);
 		goto dequeue;
+	}
+
+	if (render->frametorelease) {
+		av_frame_free(&render->frametorelease);
+		render->frametorelease = NULL;
 	}
 
 	// Destroy FBs
@@ -1254,7 +1277,6 @@ dequeue:
 	}
 
 	pthread_cond_signal(&WaitCleanCondition);
-
 	render->Closing = 0;
 
 	Debug("CleanDisplayThread: DRM cleaned.");
@@ -1273,7 +1295,8 @@ static void Frame2Display(VideoRender * render)
 	int i;
 
 	drmModeAtomicReqPtr ModeReq;
-	uint32_t flags = DRM_MODE_PAGE_FLIP_EVENT;
+	uint32_t flags = DRM_MODE_PAGE_FLIP_EVENT | DRM_MODE_ATOMIC_NONBLOCK;
+
 	if (!(ModeReq = drmModeAtomicAlloc())) {
 		Error("Frame2Display: cannot allocate atomic request (%d): %m", errno);
 		return;
@@ -1483,10 +1506,7 @@ page_flip:
 
 	drmModeAtomicFree(ModeReq);
 
-	if (render->lastframe)
-		av_frame_free(&render->lastframe);
-	if (render->act_buf && (render->act_buf->fb_id != render->buf_black.fb_id))
-		render->lastframe = render->act_buf->frame;
+	render->pflip_pending = true;
 }
 
 ///
@@ -1501,6 +1521,9 @@ static void *DisplayHandlerThread(void * arg)
 
 	while (1) {
 		pthread_testcancel();
+		fd_set fds;
+		FD_ZERO(&fds);
+		FD_SET(render->fd_drm, &fds);
 
 		if (render->VideoPaused) {
 			pthread_mutex_lock(&PauseMutex);
@@ -1510,14 +1533,21 @@ static void *DisplayHandlerThread(void * arg)
 
 		Frame2Display(render);
 
-		if (drmHandleEvent(render->fd_drm, &render->ev) != 0)
-			Error("DisplayHandlerThread: drmHandleEvent failed!");
+		int ret = select(render->fd_drm + 1, &fds, NULL, NULL, NULL);
+		if (ret < 0) {
+			Error("DisplayHandlerThread: select() failed with %d: %m", errno);
+			break;
+		} else if (FD_ISSET(render->fd_drm, &fds)) {
+			if (drmHandleEvent(render->fd_drm, &render->ev))
+				Error("DisplayHandlerThread: drmHandleEvent failed!");
+		}
 
 		if (render->Closing &&
 		    (!render->act_buf || (render->act_buf->fb_id == render->buf_black.fb_id))) {
 			CleanDisplayThread(render);
 		}
 	}
+	Debug2(L_DRM, "DisplayHandlerThread: Stopped");
 	pthread_exit((void *)pthread_self());
 }
 
@@ -2394,6 +2424,7 @@ void VideoInit(VideoRender * render)
 	render->buf_black.pix_fmt = DRM_FORMAT_NV12;
 	render->buf_black.width = render->mode.hdisplay;
 	render->buf_black.height = render->mode.vdisplay;
+	render->buf_black.frame = NULL;
 	Debug2(L_DRM, "Videoinit: Try to create a black FB");
 	if (SetupFB(render, &render->buf_black, NULL, 0))
 		Error("VideoInit: SetupFB black FB %i x %i failed",
@@ -2494,8 +2525,11 @@ void VideoInit(VideoRender * render)
 	render->OsdShown = 0;
 
 	// init variables page flip
-	memset(&render->ev, 0, sizeof(render->ev));
-	render->ev.version = 2;
+	if (render->ev.page_flip_handler != Drm_page_flip_event) {
+		memset(&render->ev, 0, sizeof(render->ev));
+		render->ev.version = 2;
+		render->ev.page_flip_handler = Drm_page_flip_event;
+	}
 
 	// Wakeup DisplayHandlerThread
 	VideoThreadWakeup(render, 0, 1);
