@@ -46,6 +46,7 @@
 //----------------------------------------------------------------------------
 
 #define VIDEO_SURFACES_MAX	3	///< video output surfaces for queue
+#define ALLOCATED_FRAMES_MAX	20	///< alloced AV_Frames
 
 #define VIDEO_PLANE		0
 #define OSD_PLANE		1
@@ -94,6 +95,11 @@ struct plane {
 	struct plane_properties properties;
 };
 
+struct avframe {
+	AVFrame *frame;
+	int used;
+};
+
 struct _Drm_Render_
 {
 	AVFrame  *FramesDeintRb[VIDEO_SURFACES_MAX];
@@ -105,6 +111,8 @@ struct _Drm_Render_
 	int FramesWrite;			///< write pointer
 	int FramesRead;			///< read pointer
 	atomic_t FramesFilled;		///< how many of the buffer is used
+
+	struct avframe avframes[ALLOCATED_FRAMES_MAX];
 
 	VideoStream *Stream;		///< video stream
 	int TrickSpeed;			///< current trick speed
@@ -245,7 +253,7 @@ extern int64_t VideoGetClock(const VideoRender *);
 
     /// Display handler.
 extern void VideoThreadWakeup(VideoRender *, int, int);
-extern void VideoThreadExit(void);
+extern void VideoThreadExit(VideoRender *);
 
 extern void VideoInit(VideoRender *);	///< Setup video module.
 extern void VideoExit(VideoRender *);		///< Cleanup and exit video module.
@@ -253,6 +261,8 @@ extern void VideoExit(VideoRender *);		///< Cleanup and exit video module.
 extern int VideoCodecMode(VideoRender *);
 
 extern const char * VideoGetDecoderName(const char *);
+AVFrame *VideoGetFreeFrame(VideoRender *);
+void VideoUnrefFrame(VideoRender *, AVFrame *);
 
 #ifdef USE_GLES
 extern int DisableOglOsd;

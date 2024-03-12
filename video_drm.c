@@ -88,9 +88,39 @@ static pthread_t FilterThread;
 static pthread_t DisplayThread;
 static pthread_mutex_t DisplayQueue;
 
+static pthread_mutex_t FrameCacheMutex;;
+
 //----------------------------------------------------------------------------
 //	Helper functions
 //----------------------------------------------------------------------------
+
+AVFrame *VideoGetFreeFrame(VideoRender *render)
+{
+	AVFrame *ret = NULL;
+	pthread_mutex_lock(&FrameCacheMutex);
+	for (int i = 0; i < ALLOCATED_FRAMES_MAX; i++) {
+		if (render->avframes[i].used == 0) {
+			render->avframes[i].used = 1;
+			ret = render->avframes[i].frame;
+			break;
+		}
+	}
+	pthread_mutex_unlock(&FrameCacheMutex);
+	return ret;
+}
+
+void VideoUnrefFrame(VideoRender *render, AVFrame *frame)
+{
+	pthread_mutex_lock(&FrameCacheMutex);
+	for (int i = 0; i < ALLOCATED_FRAMES_MAX; i++) {
+		if (render->avframes[i].frame == frame) {
+			av_frame_unref(render->avframes[i].frame);
+			render->avframes[i].used = 0;
+			break;
+		}
+	}
+	pthread_mutex_unlock(&FrameCacheMutex);
+}
 
 static void ReleaseFrame( __attribute__ ((unused)) void *opaque, uint8_t *data)
 {
@@ -1258,12 +1288,12 @@ dequeue:
 		frame = render->FramesRb[render->FramesRead];
 		render->FramesRead = (render->FramesRead + 1) % VIDEO_SURFACES_MAX;
 		atomic_dec(&render->FramesFilled);
-		av_frame_free(&frame);
+		VideoUnrefFrame(render, frame);
 		goto dequeue;
 	}
 
 	if (render->frametorelease) {
-		av_frame_free(&render->frametorelease);
+		VideoUnrefFrame(render, render->frametorelease);
 		render->frametorelease = NULL;
 	}
 
@@ -1342,7 +1372,7 @@ dequeue:
 		buf->fd_prime = primedata->objects[0].fd;
 
 		if (SetupFB(render, buf, primedata, 1)) {
-			av_frame_free(&frame);
+			VideoUnrefFrame(render, frame);
 			return;
 		}
 	}
@@ -1380,7 +1410,7 @@ audioclock:
 			VideoGetPackets(), atomic_read(&render->FramesDeintFilled),
 			atomic_read(&render->FramesFilled), AudioUsedBytes(), Timestamp2String(audio_pts),
 			Timestamp2String(video_pts), VideoAudioDelay, diff);
-		av_frame_free(&frame);
+		VideoUnrefFrame(render, frame);
 
 		if (!render->StartCounter)
 			render->StartCounter++;
@@ -1667,7 +1697,7 @@ static void *DecodeHandlerThread(void *arg)
 {
 	VideoRender * render = (VideoRender *)arg;
 
-	Debug("video: display thread started");
+	Debug("DecodeHandlerThread: starting");
 
 	pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
 	pthread_setcanceltype(PTHREAD_CANCEL_DEFERRED, NULL);
@@ -1680,25 +1710,26 @@ static void *DecodeHandlerThread(void *arg)
 			usleep(10000);
 		}
 	}
+	Debug("DecodeHandlerThread: stopped");
 	pthread_exit((void *)pthread_self());
 }
 
 ///
 ///	Exit and cleanup video threads.
 ///
-void VideoThreadExit(void)
+void VideoThreadExit(VideoRender *render)
 {
 	void *retval;
 
-	Debug("video: video thread canceled");
+//	Debug("video: video thread canceled");
 
 	if (DecodeThread) {
-		Debug("VideoThreadExit: cancel decode thread");
+		Debug("VideoThreadExit: cancel DecodeHandlerThread");
 		// FIXME: can't cancel locked
 		if (pthread_cancel(DecodeThread))
-			Error("VideoThreadExit: can't queue cancel video display thread");
+			Error("VideoThreadExit: can't queue cancel DecodeHandlerThread");
 		if (pthread_join(DecodeThread, &retval) || retval != PTHREAD_CANCELED)
-			Error("VideoThreadExit: can't cancel video display thread");
+			Error("VideoThreadExit: can't cancel DecodeHandlerThread");
 		DecodeThread = 0;
 
 		pthread_cond_destroy(&PauseCondition);
@@ -1706,13 +1737,19 @@ void VideoThreadExit(void)
 	}
 
 	if (DisplayThread) {
-		Debug("VideoThreadExit: cancel display thread");
+		Debug("VideoThreadExit: cancel DisplayHandlerThread");
 		if (pthread_cancel(DisplayThread))
-			Error("VideoThreadExit: can't cancel DisplayHandlerThread thread");
+			Error("VideoThreadExit: can't cancel DisplayHandlerThread");
 		if (pthread_join(DisplayThread, &retval) || retval != PTHREAD_CANCELED)
-			Error("VideoThreadExit: can't cancel video display thread");
+			Error("VideoThreadExit: can't cancel DisplayHandlerThread");
 		DisplayThread = 0;
 	}
+
+	for (int i = 0; i < ALLOCATED_FRAMES_MAX; i++) {
+		if (render->avframes[i].frame)
+			av_frame_free(&render->avframes[i].frame);
+	}
+	pthread_mutex_destroy(&FrameCacheMutex);
 }
 
 ///
@@ -1722,10 +1759,15 @@ void VideoThreadExit(void)
 ///
 void VideoThreadWakeup(VideoRender * render, int decoder, int display)
 {
-	Debug("VideoThreadWakeup: VideoThreadWakeup");
+	pthread_mutex_init(&FrameCacheMutex, NULL);
+	for (int i = 0; i < ALLOCATED_FRAMES_MAX; i++) {
+		if (!render->avframes[i].frame) {
+			render->avframes[i].frame = av_frame_alloc();
+		}
+	}
 
 	if (decoder && !DecodeThread) {
-		Debug("DisplayThreadWakeup: VideoThreadWakeup");
+		Debug("VideoThreadWakeup: wakeup DecodeHandlerThread");
 		pthread_cond_init(&PauseCondition,NULL);
 		pthread_mutex_init(&PauseMutex, NULL);
 
@@ -1737,7 +1779,7 @@ void VideoThreadWakeup(VideoRender * render, int decoder, int display)
 	}
 
 	if (display && !DisplayThread) {
-		Debug("VideoThreadWakeup: DisplayThreadWakeup");
+		Debug("VideoThreadWakeup: wakeup DisplayHandlerThread");
 		pthread_create(&DisplayThread, NULL, DisplayHandlerThread, render);
 	}
 }
@@ -1857,7 +1899,10 @@ void EnqueueFB(VideoRender * render, AVFrame *inframe)
 			inframe->data[1] + i * inframe->linesize[1], inframe->width);
 	}
 
-	frame = av_frame_alloc();
+	frame = VideoGetFreeFrame(render);
+	if (!frame)
+		Fatal("EnqueueFB: no free frame available");
+
 	frame->pts = inframe->pts;
 	frame->width = inframe->width;
 	frame->height = inframe->height;
@@ -1871,10 +1916,10 @@ void EnqueueFB(VideoRender * render, AVFrame *inframe)
 	frame->buf[0] = av_buffer_create((uint8_t *)primedata, sizeof(*primedata),
 				ReleaseFrame, NULL, AV_BUFFER_FLAG_READONLY);
 
-	av_frame_free(&inframe);
+	VideoUnrefFrame(render, inframe);
 
 	if (render->Closing) {
-		av_frame_free(&frame);
+		VideoUnrefFrame(render, frame);
 		return;
 	}
 
@@ -1913,9 +1958,10 @@ getinframe:
 				render->Filter_Frames++;
 			}
 		}
+
 		if (render->Closing) {
 			if (frame) {
-				av_frame_free(&frame);
+				VideoUnrefFrame(render, frame);
 			}
 			if (atomic_read(&render->FramesDeintFilled)) {
 				goto getinframe;
@@ -1927,30 +1973,33 @@ getinframe:
 			frame, AV_BUFFERSRC_FLAG_KEEP_REF) < 0) {
 			Warning("FilterHandlerThread: can't add_frame.");
 		} else {
-			av_frame_free(&frame);
+			VideoUnrefFrame(render, frame);
 		}
 
 		while (1) {
-			AVFrame *filt_frame = av_frame_alloc();
+			AVFrame *filt_frame = VideoGetFreeFrame(render);
+			if (!filt_frame)
+				Fatal("FilterHandlerThread: no free frame available");
+
 			ret = av_buffersink_get_frame(render->buffersink_ctx, filt_frame);
 
 			if (ret == AVERROR(EAGAIN)) {
-				av_frame_free(&filt_frame);
+				VideoUnrefFrame(render, filt_frame);
 				break;
 			}
 			if (ret == AVERROR_EOF) {
-				av_frame_free(&filt_frame);
+				VideoUnrefFrame(render, filt_frame);
 				goto closing;
 			}
 			if (ret < 0) {
 				Error("FilterHandlerThread: can't get filtered frame: %s",
 					av_err2str(ret));
-				av_frame_free(&filt_frame);
+				VideoUnrefFrame(render, filt_frame);
 				break;
 			}
 fillframe:
 			if (render->Closing) {
-				av_frame_free(&filt_frame);
+				VideoUnrefFrame(render, filt_frame);
 				break;
 			}
 
@@ -2123,7 +2172,7 @@ void VideoRenderFrame(VideoRender * render,
 	}
 fillframe:
 	if (render->Closing) {
-		av_frame_free(&frame);
+		VideoUnrefFrame(render, frame);
 		return;
 	}
 
@@ -2133,7 +2182,7 @@ fillframe:
 		if (!FilterThread) {
 			Debug2(L_CODEC, "VideoRenderFrame: try to create FilterThread");
 			if (VideoFilterInit(render, video_ctx, frame)) {
-				av_frame_free(&frame);
+				VideoUnrefFrame(render, frame);
 				return;
 			} else {
 				Debug2(L_CODEC, "VideoRenderFrame: FilterThread created");
@@ -2163,7 +2212,6 @@ fillframe:
 				usleep(10000);
 				goto fillframe;
 			}
-
 		} else {
 			EnqueueFB(render, frame);
 		}
@@ -2215,7 +2263,6 @@ void VideoSetClosing(VideoRender * render)
 		if (render->VideoPaused) {
 			StartVideo(render);
 		}
-
 
 		pthread_mutex_lock(&WaitCleanMutex);
 		Debug("VideoSetClosing: pthread_cond_wait");
@@ -2540,7 +2587,7 @@ void VideoInit(VideoRender * render)
 ///
 void VideoExit(VideoRender * render)
 {
-	VideoThreadExit();
+	VideoThreadExit(render);
 
 	if (render) {
 		// restore saved CRTC configuration
