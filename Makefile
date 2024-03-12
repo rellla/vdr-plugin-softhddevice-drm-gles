@@ -18,7 +18,8 @@ PNG ?= 0
 # enable this to mark the corners of the rectangles on the OSD
 GRID ?= 0
 
-CONFIG := #-DDEBUG 				# enable debug output+functions
+CONFIG :=
+#CONFIG += -DDEBUG 				# enable debug output+functions
 #CONFIG += -DAV_SYNC_DEBUG		# enable debug messages AV_SYNC
 #CONFIG += -DSOUND_DEBUG		# enable debug messages SOUND
 #CONFIG += -DOSD_DEBUG			# enable debug messages OSD
