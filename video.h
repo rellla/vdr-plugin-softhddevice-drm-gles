@@ -60,12 +60,13 @@
 //	Typedefs
 //----------------------------------------------------------------------------
 struct drm_buf {
-	uint32_t width, height, size, pitch[4], handle[4], offset[4], fb_id;
+	uint32_t width, height, size[4], pitch[4], handle[4], offset[4], fb_id;
 	uint8_t *plane[4];
 	uint32_t pix_fmt;
 	int fd_prime;
 	AVFrame *frame;
 	int dirty;
+	int num_planes;
 #ifdef USE_GLES
 	struct gbm_bo *bo;
 #endif
