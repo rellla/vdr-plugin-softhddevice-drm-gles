@@ -59,13 +59,29 @@
 //----------------------------------------------------------------------------
 //	Typedefs
 //----------------------------------------------------------------------------
+struct format_plane_info
+{
+	uint8_t bitspp;
+	uint8_t xsub;
+	uint8_t ysub;
+};
+
+struct format_info
+{
+	uint32_t format;
+	const char *fourcc;
+	uint8_t num_planes;
+	struct format_plane_info planes[4];
+};
+
 struct drm_buf {
-	uint32_t width, height, size, pitch[4], handle[4], offset[4], fb_id;
+	uint32_t width, height, size[4], pitch[4], handle[4], offset[4], fb_id;
 	uint8_t *plane[4];
 	uint32_t pix_fmt;
 	int fd_prime;
 	AVFrame *frame;
 	int dirty;
+	int num_planes;
 #ifdef USE_GLES
 	struct gbm_bo *bo;
 #endif

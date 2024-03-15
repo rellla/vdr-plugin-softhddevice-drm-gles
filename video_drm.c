@@ -1029,10 +1029,25 @@ struct drm_buf *drm_get_buf_from_bo(VideoRender *render, struct gbm_bo *bo)
 }
 #endif
 
+static const struct format_info format_info_array[] = {
+	{ DRM_FORMAT_NV12, "NV12", 2, { { 8, 1, 1 }, { 16, 2, 2 } }, },
+	{ DRM_FORMAT_YUV420, "YU12", 2, { { 8, 1, 1 }, { 8, 2, 2 }, {8, 2, 2 } }, },
+	{ DRM_FORMAT_ARGB8888, "AR24", 1, { { 32, 1, 1 } }, },
+};
+
+#define ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]))
+static const struct format_info *find_format(uint32_t format)
+{
+	for (int i = 0; i < (int)ARRAY_SIZE(format_info_array); i++) {
+		if (format == format_info_array[i].format)
+			return &format_info_array[i];
+	}
+	return NULL;
+}
+
 static int SetupFB(VideoRender * render, struct drm_buf *buf,
 			AVDRMFrameDescriptor *primedata, int renderbuffer)
 {
-	struct drm_mode_create_dumb creq;
 	uint64_t modifier[4] = { 0, 0, 0, 0 };
 	uint32_t mod_flags = 0;
 	buf->handle[0] = buf->handle[1] = buf->handle[2] = buf->handle[3] = 0;
@@ -1066,6 +1081,7 @@ static int SetupFB(VideoRender * render, struct drm_buf *buf,
 		}
 
 		buf->pix_fmt = primedata->layers[0].format;
+		buf->num_planes = primedata->layers[0].nb_planes;
 
 		for (int plane = 0; plane < primedata->layers[0].nb_planes; plane++) {
 
@@ -1088,47 +1104,50 @@ static int SetupFB(VideoRender * render, struct drm_buf *buf,
 			}
 		}
 	} else {
-		memset(&creq, 0, sizeof(struct drm_mode_create_dumb));
-		creq.width = buf->width;
-		creq.height = buf->height;
-		// 32 bpp for ARGB, 8 bpp for YUV420 and NV12
-		if (buf->pix_fmt == DRM_FORMAT_ARGB8888)
-			creq.bpp = 32;
-		else
-			creq.bpp = 12;
-
-		if (drmIoctl(render->fd_drm, DRM_IOCTL_MODE_CREATE_DUMB, &creq) < 0){
-			Error("SetupFB: cannot create dumb buffer (%d): %m", errno);
-			Error("SetupFB: width %d height %d bpp %d",
-				creq.width, creq.height, creq.bpp);
-			return -errno;
+		const struct format_info *format_info = find_format(buf->pix_fmt);
+		if (!format_info) {
+			Error("SetupFB: No suitable format found!");
+			return 1;
 		}
 
-		buf->size = creq.size;
+		buf->num_planes = format_info->num_planes;
 
-		if (buf->pix_fmt == DRM_FORMAT_YUV420) {
-			buf->pitch[0] = buf->width;
-			buf->pitch[2] = buf->pitch[1] = buf->pitch[0] / 2;
+		for (int i = 0; i < format_info->num_planes; i++) {
+			const struct format_plane_info *plane_info = &format_info->planes[i];
 
-			buf->offset[0] = 0;
-			buf->offset[1] = buf->pitch[0] * buf->height;
-			buf->offset[2] = buf->offset[1] + buf->pitch[1] * buf->height / 2;
-			buf->handle[2] = buf->handle[1] = buf->handle[0] = creq.handle;
-		}
+			struct drm_mode_create_dumb creq = {
+				.width = buf->width / plane_info->xsub,
+				.height = buf->height / plane_info->ysub,
+				.bpp = plane_info->bitspp,
+			};
 
-		if (buf->pix_fmt == DRM_FORMAT_NV12) {
-			buf->pitch[1] = buf->pitch[0] = buf->width;
+			if (drmIoctl(render->fd_drm, DRM_IOCTL_MODE_CREATE_DUMB, &creq) < 0){
+				Error("SetupFB: cannot create dumb buffer %dx%d@%d (%d): %m",
+					creq.width, creq.height, creq.bpp, errno);
+				return -errno;
+			}
 
-			buf->offset[0] = 0;
-			buf->offset[1] = buf->pitch[0] * buf->height;
-			buf->handle[1] = buf->handle[0] = creq.handle;
-		}
+			buf->handle[i] = creq.handle;
+			buf->pitch[i] = creq.pitch;
+			buf->size[i] = creq.size;
 
-		if (buf->pix_fmt == DRM_FORMAT_ARGB8888) {
-			buf->pitch[0] = creq.pitch;
+			struct drm_mode_map_dumb mreq;
+			memset(&mreq, 0, sizeof(struct drm_mode_map_dumb));
+			mreq.handle = buf->handle[i];
 
-			buf->offset[0] = 0;
-			buf->handle[0] = creq.handle;
+			if (drmIoctl(render->fd_drm, DRM_IOCTL_MODE_MAP_DUMB, &mreq)){
+				Error("SetupFB: cannot prepare dumb buffer for mapping (%d): %m", errno);
+				return -errno;
+			}
+
+			buf->plane[i] = mmap(0, creq.size, PROT_READ | PROT_WRITE, MAP_SHARED, render->fd_drm, mreq.offset);
+
+			if (buf->plane[i] == MAP_FAILED) {
+				Error("SetupFB: cannot map dumb buffer (%d): %m", errno);
+				return -errno;
+			}
+
+			memset(buf->plane[i], 0, buf->size[i]);
 		}
 	}
 
@@ -1147,37 +1166,9 @@ static int SetupFB(VideoRender * render, struct drm_buf *buf,
 	if (ret)
 		Fatal("SetupFB: cannot create framebuffer (%d): %m", errno);
 
-	if (primedata) {
-		render->buffers += renderbuffer;
-		Debug2(L_DRM, "SetupFB: PRIMEDATA Added FB fb_id %d width %d height %d pix_fmt %4.4s, render->buffers %d",
-			buf->fb_id, buf->width, buf->height, (char *)&buf->pix_fmt, render->buffers);
-		return 0;
-	}
-
-	Debug2(L_DRM, "SetupFB: Added FB fb_id %d width %d height %d pix_fmt %4.4s",
-		buf->fb_id, buf->width, buf->height, (char *)&buf->pix_fmt);
-
-	struct drm_mode_map_dumb mreq;
-	memset(&mreq, 0, sizeof(struct drm_mode_map_dumb));
-	mreq.handle = buf->handle[0];
-
-	if (drmIoctl(render->fd_drm, DRM_IOCTL_MODE_MAP_DUMB, &mreq)){
-		Error("SetupFB: cannot map dumb buffer (%d): %m", errno);
-		return -errno;
-	}
-
-	buf->plane[0] = mmap(0, creq.size, PROT_READ | PROT_WRITE, MAP_SHARED, render->fd_drm, mreq.offset);
-	if (buf->plane[0] == MAP_FAILED) {
-		Error("SetupFB: cannot mmap dumb buffer (%d): %m", errno);
-		return -errno;
-	}
-	buf->plane[1] = buf->plane[0] + buf->offset[1];
-	buf->plane[2] = buf->plane[0] + buf->offset[2];
-
 	render->buffers += renderbuffer;
-	if (!render->buffers)
-		Debug2(L_DRM, "SetupFB: fb_id %d width %d height %d pix_fmt %4.4s",
-			buf->fb_id, buf->width, buf->height, (char *)&buf->pix_fmt);
+	Debug2(L_DRM, "SetupFB: Added %sFB fb_id %d width %d height %d pix_fmt %4.4s, render->buffers %d",
+		primedata ? "primedata " : "", buf->fb_id, buf->width, buf->height, (char *)&buf->pix_fmt, renderbuffer ? render->buffers : 0);
 
 	return 0;
 }
@@ -1188,39 +1179,48 @@ static void DestroyFB(int fd_drm, struct drm_buf *buf)
 
 //	Debug("DestroyFB: destroy FB %d", buf->fb_id);
 
-	if (buf->plane[0]) {
-		if (munmap(buf->plane[0], buf->size))
+	for (int i = 0; i < buf->num_planes; i++) {
+		if (buf->plane[i]) {
+			if (munmap(buf->plane[i], buf->size[i]))
 				Error("DestroyFB: failed unmap FB (%d): %m", errno);
-	}
-
-	if (drmModeRmFB(fd_drm, buf->fb_id) < 0)
-		Error("DestroyFB: cannot remake FB (%d): %m", errno);
-
-	if (buf->plane[0]) {
-		memset(&dreq, 0, sizeof(dreq));
-		dreq.handle = buf->handle[0];
-
-		if (drmIoctl(fd_drm, DRM_IOCTL_MODE_DESTROY_DUMB, &dreq) < 0)
-			Error("DestroyFB: cannot destroy dumb buffer (%d): %m", errno);
-		buf->handle[0] = 0;
-
-		if (buf->fd_prime) {
-			if (close(buf->fd_prime))
-				Error("DestroyFB: failed close fd prime (%d): %m", errno);
 		}
 	}
 
-	if (buf->handle[0]) {
-		if (drmIoctl(fd_drm, DRM_IOCTL_GEM_CLOSE, &buf->handle[0]) < 0)
-			Error("DestroyFB: cannot close GEM (%d): %m", errno);
+	if (drmModeRmFB(fd_drm, buf->fb_id) < 0)
+		Error("DestroyFB: cannot rm FB (%d): %m", errno);
+
+	for (int i = 0; i < buf->num_planes; i++) {
+		if (buf->plane[i]) {
+			memset(&dreq, 0, sizeof(dreq));
+			dreq.handle = buf->handle[i];
+
+			if (drmIoctl(fd_drm, DRM_IOCTL_MODE_DESTROY_DUMB, &dreq) < 0)
+				Error("DestroyFB: cannot destroy dumb buffer (%d): %m", errno);
+			buf->handle[i] = 0;
+
+			if (buf->fd_prime) {
+				if (close(buf->fd_prime))
+					Error("DestroyFB: failed close fd prime %d (%d): %m", buf->fd_prime, errno);
+				buf->fd_prime = 0;
+			}
+		}
+
+		buf->plane[i] = 0;
+		buf->size[i] = 0;
+		buf->pitch[i] = 0;
+		buf->offset[i] = 0;
+	}
+
+	for (int i = 0; i < buf->num_planes; i++) {
+		if (buf->handle[i]) {
+			if (drmIoctl(fd_drm, DRM_IOCTL_GEM_CLOSE, &buf->handle[i]) < 0)
+				Error("DestroyFB: cannot close GEM (%d): %m", errno);
+		}
 	}
 
 	buf->width = 0;
 	buf->height = 0;
 	buf->fb_id = 0;
-	buf->plane[0] = 0;
-	buf->size = 0;
-	buf->fd_prime = 0;
 }
 
 ///
@@ -1819,12 +1819,12 @@ void EnqueueFB(VideoRender * render, AVFrame *inframe)
 	buf = &render->bufs[render->enqueue_buffer];
 
 	for (i = 0; i < inframe->height; ++i) {
-		memcpy(buf->plane[0] + i * inframe->width,
-			inframe->data[0] + i * inframe->linesize[0], inframe->width);
+		memcpy(buf->plane[0] + i * buf->pitch[0],
+			inframe->data[0] + i * inframe->linesize[0], inframe->linesize[0]);
 	}
 	for (i = 0; i < inframe->height / 2; ++i) {
-		memcpy(buf->plane[1] + i * inframe->width,
-			inframe->data[1] + i * inframe->linesize[1], inframe->width);
+		memcpy(buf->plane[1] + i * buf->pitch[1],
+			inframe->data[1] + i * inframe->linesize[1], inframe->linesize[1]);
 	}
 
 	frame = av_frame_alloc();
