@@ -15,6 +15,59 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU Affero General Public License for more details.
 
 
+Why do we need another softhddevice version?
+--------------------------------------------
+This is basically a fork of https://github.com/zillevdr/vdr-plugin-softhddevice-drm.git
+and is aimed to merge all upstream commits back again - if possible.
+
+The target of this version are embedded devices, see supported hardware.
+
+The difference to the original fork is, that it adds some additional features like
+resized video, hardware accelerated OSD rendering, support for Rpi4/5 and Amlogic
+devices and a few more things. Read the commit history for detailed info.
+There are a bunch of changes in the code, especially the drm handling was re-written and has
+changed a bit to fully respect the atomic modesetting API now. Though everything should work
+like it does with the original code, it's not guaranteed, that some bugs crept in.
+
+As a principle, this softhddevice version is only dealing with mainline versions and standards,
+which means you can (and have to) use mainline (or to be mainlined) kernel, ffmpeg and  mesa version.
+This code does not work with vendor provided software or even closed source binaries.
+
+www.LibreELEC.tv is good source to look for what is possible with mainlined media related software.
+In the LibreELEC project you can find at least patches all the software, even if some piece of code
+isn't able to be mainlined or simply not already there. Because LibreELEC is a distribution to run
+kodi on, you'll find everything you need.
+
+
+How does it internally work?
+----------------------------
+Video decoding is done with ffmpeg. If your hardware has some hardware decoder
+and/or deinterlacer which is supported by ffmpeg, the video is hardware decoded
+(depending on the codec), otherwise software decoding/ deinterlacing is done.
+The OSD is either composed with OpenGL/ES or with CPU (see below).
+Both, video and OSD are rendered directly on seperate drm planes with kms.
+When the video is hardware decoded, we don't need much CPU, because everything is done
+with a zero-copy approach. That's the same for OpenGL/ES OSD.
+
+
+Supported Hardware:
+-------------------
+	Allwinner
+	Amlogic
+	Raspberry Pi 4+5
+	Rockchip
+
+
+Known Bugs/ TODO:
+-----------------
+	- PASSTHROUGH is broken
+	- rewind isn't always working as expected
+	- amlogic: few artifacts and brightness issues,
+	  when replay starts on hw decoded channels (720p, 1080i)
+	- attach/detach isn't implemented
+	- grabbing is not implemented yet
+
+
 Install:
 --------
 	git clone https://github.com/rellla/vdr-plugin-softhddevice-drm-gles.git
@@ -22,8 +75,9 @@ Install:
 	make
 	make install
 
+
 OpenGL/ES:
----------
+----------
 	OpenGL/ES support is based on the work of Stefan Braun
 	(https://github.com/louisbraun/softhddevice-openglosd)
 
@@ -33,8 +87,11 @@ OpenGL/ES:
 
 	GLES=0 make
 
-Requirement:
----------
+	In this case, VDR is using CPU based OSD rendering.
+
+
+Requirements:
+-------------
         No running X!
 
 	vdr (version >=2.2.x)
@@ -57,7 +114,18 @@ Requirement:
 		glm - OpenGL Mathematics (GLM)
 		libpng (to write debug OSD pngs)
 
-Setup:	environment (TODO, maybe outdated)
+Commandline arguments:
+----------------------
+	Use vdr -h to see the command line arguments supported by the plugin.
+
+		-a audio_device
+		-p device for pass-through
+		-c audio mixer channel name
+		-d display resolution (e.g. 1920x1080@50)
+		-w workarounds
+			disable-ogl-osd (to disable HW accelerated OSD)
+
+Setup:	environment
 ------
 	ALSA_DEVICE=default
 		alsa PCM device name
@@ -68,19 +136,26 @@ Setup:	environment (TODO, maybe outdated)
 	ALSA_MIXER_CHANNEL=PCM
 		alsa control channel name
 
-Setup: /etc/vdr/setup.conf (TODO, maybe outdated)
+Setup: /etc/vdr/setup.conf
 ------
-	softhddevice.MakePrimary = 0
+	softhddevice-drm-gles.MakePrimary = 0
 	0 = no change, 1 make softhddevice primary at start
 
-	softhddevice.HideMainMenuEntry = 0
+	softhddevice-drm-gles.HideMainMenuEntry = 0
 	0 = show softhddevice main menu entry, 1 = hide entry
 
-	softhddevice.AudioDelay = 0
+	softhddevice-drm-gles.MaxSizeGPUImageCache = 128
+	how many GPU memory should be used for image caching
+
+	softhddevíce-drm-gles.WritePngs = 0
+	0 = do nothing, 1 = write osd on every flush to /tmp
+	this is only for debugging purposes
+
+	softhddevice-drm-gles.AudioDelay = 0
 	+n or -n ms
 	delay audio or delay video
 
-	softhddevice.AudioPassthrough = 0
+	softhddevice-drm-gles.AudioPassthrough = 0
 	0 = none, 1 = PCM, 2 = MPA, 4 = AC-3, 8 = EAC-3, -X disable
 
 	for PCM/AC-3/EAC-3 the pass-through device is used and the audio
@@ -89,43 +164,33 @@ Setup: /etc/vdr/setup.conf (TODO, maybe outdated)
 	note: MPA/DTS/TrueHD/... aren't supported yet
 	negative values disable passthrough
 
-	softhddevice.AudioDownmix = 0
+	softhddevice-drm-gles.AudioDownmix = 0
 	0 = none, 1 = downmix
 	Use ffmpeg downmix of AC-3/EAC-3 audio to stereo.
 
-	softhddevice.AudioSoftvol = 0
+	softhddevice-drm-gles.AudioSoftvol = 0
 	0 = off, use hardware volume control
 	1 = on, use software volume control
 
-	softhddevice.AudioNormalize = 0
+	softhddevice-drm-gles.AudioNormalize = 0
 	0 = off, 1 = enable audio normalize
 
-	softhddevice.AudioMaxNormalize = 0
+	softhddevice-drm-gles.AudioMaxNormalize = 0
 	maximal volume factor/1000 of the normalize filter
 
-	softhddevice.AudioCompression = 0
+	softhddevice-drm-gles.AudioCompression = 0
 	0 = off, 1 = enable audio compression
 
-	softhddevice.AudioMaxCompression = 0
+	softhddevice-drm-gles.AudioMaxCompression = 0
 	maximal volume factor/1000 of the compression filter
 
-	softhddevice.AudioStereoDescent = 0
+	softhddevice-drm-gles.AudioStereoDescent = 0
 	reduce volume level (/1000) for stereo sources
 
-	softhddevice.AudioBufferTime = 0
+	softhddevice-drm-gles.AudioBufferTime = 0
 	0 = default (600 ms)
 	1 - 1000 = size of the buffer in ms
 
-Commandline:
-------------
-	Use vdr -h to see the command line arguments supported by the plugin.
-
-    -a audio_device
-    -p device for pass-through
-    -c audio mixer channel name
-    -d display resolution (e.g. 1920x1080@50)
-    -w workarounds
-	disable-ogl-osd (to disable HW accelerated OSD)
 
 SVDRP:
 ------
@@ -140,15 +205,3 @@ SVDRP:
 
 	Play a media file from web:
 	svdrpsend plug softhddevice-drm-gles PLAY http://www.media-server/path_to_file/media_file.mp4
-
-Known Bugs/ TODO:
------------
-	- PASSTHROUGH is broken
-	- rewind is somewhat broken
-	- rpi4/5: is basically working but shows artifacts in the upper half
-	- amlogic: mpeg2/ 576i is broken
-	- attach/detach isn't implemented
-	- grabbing is not implemented (possibly hard to implement, maybe via kmsgrab)
-
-Optional:
----------
