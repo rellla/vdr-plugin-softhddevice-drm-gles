@@ -1031,7 +1031,7 @@ struct drm_buf *drm_get_buf_from_bo(VideoRender *render, struct gbm_bo *bo)
 
 static const struct format_info format_info_array[] = {
 	{ DRM_FORMAT_NV12, "NV12", 2, { { 8, 1, 1 }, { 16, 2, 2 } }, },
-	{ DRM_FORMAT_YUV420, "YU12", 2, { { 8, 1, 1 }, { 8, 2, 2 }, {8, 2, 2 } }, },
+	{ DRM_FORMAT_YUV420, "YU12", 3, { { 8, 1, 1 }, { 8, 2, 2 }, {8, 2, 2 } }, },
 	{ DRM_FORMAT_ARGB8888, "AR24", 1, { { 32, 1, 1 } }, },
 };
 
@@ -1211,11 +1211,9 @@ static void DestroyFB(int fd_drm, struct drm_buf *buf)
 		buf->offset[i] = 0;
 	}
 
-	for (int i = 0; i < buf->num_planes; i++) {
-		if (buf->handle[i]) {
-			if (drmIoctl(fd_drm, DRM_IOCTL_GEM_CLOSE, &buf->handle[i]) < 0)
-				Error("DestroyFB: cannot close GEM (%d): %m", errno);
-		}
+	if (buf->handle[0]) {
+		if (drmIoctl(fd_drm, DRM_IOCTL_GEM_CLOSE, &buf->handle[0]) < 0)
+			Error("DestroyFB: cannot close GEM (%d): %m", errno);
 	}
 
 	buf->width = 0;
