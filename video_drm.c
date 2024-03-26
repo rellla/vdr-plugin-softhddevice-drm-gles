@@ -1374,10 +1374,17 @@ audioclock:
 	}
 
 	if (abs(diff) > 5000) {	// more than 5s
-		Debug2(L_AV_SYNC, "More then 5s Pkts %d deint %d Frames %d AudioUsedBytes %d audio %s video %s Delay %dms diff %dms",
-			VideoGetPackets(), atomic_read(&render->FramesDeintFilled),
-			atomic_read(&render->FramesFilled), AudioUsedBytes(), Timestamp2String(audio_pts),
-			Timestamp2String(video_pts), VideoAudioDelay, diff);
+		if (video_pts)
+			Debug2(L_AV_SYNC, "More then 5s Pkts %d deint %d Frames %d AudioUsedBytes %d audio %s video %s Delay %dms diff %dms",
+				VideoGetPackets(), atomic_read(&render->FramesDeintFilled),
+				atomic_read(&render->FramesFilled), AudioUsedBytes(), Timestamp2String(audio_pts),
+				Timestamp2String(video_pts), VideoAudioDelay, diff);
+		else
+			Debug2(L_AV_SYNC, "Video frame with AV_NOPTS_VALUE arrived ... Pkts %d deint %d Frames %d AudioUsedBytes %d audio %s video %s Delay %dms diff %dms",
+				VideoGetPackets(), atomic_read(&render->FramesDeintFilled),
+				atomic_read(&render->FramesFilled), AudioUsedBytes(), Timestamp2String(audio_pts),
+				Timestamp2String(video_pts), VideoAudioDelay, diff);
+				av_frame_free(&frame);
 	}
 
 	if (!render->TrickSpeed)

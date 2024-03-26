@@ -38,6 +38,7 @@
 #include <pthread.h>
 
 #include <libavcodec/avcodec.h>
+#include <libavutil/opt.h>
 
 #ifdef MAIN_H
 #include MAIN_H
@@ -49,6 +50,8 @@
 #include "codec.h"
 #include "softhddev.h"
 
+#define NUM_CAPTURE_BUFFERS 10
+#define NUM_OUTPUT_BUFFERS 10
 
 //----------------------------------------------------------------------------
 //	Global
@@ -217,6 +220,18 @@ void CodecVideoOpen(VideoDecoder * decoder, int codec_id, AVCodecParameters * Pa
 		decoder->VideoCtx->pkt_timebase.num = timebase->num;
 		decoder->VideoCtx->pkt_timebase.den = timebase->den;
 	}
+
+	if (strstr(codec->name, "_v4l2")) {
+		if (av_opt_set_int(decoder->VideoCtx->priv_data, "num_capture_buffers", NUM_CAPTURE_BUFFERS, 0) < 0) {
+			Fatal("CodecVideoOpen: can't set %d num_capture_buffers", NUM_CAPTURE_BUFFERS);
+		}
+		Debug2(L_CODEC, "CodecVideoOpen: set num_capture_buffers %d", NUM_CAPTURE_BUFFERS);
+		if (av_opt_set_int(decoder->VideoCtx->priv_data, "num_output_buffers", NUM_OUTPUT_BUFFERS, 0) < 0) {
+			Fatal("CodecVideoOpen: can't set %d num_output_buffers", NUM_OUTPUT_BUFFERS);
+		}
+		Debug2(L_CODEC, "CodecVideoOpen: set num_output_buffers %d", NUM_OUTPUT_BUFFERS);
+	}
+
 	err = avcodec_open2(decoder->VideoCtx, decoder->VideoCtx->codec, NULL);
 	if (err < 0) {
 		Fatal("CodecVideoOpen: Error opening the decoder: %s",
