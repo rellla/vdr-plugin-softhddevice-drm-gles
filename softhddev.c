@@ -1125,9 +1125,11 @@ int VideoDecodeInput(VideoStream * stream)
 
 		if (!stream->NewStream)
 			CodecVideoReceiveFrame(stream->Decoder, 0);
+
+		return 0;
 	}
 
-	return 0;
+	return -1;
 }
 
 /**
