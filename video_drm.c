@@ -1708,13 +1708,13 @@ void VideoThreadWakeup(VideoRender * render, int decoder, int display)
 		pthread_mutex_init(&WaitCleanMutex, NULL);
 
 		pthread_create(&DecodeThread, NULL, DecodeHandlerThread, render);
-		pthread_setname_np(DecodeThread, "softhddev decoding thread");
+		pthread_setname_np(DecodeThread, "decoding thread");
 	}
 
 	if (display && !DisplayThread) {
 		Debug("VideoThreadWakeup: DisplayThreadWakeup");
 		pthread_create(&DisplayThread, NULL, DisplayHandlerThread, render);
-		pthread_setname_np(DisplayThread, "softhddev display thread");
+		pthread_setname_np(DisplayThread, "display thread");
 	}
 }
 
@@ -2128,7 +2128,7 @@ fillframe:
 			} else {
 				Debug2(L_CODEC, "VideoRenderFrame: FilterThread created");
 				pthread_create(&FilterThread, NULL, FilterHandlerThread, render);
-				pthread_setname_np(FilterThread, "softhddev filter thread");
+				pthread_setname_np(FilterThread, "filter thread");
 			}
 		}
 
