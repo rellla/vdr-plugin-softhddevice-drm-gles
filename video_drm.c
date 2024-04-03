@@ -823,7 +823,7 @@ static int FindDevice(VideoRender * render)
 					}
 				}
 			}
-			Debug2(L_DRM, pixelformats);
+			Debug2(L_DRM, "%s", pixelformats);
 		}
 		drmModeFreePlane(plane);
 	}
@@ -898,7 +898,7 @@ static int FindDevice(VideoRender * render)
 			render->zpos_primary = render->zpos_overlay;
 			render->zpos_overlay = zpos_tmp;
 		}
-		Debug2(L_DRM, str_zpos);
+		Debug2(L_DRM, "%s", str_zpos);
 	}
 	drmModeFreePlaneResources(plane_res);
 	drmModeFreeEncoder(encoder);
