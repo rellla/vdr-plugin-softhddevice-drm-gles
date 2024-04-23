@@ -1237,9 +1237,6 @@ void AudioEnqueue(AVFrame *frame)
 		skip = AudioSkip;
 		// FIXME: round to packet size
 
-		Debug2(L_SOUND, "audio: start? in Rb %4zdms to skip %dms",
-			n * 1000 / HwSampleRate / HwChannels / AudioBytesProSample,
-			skip * 1000 / HwSampleRate / HwChannels / AudioBytesProSample);
 		Debug2(L_AV_SYNC, "AudioEnqueue: start? in Rb %4zdms to skip %dms nb_samples %d",
 			n * 1000 / HwSampleRate / HwChannels / AudioBytesProSample,
 			skip * 1000 / HwSampleRate / HwChannels / AudioBytesProSample,
@@ -1416,6 +1413,7 @@ void AudioFlushBuffers(void)
 	}
 
 	Filterchanged = 1;
+	AudioPaused = 0;
 }
 
 /**

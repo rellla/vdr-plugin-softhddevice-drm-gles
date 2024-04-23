@@ -57,6 +57,7 @@ extern int ConfigAudioBufferTime;	///< config size ms of audio buffer
 #ifdef USE_GLES
 extern int DisableOglOsd;		///< disable OpenGL OSD (command line parameter)
 #endif
+extern int ConfigH264EosTrickSpeed;
 
 static volatile char StreamFreezed;	///< stream freezed
 
@@ -1204,7 +1205,6 @@ int PlayVideo(const uint8_t * data, int size)
 					       data[i + n + 9],
 					       data[i + n + 10]);
 					stream->CodecID = AV_CODEC_ID_MPEG2VIDEO;
-					goto newstream;
 				} else if (data[i + n + 3] == 0x09 && (data[i + n + 4] == 0x10 || data[i + n + 4] == 0xF0 || data[i + n + 10] == 0x64)) {
 				// H264 I-Frame
 					Debug("video: H264 detected");
@@ -1221,7 +1221,6 @@ int PlayVideo(const uint8_t * data, int size)
 					       data[i + n + 9],
 					       data[i + n + 10]);
 					stream->CodecID = AV_CODEC_ID_H264;
-					goto newstream;
 				} else if (data[i + n + 3] == 0x46 && (data[i + n + 5] == 0x10 || data[i + n + 5] == 0x50 || data[i + n + 10] == 0x40)) {
 				// HEVC I-Frame
 					Debug("video: hevc detected");
@@ -1238,11 +1237,6 @@ int PlayVideo(const uint8_t * data, int size)
 					       data[i + n + 9],
 					       data[i + n + 10]);
 					stream->CodecID = AV_CODEC_ID_HEVC;
-newstream:
-					stream->NewStream = 1;
-					stream->timebase.den = 90000;
-					stream->timebase.num = 1;
-					VideoEnqueue(stream, pts, data + i + n, size - i - n);
 				} else {
 				// Unknown Frame
 					Debug2(L_CODEC, "video: unknown startcode detected: 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x",
@@ -1257,10 +1251,21 @@ newstream:
 					       data[i + n + 8],
 					       data[i + n + 9],
 					       data[i + n + 10]);
+					return size;
 				}
-			} else {
-				VideoEnqueue(stream, pts, data + i + n, size - i - n);
+				stream->NewStream = 1;
+				stream->timebase.den = 90000;
+				stream->timebase.num = 1;
+			} else { // stream->CodecID != AV_CODEC_ID_NONE)
+				if (stream->CodecID == AV_CODEC_ID_H264 && stream->Render->TrickSpeed && pts != (int64_t)AV_NOPTS_VALUE && ConfigH264EosTrickSpeed) {
+					static uint8_t seq_end_h264[] = { 0x00, 0x00, 0x00, 0x01, 0x0A };
+					if ((data[i + n + 9] & 0x1F) == 0x07) {
+						Debug2(L_CODEC, "video: H264_EOS_TRICKSPEED, render->TrickSpeed %d (filled pkts %d)", stream->Render->TrickSpeed, atomic_read(&stream->PacketsFilled));
+						VideoEnqueue(stream, AV_NOPTS_VALUE, seq_end_h264, sizeof(seq_end_h264));
+					}
+				}
 			}
+			VideoEnqueue(stream, pts, data + i + n, size - i - n);
 			return size;
 		}
 	}
@@ -1531,10 +1536,9 @@ int PlayVideoPkts(AVPacket * pkt)
 **
 **	@param speed	trick speed
 */
-void TrickSpeed(int speed)
+void TrickSpeed(int speed, int forward)
 {
-	Debug("TrickSpeed: speed %d", speed);
-	MyVideoStream->TrickSpeed = speed;
+	Debug("TrickSpeed: speed %d %s", speed, forward ? "forward" : "backward");
 	VideoSetTrickSpeed(MyVideoStream->Render, speed);
 
 	if (StreamFreezed) {
@@ -1562,7 +1566,7 @@ void Play(void)
 {
 	Debug("Play(void)");
 	SkipAudio = 0;
-	StreamFreezed = 0;
+	TrickSpeed(0, 1);
 	AudioPlay();
 	VideoPlay(MyVideoStream->Render);
 }
@@ -1583,9 +1587,6 @@ void Freeze(void)
 */
 void Mute(void)
 {
-	Debug("Mute(void)");
-	SkipAudio = 1;
-	ClearAudio();
 }
 
 /**

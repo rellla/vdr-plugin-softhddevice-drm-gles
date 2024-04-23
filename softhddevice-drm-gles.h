@@ -49,6 +49,7 @@ int DisableOglOsd;			///< disable OpenGL Osd (command line parameter)
 char ConfigWritePngs;			///< config write pngs from OSD
 #endif
 #endif
+int ConfigH264EosTrickSpeed;
 static char ConfigHideMainMenuEntry;	///< config hide main menu entry
 static int ConfigVideoAudioDelay;	///< config audio delay
 static char ConfigAudioPassthrough;	///< config audio pass-through mask
@@ -163,13 +164,14 @@ class cMenuSetupSoft:public cMenuSetupPage
     /// @{
     int General;
     int MakePrimary;
+    int DebugMenu;
 #ifdef USE_GLES
 #ifdef WRITE_PNG
-    int DebugMenu;
     int WritePngs;
 //    const char *pngVariant[4];
 #endif
 #endif
+    int H264EosTrickSpeed;
     int Statistics;
     int HideMainMenuEntry;
 

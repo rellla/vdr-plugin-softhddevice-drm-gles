@@ -555,20 +555,21 @@ void cMenuSetupSoft::Create(void)
 
     }
 
-#ifdef USE_GLES
-#ifdef WRITE_PNG
     //
     //	debug
     //
-    if (!DisableOglOsd) {
-	Add(CollapsedItem(tr("Debug"), DebugMenu));
-	if (DebugMenu) {
+    Add(CollapsedItem(tr("Debug"), DebugMenu));
+    if (DebugMenu) {
+	Add(new cMenuEditBoolItem(tr("Enable H264 EOS TrickSpeed fix"), &H264EosTrickSpeed, trVDR("no"), trVDR("yes")));
+#ifdef USE_GLES
+#ifdef WRITE_PNG
+	if (!DisableOglOsd) {
 		Add(new cMenuEditBoolItem(tr("Write OSD to file"), &WritePngs, trVDR("no"), trVDR("yes")));
 //		Add(new cMenuEditStraItem(tr("Write OSD to file"), &WritePngs, 4, pngVariant));
 	}
+#endif
+#endif
     }
-#endif
-#endif
     //
     //	audio
     //
@@ -715,6 +716,7 @@ cMenuSetupSoft::cMenuSetupSoft(void)
     WritePngs = ConfigWritePngs;
 #endif
 #endif
+    H264EosTrickSpeed = ConfigH264EosTrickSpeed;
     Statistics = 0;
     HideMainMenuEntry = ConfigHideMainMenuEntry;
     //
@@ -762,6 +764,7 @@ void cMenuSetupSoft::Store(void)
     SetupStore("WritePngs", ConfigWritePngs = WritePngs);
 #endif
 #endif
+    SetupStore("H264EosTrickSpeed", ConfigH264EosTrickSpeed = H264EosTrickSpeed);
     SetupStore("HideMainMenuEntry", ConfigHideMainMenuEntry = HideMainMenuEntry);
     SetupStore("AudioDelay", ConfigVideoAudioDelay = AudioDelay);
     VideoSetAudioDelay(ConfigVideoAudioDelay);
@@ -919,7 +922,7 @@ bool cSoftHdDevice::SetPlayMode(ePlayMode play_mode)
 */
 int64_t cSoftHdDevice::GetSTC(void)
 {
-    Debug("%s:", __FUNCTION__);
+//    Debug("%s:", __FUNCTION__);
     return::GetSTC();
 }
 
@@ -934,10 +937,8 @@ int64_t cSoftHdDevice::GetSTC(void)
 */
 void cSoftHdDevice::TrickSpeed(int speed, bool forward)
 {
-    Debug("%s: %d %d", __FUNCTION__, speed, forward);
-    Debug("TrickSpeed: speed %d %s",
-		speed, forward ? "forward" : "backward");
-    ::TrickSpeed(speed);
+    Debug("%s: %d %s", __FUNCTION__, speed, forward ? "forward" : "backward");
+    ::TrickSpeed(speed, forward);
 }
 
 /**
@@ -1010,8 +1011,7 @@ void cSoftHdDevice::StillPicture(const uchar * data, int length)
 bool cSoftHdDevice::Poll(
     __attribute__ ((unused)) cPoller & poller, int timeout_ms)
 {
-    //Debug("%s: timeout %d", __FUNCTION__, timeout_ms);
-
+//    Debug("%s: timeout %d", __FUNCTION__, timeout_ms);
     return::Poll(timeout_ms);
 }
 
@@ -1036,7 +1036,6 @@ void cSoftHdDevice:: SetVideoDisplayFormat(eVideoDisplayFormat
     video_display_format)
 {
     Debug("%s: %d", __FUNCTION__, video_display_format);
-
     cDevice::SetVideoDisplayFormat(video_display_format);
 }
 
@@ -1367,6 +1366,10 @@ bool cPluginSoftHdDevice::SetupParse(const char *name, const char *value)
     }
 #endif
 #endif
+    if (!strcasecmp(name, "H264EosTrickSpeed")) {
+	ConfigH264EosTrickSpeed = atoi(value);
+	return true;
+    }
     if (!strcasecmp(name, "HideMainMenuEntry")) {
 	ConfigHideMainMenuEntry = atoi(value);
 	return true;

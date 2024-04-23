@@ -1260,8 +1260,13 @@ dequeue:
 
 ///
 ///	Draw a video frame.
+//
+//	@retval 0	process outstanding DRM events
+//	@retval	1	not modesetting was done
+//
 ///
-static void Frame2Display(VideoRender * render)
+
+static int Frame2Display(VideoRender * render)
 {
 	struct drm_buf *buf = 0;
 	AVFrame *frame = NULL;
@@ -1269,15 +1274,16 @@ static void Frame2Display(VideoRender * render)
 	int64_t audio_pts;
 	int64_t video_pts;
 	int i;
+	int dirty = 0; // 0: nothing, 1: osd only, 2: video only, 3: both
 
 	drmModeAtomicReqPtr ModeReq;
 	uint32_t flags = DRM_MODE_PAGE_FLIP_EVENT;
 	if (!(ModeReq = drmModeAtomicAlloc())) {
 		Error("Frame2Display: cannot allocate atomic request (%d): %m", errno);
-		return;
+		return 0;
 	}
 
-	if (render->Closing) {
+	if (render->Closing && !render->TrickSpeed) {
 closing:
 		// set a black FB
 		Debug("Frame2Display: closing, set a black FB");
@@ -1289,6 +1295,8 @@ dequeue:
 	while (!atomic_read(&render->FramesFilled)) {
 		if (render->Closing)
 			goto closing;
+		if (render->TrickSpeed && render->lastframe)
+			break;
 		// We had draw activity on the osd buffer
 		if (render->buf_osd && render->buf_osd->dirty) {
 			Debug2(L_DRM, "Frame2Display: no video, set a black FB instead");
@@ -1298,9 +1306,35 @@ dequeue:
 		usleep(10000);
 	}
 
+	// get next frame
+	// normal path
+	if (!render->TrickSpeed)
+		goto get_frame;
+
+	// initial TrickSpeed -> get a new frame
+	if (render->TrickSpeed == render->TrickCounter)
+		goto get_frame;
+
+	// we are in TrickSpeed and display the old one again
+	if (render->TrickCounter) {
+		if (render->lastframe) {
+			frame = render->lastframe;
+			goto get_prime;
+		} else { // everything empty, wait for a new frame
+			buf = &render->buf_black;
+			goto page_flip;
+		}
+	} else {
+		buf = &render->buf_black;
+		goto page_flip;
+	}
+
+get_frame:
 	frame = render->FramesRb[render->FramesRead];
 	render->FramesRead = (render->FramesRead + 1) % VIDEO_SURFACES_MAX;
 	atomic_dec(&render->FramesFilled);
+
+get_prime:
 	primedata = (AVDRMFrameDescriptor *)frame->data[0];
 
 	// search or made fd / FB combination
@@ -1318,13 +1352,18 @@ dequeue:
 
 		if (SetupFB(render, buf, primedata, 1)) {
 			av_frame_free(&frame);
-			return;
+			return 0;
 		}
 	}
 
 	render->pts = frame->pts;
+
+	if (render->TrickSpeed)
+		goto skip_sync;
+
+	// sync begin
 	video_pts = frame->pts * 1000 * av_q2d(*render->timebase);
-	if(!render->StartCounter && !render->Closing && !render->TrickSpeed) {
+	if(!render->StartCounter && !render->Closing) {
 		Debug("Frame2Display: start PTS %s", Timestamp2String(video_pts));
 avready:
 		if (AudioVideoReady(video_pts)) {
@@ -1341,14 +1380,14 @@ audioclock:
 	if (render->Closing)
 		goto closing;
 
-	if (audio_pts == (int64_t)AV_NOPTS_VALUE && !render->TrickSpeed) {
+	if (audio_pts == (int64_t)AV_NOPTS_VALUE) {
 		usleep(20000);
 		goto audioclock;
 	}
 
 	int diff = video_pts - audio_pts - VideoAudioDelay;
 
-	if (diff < -5 && !render->TrickSpeed && !(abs(diff) > 5000)) {
+	if (diff < -5 && !(abs(diff) > 5000)) {
 		render->FramesDropped++;
 		Debug2(L_AV_SYNC, "FrameDropped (drop %d, dup %d) Pkts %d deint %d Frames %d AudioUsedBytes %d audio %s video %s Delay %dms diff %dms",
 			render->FramesDropped, render->FramesDuped,
@@ -1362,7 +1401,7 @@ audioclock:
 		goto dequeue;
 	}
 
-	if (diff > 35 && !render->TrickSpeed && !(abs(diff) > 5000)) {
+	if (diff > 35 && !(abs(diff) > 5000)) {
 		render->FramesDuped++;
 		Debug2(L_AV_SYNC, "FrameDuped (drop %d, dup %d) Pkts %d deint %d Frames %d AudioUsedBytes %d audio %s video %s Delay %dms diff %dms",
 			render->FramesDropped, render->FramesDuped,
@@ -1386,17 +1425,15 @@ audioclock:
 				Timestamp2String(video_pts), VideoAudioDelay, diff);
 				av_frame_free(&frame);
 	}
+	// sync end
 
-	if (!render->TrickSpeed)
-		render->StartCounter++;
-
-	if (render->TrickSpeed)
-		usleep(20000 * render->TrickSpeed);
+skip_sync:
+	render->StartCounter++;
 
 	buf->frame = frame;
 
-// handle the video plane
 page_flip:
+	// modeset the video plane
 	render->act_buf = buf;
 	// Get video size and position and set crtc rect
 	uint64_t DispWidth = render->mode.hdisplay;
@@ -1446,9 +1483,10 @@ page_flip:
 	render->planes[VIDEO_PLANE]->properties.src_h = buf->height;
 
 	SetPlane(ModeReq, render->planes[VIDEO_PLANE]);
+	dirty += 2;
 
-// handle the osd plane
-	// We had draw activity on the osd buffer
+page_flip_osd:
+	// modeset the osd plane if we had draw activity on the osd buffer
 	if (render->buf_osd && render->buf_osd->dirty) {
 		if (render->use_zpos) {
 			render->planes[VIDEO_PLANE]->properties.zpos = render->OsdShown ? render->zpos_primary : render->zpos_overlay;
@@ -1473,10 +1511,18 @@ page_flip:
 		render->planes[OSD_PLANE]->properties.src_h = render->OsdShown ? render->buf_osd->height : 0;
 
 		SetPlane(ModeReq, render->planes[OSD_PLANE]);
-		Debug2(L_DRM, "Frame2Display: SetPlane OSD (fb = %lld)", render->planes[OSD_PLANE]->properties.fb_id);
+		dirty += 1;
 		render->buf_osd->dirty = 0;
 	}
 
+	// return without a commit when we have no frame or osd
+	if (!dirty) {
+		Debug2(L_DRM, "Frame2Display: Nothing to commit");
+		drmModeAtomicFree(ModeReq);
+		return 1;
+	}
+
+	// do the atomic commit
 	if (drmModeAtomicCommit(render->fd_drm, ModeReq, flags, NULL) != 0) {
 		DumpPlaneProperties(render->planes[OSD_PLANE]);
 		if (render->act_buf)
@@ -1488,10 +1534,18 @@ page_flip:
 
 	drmModeAtomicFree(ModeReq);
 
-	if (render->lastframe)
+	if ((render->lastframe && !render->TrickSpeed) || (render->lastframe && render->TrickSpeed && render->TrickSpeed == render->TrickCounter))
 		av_frame_free(&render->lastframe);
-	if (render->act_buf && (render->act_buf->fb_id != render->buf_black.fb_id))
+	if (render->act_buf && render->act_buf->frame)
 		render->lastframe = render->act_buf->frame;
+
+	if (render->TrickSpeed) {
+		render->TrickCounter--;
+		if (!render->TrickCounter)
+			render->TrickCounter = render->TrickSpeed;
+	}
+
+	return 0;
 }
 
 ///
@@ -1513,10 +1567,10 @@ static void *DisplayHandlerThread(void * arg)
 			pthread_mutex_unlock(&PauseMutex);
 		}
 
-		Frame2Display(render);
+		int ret = Frame2Display(render);
 
-		if (drmHandleEvent(render->fd_drm, &render->ev) != 0)
-			Error("DisplayHandlerThread: drmHandleEvent failed!");
+		if (!ret && (drmHandleEvent(render->fd_drm, &render->ev) != 0))
+				Error("DisplayHandlerThread: drmHandleEvent failed!");
 
 		if (render->Closing &&
 		    (!render->act_buf || (render->act_buf->fb_id == render->buf_black.fb_id))) {
@@ -2170,8 +2224,8 @@ fillframe:
 ///
 int64_t VideoGetClock(const VideoRender * render)
 {
-	Debug("VideoGetClock: %s",
-		Timestamp2String(render->pts * 1000 * av_q2d(*render->timebase)));
+//	Debug("VideoGetClock: %s",
+//		Timestamp2String(render->pts * 1000 * av_q2d(*render->timebase)));
 	return render->pts;
 }
 
@@ -2203,6 +2257,7 @@ void VideoSetClosing(VideoRender * render)
 		render->Closing = 1;
 
 		if (render->VideoPaused) {
+			render->TrickSpeed = 0;
 			StartVideo(render);
 		}
 
@@ -2238,6 +2293,7 @@ void VideoSetTrickSpeed(VideoRender * render, int speed)
 {
 	Debug("VideoSetTrickSpeed: set trick speed %d", speed);
 	render->TrickSpeed = speed;
+	render->TrickCounter = speed;
 	if (speed) {
 		render->Closing = 0;	// ???
 	}
