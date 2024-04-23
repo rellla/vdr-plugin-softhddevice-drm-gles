@@ -61,7 +61,7 @@ Supported Hardware:
 Known Bugs/ TODO:
 -----------------
 	- PASSTHROUGH is broken
-	- rewind isn't always working as expected
+	- forward/backward seeking is buggy in general
 	- amlogic: few artifacts and brightness issues,
 	  when replay starts on hw decoded channels (720p, 1080i)
 	- attach/detach isn't implemented
