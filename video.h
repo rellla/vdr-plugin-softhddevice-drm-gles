@@ -124,7 +124,7 @@ struct _Drm_Render_
 
 	VideoStream *Stream;		///< video stream
 	int TrickSpeed;			///< current trick speed
-//	int TrickCounter;			///< current trick speed counter
+	int TrickCounter;			///< current trick speed counter
 	int VideoPaused;
 	int Closing;			///< flag about closing current stream
 	int Filter_Bug;

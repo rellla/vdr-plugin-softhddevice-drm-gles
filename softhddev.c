@@ -1100,6 +1100,7 @@ int VideoDecodeInput(VideoStream * stream)
 		CodecVideoClose(stream->Decoder);
 		stream->CodecID = AV_CODEC_ID_NONE;
 		stream->ClosingStream = 0;
+//		Info("VideoDecodeInput: ClosingStream");
 		return -1;
 	}
 
@@ -1114,6 +1115,7 @@ int VideoDecodeInput(VideoStream * stream)
 		pthread_mutex_lock(&PktsLockMutex);
 		if (!atomic_read(&stream->PacketsFilled)) {
 			pthread_mutex_unlock(&PktsLockMutex);
+//			Info("VideoDecodeInput: no PacketsFilled");
 			return -1;
 		}
 		avpkt = &stream->PacketRb[stream->PacketRead];
@@ -1129,6 +1131,7 @@ int VideoDecodeInput(VideoStream * stream)
 		return 0;
 	}
 
+//	Info("VideoDecodeInput: return -1 ?");
 	return -1;
 }
 

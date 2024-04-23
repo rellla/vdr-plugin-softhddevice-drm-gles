@@ -919,7 +919,7 @@ bool cSoftHdDevice::SetPlayMode(ePlayMode play_mode)
 */
 int64_t cSoftHdDevice::GetSTC(void)
 {
-    Debug("%s:", __FUNCTION__);
+//    Debug("%s:", __FUNCTION__);
     return::GetSTC();
 }
 
