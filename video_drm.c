@@ -2378,7 +2378,7 @@ void VideoInit(VideoRender * render)
 	unsigned int i;
 
 	if (FindDevice(render)){
-		Error("VideoInit: FindDevice() failed");
+		Fatal("VideoInit: FindDevice() failed");
 	}
 
 	ReadHWPlatform(render);
