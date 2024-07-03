@@ -513,10 +513,10 @@ static int AudioFilterInit(AVCodecContext *AudioCtx)
 
 	// Before filter init set HW parameter.
 	if (AudioCtx->sample_rate != (int)HwSampleRate ||
-		(AudioCtx->channels != (int)HwChannels && 
+		(AudioCtx->ch_layout.nb_channels != (int)HwChannels &&
 		!(AudioDownMix && HwChannels == 2))) {
 
-		err = AlsaSetup(AudioCtx->channels, AudioCtx->sample_rate, 0);
+		err = AlsaSetup(AudioCtx->ch_layout.nb_channels, AudioCtx->sample_rate, 0);
 		if (err)
 			return err;
 	}
@@ -535,9 +535,9 @@ static int AudioFilterInit(AVCodecContext *AudioCtx)
 		Warning("AudioFilterInit: Could not find the abuffer filter.");
 	if (!(abuffersrc_ctx = avfilter_graph_alloc_filter(filter_graph, abuffer, "src")))
 		Warning("AudioFilterInit: Could not allocate the abuffersrc_ctx instance.");
-	av_get_channel_layout_string(ch_layout, sizeof(ch_layout), AudioCtx->channels, AudioCtx->channel_layout);
+	av_channel_layout_describe(&AudioCtx->ch_layout, ch_layout, sizeof(ch_layout));
 	Debug2(L_SOUND, "AudioFilterInit: IN ch_layout %s sample_fmt %s sample_rate %d channels %d",
-		ch_layout, av_get_sample_fmt_name(AudioCtx->sample_fmt), AudioCtx->sample_rate, AudioCtx->channels);
+		ch_layout, av_get_sample_fmt_name(AudioCtx->sample_fmt), AudioCtx->sample_rate, AudioCtx->ch_layout.nb_channels);
 	av_opt_set    (abuffersrc_ctx, "channel_layout", ch_layout,                             AV_OPT_SEARCH_CHILDREN);
 	av_opt_set    (abuffersrc_ctx, "sample_fmt",     av_get_sample_fmt_name(AudioCtx->sample_fmt), AV_OPT_SEARCH_CHILDREN);
 	av_opt_set_q  (abuffersrc_ctx, "time_base",      (AVRational){ 1, AudioCtx->sample_rate }, AV_OPT_SEARCH_CHILDREN);
@@ -566,8 +566,11 @@ static int AudioFilterInit(AVCodecContext *AudioCtx)
 	}
 
 	// aformat
-	av_get_channel_layout_string(ch_layout, sizeof(ch_layout),
-		HwChannels, av_get_default_channel_layout(HwChannels));		// should use IN layout if more then 2 ch!?
+	AVChannelLayout channel_layout;
+	av_channel_layout_default(&channel_layout, HwChannels);
+	av_channel_layout_describe(&channel_layout, ch_layout, sizeof(ch_layout));
+	av_channel_layout_uninit(&channel_layout);
+	// should use IN layout if more then 2 ch!?
 	Debug2(L_SOUND, "AudioFilterInit: OUT AudioDownMix %d HwChannels %d HwSampleRate %d ch_layout %s bytes_per_sample %d",
 		AudioDownMix, HwChannels, HwSampleRate,
 		ch_layout, av_get_bytes_per_sample(AV_SAMPLE_FMT_S16));
@@ -1210,7 +1213,7 @@ void AudioEnqueue(AVFrame *frame)
 		return;
 	}
 
-	int count = frame->nb_samples * frame->channels * AudioBytesProSample;
+	int count = frame->nb_samples * frame->ch_layout.nb_channels * AudioBytesProSample;
 	buffer = (void *)frame->data[0];
 
 	if (AudioCompression) {		// in place operation
@@ -1220,7 +1223,7 @@ void AudioEnqueue(AVFrame *frame)
 		AudioNormalizer(buffer, count);
 	}
 
-	AudioReorderAudioFrame(buffer, count, frame->channels);
+	AudioReorderAudioFrame(buffer, count, frame->ch_layout.nb_channels);
 
 	pthread_mutex_lock(&AudioRbMutex);
 	n = RingBufferWrite(AudioRingBuffer, buffer, count);
@@ -1313,7 +1316,7 @@ in:
 			char errbuf[128];
 			av_strerror(err, errbuf, sizeof(errbuf));
 			Error("AudioFilter: Error submitting the frame to the filter fmt %s channels %d %s",
-				av_get_sample_fmt_name(AudioCtx->sample_fmt), AudioCtx->channels, errbuf);
+				av_get_sample_fmt_name(AudioCtx->sample_fmt), AudioCtx->ch_layout.nb_channels, errbuf);
 			return;
 		} else {
 			Filterchanged = 1;
