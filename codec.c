@@ -127,7 +127,7 @@ void CodecVideoDelDecoder(VideoDecoder * decoder)
 void CodecVideoOpen(VideoDecoder * decoder, int codec_id, AVCodecParameters * Par,
 		AVRational * timebase)
 {
-	AVCodec * codec;
+	const AVCodec * codec;
 	enum AVHWDeviceType type = 0;
 	static AVBufferRef *hw_device_ctx = NULL;
 	int err;
@@ -459,7 +459,7 @@ void CodecAudioDelDecoder(AudioDecoder * decoder)
 void CodecAudioOpen(AudioDecoder * audio_decoder, int codec_id,
 		AVCodecParameters *Par, AVRational * timebase)
 {
-	AVCodec *codec;
+	const AVCodec *codec;
 
 	if (codec_id == AV_CODEC_ID_AC3) {
 		if (!(codec = avcodec_find_decoder_by_name("ac3_fixed"))) {

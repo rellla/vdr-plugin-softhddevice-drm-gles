@@ -234,17 +234,17 @@ void SetPlane(drmModeAtomicReqPtr ModeReq, struct plane *plane)
 void DumpPlaneProperties(struct plane *plane)
 {
 	Info("DumpPlaneProperties (plane_id = %d):", plane->plane_id);
-	Info("  CRTC ID: %lld", plane->properties.crtc_id);
-	Info("  FB ID  : %lld", plane->properties.fb_id);
-	Info("  CRTC X : %lld", plane->properties.crtc_x);
-	Info("  CRTC Y : %lld", plane->properties.crtc_y);
-	Info("  CRTC W : %lld", plane->properties.crtc_w);
-	Info("  CRTC H : %lld", plane->properties.crtc_h);
-	Info("  SRC X  : %lld", plane->properties.src_x);
-	Info("  SRC Y  : %lld", plane->properties.src_y);
-	Info("  SRC W  : %lld", plane->properties.src_w);
-	Info("  SRC H  : %lld", plane->properties.src_h);
-	Info("  ZPOS   : %lld", plane->properties.zpos);
+	Info("  CRTC ID: %"PRIu64"", plane->properties.crtc_id);
+	Info("  FB ID  : %"PRIu64"", plane->properties.fb_id);
+	Info("  CRTC X : %"PRIu64"", plane->properties.crtc_x);
+	Info("  CRTC Y : %"PRIu64"", plane->properties.crtc_y);
+	Info("  CRTC W : %"PRIu64"", plane->properties.crtc_w);
+	Info("  CRTC H : %"PRIu64"", plane->properties.crtc_h);
+	Info("  SRC X  : %"PRIu64"", plane->properties.src_x);
+	Info("  SRC Y  : %"PRIu64"", plane->properties.src_y);
+	Info("  SRC W  : %"PRIu64"", plane->properties.src_w);
+	Info("  SRC H  : %"PRIu64"", plane->properties.src_h);
+	Info("  ZPOS   : %"PRIu64"", plane->properties.zpos);
 }
 
 size_t ReadLineFromFile(char *buf, size_t size, char * file)
@@ -830,19 +830,19 @@ static int FindDevice(VideoRender * render)
 
 	// debug output
 	if (best_primary_video_plane.plane_id) {
-		Debug2(L_DRM, "FindDevice: best_primary_video_plane: plane_id %d, type %s, zpos %lld",
+		Debug2(L_DRM, "FindDevice: best_primary_video_plane: plane_id %d, type %s, zpos %"PRIu64"",
 			best_primary_video_plane.plane_id, best_primary_video_plane.type == DRM_PLANE_TYPE_PRIMARY ? "PRIMARY" : "OVERLAY", best_primary_video_plane.properties.zpos);
 	}
 	if (best_overlay_video_plane.plane_id) {
-		Debug2(L_DRM, "FindDevice: best_overlay_video_plane: plane_id %d, type %s, zpos %lld",
+		Debug2(L_DRM, "FindDevice: best_overlay_video_plane: plane_id %d, type %s, zpos %"PRIu64"",
 			best_overlay_video_plane.plane_id, best_overlay_video_plane.type == DRM_PLANE_TYPE_PRIMARY ? "PRIMARY" : "OVERLAY", best_overlay_video_plane.properties.zpos);
 	}
 	if (best_primary_osd_plane.plane_id) {
-		Debug2(L_DRM, "FindDevice: best_primary_osd_plane: plane_id %d, type %s, zpos %lld",
+		Debug2(L_DRM, "FindDevice: best_primary_osd_plane: plane_id %d, type %s, zpos %"PRIu64"",
 			best_primary_osd_plane.plane_id, best_primary_osd_plane.type == DRM_PLANE_TYPE_PRIMARY ? "PRIMARY" : "OVERLAY", best_primary_osd_plane.properties.zpos);
 	}
 	if (best_overlay_osd_plane.plane_id) {
-		Debug2(L_DRM, "FindDevice: best_overlay_osd_plane: plane_id %d, type %s, zpos %lld",
+		Debug2(L_DRM, "FindDevice: best_overlay_osd_plane: plane_id %d, type %s, zpos %"PRIu64"",
 			best_overlay_osd_plane.plane_id, best_overlay_osd_plane.type == DRM_PLANE_TYPE_PRIMARY ? "PRIMARY" : "OVERLAY", best_overlay_osd_plane.properties.zpos);
 	}
 
@@ -904,7 +904,7 @@ static int FindDevice(VideoRender * render)
 	drmModeFreeEncoder(encoder);
 	drmModeFreeResources(resources);
 
-	Info("FindDevice: DRM setup - CRTC: %i video_plane: %i (%s %lld) osd_plane: %i (%s %lld) use_zpos: %d",
+	Info("FindDevice: DRM setup - CRTC: %i video_plane: %i (%s %"PRIu64") osd_plane: %i (%s %"PRIu64") use_zpos: %d",
 		render->crtc_id, render->planes[VIDEO_PLANE]->plane_id,
 		render->planes[VIDEO_PLANE]->type == DRM_PLANE_TYPE_PRIMARY ? "PRIMARY" : "OVERLAY",
 		render->planes[VIDEO_PLANE]->properties.zpos,
@@ -1456,7 +1456,7 @@ page_flip:
 			SetPlaneZpos(ModeReq, render->planes[VIDEO_PLANE]);
 			SetPlaneZpos(ModeReq, render->planes[OSD_PLANE]);
 
-			Debug2(L_DRM, "Frame2Display: SetPlaneZpos: video->plane_id %d -> zpos %lld, osd->plane_id %d -> zpos %lld",
+			Debug2(L_DRM, "Frame2Display: SetPlaneZpos: video->plane_id %d -> zpos %"PRIu64", osd->plane_id %d -> zpos %"PRIu64"",
 				render->planes[VIDEO_PLANE]->plane_id, render->planes[VIDEO_PLANE]->properties.zpos,
 				render->planes[OSD_PLANE]->plane_id, render->planes[OSD_PLANE]->properties.zpos);
 		}
@@ -1473,7 +1473,7 @@ page_flip:
 		render->planes[OSD_PLANE]->properties.src_h = render->OsdShown ? render->buf_osd->height : 0;
 
 		SetPlane(ModeReq, render->planes[OSD_PLANE]);
-		Debug2(L_DRM, "Frame2Display: SetPlane OSD (fb = %lld)", render->planes[OSD_PLANE]->properties.fb_id);
+		Debug2(L_DRM, "Frame2Display: SetPlane OSD (fb = %"PRIu64")", render->planes[OSD_PLANE]->properties.fb_id);
 		render->buf_osd->dirty = 0;
 	}
 

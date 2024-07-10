@@ -38,10 +38,10 @@ extern int ConfigWritePngs;
 #ifdef WRITE_PNG
 int writeImage(char* filename, int width, int height, void *buffer, char* title)
 {
-	int code = 0;
-	FILE *fp = NULL;
-	png_structp png_ptr = NULL;
-	png_infop info_ptr = NULL;
+	int code;
+	FILE *fp;
+	png_structp png_ptr;
+	png_infop info_ptr;
 
 	// Open file for writing (binary mode)
 	fp = fopen(filename, "wb");
@@ -101,6 +101,7 @@ int writeImage(char* filename, int width, int height, void *buffer, char* title)
 	// End write
 	png_write_end(png_ptr, NULL);
 
+	code = 0;
 finalise:
 	if (fp != NULL) fclose(fp);
 	if (info_ptr != NULL) png_free_data(png_ptr, info_ptr, PNG_FREE_ALL, -1);
