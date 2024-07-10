@@ -1510,7 +1510,7 @@ int PlayVideoPkts(AVPacket * pkt)
 
 	if ((size_t)pkt->size > avpkt->buf->size) {
 		Info("PlayVideoPkts: grow packet buffer size by %d",
-			pkt->size - avpkt->buf->size + AV_INPUT_BUFFER_PADDING_SIZE);
+			(int)(pkt->size - avpkt->buf->size + AV_INPUT_BUFFER_PADDING_SIZE));
 		av_grow_packet(avpkt, pkt->size - avpkt->buf->size +
 			AV_INPUT_BUFFER_PADDING_SIZE);
 	}

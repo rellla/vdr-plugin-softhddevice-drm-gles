@@ -461,9 +461,6 @@ cSoftHdMenu::~cSoftHdMenu()
 void cSoftHdMenu::MainMenu(void)
 {
 	int current;
-	int duped;
-	int dropped;
-	int counter;
 
 	current = Current();			// get current menu item index
 	Clear();				// clear the menu
