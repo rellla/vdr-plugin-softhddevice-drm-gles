@@ -46,10 +46,11 @@ extern "C"
 #define L_DRM              (1 << 4)
 #define L_CODEC            (1 << 5)
 #define L_STILL            (1 << 6)
-#define L_MEDIA            (1 << 7)
-#define L_OPENGL           (1 << 8)
-#define L_OPENGL_TIME      (1 << 9)
-#define L_OPENGL_TIME_ALL  (1 << 10)
+#define L_TRICK            (1 << 7)
+#define L_MEDIA            (1 << 8)
+#define L_OPENGL           (1 << 9)
+#define L_OPENGL_TIME      (1 << 10)
+#define L_OPENGL_TIME_ALL  (1 << 11)
 
 typedef unsigned char uchar;
 
@@ -125,6 +126,9 @@ static inline void Syslog(const int level, const int cat, const char *format, ..
 #ifdef STILL_DEBUG
 	DebugLogLevel |= L_STILL;
 #endif
+#ifdef TRICK_DEBUG
+	DebugLogLevel |= L_TRICK;
+#endif
 #ifdef MEDIA_DEBUG
 	DebugLogLevel |= L_MEDIA;
 #endif
@@ -162,6 +166,9 @@ static inline void Syslog(const int level, const int cat, const char *format, ..
 			break;
 		case L_STILL:
 			strcpy(prefix, "[Still]");
+			break;
+		case L_TRICK:
+			strcpy(prefix, "[Trick]");
 			break;
 		case L_MEDIA:
 			strcpy(prefix, "[Media]");

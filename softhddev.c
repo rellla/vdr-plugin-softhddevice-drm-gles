@@ -1361,7 +1361,7 @@ void StillPicture(const uint8_t * data, int size)
 		CodecVideoOpen(MyVideoStream->Decoder, codec, NULL, NULL);
 		context = 1;
 	}
-	VideoSetTrickSpeed(MyVideoStream->Render, 1);
+	VideoSetTrickSpeed(MyVideoStream->Render, 1, 1);
 
 send:
 	CodecVideoSendPacket(MyVideoStream->Decoder, avpkt);
@@ -1377,7 +1377,7 @@ send:
 	StreamFreezed = 0;
 
 	usleep(100000);
-	VideoSetTrickSpeed(MyVideoStream->Render, 0);
+	VideoSetTrickSpeed(MyVideoStream->Render, 0, 1);
 }
 
 
@@ -1531,11 +1531,11 @@ int PlayVideoPkts(AVPacket * pkt)
 **
 **	@param speed	trick speed
 */
-void TrickSpeed(int speed)
+void TrickSpeed(int speed, int forward)
 {
-	Debug("TrickSpeed: speed %d", speed);
+	Debug("TrickSpeed: speed %d %s", speed, forward ? "forward" : "backward");
 	MyVideoStream->TrickSpeed = speed;
-	VideoSetTrickSpeed(MyVideoStream->Render, speed);
+	VideoSetTrickSpeed(MyVideoStream->Render, speed, forward);
 
 	if (StreamFreezed) {
 		Debug("TrickSpeed: StreamFreezed %d SkipAudio %d", StreamFreezed, SkipAudio);

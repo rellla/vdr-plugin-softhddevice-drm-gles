@@ -26,6 +26,7 @@ CONFIG :=
 #CONFIG += -DDRM_DEBUG			# enable debug messages in drm configuration
 #CONFIG += -DCODEC_DEBUG		# enable debug messages in codec configuration
 #CONFIG += -DSTILL_DEBUG		# still picture debug
+#CONFIG += -DTRICK_DEBUG		# trickspeed debug
 #CONFIG += -DMEDIA_DEBUG		# media player debug
 #CONFIG += -DGL_DEBUG			# enable debug messages OpenGL/ES OSD
 #CONFIG += -DGL_DEBUG_TIME #-DGL_DEBUG_TIME_ALL # enable time measurement debug messages OpenGL/ES OSD

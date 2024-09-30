@@ -937,7 +937,7 @@ void cSoftHdDevice::TrickSpeed(int speed, bool forward)
     Debug("%s: %d %d", __FUNCTION__, speed, forward);
     Debug("TrickSpeed: speed %d %s",
 		speed, forward ? "forward" : "backward");
-    ::TrickSpeed(speed);
+    ::TrickSpeed(speed, forward);
 }
 
 /**

@@ -81,6 +81,8 @@ static pthread_mutex_t PauseMutex;
 static pthread_cond_t WaitCleanCondition;
 static pthread_mutex_t WaitCleanMutex;
 
+static pthread_mutex_t TrickSpeedMutex;
+
 static pthread_t DecodeThread;		///< video decode thread
 
 static pthread_t FilterThread;
@@ -1275,6 +1277,9 @@ static int Frame2Display(VideoRender * render)
 	int64_t video_pts;
 	int i;
 	int dirty = 0; // 0: nothing, 1: osd only, 2: video only, 3: both
+	static int TrickSpeed = 0;
+	static int TrickCounter = 0;
+	static int TrickForward = 1;
 
 	drmModeAtomicReqPtr ModeReq;
 	uint32_t flags = DRM_MODE_PAGE_FLIP_EVENT;
@@ -1303,6 +1308,18 @@ dequeue:
 		}
 		usleep(10000);
 	}
+
+	pthread_mutex_lock(&TrickSpeedMutex);
+	if (render->TrickSpeedChange) {
+		Debug2(L_TRICK, "Frame2Display: TrickSpeed changed! TrickSpeed %d -> %d, TrickCounter %d -> %d, TrickForward %s -> %s",
+		       TrickSpeed, render->TrickSpeed, TrickCounter, render->TrickCounter,
+		       TrickForward ? "forward" : "backward", render->TrickForward ? "forward" : "backward");
+		TrickSpeed = render->TrickSpeed;
+		TrickCounter = render->TrickCounter;
+		TrickForward = render->TrickForward;
+		render->TrickSpeedChange = 0;
+	}
+	pthread_mutex_unlock(&TrickSpeedMutex);
 
 	frame = render->FramesRb[render->FramesRead];
 	render->FramesRead = (render->FramesRead + 1) % VIDEO_SURFACES_MAX;
@@ -2258,10 +2275,16 @@ void VideoPause(VideoRender * render)
 ///	@param hw_render	video hardware render
 ///	@param speed		trick speed (0 = normal)
 ///
-void VideoSetTrickSpeed(VideoRender * render, int speed)
+void VideoSetTrickSpeed(VideoRender * render, int speed, int forward)
 {
-	Debug("VideoSetTrickSpeed: set trick speed %d", speed);
+	Debug("VideoSetTrickSpeed: set trick speed %d %s", speed, forward ? "forward" : "backward");
+	pthread_mutex_lock(&TrickSpeedMutex);
 	render->TrickSpeed = speed;
+	render->TrickCounter = speed;
+	render->TrickForward = forward;
+	render->TrickSpeedChange = 1;
+	pthread_mutex_unlock(&TrickSpeedMutex);
+
 	if (speed) {
 		render->Closing = 0;	// ???
 	}
