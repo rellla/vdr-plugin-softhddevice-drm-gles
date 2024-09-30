@@ -1501,6 +1501,7 @@ static void *DisplayHandlerThread(void * arg)
 {
 	VideoRender * render = (VideoRender *)arg;
 
+	Debug("video: display thread started");
 	pthread_setcancelstate (PTHREAD_CANCEL_ENABLE, NULL);
 	pthread_setcanceltype(PTHREAD_CANCEL_DEFERRED, NULL);
 
@@ -1523,6 +1524,7 @@ static void *DisplayHandlerThread(void * arg)
 			CleanDisplayThread(render);
 		}
 	}
+	Debug("video: display thread stopped");
 	pthread_exit((void *)pthread_self());
 }
 
@@ -1642,8 +1644,7 @@ static void *DecodeHandlerThread(void *arg)
 {
 	VideoRender * render = (VideoRender *)arg;
 
-	Debug("video: display thread started");
-
+	Debug("video: decoding thread started");
 	pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
 	pthread_setcanceltype(PTHREAD_CANCEL_DEFERRED, NULL);
 
@@ -1655,6 +1656,7 @@ static void *DecodeHandlerThread(void *arg)
 			usleep(10000);
 		}
 	}
+	Debug("video: decoding thread stopped");
 	pthread_exit((void *)pthread_self());
 }
 
@@ -1665,15 +1667,15 @@ void VideoThreadExit(void)
 {
 	void *retval;
 
-	Debug("video: video thread canceled");
+	Debug("VideoThreadExit: cancel decoding and display thread");
 
 	if (DecodeThread) {
 		Debug("VideoThreadExit: cancel decode thread");
 		// FIXME: can't cancel locked
 		if (pthread_cancel(DecodeThread))
-			Error("VideoThreadExit: can't queue cancel video display thread");
+			Error("VideoThreadExit: can't cancel decoding thread");
 		if (pthread_join(DecodeThread, &retval) || retval != PTHREAD_CANCELED)
-			Error("VideoThreadExit: can't cancel video display thread");
+			Error("VideoThreadExit: can't cancel decoding thread");
 		DecodeThread = 0;
 
 		pthread_cond_destroy(&PauseCondition);
@@ -1683,9 +1685,9 @@ void VideoThreadExit(void)
 	if (DisplayThread) {
 		Debug("VideoThreadExit: cancel display thread");
 		if (pthread_cancel(DisplayThread))
-			Error("VideoThreadExit: can't cancel DisplayHandlerThread thread");
+			Error("VideoThreadExit: can't cancel display thread");
 		if (pthread_join(DisplayThread, &retval) || retval != PTHREAD_CANCELED)
-			Error("VideoThreadExit: can't cancel video display thread");
+			Error("VideoThreadExit: can't cancel display thread");
 		DisplayThread = 0;
 	}
 }
@@ -1700,7 +1702,7 @@ void VideoThreadWakeup(VideoRender * render, int decoder, int display)
 	Debug("VideoThreadWakeup: VideoThreadWakeup");
 
 	if (decoder && !DecodeThread) {
-		Debug("DisplayThreadWakeup: VideoThreadWakeup");
+		Debug("DisplayThreadWakeup: wakeup decoding thread");
 		pthread_cond_init(&PauseCondition,NULL);
 		pthread_mutex_init(&PauseMutex, NULL);
 
@@ -1712,7 +1714,7 @@ void VideoThreadWakeup(VideoRender * render, int decoder, int display)
 	}
 
 	if (display && !DisplayThread) {
-		Debug("VideoThreadWakeup: DisplayThreadWakeup");
+		Debug("VideoThreadWakeup: wakeup display thread");
 		pthread_create(&DisplayThread, NULL, DisplayHandlerThread, render);
 		pthread_setname_np(DisplayThread, "display thread");
 	}
@@ -1874,6 +1876,8 @@ static void *FilterHandlerThread(void * arg)
 	AVFrame *frame = 0;
 	int ret = 0;
 
+	Debug("video: video filter thread started");
+
 	while (1) {
 		while (!atomic_read(&render->FramesDeintFilled) && !render->Closing) {
 			usleep(10000);
@@ -1954,9 +1958,9 @@ fillframe:
 closing:
 	avfilter_graph_free(&render->filter_graph);
 	render->Filter_Frames = 0;
-	Debug("FilterHandlerThread: Thread Exit.");
 	pthread_cleanup_push(ThreadExitHandler, render);
 	pthread_cleanup_pop(1);
+	Debug("video: video filter thread stopped");
 	pthread_exit((void *)pthread_self());
 }
 
@@ -2121,12 +2125,11 @@ fillframe:
 		frame->format == AV_PIX_FMT_DRM_PRIME && !render->NoHwDeint)) {
 
 		if (!FilterThread) {
-			Debug2(L_CODEC, "VideoRenderFrame: try to create FilterThread");
+			Debug("VideoRenderFrame: wakeup filter thread");
 			if (VideoFilterInit(render, video_ctx, frame)) {
 				av_frame_free(&frame);
 				return;
 			} else {
-				Debug2(L_CODEC, "VideoRenderFrame: FilterThread created");
 				pthread_create(&FilterThread, NULL, FilterHandlerThread, render);
 				pthread_setname_np(FilterThread, "filter thread");
 			}
