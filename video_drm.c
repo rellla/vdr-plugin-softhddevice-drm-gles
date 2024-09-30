@@ -1261,7 +1261,12 @@ dequeue:
 ///
 ///	Draw a video frame.
 ///
-static void Frame2Display(VideoRender * render)
+//	retval 0	modesetting and commit was done, need to process outstanding DRM events
+//	retval 1	no new frames or OSD, no modesetting was done
+//	retval -1	something went wrong, no modesetting was done
+//
+///
+static int Frame2Display(VideoRender * render)
 {
 	struct drm_buf *buf = 0;
 	AVFrame *frame = NULL;
@@ -1269,12 +1274,13 @@ static void Frame2Display(VideoRender * render)
 	int64_t audio_pts;
 	int64_t video_pts;
 	int i;
+	int dirty = 0; // 0: nothing, 1: osd only, 2: video only, 3: both
 
 	drmModeAtomicReqPtr ModeReq;
 	uint32_t flags = DRM_MODE_PAGE_FLIP_EVENT;
 	if (!(ModeReq = drmModeAtomicAlloc())) {
 		Error("Frame2Display: cannot allocate atomic request (%d): %m", errno);
-		return;
+		return -1;
 	}
 
 	if (render->Closing) {
@@ -1318,7 +1324,7 @@ dequeue:
 
 		if (SetupFB(render, buf, primedata, 1)) {
 			av_frame_free(&frame);
-			return;
+			return -1;
 		}
 	}
 
@@ -1446,6 +1452,7 @@ page_flip:
 	render->planes[VIDEO_PLANE]->properties.src_h = buf->height;
 
 	SetPlane(ModeReq, render->planes[VIDEO_PLANE]);
+	dirty += 2;
 
 // handle the osd plane
 	// We had draw activity on the osd buffer
@@ -1473,10 +1480,19 @@ page_flip:
 		render->planes[OSD_PLANE]->properties.src_h = render->OsdShown ? render->buf_osd->height : 0;
 
 		SetPlane(ModeReq, render->planes[OSD_PLANE]);
+		dirty += 1;
 		Debug2(L_DRM, "Frame2Display: SetPlane OSD (fb = %"PRIu64")", render->planes[OSD_PLANE]->properties.fb_id);
 		render->buf_osd->dirty = 0;
 	}
 
+	// return without an atomic commit (no video frame and osd activity)
+	if (!dirty) {
+		Debug2(L_DRM, "Frame2Display: Nothing to commit");
+		drmModeAtomicFree(ModeReq);
+		return 1;
+	}
+
+	// do the atomic commit
 	if (drmModeAtomicCommit(render->fd_drm, ModeReq, flags, NULL) != 0) {
 		DumpPlaneProperties(render->planes[OSD_PLANE]);
 		if (render->act_buf)
@@ -1484,6 +1500,7 @@ page_flip:
 
 		drmModeAtomicFree(ModeReq);
 		Error("Frame2Display: page flip failed (%d): %m", errno);
+		return -1;
 	}
 
 	drmModeAtomicFree(ModeReq);
@@ -1492,6 +1509,8 @@ page_flip:
 		av_frame_free(&render->lastframe);
 	if (render->act_buf && (render->act_buf->fb_id != render->buf_black.fb_id))
 		render->lastframe = render->act_buf->frame;
+
+	return 0;
 }
 
 ///
@@ -1514,10 +1533,12 @@ static void *DisplayHandlerThread(void * arg)
 			pthread_mutex_unlock(&PauseMutex);
 		}
 
-		Frame2Display(render);
+		int ret = Frame2Display(render);
 
-		if (drmHandleEvent(render->fd_drm, &render->ev) != 0)
-			Error("DisplayHandlerThread: drmHandleEvent failed!");
+		if (!ret) {
+			if (drmHandleEvent(render->fd_drm, &render->ev) != 0)
+				Error("DisplayHandlerThread: drmHandleEvent failed!");
+		}
 
 		if (render->Closing &&
 		    (!render->act_buf || (render->act_buf->fb_id == render->buf_black.fb_id))) {
