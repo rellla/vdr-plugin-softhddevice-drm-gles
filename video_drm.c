@@ -1369,9 +1369,12 @@ audioclock:
 		goto audioclock;
 	}
 
+	if (render->TrickSpeed)
+		goto skip_sync;
+
 	int diff = video_pts - audio_pts - VideoAudioDelay;
 
-	if (diff < -5 && !render->TrickSpeed && !(abs(diff) > 5000)) {
+	if (diff < -5 && !(abs(diff) > 5000)) {
 		render->FramesDropped++;
 		Debug2(L_AV_SYNC, "FrameDropped (drop %d, dup %d) Pkts %d deint %d Frames %d AudioUsedBytes %d audio %s video %s Delay %dms diff %dms",
 			render->FramesDropped, render->FramesDuped,
@@ -1385,7 +1388,7 @@ audioclock:
 		goto dequeue;
 	}
 
-	if (diff > 35 && !render->TrickSpeed && !(abs(diff) > 5000)) {
+	if (diff > 35 && !(abs(diff) > 5000)) {
 		render->FramesDuped++;
 		Debug2(L_AV_SYNC, "FrameDuped (drop %d, dup %d) Pkts %d deint %d Frames %d AudioUsedBytes %d audio %s video %s Delay %dms diff %dms",
 			render->FramesDropped, render->FramesDuped,
@@ -1410,9 +1413,9 @@ audioclock:
 				av_frame_free(&frame);
 	}
 
-	if (!render->TrickSpeed)
-		render->StartCounter++;
+	render->StartCounter++;
 
+skip_sync:
 	if (render->TrickSpeed)
 		usleep(20000 * render->TrickSpeed);
 
