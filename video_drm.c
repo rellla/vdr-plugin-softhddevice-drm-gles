@@ -1321,9 +1321,16 @@ dequeue:
 	}
 	pthread_mutex_unlock(&TrickSpeedMutex);
 
+	// get new frame
 	frame = render->FramesRb[render->FramesRead];
-	render->FramesRead = (render->FramesRead + 1) % VIDEO_SURFACES_MAX;
-	atomic_dec(&render->FramesFilled);
+	// drop frame from the list, if a new TrickSpeed turn happens
+	if (!TrickSpeed || (TrickSpeed && TrickSpeed == TrickCounter)) {
+		render->FramesRead = (render->FramesRead + 1) % VIDEO_SURFACES_MAX;
+		atomic_dec(&render->FramesFilled);
+	} else {
+		Debug("Frame2Display: TrickSpeed %d, duplicate frame", TrickSpeed);
+	}
+
 	primedata = (AVDRMFrameDescriptor *)frame->data[0];
 
 	// search or made fd / FB combination
@@ -1346,8 +1353,14 @@ dequeue:
 	}
 
 	render->pts = frame->pts;
+	if (TrickSpeed) {
+		Debug("Frame2Display: TrickSpeed %d, skip sync", TrickSpeed);
+		render->StartCounter = 0;
+		goto skip_sync;
+	}
+
 	video_pts = frame->pts * 1000 * av_q2d(*render->timebase);
-	if(!render->StartCounter && !render->Closing && !render->TrickSpeed) {
+	if(!render->StartCounter && !render->Closing) {
 		Debug("Frame2Display: start PTS %s", Timestamp2String(video_pts));
 avready:
 		if (AudioVideoReady(video_pts)) {
@@ -1364,13 +1377,10 @@ audioclock:
 	if (render->Closing)
 		goto closing;
 
-	if (audio_pts == (int64_t)AV_NOPTS_VALUE && !render->TrickSpeed) {
+	if (audio_pts == (int64_t)AV_NOPTS_VALUE) {
 		usleep(20000);
 		goto audioclock;
 	}
-
-	if (render->TrickSpeed)
-		goto skip_sync;
 
 	int diff = video_pts - audio_pts - VideoAudioDelay;
 
@@ -1416,9 +1426,6 @@ audioclock:
 	render->StartCounter++;
 
 skip_sync:
-	if (render->TrickSpeed)
-		usleep(20000 * render->TrickSpeed);
-
 	buf->frame = frame;
 
 // handle the video plane
@@ -1525,10 +1532,18 @@ page_flip:
 
 	drmModeAtomicFree(ModeReq);
 
-	if (render->lastframe)
-		av_frame_free(&render->lastframe);
-	if (render->act_buf && (render->act_buf->fb_id != render->buf_black.fb_id))
-		render->lastframe = render->act_buf->frame;
+	if (!TrickSpeed || (TrickSpeed && TrickSpeed == TrickCounter)) {
+		if (render->lastframe)
+			av_frame_free(&render->lastframe);
+		if (render->act_buf && (render->act_buf->fb_id != render->buf_black.fb_id))
+			render->lastframe = render->act_buf->frame;
+	}
+
+	if (TrickSpeed) {
+		TrickCounter--;
+		if (TrickCounter <= 0)
+			TrickCounter = TrickSpeed;
+	}
 
 	return 0;
 }
@@ -2260,7 +2275,12 @@ void VideoSetClosing(VideoRender * render)
 	render->StartCounter = 0;
 	render->FramesDuped = 0;
 	render->FramesDropped = 0;
+	pthread_mutex_lock(&TrickSpeedMutex);
 	render->TrickSpeed = 0;
+	render->TrickCounter = 0;
+	render->TrickForward = 1;
+	render->TrickSpeedChange = 1;
+	pthread_mutex_unlock(&TrickSpeedMutex);
 }
 
 ///
@@ -2269,6 +2289,12 @@ void VideoSetClosing(VideoRender * render)
 void VideoPause(VideoRender * render)
 {
 	Debug("VideoPause:");
+	pthread_mutex_lock(&TrickSpeedMutex);
+	render->TrickSpeed = 0;
+	render->TrickCounter = 0;
+	render->TrickForward = 1;
+	render->TrickSpeedChange = 1;
+	pthread_mutex_unlock(&TrickSpeedMutex);
 	render->VideoPaused = 1;
 }
 
@@ -2303,10 +2329,12 @@ void VideoSetTrickSpeed(VideoRender * render, int speed, int forward)
 void VideoPlay(VideoRender * render)
 {
 	Debug("VideoPlay:");
-	if (render->TrickSpeed) {
-		render->TrickSpeed = 0;
-	}
-
+	pthread_mutex_lock(&TrickSpeedMutex);
+	render->TrickSpeed = 0;
+	render->TrickCounter = 0;
+	render->TrickForward = 1;
+	render->TrickSpeedChange = 1;
+	pthread_mutex_unlock(&TrickSpeedMutex);
 	StartVideo(render);
 }
 
