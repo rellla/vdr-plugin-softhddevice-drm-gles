@@ -66,6 +66,7 @@ static volatile char StreamFreezed;	///< stream freezed
 
 #define VIDEO_BUFFER_SIZE (512 * 1024)	///< video PES buffer default size
 #define VIDEO_PACKET_MAX 192		///< max number of video packets
+// #define H264_EOS_TRICKSPEED 1
 
 /**
 **	Video output stream device structure.	Parser, decoder, display.
@@ -546,7 +547,10 @@ int PlayAudio(const uint8_t * data, int size, uint8_t id)
 	// hard limit buffer full: don't overrun audio buffers on replay
 	// stream freezed
 	if ((AudioFreeBytes() < AUDIO_MIN_BUFFER_FREE) || (StreamFreezed)){
-		Debug("PlayAudio: StreamFreezed");
+		if (StreamFreezed)
+			Debug("PlayAudio: StreamFreezed");
+		else
+			Debug("PlayAudio: AudioFreeBytes %d < AUDIO_MIN_BUFFER_FREE %d", AudioFreeBytes(), AUDIO_MIN_BUFFER_FREE);
 		return 0;
 	}
 	if (NewAudioStream) {
@@ -1006,7 +1010,7 @@ static void VideoPacketExit(VideoStream * stream)
 **	@param data	data of pes packet
 **	@param size	size of pes packet
 */
-static void VideoEnqueue(VideoStream * stream, int64_t pts, const void *data,
+static void VideoEnqueue(VideoStream * stream, int64_t pts, int64_t dts, const void *data,
 		int size)
 {
 	AVPacket *avpkt;
@@ -1015,13 +1019,15 @@ static void VideoEnqueue(VideoStream * stream, int64_t pts, const void *data,
 
 	if (pts != AV_NOPTS_VALUE) {
 		if (avpkt->size) {
+			pthread_mutex_lock(&PktsLockMutex);
 			stream->PacketWrite = (stream->PacketWrite + 1) % VIDEO_PACKET_MAX;
 			atomic_inc(&stream->PacketsFilled);
+			pthread_mutex_unlock(&PktsLockMutex);
+			avpkt = &stream->PacketRb[stream->PacketWrite];
 		}
-		avpkt = &stream->PacketRb[stream->PacketWrite];
 		avpkt->size = 0;
 		avpkt->pts = pts;
-		avpkt->dts = AV_NOPTS_VALUE;
+		avpkt->dts = dts;
 	}
 
 	if ((size_t)(avpkt->size + size) >= avpkt->buf->size) {
@@ -1117,14 +1123,43 @@ int VideoDecodeInput(VideoStream * stream)
 			return -1;
 		}
 		avpkt = &stream->PacketRb[stream->PacketRead];
-		if (!CodecVideoSendPacket(stream->Decoder, avpkt)) {
-			stream->PacketRead = (stream->PacketRead + 1) % VIDEO_PACKET_MAX;
-			atomic_dec(&stream->PacketsFilled);
+
+		if (!CodecVideoSendPacket(stream->Decoder, avpkt)) { // packet could be sent
+			// TODO: which TrickSpeeds do need the flush?
+			if (stream->CodecID == AV_CODEC_ID_H264 &&
+			    stream->Render->TrickSpeed &&
+			    !stream->Render->TrickForward) {
+				int timeout = 10;
+				CodecVideoSendPacket(stream->Decoder, NULL); // flush the decoder to force receive frame
+receive:
+				if (CodecVideoReceiveFrame(stream->Decoder, 0)) { // frame not ready
+					if (timeout <= 0) {
+						CodecVideoFlushBuffers(stream->Decoder);
+						stream->PacketRead = (stream->PacketRead + 1) % VIDEO_PACKET_MAX;
+						atomic_dec(&stream->PacketsFilled);
+						pthread_mutex_unlock(&PktsLockMutex);
+						return 0;
+					} else {
+						usleep(2000); // TODO: give the decoder some time to process the packet
+						timeout--;
+						goto receive;
+					}
+				} else { // we received a frame, flush buffers
+					CodecVideoFlushBuffers(stream->Decoder);
+					stream->PacketRead = (stream->PacketRead + 1) % VIDEO_PACKET_MAX;
+					atomic_dec(&stream->PacketsFilled);
+					pthread_mutex_unlock(&PktsLockMutex);
+					return 0;
+				}
+			} else {
+				stream->PacketRead = (stream->PacketRead + 1) % VIDEO_PACKET_MAX;
+				atomic_dec(&stream->PacketsFilled);
+			}
 		}
 		pthread_mutex_unlock(&PktsLockMutex);
 
 		if (!stream->NewStream)
-			CodecVideoReceiveFrame(stream->Decoder, 0);
+			CodecVideoReceiveFrame(stream->Decoder, 0); // 0: ok, 1: send again, -1: sth went wrong
 
 		return 0;
 	}
@@ -1160,6 +1195,7 @@ int PlayVideo(const uint8_t * data, int size)
 {
 	VideoStream * stream = MyVideoStream;
 	int64_t pts = AV_NOPTS_VALUE;
+	int64_t dts = AV_NOPTS_VALUE;
 	int i, n;
 
 	if (StreamFreezed) {
@@ -1168,6 +1204,17 @@ int PlayVideo(const uint8_t * data, int size)
 
 	// must be a PES video start code
 	if (size < 9 || !data || data[0] || data[1] || data[2] != 0x01 || data[3] >> 4 != 0x0e) {
+		return size;
+	}
+
+	n = PesHeadLength(data);	// PES header size
+	if (size < n) {
+		Debug2(L_CODEC, "PlayVideo: invalid PES video packet %d/%d", n, size);
+		return size;
+	}
+
+	if (size == n) {
+		Debug2(L_CODEC, "PlayVideo: empty PES video packet");
 		return size;
 	}
 
@@ -1182,7 +1229,11 @@ int PlayVideo(const uint8_t * data, int size)
 			0xFE) << 14 | data[12] << 7 | (data[13] & 0xFE) >> 1;
 	}
 
-	n = PesHeadLength(data);	// PES header size
+	// get dts
+	if (data[7] & 0x40) {
+		dts = (int64_t) (data[14] & 0x0E) << 29 | data[15] << 22 | (data[16] &
+			0xFE) << 14 | data[17] << 7 | (data[18] & 0xFE) >> 1;
+	}
 
 	for (i = 0; (i < 2) && (i + 4 < size); i++) {
 		// ES start code 0x00 0x00 0x01
@@ -1204,7 +1255,6 @@ int PlayVideo(const uint8_t * data, int size)
 					       data[i + n + 9],
 					       data[i + n + 10]);
 					stream->CodecID = AV_CODEC_ID_MPEG2VIDEO;
-					goto newstream;
 				} else if (data[i + n + 3] == 0x09 && (data[i + n + 4] == 0x10 || data[i + n + 4] == 0xF0 || data[i + n + 10] == 0x64)) {
 				// H264 I-Frame
 					Debug("video: H264 detected");
@@ -1221,7 +1271,6 @@ int PlayVideo(const uint8_t * data, int size)
 					       data[i + n + 9],
 					       data[i + n + 10]);
 					stream->CodecID = AV_CODEC_ID_H264;
-					goto newstream;
 				} else if (data[i + n + 3] == 0x46 && (data[i + n + 5] == 0x10 || data[i + n + 5] == 0x50 || data[i + n + 10] == 0x40)) {
 				// HEVC I-Frame
 					Debug("video: hevc detected");
@@ -1238,11 +1287,6 @@ int PlayVideo(const uint8_t * data, int size)
 					       data[i + n + 9],
 					       data[i + n + 10]);
 					stream->CodecID = AV_CODEC_ID_HEVC;
-newstream:
-					stream->NewStream = 1;
-					stream->timebase.den = 90000;
-					stream->timebase.num = 1;
-					VideoEnqueue(stream, pts, data + i + n, size - i - n);
 				} else {
 				// Unknown Frame
 					Debug2(L_CODEC, "video: unknown startcode detected: 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x",
@@ -1257,10 +1301,24 @@ newstream:
 					       data[i + n + 8],
 					       data[i + n + 9],
 					       data[i + n + 10]);
+					return size;
 				}
-			} else {
-				VideoEnqueue(stream, pts, data + i + n, size - i - n);
+				stream->NewStream = 1;
+				stream->timebase.den = 90000;
+				stream->timebase.num = 1;
+#ifdef H264_EOS_TRICKSPEED
+			} else { // stream->CodecID != AV_CODEC_ID_NONE
+				if (stream->CodecID == AV_CODEC_ID_H264 && stream->Render->TrickSpeed && pts != (int64_t)AV_NOPTS_VALUE) {
+					static uint8_t seq_end_h264[] = { 0x00, 0x00, 0x00, 0x01, 0x0A };
+					if ((data[i + n + 9] & 0x1F) == 0x07) {
+//						Debug2(L_CODEC, "video: H264 Eos TrickSpeed, TrickSpeed %d (filled pkts %d)",
+//						       stream->Render->TrickSpeed, atomic_read(&stream->PacketsFilled));
+						VideoEnqueue(stream, AV_NOPTS_VALUE, AV_NOPTS_VALUE, seq_end_h264, sizeof(seq_end_h264));
+					}
+				}
+#endif
 			}
+			VideoEnqueue(stream, pts, dts, data + i + n, size - i - n);
 			return size;
 		}
 	}
@@ -1271,7 +1329,7 @@ newstream:
 	}
 
 	// complete last frame
-	VideoEnqueue(stream, pts, data + n, size - n);
+	VideoEnqueue(stream, pts, dts, data + n, size - n);
 	return size;
 }
 
@@ -1542,6 +1600,7 @@ void TrickSpeed(int speed, int forward)
 		ClearAudio();
 	}
 	StreamFreezed = 0;
+//	VideoThreadWakeup(MyVideoStream->Render, 1, 1);
 }
 
 /**
@@ -1551,7 +1610,7 @@ void Clear(void)
 {
 	Debug("Clear(void)");
 	ClearVideo(MyVideoStream);
-	VideoSetClosing(MyVideoStream->Render);		//This should more tested
+	VideoSetClosing(MyVideoStream->Render);
 	ClearAudio();
 }
 
@@ -1565,6 +1624,7 @@ void Play(void)
 	StreamFreezed = 0;
 	AudioPlay();
 	VideoPlay(MyVideoStream->Render);
+//	VideoThreadWakeup(MyVideoStream->Render, 1, 1);
 }
 
 /**
@@ -1688,6 +1748,7 @@ int SetPlayMode(int play_mode)
 		}
 		StreamFreezed = 0;
 		SkipAudio = 0;
+		AudioPlay();
 		break;
 	case 1:			// audio/video
 		VideoThreadWakeup(MyVideoStream->Render, 1, 1);

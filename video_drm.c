@@ -82,6 +82,7 @@ static pthread_cond_t WaitCleanCondition;
 static pthread_mutex_t WaitCleanMutex;
 
 static pthread_mutex_t TrickSpeedMutex;
+static pthread_mutex_t VideoClockMutex;
 
 static pthread_t DecodeThread;		///< video decode thread
 
@@ -100,6 +101,19 @@ static void ReleaseFrame( __attribute__ ((unused)) void *opaque, uint8_t *data)
 
 	av_free(primedata);
 }
+
+/*
+static void DumpFramesRb(VideoRender *render)
+{
+	for (int i = 0; i < VIDEO_SURFACES_MAX; i++) {
+		AVFrame *frame = render->FramesRb[i];
+		if (frame && frame->pts != AV_NOPTS_VALUE)
+			Debug("Dump FramesRb: %d pts %s", i, Timestamp2String(frame->pts * 1000 * av_q2d(*render->timebase)));
+		else if (frame)
+			Debug("Dump FramesRb: %d pts %s", i, Timestamp2String(AV_NOPTS_VALUE));
+	}
+}
+*/
 
 static void ThreadExitHandler( __attribute__ ((unused)) void * arg)
 {
@@ -1231,10 +1245,6 @@ static void CleanDisplayThread(VideoRender * render)
 	AVFrame *frame;
 	int i;
 
-	if (render->lastframe) {
-		av_frame_free(&render->lastframe);
-	}
-
 dequeue:
 	if (atomic_read(&render->FramesFilled)) {
 		frame = render->FramesRb[render->FramesRead];
@@ -1243,6 +1253,12 @@ dequeue:
 		av_frame_free(&frame);
 		goto dequeue;
 	}
+
+	if (render->lastframe)
+		av_frame_free(&render->lastframe);
+
+	VideoSetClock(render, AV_NOPTS_VALUE);
+	// DumpFramesRb(render);
 
 	// Destroy FBs
 	if (render->buffers) {
@@ -1300,15 +1316,39 @@ dequeue:
 	while (!atomic_read(&render->FramesFilled)) {
 		if (render->Closing)
 			goto closing;
+
+		pthread_mutex_lock(&TrickSpeedMutex);
+		if (render->TrickSpeedChange) {
+			Debug2(L_TRICK, "Frame2Display: TrickSpeed changed! TrickSpeed %d -> %d, TrickCounter %d -> %d, TrickForward %s -> %s",
+			       TrickSpeed, render->TrickSpeed, TrickCounter, render->TrickCounter,
+			       TrickForward ? "forward" : "backward", render->TrickForward ? "forward" : "backward");
+			TrickSpeed = render->TrickSpeed;
+			TrickCounter = render->TrickCounter;
+			TrickForward = render->TrickForward;
+			render->TrickSpeedChange = 0;
+		}
+		pthread_mutex_unlock(&TrickSpeedMutex);
+
 		// We had draw activity on the osd buffer
-		if (render->buf_osd && render->buf_osd->dirty) {
+		if (render->buf_osd && render->buf_osd->dirty && !TrickSpeed) {
 			Debug2(L_DRM, "Frame2Display: no video, set a black FB instead");
 			buf = &render->buf_black;
 			goto page_flip;
 		}
+
+		// We are in trickspeed mode, don't wait for new frames
+		if (TrickSpeed && TrickSpeed != TrickCounter)
+			break;
+
+		if (TrickSpeed) {
+			Debug2(L_TRICK, "Frame2Display: wait for frames in TrickSpeed - FramesRead %d, FramesWrite %d", render->FramesRead, render->FramesWrite);
+//			DumpFramesRb(render);
+		}
+
 		usleep(10000);
 	}
 
+	// TODO: check if this second test is needed, could be coded better
 	pthread_mutex_lock(&TrickSpeedMutex);
 	if (render->TrickSpeedChange) {
 		Debug2(L_TRICK, "Frame2Display: TrickSpeed changed! TrickSpeed %d -> %d, TrickCounter %d -> %d, TrickForward %s -> %s",
@@ -1321,14 +1361,26 @@ dequeue:
 	}
 	pthread_mutex_unlock(&TrickSpeedMutex);
 
-	// get new frame
-	frame = render->FramesRb[render->FramesRead];
-	// drop frame from the list, if a new TrickSpeed turn happens
-	if (!TrickSpeed || (TrickSpeed && TrickSpeed == TrickCounter)) {
+	if (!TrickSpeed) {
+		// get new frame
+		frame = render->FramesRb[render->FramesRead];
 		render->FramesRead = (render->FramesRead + 1) % VIDEO_SURFACES_MAX;
 		atomic_dec(&render->FramesFilled);
 	} else {
-		Debug("Frame2Display: TrickSpeed %d, duplicate frame", TrickSpeed);
+		// get next frame from the Ringbuffer, if this is a new TrickSpeed turn
+		if (TrickSpeed == TrickCounter) {
+			Debug2(L_TRICK, "Frame2Display: TrickSpeed %d TrickCounter %d, get new frame %d", TrickSpeed, TrickCounter, render->FramesRead);
+			frame = render->FramesRb[render->FramesRead];
+			render->FramesRead = (render->FramesRead + 1) % VIDEO_SURFACES_MAX;
+			atomic_dec(&render->FramesFilled);
+		} else {
+			if (!render->lastframe) {
+				Error("Frame2Display: no lastframe, this should not happen?!");
+				return -1;
+			}
+			frame = render->lastframe;
+			Debug2(L_TRICK, "Frame2Display: TrickSpeed %d TrickCounter %d, duplicate frame", TrickSpeed, TrickCounter);
+		}
 	}
 
 	primedata = (AVDRMFrameDescriptor *)frame->data[0];
@@ -1352,9 +1404,9 @@ dequeue:
 		}
 	}
 
-	render->pts = frame->pts;
+	VideoSetClock(render, frame->pts);
 	if (TrickSpeed) {
-		Debug("Frame2Display: TrickSpeed %d, skip sync", TrickSpeed);
+//		DumpFramesRb(render);
 		render->StartCounter = 0;
 		goto skip_sync;
 	}
@@ -1532,11 +1584,22 @@ page_flip:
 
 	drmModeAtomicFree(ModeReq);
 
-	if (!TrickSpeed || (TrickSpeed && TrickSpeed == TrickCounter)) {
+	if (!TrickSpeed) {
 		if (render->lastframe)
 			av_frame_free(&render->lastframe);
-		if (render->act_buf && (render->act_buf->fb_id != render->buf_black.fb_id))
+		if (render->act_buf && render->act_buf->fb_id != render->buf_black.fb_id)
 			render->lastframe = render->act_buf->frame;
+	} else {
+		if (TrickSpeed == TrickCounter) {
+			if (render->lastframe)
+				av_frame_free(&render->lastframe);
+			if (render->act_buf && render->act_buf->fb_id != render->buf_black.fb_id)
+				render->lastframe = render->act_buf->frame;
+			else {
+				Error("Frame2Display: no render->act_buf->frame, this should not happen?!");
+				return -1;
+			}
+		}
 	}
 
 	if (TrickSpeed) {
@@ -1916,6 +1979,7 @@ void EnqueueFB(VideoRender * render, AVFrame *inframe)
 	render->FramesRb[render->FramesWrite] = frame;
 	render->FramesWrite = (render->FramesWrite + 1) % VIDEO_SURFACES_MAX;
 	atomic_inc(&render->FramesFilled);
+//	DumpFramesRb(render);
 	pthread_mutex_unlock(&DisplayQueue);
 
 	if (render->enqueue_buffer == VIDEO_SURFACES_MAX + 1)
@@ -2001,6 +2065,7 @@ fillframe:
 					render->FramesRb[render->FramesWrite] = filt_frame;
 					render->FramesWrite = (render->FramesWrite + 1) % VIDEO_SURFACES_MAX;
 					atomic_inc(&render->FramesFilled);
+//					DumpFramesRb(render);
 					pthread_mutex_unlock(&DisplayQueue);
 					render->Filter_Frames--;
 				}
@@ -2206,17 +2271,27 @@ fillframe:
 				render->FramesRb[render->FramesWrite] = frame;
 				render->FramesWrite = (render->FramesWrite + 1) % VIDEO_SURFACES_MAX;
 				atomic_inc(&render->FramesFilled);
+//				DumpFramesRb(render);
 				pthread_mutex_unlock(&DisplayQueue);
 			} else {
 				pthread_mutex_unlock(&DisplayQueue);
 				usleep(10000);
 				goto fillframe;
 			}
-
 		} else {
 			EnqueueFB(render, frame);
 		}
 	}
+}
+
+///
+///	Set video clock.
+///
+void VideoSetClock(VideoRender * render, int64_t pts)
+{
+	pthread_mutex_lock(&VideoClockMutex);
+	render->pts = pts;
+	pthread_mutex_unlock(&VideoClockMutex);
 }
 
 ///
@@ -2229,9 +2304,11 @@ fillframe:
 ///
 int64_t VideoGetClock(const VideoRender * render)
 {
-	Debug("VideoGetClock: %s",
-		Timestamp2String(render->pts * 1000 * av_q2d(*render->timebase)));
-	return render->pts;
+	int64_t pts;
+	pthread_mutex_lock(&VideoClockMutex);
+	pts = render->pts;
+	pthread_mutex_unlock(&VideoClockMutex);
+	return pts;
 }
 
 ///
@@ -2258,13 +2335,19 @@ void VideoSetClosing(VideoRender * render)
 	Debug("VideoSetClosing: buffers %d StartCounter %d",
 		render->buffers, render->StartCounter);
 
+	pthread_mutex_lock(&TrickSpeedMutex);
+	render->TrickSpeed = 0;
+	render->TrickCounter = 0;
+	render->TrickForward = 1;
+	render->TrickSpeedChange = 1;
+	pthread_mutex_unlock(&TrickSpeedMutex);
+
 	if (render->buffers){
 		render->Closing = 1;
 
 		if (render->VideoPaused) {
 			StartVideo(render);
 		}
-
 
 		pthread_mutex_lock(&WaitCleanMutex);
 		Debug("VideoSetClosing: pthread_cond_wait");
@@ -2275,12 +2358,6 @@ void VideoSetClosing(VideoRender * render)
 	render->StartCounter = 0;
 	render->FramesDuped = 0;
 	render->FramesDropped = 0;
-	pthread_mutex_lock(&TrickSpeedMutex);
-	render->TrickSpeed = 0;
-	render->TrickCounter = 0;
-	render->TrickForward = 1;
-	render->TrickSpeedChange = 1;
-	pthread_mutex_unlock(&TrickSpeedMutex);
 }
 
 ///

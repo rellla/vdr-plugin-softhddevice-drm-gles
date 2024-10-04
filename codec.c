@@ -262,64 +262,36 @@ void CodecVideoClose(VideoDecoder * decoder)
 **	@param decoder	video decoder data
 **	@param avpkt	video packet
 **
-**	@returns 1 if packet must send again.
+**	@returns 1 packet not accepted, first receive frame and send packet again
+**	@returns 0 packet sent
+**	@returns -1 sth else went wrong
 */
 int CodecVideoSendPacket(VideoDecoder * decoder, const AVPacket * avpkt)
 {
 	int ret = AVERROR_DECODER_NOT_FOUND;
 
-#if 0
-	if (!decoder->VideoCtx->extradata_size) {
-		AVBSFContext *bsf_ctx;
-		const AVBitStreamFilter *f;
-		int extradata_size;
-		uint8_t *extradata;
-
-		f = av_bsf_get_by_name("extract_extradata");
-		if (!f)
-			Error("extradata av_bsf_get_by_name failed!");
-
-		if (av_bsf_alloc(f, &bsf_ctx) < 0)
-			Error("extradata av_bsf_alloc failed!");
-
-		bsf_ctx->par_in->codec_id = decoder->VideoCtx->codec_id;
-
-		if (av_bsf_init(bsf_ctx) < 0)
-			Error("extradata av_bsf_init failed!");
-
-		if (av_bsf_send_packet(bsf_ctx, avpkt) < 0)
-			Error("extradata av_bsf_send_packet failed!");
-
-		if (av_bsf_receive_packet(bsf_ctx, avpkt) < 0)
-			Error("extradata av_bsf_send_packet failed!");
-
-		extradata = av_packet_get_side_data(avpkt, AV_PKT_DATA_NEW_EXTRADATA,
-			&extradata_size);
-
-		decoder->VideoCtx->extradata = av_mallocz(extradata_size + AV_INPUT_BUFFER_PADDING_SIZE);
-		memcpy(decoder->VideoCtx->extradata, extradata, extradata_size);
-		decoder->VideoCtx->extradata_size = extradata_size;
-
-		av_bsf_free(&bsf_ctx);
-
-		Debug2(L_CODEC, "extradata %p %d", decoder->VideoCtx->extradata, decoder->VideoCtx->extradata_size);
+	// force a flush
+	if (!avpkt) {
+		if (decoder->VideoCtx)
+			avcodec_send_packet(decoder->VideoCtx, NULL);
+		return -1;
 	}
-#endif
 
-	if (!avpkt->size) {
-		return 0;
-	}
+	if (!avpkt->size)
+		return -1;
 
 	pthread_mutex_lock(&CodecLockMutex);
-	if (decoder->VideoCtx) {
+	if (decoder->VideoCtx)
 		ret = avcodec_send_packet(decoder->VideoCtx, avpkt);
-	}
 	pthread_mutex_unlock(&CodecLockMutex);
-	if (ret == AVERROR(EAGAIN))
+
+	if (ret == AVERROR(EAGAIN)) { // first receive frame and send avpkt again
 		return 1;
-	if (ret < 0)
-		Debug2(L_CODEC, "CodecVideoSendPacket: send_packet ret: %s",
-			av_err2str(ret));
+	} else if (ret) { // sth else went wrong
+		Debug2(L_CODEC, "CodecVideoSendPacket: send_packet ret: %s", av_err2str(ret));
+		return -1;
+	}
+
 	return 0;
 }
 
@@ -329,7 +301,9 @@ int CodecVideoSendPacket(VideoDecoder * decoder, const AVPacket * avpkt)
 **	@param decoder		video decoder data
 **	@param no_deint		set interlaced_frame to 0
 **
-**	@returns 1	get no frame.
+**	@returns 1	get no frame, send avpkt again
+**	@returns 0	received frame
+**	@returns -1	get no frame, error
 */
 int CodecVideoReceiveFrame(VideoDecoder * decoder, int no_deint)
 {
@@ -345,27 +319,29 @@ int CodecVideoReceiveFrame(VideoDecoder * decoder, int no_deint)
 	} else {
 		av_frame_free(&decoder->Frame);
 		pthread_mutex_unlock(&CodecLockMutex);
-		return 1;
+		return -1;
 	}
 	pthread_mutex_unlock(&CodecLockMutex);
 
 	if (decoder->Frame->flags == AV_FRAME_FLAG_CORRUPT)
 		Debug2(L_CODEC, "CodecVideoReceiveFrame: AV_FRAME_FLAG_CORRUPT");
 
-	if (!ret) {
-		if (no_deint) {
-			decoder->Frame->interlaced_frame = 0;
-			Debug2(L_CODEC, "CodecVideoReceiveFrame: interlaced_frame = 0");
-		}
-		VideoRenderFrame(decoder->Render, decoder->VideoCtx, decoder->Frame);
-	} else {
+	if (ret == AVERROR(EAGAIN)) { // first send another packet
 		av_frame_free(&decoder->Frame);
-		if (ret != AVERROR(EAGAIN))
-			Debug2(L_CODEC, "CodecVideoReceiveFrame: receive_frame ret: %s", av_err2str(ret));
+		return 1;
+	} else if (ret) { // sth else went wrong
+		Debug2(L_CODEC, "CodecVideoReceiveFrame: receive_frame ret: %s", av_err2str(ret));
+		av_frame_free(&decoder->Frame);
+		return -1;
 	}
 
-	if (ret == AVERROR(EAGAIN))
-		return 1;
+	// everything went fine, we received a frame, send it to the renderer
+	if (no_deint) {
+		decoder->Frame->interlaced_frame = 0;
+		Debug2(L_CODEC, "CodecVideoReceiveFrame: interlaced_frame = 0");
+	}
+	VideoRenderFrame(decoder->Render, decoder->VideoCtx, decoder->Frame);
+
 	return 0;
 }
 

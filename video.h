@@ -257,6 +257,9 @@ extern void VideoGetVideoSize(VideoDecoder *, int *, int *, double *);
     /// Set display resolution
 extern void VideoSetDisplay(const char *);
 
+    /// Set video clock.
+void VideoSetClock(VideoRender *, int64_t);
+
     /// Get video clock.
 extern int64_t VideoGetClock(const VideoRender *);
 
