@@ -287,10 +287,13 @@ void ReadHWPlatform(VideoRender * render)
 	while(read_size) {
 
 		if (strstr(read_ptr, "bcm2711")) {
-			Debug2(L_DRM, "ReadHWPlatform: bcm2711 found");
+			Debug2(L_DRM, "ReadHWPlatform: bcm2711 (Raspberry Pi 4 Model B, Compute Module 4, Pi 400) found");
 			render->HardwareQuirks |= QUIRK_CODEC_FLUSH_WORKAROUND;
 			break;
-		}
+		if (strstr(read_ptr, "bcm2712")) {
+			Debug2(L_DRM, "ReadHWPlatform: bcm2712 (Raspberry Pi 5, Compute Module 5, Pi 500) found");
+			render->HardwareQuirks |= QUIRK_CODEC_FLUSH_WORKAROUND;
+			break;
 		if (strstr(read_ptr, "amlogic")) {
 			Debug2(L_DRM, "ReadHWPlatform: amlogic found, disable HW deinterlacer");
 			render->HardwareQuirks |= QUIRK_CODEC_NEEDS_EXT_INIT
