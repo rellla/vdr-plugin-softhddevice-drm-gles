@@ -715,7 +715,7 @@ find_mode:
 	}
 
 	if (!mode) {
-		Error("FindDevice: No monitor mode found! Give up!");
+		Error("FindDevice: No monitor mode found! Probably no Monitor connected, giving up!");
 		return -1;
 	}
 
