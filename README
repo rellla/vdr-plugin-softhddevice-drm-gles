@@ -44,6 +44,8 @@ How does it internally work?
 Video decoding is done with ffmpeg. If your hardware has some hardware decoder
 and/or deinterlacer which is supported by ffmpeg, the video is hardware decoded
 (depending on the codec), otherwise software decoding/ deinterlacing is done.
+For software deinterlacing ffmpeg's bwdif (Bob Weaver Deinterlacing Filter) is
+used. This the highest quality software deinterlacer available in ffmpeg. 
 The OSD is either composed with OpenGL/ES or with CPU (see below).
 Both, video and OSD are rendered directly on seperate drm planes with kms.
 When the video is hardware decoded, we don't need much CPU, because everything is done
@@ -87,6 +89,27 @@ OpenGL/ES:
 
 	In this case, VDR is using CPU based OSD rendering.
 
+Resolution:
+----------
+	Setting the Display Resolution is possible with the -d switch (see below).
+	If no specific Resolution is stated, the plugin searches for Resolutions
+	with a refresh rate of 50Hz. If one is found, the highest possbile is used.
+	If no Resolution at 50Hz is found, the plugin searches for resolutions at
+	60Hz and uses the highest possbile. If neither 50Hz or 60Hz can be found,
+	the plugin uses the highest possbile resolution with a refresh rate which is
+	first discovered.
+
+	Note for Raspberry Pi 4 users: To enable 4k Resolution at 50Hz or 60Hz you
+	have to set "hdmi_enable_4kp60=1" in /boot/config.txt. Otherwise the Raspberry
+	Pi is only capable of displaying 4K at 30Hz and the plugin will use 1080p at
+	50Hz according to the algorithm described above.
+
+	When the plugin is unable to detect any resolution (e.g. if there is no TV/Monitor
+	attached, the plugin will not start. You can workaorund this by submitting
+	a fixed EDID to your config (see Documentation, way differs from architecture)
+
+	When using the -d switch, make sure you use the syntax of widthXheight@refreshrate,
+	so for example: -d 3840x2160@50 for 4K at 50Hz.
 
 Requirements:
 -------------
