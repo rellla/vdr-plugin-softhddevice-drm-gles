@@ -64,7 +64,7 @@ Known Bugs/ TODO:
 -----------------
 	- attach/detach isn't implemented
 	- amlogic trickspeed is broken
-	- PASSTHROUGH is broken
+	- PASSTHROUGH isn't implemented
 	- rpi avcodec_flush_buffers is broken in ffmpeg, use a workaround for now
 
 
