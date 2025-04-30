@@ -316,7 +316,7 @@ msgstr ""
 msgid "FindDevice: DRM have %i connectors, %i crtcs, %i encoders\n"
 msgstr ""
 
-msgid "FindDevice: No Monitor Mode found! Give up!\n"
+msgid "FindDevice: No monitor mode found! Probably no Monitor connected, giving up!\n"
 msgstr ""
 
 #, c-format
