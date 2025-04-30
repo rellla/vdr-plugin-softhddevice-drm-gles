@@ -199,7 +199,7 @@ msgid "Write OSD to file"
 msgstr "OSD in Datei schreiben"
 
 msgid "GPU mem used for image caching (MB)"
-msgstr ""
+msgstr "GPU-Speichergröße für Bild-Zwischenspeicher"
 
 msgid "Audio"
 msgstr "Audio"
@@ -235,25 +235,25 @@ msgid "Reduce stereo volume (/1000)"
 msgstr "Reduziere Steropegel (/1000)"
 
 msgid "Enable Stereo downmix"
-msgstr ""
+msgstr "Audio auf Stereo herunterrechnen"
 
 msgid "Pass-through default"
 msgstr "Pass-Through-Standard"
 
 msgid "  PCM pass-through"
-msgstr ""
+msgstr "PCM Bitstream ausgeben"
 
 msgid "  AC-3 pass-through"
-msgstr ""
+msgstr "AC-3 Bitstream ausgeben"
 
 msgid "  E-AC-3 pass-through"
-msgstr ""
+msgstr "E-AC-3 Bitstream ausgeben"
 
 msgid "Enable automatic AES"
 msgstr "Aktiviere automatiche AES"
 
 msgid "Audio Filter"
-msgstr ""
+msgstr "Ton-Filter"
 
 msgid " Enable Audio Equalizer"
 msgstr ""
