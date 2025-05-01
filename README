@@ -111,6 +111,19 @@ Resolution:
 	When using the -d switch, make sure you use the syntax of widthXheight@refreshrate,
 	so for example: -d 3840x2160@50 for 4K at 50Hz.
 
+Raspberry Pi 4/5:
+----------
+	It is highly recommended to use the kms driver with Raspberry Pi 4/5 and not the outdated
+	fkms driver. Be sure you have the following dtoverlay activated in your /boot/config.txt:
+
+	dtoverlay=vc4-kms-v3d,cma-512
+
+	vc4-kms-v3d enables the new kms driver, cma-512 sets a custom cma size of 512MB.
+	This is the recommended size. Only change it when you exactly know what you are doing.
+
+	While using the outdated fkms driver still works with this plugin, there might be
+	some problems when viewing interlaced material and displaying the OSD.
+
 Requirements:
 -------------
         No running X!
