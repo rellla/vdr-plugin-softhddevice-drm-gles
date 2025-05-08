@@ -741,6 +741,16 @@ int cSoftHdMenu::TestMedia(const char *name)
 		return 1;
 	if (strcasestr(name, ".MP4"))
 		return 1;
+	if (strcasestr(name, ".MKV"))
+		return 1;
+	if (strcasestr(name, ".MPG"))
+		return 1;
+	if (strcasestr(name, ".AVI"))
+		return 1;
+	if (strcasestr(name, ".M2TS"))
+		return 1;
+	if (strcasestr(name, ".MPEG"))
+		return 1;
 	if (strcasestr(name, ".M3U"))
 		return 1;
 	if (strcasestr(name, ".TS"))
