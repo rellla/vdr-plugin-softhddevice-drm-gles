@@ -200,6 +200,7 @@ class cMenuSetupSoft:public cMenuSetupPage
     int AudioPassthroughAC3;
     int AudioPassthroughEAC3;
     int AudioPassthroughDTS;
+    int AudioPassthroughTrueHD;
     int AudioDownmix;
     int AudioSoftvol;
     int AudioNormalize;
