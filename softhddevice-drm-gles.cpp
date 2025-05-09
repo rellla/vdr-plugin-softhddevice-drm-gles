@@ -642,6 +642,8 @@ void cMenuSetupSoft::Create(void)
 			&AudioPassthroughEAC3, trVDR("no"), trVDR("yes")));
 		Add(new cMenuEditBoolItem(tr("\040\040DTS pass-through"),
 			&AudioPassthroughDTS, trVDR("no"), trVDR("yes")));
+		Add(new cMenuEditBoolItem(tr("\040\040TrueHD pass-through"),
+			&AudioPassthroughTrueHD, trVDR("no"), trVDR("yes")));
 		Add(new cMenuEditBoolItem(tr("Enable automatic AES"), &AudioAutoAES,
 			trVDR("no"), trVDR("yes")));
 	}
