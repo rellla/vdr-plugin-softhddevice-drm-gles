@@ -183,7 +183,7 @@ if (PassthroughMask & CodecTrueHD && AudioCtx->codec_id == AV_CODEC_ID_TRUEHD) {
 	}
 	spdif[0] = htole16(0xF872);	// iec 61937 sync word
 	spdif[1] = htole16(0x4E1F);
-	spdif[2] = htole16(IEC61937_AC3 | (avpkt->data[5] & 0x07) << 8);
+	spdif[2] = htole16(IEC61937_TRUEHD | (avpkt->data[5] & 0x07) << 8);
 	spdif[3] = htole16(avpkt->size * 8);
 	// copy original data for output
 	// FIXME: not 100% sure, if endian is correct on not intel hardware
