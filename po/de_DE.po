@@ -32,7 +32,7 @@ msgid "Hide main menu entry"
 msgstr "Verstecke Hauptmenüeintrag"
 
 msgid "GPU mem used for image caching (MB)"
-msgstr "GPU-Speichergröße für Bild-Zwischenspeicher"
+msgstr "GPU-Speichergröße für Bild-Zwischenspeicher (MB)"
 
 msgid "Statistics"
 msgstr "Statistiken"
@@ -79,7 +79,7 @@ msgid "  Max normalize factor (/1000)"
 msgstr "  Max. Normalisierungsfaktor (/1000)"
 
 msgid "Enable volume compression"
-msgstr "Aktivieren Lautstärkekompression"
+msgstr "Aktiviere Lautstärkekompression"
 
 msgid "  Max compression factor (/1000)"
 msgstr "  Max. Kompressionsfaktor (/1000)"
@@ -102,6 +102,9 @@ msgstr "AC-3 Bitstream ausgeben"
 msgid "  E-AC-3 pass-through"
 msgstr "E-AC-3 Bitstream ausgeben"
 
+msgid "  DTS pass-through"
+msgstr "DTS Bitstream ausgeben"
+
 msgid "Enable automatic AES"
 msgstr "Aktiviere automatiche AES"
 
@@ -112,55 +115,79 @@ msgid " Enable Audio Equalizer"
 msgstr " Aktiviere Audio Equalizer"
 
 msgid "  60 Hz band gain"
-msgstr ""
+msgstr "60 Hz Frequenzverstärkung"
 
 msgid "  72 Hz band gain"
-msgstr ""
+msgstr "72 Hz Frequenzverstärkung"
 
 msgid "  107 Hz band gain"
-msgstr ""
+msgstr "107 Hz Frequenzverstärkung"
 
 msgid "  150 Hz band gain"
-msgstr ""
+msgstr "150 Hz Frequenzverstärkung"
 
 msgid "  220 Hz band gain"
-msgstr ""
+msgstr "220 Hz Frequenzverstärkung"
 
 msgid "  310 Hz band gain"
-msgstr ""
+msgstr "310 Hz Frequenzverstärkung"
 
 msgid "  430 Hz band gain"
-msgstr ""
+msgstr "430 Hz Frequenzverstärkung"
 
 msgid "  620 Hz band gain"
-msgstr ""
+msgstr "620 Hz Frequenzverstärkung"
 
 msgid "  860 Hz band gain"
-msgstr ""
+msgstr "860 Hz Frequenzverstärkung"
 
 msgid "  1200 Hz band gain"
-msgstr ""
+msgstr "1200 Hz Frequenzverstärkung"
 
 msgid "  1700 Hz band gain"
-msgstr ""
+msgstr "1700 Hz Frequenzverstärkung"
 
 msgid "  2500 Hz band gain"
-msgstr ""
+msgstr "2500 Hz Frequenzverstärkung"
 
 msgid "  3500 Hz band gain"
-msgstr ""
+msgstr "3500 Hz Frequenzverstärkung"
 
 msgid "  4800 Hz band gain"
-msgstr ""
+msgstr "4800 Hz Frequenzverstärkung"
 
 msgid "  7000 Hz band gain"
-msgstr ""
+msgstr "7000 Hz Frequenzverstärkung"
 
 msgid "  9500 Hz band gain"
-msgstr ""
+msgstr "9500 Hz Frequenzverstärkung"
 
 msgid "  13500 Hz band gain"
-msgstr ""
+msgstr "13500 Hz Frequenzverstärkung"
 
 msgid "  17200 Hz band gain"
-msgstr ""
+msgstr "17200 Hz Frequenzverstärkung"
+
+msgid " play file / make play list"
+msgstr "Datei abspielen / Playliste erstellen"
+
+msgid "  select play list"
+msgstr "Vorhandene Playliste abspielen"
+
+msgid "Play File"
+msgstr "Datei abspielen"
+
+msgid "Play PL"
+msgstr "Playliste abspielen"
+
+msgid "New PL"
+msgstr "Neue Playliste erstellen"
+
+msgid "Add to PL"
+msgstr "Zur Playliste hinzufügen"
+
+msgid "Added to Playlist"
+msgstr "Zur Playliste hinzugefügt"
+
+msgid "Added to Playlist"
+msgstr "Zur Playliste hinzugefügt"
