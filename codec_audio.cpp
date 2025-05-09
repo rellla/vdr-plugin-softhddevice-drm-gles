@@ -167,7 +167,34 @@ int cAudioDecoder::DecodePassthrough(const AVPacket * avpkt, AVFrame *frame)
 	AudioEnqueueSpdif(AudioCtx, spdif, spdif_sz, frame);
 	return 1;
     }
+// TrueHD passthrough
+if (PassthroughMask & CodecTrueHD && AudioCtx->codec_id == AV_CODEC_ID_TRUEHD) {
+	uint16_t *spdif;
+	int spdif_sz;
 
+	spdif = Spdif;
+	spdif_sz = 61424;
+
+	// build SPDIF header and append A52 audio to it
+	// avpkt is the original data
+	if (spdif_sz < avpkt->size + 8) {
+	    Error("cAudioDecoder::DecodePassthrough: decoded data smaller than encoded");
+	    return -1;
+	}
+	spdif[0] = htole16(0xF872);	// iec 61937 sync word
+	spdif[1] = htole16(0x4E1F);
+	spdif[2] = htole16(IEC61937_AC3 | (avpkt->data[5] & 0x07) << 8);
+	spdif[3] = htole16(avpkt->size * 8);
+	// copy original data for output
+	// FIXME: not 100% sure, if endian is correct on not intel hardware
+	swab(avpkt->data, spdif + 4, avpkt->size);
+	// FIXME: don't need to clear always
+	memset(spdif + 4 + avpkt->size / 2, 0, spdif_sz - 8 - avpkt->size);
+	// don't play with the ac-3 samples
+	AudioEnqueueSpdif(AudioCtx, spdif, spdif_sz, frame);
+	return 1;
+    }
+	
     // EAC3 passthrough
     if (PassthroughMask & CodecEAC3 && AudioCtx->codec_id == AV_CODEC_ID_EAC3) {
 	uint16_t *spdif;
