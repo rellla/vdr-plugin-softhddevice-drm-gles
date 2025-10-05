@@ -567,8 +567,6 @@ void cSoftHdDevice::Start(void)
 	if (!m_pAudioDecoder) {
 
 		// audio
-		m_pAudio->Init(m_pAudio->GetPassthrough());
-
 		m_pAudio->SetBufferTimeInMs(m_pConfig->ConfigAudioBufferTime);
 		m_pAudioAvPkt = av_packet_alloc();
 		av_new_packet(m_pAudioAvPkt, AUDIO_BUFFER_SIZE);

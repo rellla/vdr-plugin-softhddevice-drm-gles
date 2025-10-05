@@ -43,7 +43,6 @@ public:
 	cSoftHdAudio(cSoftHdDevice *);
 	virtual ~cSoftHdAudio(void);
 
-	void Init(int);
 	void Exit(void);
 	int Setup(AVCodecContext *, int , int , int);
 	void Resume(void);
@@ -86,6 +85,8 @@ public:
 	char AlsaPlayerRunning(void) { return m_alsaPlayerRunning; };
 
 private:
+	void Init();
+
 	cSoftHdDevice *m_pDevice;               ///< pointer to device
 
 	// thread
@@ -94,6 +95,7 @@ private:
 	void StartAudioThread(AVFrame *);       ///< start the audio thread
 
 	// common audio, alsa
+	bool m_initialized = false;             ///< class initialized
 	const int m_bytesPerSample = 2;         ///< number of bytes per sample
 	unsigned int m_hwSampleRate;            ///< hardware sample rate in Hz
 	unsigned int m_hwNumChannels;           ///< number of hardware channels

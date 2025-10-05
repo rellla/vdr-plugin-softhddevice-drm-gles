@@ -698,6 +698,8 @@ int cSoftHdAudio::Setup(AVCodecContext *ctx, int samplerate, int channels, int p
 {
 	int err = 0;
 
+	Init();
+
 	if (samplerate != (int)m_hwSampleRate ||
 	   (channels != (int)m_hwNumChannels && !(m_downmix && m_hwNumChannels == 2))) {
 
@@ -1262,14 +1264,16 @@ void cSoftHdAudio::SetAutoAES(int onoff)
 /**
  * Initialize audio output module
  *
- * @param passthrough     passthrough mask
  */
-void cSoftHdAudio::Init(int passthrough)
+void cSoftHdAudio::Init()
 {
-	m_passthrough = passthrough;
-	InitRingbuffer();
-	AlsaInit();
-	m_pAudioThread = new cAudioThread(this);
+	if(!m_initialized) {
+		InitRingbuffer();
+		AlsaInit();
+		m_pAudioThread = new cAudioThread(this);
+
+		m_initialized = true;
+	}
 }
 
 /**
