@@ -123,7 +123,7 @@ Raspberry Pi 4/5:
 	While using the outdated fkms driver still works with this plugin, there might be
 	some problems when viewing interlaced material and displaying the OSD.
 
-	In case of permission problems under Raspberry Pi OS with VDR installed via apt,
+	In case of permission problems under Raspberry Pi OS 5 with VDR installed via apt,
 	you might need to add the vdr user to the audio and render groups:
 
 	usermod -a -G audio vdr
