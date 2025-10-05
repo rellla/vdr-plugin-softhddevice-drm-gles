@@ -30,13 +30,6 @@
  ****************************************************************************/
 
 /**
- * cSoftHdConfig constructor
- */
-cSoftHdConfig::cSoftHdConfig(void)
-{
-}
-
-/**
  * cSoftHdConfig destructor
  */
 cSoftHdConfig::~cSoftHdConfig(void)
