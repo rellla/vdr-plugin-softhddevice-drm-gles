@@ -1283,14 +1283,16 @@ void cSoftHdAudio::Exit(void)
 {
 	LOGDEBUG2(L_SOUND, "audio: %s", __FUNCTION__);
 
-	if (m_pAudioThread->Active())
-		m_pAudioThread->Stop();
-	delete m_pAudioThread;
+	if(m_initialized) {
+		if (m_pAudioThread->Active())
+			m_pAudioThread->Stop();
+		delete m_pAudioThread;
 
-	AlsaExit();
-	ExitRingbuffer();
-	m_running = 0;
-	m_paused = 0;
+		AlsaExit();
+		ExitRingbuffer();
+		m_running = 0;
+		m_paused = 0;
+	}
 }
 
 /******************************************************************************
