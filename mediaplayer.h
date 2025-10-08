@@ -84,7 +84,7 @@ public:
 	virtual eOSState ProcessKey(eKeys);
 	static cSoftHdControl *Control() { return m_pControl; }
 	static cSoftHdPlayer *Player() { return m_pPlayer; }
-	int Close;
+	bool Close;
 };
 
 /*****************************************************************************

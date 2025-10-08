@@ -84,7 +84,7 @@ void cSoftOsd::SetActive(bool on)
 	cOsd::SetActive(on);
 
 	if (on) {
-		m_dirty = 1;
+		m_dirty = true;
 		// only flush here if there are already bitmaps
 		if (GetBitmap(0)) {
 			Flush();
@@ -112,7 +112,7 @@ eOsdError cSoftOsd::SetAreas(const tArea * areas, int n)
 
 	if (Active()) {
 		m_pDevice->OsdClose();
-		m_dirty = 1;
+		m_dirty = true;
 	}
 
 	return cOsd::SetAreas(areas, n);
@@ -233,7 +233,7 @@ void cSoftOsd::Flush(void)
 			// FIXME: reuse argb
 			free(argb);
 		}
-		m_dirty = 0;
+		m_dirty = false;
 		return;
 	}
 
@@ -303,7 +303,7 @@ void cSoftOsd::Flush(void)
 
 		DestroyPixmap(pm);
 	}
-	m_dirty = 0;
+	m_dirty = false;
 }
 
 /*****************************************************************************

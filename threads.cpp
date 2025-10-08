@@ -230,10 +230,10 @@ int cFilterThread::Init(const AVCodecContext *videoCtx, AVFrame *frame, int disa
 	m_framesWrite =  0;
 
 	m_pRender->ClearFramesToFilter();
-	m_filterBug = 0;
-	m_filterTrick = 0;
-	m_filterStill = 0;
-	m_isInterlaceFilter = 0;
+	m_filterBug = false;
+	m_filterTrick = false;
+	m_filterStill = false;
+	m_isInterlaceFilter = false;
 
 	const AVFilter *buffersrc  = avfilter_get_by_name("buffer");
 	const AVFilter *buffersink = avfilter_get_by_name("buffersink");
@@ -268,18 +268,18 @@ int cFilterThread::Init(const AVCodecContext *videoCtx, AVFrame *frame, int disa
 	if (interlaced && !(m_pRender->IsTrickspeedFrame(frame) || m_pRender->IsStillpictureFrame(frame))) {
 		if (frame->format == AV_PIX_FMT_DRM_PRIME) {
 			filterDescr = "deinterlace_v4l2m2m";
-			m_isInterlaceFilter = 1;
+			m_isInterlaceFilter = true;
 		} else if (frame->format == AV_PIX_FMT_YUV420P) {
 			filterDescr = "bwdif=1:-1:0";
-			m_filterBug = 1;
-			m_isInterlaceFilter = 1;
+			m_filterBug = true;
+			m_isInterlaceFilter = true;
 		}
 	} else if (frame->format == AV_PIX_FMT_YUV420P) {
 		filterDescr = "scale";
 		if (m_pRender->IsTrickspeedFrame(frame))
-			m_filterTrick = 1;
+			m_filterTrick = true;
 		if (m_pRender->IsStillpictureFrame(frame))
-			m_filterStill = 1;
+			m_filterStill = true;
 	}
 #if LIBAVFILTER_VERSION_INT < AV_VERSION_INT(7,16,100)
 	avfilter_register_all();
@@ -503,9 +503,9 @@ void cFilterThread::Stop(void)
 
 	LOGDEBUG("threads: stopping filter thread");
 	Cancel(2);
-	m_filterBug = 0;
-	m_filterTrick = 0;
-	m_filterStill = 0;
+	m_filterBug = false;
+	m_filterTrick = false;
+	m_filterStill = false;
 	m_pRender->ClearFramesToFilter();
 
 	while (GetRbFramesFilled()) {

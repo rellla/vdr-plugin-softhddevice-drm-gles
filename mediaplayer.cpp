@@ -129,7 +129,7 @@ void cSoftHdPlayer::Action(void)
 	while(m_pAudio->GetClock() != AV_NOPTS_VALUE)
 		usleep(5000);
 
-	cSoftHdControl::Control()->Close = 1;
+	cSoftHdControl::Control()->Close = true;
 }
 
 void cSoftHdPlayer::ReadPL(const char *Playlist)
@@ -315,7 +315,7 @@ cSoftHdControl::cSoftHdControl(const char *url, cSoftHdDevice *device)
 {
 //	LOGDEBUG2(L_MEDIA, "cSoftHdControl: Player gestartet.");
 	m_pControl = this;
-	Close = 0;
+	Close = false;
 	m_pOsd = NULL;
 	m_pDevice = device;
 }

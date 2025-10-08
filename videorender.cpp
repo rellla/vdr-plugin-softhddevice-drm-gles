@@ -106,9 +106,9 @@ void cVideoRender::Prepare(void)
 	m_pFilterThread = new cFilterThread(this);
 
 	atomic_set(&m_framesFilled, 0);
-	m_closing = 0;
-	m_flushing = 0;
-	m_flushLastFrame = 0;
+	m_closing = false;
+	m_flushing = false;
+	m_flushLastFrame = false;
 	m_deintDisabled = m_configDeintDisabled;
 	m_enqueueBufferIdx = 0;
 	m_pLastFrame = (struct lastFrame *)calloc(1, sizeof(struct lastFrame));
@@ -178,9 +178,9 @@ void cVideoRender::CleanUp(void)
 	// m_flushing is set, if we want to keep the last rendered frame during cleanup
 	// m_flushLastFrame signals the rendering thread to clean this frame on the next turn
 	if (m_flushing)
-		m_flushLastFrame = 1;
-	m_flushing = 0;
-	m_closing = 0;
+		m_flushLastFrame = true;
+	m_flushing = false;
+	m_closing = false;
 	m_deintDisabled = m_configDeintDisabled;
 
 	LOGDEBUG("videorender: %s: DRM cleaned (m_framesFilled %d m_numFramesToFilter %d)", __FUNCTION__, atomic_read(&m_framesFilled), atomic_read(&m_numFramesToFilter));
@@ -786,7 +786,7 @@ int cVideoRender::PageFlip(AVFrame *frame, cDrmBuffer *buf, int osdOnly)
 			m_pLastFrame->buf->Destroy();
 			m_pLastFrame->buf = nullptr;
 			m_pLastFrame->trickspeed = 0;
-			m_flushLastFrame = 0;
+			m_flushLastFrame = false;
 		}
 		av_frame_free(&m_pLastFrame->frame);
 	}
@@ -1019,7 +1019,7 @@ void cVideoRender::OsdClear(void)
 #endif
 
 	m_pBufOsd->MarkDirty();
-	m_osdShown = 0;
+	m_osdShown = false;
 }
 
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
@@ -1085,7 +1085,7 @@ void cVideoRender::OsdDrawARGB(int xi, int yi,
 	}
 #endif
 	m_pBufOsd->MarkDirty();
-	m_osdShown = 1;
+	m_osdShown = true;
 }
 
 /*****************************************************************************
@@ -1122,7 +1122,7 @@ void cVideoRender::ExitDisplayThread(void)
 
 	SetClosing(1);
 	if (m_pDisplayThread->Active()) {
-		m_exitThread = 1;
+		m_exitThread = true;
 		m_pDisplayThread->Stop();
 	}
 }
@@ -1491,7 +1491,7 @@ void cVideoRender::PauseVideo(void)
 {
 	LOGDEBUG("videorender: %s:", __FUNCTION__);
 	m_playbackMutex.Lock();
-	m_videoIsPaused = 1;
+	m_videoIsPaused = true;
 	m_playbackMutex.Unlock();
 }
 
@@ -1502,7 +1502,7 @@ void cVideoRender::ResumeVideo(void)
 {
 	LOGDEBUG("videorender: %s:", __FUNCTION__);
 	m_playbackMutex.Lock();
-	m_videoIsPaused = 0;
+	m_videoIsPaused = false;
 	m_playbackMutex.Unlock();
 }
 
@@ -1622,7 +1622,7 @@ int cVideoRender::TriggerGrab(void)
 	int timeout = 50;
 	cMutex mutex;
 	mutex.Lock();
-	m_startgrab = 1;
+	m_startgrab = true;
 	int err = 0;
 
 	if (!m_grabCond.TimedWait(mutex, timeout)) {
@@ -1630,7 +1630,7 @@ int cVideoRender::TriggerGrab(void)
 		err = 1;
 	}
 
-	m_startgrab = 0;
+	m_startgrab = false;
 	return err;
 }
 
@@ -1967,7 +1967,7 @@ void cVideoRender::Init(void)
 
 	drmModeAtomicFree(modeReq);
 
-	m_osdShown = 0;
+	m_osdShown = false;
 
 	// init variables page flip
 	m_pDrmDevice->InitEvent();
@@ -2027,9 +2027,9 @@ void cVideoRender::SetVideoOutputPosition(const cRect &rect)
 	m_videoRect.Set(rect.Point(), rect.Size());
 
 	if (m_videoRect.IsEmpty())
-		m_videoIsScaled = 0;
+		m_videoIsScaled = false;
 	else
-		m_videoIsScaled = 1;
+		m_videoIsScaled = true;
 
 	LOGDEBUG("videorender: %s: %d %d %d %d%s", __FUNCTION__, rect.X(), rect.Y(), rect.Width(), rect.Height(), m_videoIsScaled ? ", video is scaled" : "");
 }

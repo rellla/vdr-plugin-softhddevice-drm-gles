@@ -67,11 +67,11 @@ public:
 	void SetPixFmt(uint32_t pixFmt) { m_pixFmt = pixFmt; };
 
 	int IsDirty(void) { return m_dirty; };
-	void MarkClean(void) { m_dirty = 0; };
-	void MarkDirty(void) { m_dirty = 1; };
+	void MarkClean(void) { m_dirty = false; };
+	void MarkDirty(void) { m_dirty = true; };
 	int IsSwBuffer(void) { return m_swbuffer; };
-	void MarkAsHwBuffer(void) { m_swbuffer = 0; };
-	void MarkAsSwBuffer(void) { m_swbuffer = 1; };
+	void MarkAsHwBuffer(void) { m_swbuffer = false; };
+	void MarkAsSwBuffer(void) { m_swbuffer = true; };
 
 	void SetTrickspeed(int trickspeed) { m_trickspeed = trickspeed; };
 	int IsTrickspeedBuffer(void) { return m_trickspeed; };
@@ -107,9 +107,9 @@ private:
 	uint32_t m_height;          ///< buffer height
 	uint32_t m_pixFmt;          ///< buffer pixel format
 
-	int m_dirty;                ///< true, if the buffer is dirty (it was written to)
-	int m_swbuffer;             ///< true, if the buffer is a software buffer
-	int m_trickspeed;           ///< true, if the buffer is a trickspeed buffer
+	bool m_dirty;               ///< true, if the buffer is dirty (it was written to)
+	bool m_swbuffer;            ///< true, if the buffer is a software buffer
+	bool m_trickspeed;          ///< true, if the buffer is a trickspeed buffer
 
 	uint32_t m_fbId;            ///< framebuffer id
 	int m_fdDrm;                ///< drm file desriptor

@@ -157,8 +157,8 @@ private:
 
 	enum AVCodecID m_audioCodecID;   ///< pointer to current audio AVPacket
 	int m_audioChannelID;            ///< current audio channel ID
-	volatile char m_newAudioStream;  ///< set, if we a new audio stream arrived
-	volatile char m_skipAudio;       ///< set, if audio should be skipped (mute)
+	volatile bool m_newAudioStream;  ///< set, if we a new audio stream arrived
+	volatile bool m_skipAudio;       ///< set, if audio should be skipped (mute)
 	int m_videoAudioDelay;           ///< audio/video delay set via setup menu
 	int m_grabActive;                ///< simple lock variable
 	                                 ///< skips a new grab request if the last one is still active

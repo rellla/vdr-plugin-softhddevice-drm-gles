@@ -49,7 +49,7 @@ public:
 	void Pause(void);
 	char IsPaused(void) { return m_paused; };
 	char IsRunning(void) { return m_running; };
-	void SetRunning(volatile char running) { m_running = running; };
+	void SetRunning(volatile bool running) { m_running = running; };
 	void Filter(AVFrame *, AVCodecContext *);
 	void EnqueueRawData(uint16_t *, int, AVFrame *);
 	int VideoReady(int64_t);
@@ -78,8 +78,8 @@ public:
 	void SetAutoAES(int);
 	void SetTimebase(AVRational *timebase) { m_pTimebase = timebase; };
 
-	void StopAlsaPlayer(void) { m_alsaPlayerRunning = 0; };
-	void StartAlsaPlayer(void) { m_alsaPlayerRunning = 1; };
+	void StopAlsaPlayer(void) { m_alsaPlayerRunning = false; };
+	void StartAlsaPlayer(void) { m_alsaPlayerRunning = true; };
 	void FlushAlsaBuffers(void);
 	int PlayWithAlsa(void);
 	char AlsaPlayerRunning(void) { return m_alsaPlayerRunning; };
@@ -91,7 +91,7 @@ private:
 
 	// thread
 	cAudioThread *m_pAudioThread;           ///< pointer to audio thread
-	volatile char m_running;                ///< audio running / stopped
+	volatile bool m_running;                ///< audio running / stopped
 	void StartAudioThread(AVFrame *);       ///< start the audio thread
 
 	// common audio, alsa
@@ -105,19 +105,19 @@ private:
 
 	int64_t m_pts;                          ///< pts clock (last pts in ringbuffer)
 	int m_skip;                             ///< skip m_skip audio to sync to video
-	volatile char m_videoIsReady;           ///< video audio and video can by synched
-	volatile char m_paused;                 ///< audio is paused
+	volatile bool m_videoIsReady;           ///< video audio and video can by synched
+	volatile bool m_paused;                 ///< audio is paused
 
-	char m_softVolume;                      ///< flag to use soft volume
+	bool m_softVolume;                      ///< flag to use soft volume
 	int m_passthrough;                      ///< passthrough mask
 	const char *m_pPCMDevice;               ///< PCM device name
 	const char *m_pPassthroughDevice;       ///< passthrough device name
-	char m_appendAES;                       ///< flag ato utomatic append AES
+	bool m_appendAES;                       ///< flag ato utomatic append AES
 	unsigned m_startThreshold;              ///< start play, if m_startThreshold is filled
 	int m_bufferTimeInMs;                   ///< audio buffer time in ms
 
 	// Normalizer
-	char m_normalize;                       ///< flag to use volume normalize
+	bool m_normalize;                       ///< flag to use volume normalize
 	const int m_normalizeSamples = 4096;    ///< number of normalize samples
 	int m_normalizeCounter;                 ///< normalize sample counter
 	uint32_t m_normalizeAverage[NORMALIZE_MAX_INDEX]; ///< average of n last normalize sample blocks
@@ -128,12 +128,12 @@ private:
 	int m_normalizeMaxFactor;               ///< max. normalize factor
 
 	// Compressor
-	char m_compression;                     ///< flag to use compress volume
+	bool m_compression;                     ///< flag to use compress volume
 	int m_compressionFactor;                ///< current compression factor
 	int m_compressionMaxFactor;             ///< max. compression factor
 
 	// Amplifier
-	char m_muted;                           ///< audio is muted
+	bool m_muted;                           ///< audio is muted
 	int m_amplifier;                        ///< software volume amplify factor
 	int m_stereoDescent;                    ///< volume descent for stereo
 	int m_volume;                           ///< current volume (0 .. 1000)
@@ -176,9 +176,9 @@ private:
 	snd_mixer_t *m_pAlsaMixer;           ///< alsa mixer handle
 	snd_mixer_elem_t *m_pAlsaMixerElem;  ///< alsa mixer element
 	int m_alsaRatio;                     ///< internal -> mixer ratio * 1000
-	char m_alsaPlayerRunning;            ///< start/ stop audio player thread
+	bool m_alsaPlayerRunning;            ///< start/ stop audio player thread
 	int m_alsaUseMmap;                   ///< use mmap
-	char m_alsaCanPause;                 ///< hw supports pause
+	bool m_alsaCanPause;                 ///< hw supports pause
 
 	void XrunRecovery(void);
 	char *OpenAlsaDevice(const char *, int);

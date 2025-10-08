@@ -106,10 +106,10 @@ private:
 	AVFilterContext *m_pBuffersrcCtx;
 	AVFilterContext *m_pBuffersinkCtx;
 
-	int m_filterBug;                            ///< flag for a ffmpeg bug
-	int m_filterTrick;                          ///< the current filter handles trickspeed frames
-	int m_filterStill;                          ///< the current filter handles stillpicture frames
-	int m_isInterlaceFilter;                    ///< the current filter is an deinterlace filter
+	bool m_filterBug;                           ///< flag for a ffmpeg bug
+	bool m_filterTrick;                         ///< the current filter handles trickspeed frames
+	bool m_filterStill;                         ///< the current filter handles stillpicture frames
+	bool m_isInterlaceFilter;                   ///< the current filter is an deinterlace filter
 
 	AVFrame *m_pFramesRb[VIDEO_SURFACES_MAX];   ///< ringbuffer for frames to be filtered
 	int m_numFramesFilled;                      ///< number of frames in the ringbuffer

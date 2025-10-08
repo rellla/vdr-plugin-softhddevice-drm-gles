@@ -195,9 +195,9 @@ void cDrmBuffer::Destroy(void)
 	m_width = 0;
 	m_height = 0;
 	m_fbId = 0;
-	m_trickspeed = 0;
-	m_dirty = 0;
-	m_swbuffer = 0;
+	m_trickspeed = false;
+	m_dirty = false;
+	m_swbuffer = false;
 	m_numPlanes = 0;
 }
 
@@ -391,7 +391,7 @@ int cDrmBuffer::Setup(int fdDrm, uint32_t width, uint32_t height, uint32_t pixFm
 	LOGDEBUG2(L_DRM, "drmbuffer: %s: Added %sFB fb_id %d width %d height %d pix_fmt %4.4s", __FUNCTION__,
 		primedata ? "primedata " : "", m_fbId, m_width, m_height, (char *)&m_pixFmt);
 
-	m_dirty = 1;
+	m_dirty = true;
 	return 0;
 }
 

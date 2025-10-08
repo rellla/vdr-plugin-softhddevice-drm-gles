@@ -395,7 +395,7 @@ int cDrmDevice::Init(void)
 						 DRM_MODE_OBJECT_PLANE, "zpos", &zpos)) {
 				LOGDEBUG2(L_DRM, "drmdevice: %s: Failed to get property 'zpos'", __FUNCTION__);
 			} else {
-				m_useZpos = 1;
+				m_useZpos = true;
 			}
 
 			LOGDEBUG2(L_DRM, "drmdevice: %s: %s: id %i possible_crtcs %i", __FUNCTION__,
@@ -489,7 +489,7 @@ int cDrmDevice::Init(void)
 		m_osdPlane.SetType(best_primary_osd_plane.GetType());
 		m_zposPrimary = best_primary_osd_plane.GetZpos();
 		m_osdPlane.SetZpos(m_zposPrimary);
-		m_useZpos = 1;
+		m_useZpos = true;
 	} else {
 		LOGERROR("drmdevice: %s: No suitable planes found!", __FUNCTION__);
 		return -1;
@@ -501,10 +501,10 @@ int cDrmDevice::Init(void)
 
 	// Check, if we can set z-order (meson and rpi have fixed z-order, which cannot be changed)
 	if (m_useZpos && !m_videoPlane.HasZpos(m_fdDrm)) {
-		m_useZpos = 0;
+		m_useZpos = false;
 	}
 	if (m_useZpos && !m_osdPlane.HasZpos(m_fdDrm)) {
-		m_useZpos = 0;
+		m_useZpos = false;
 	}
 
 	// m_useZpos was set, if video is on OVERLAY, and osd is on PRIMARY
@@ -720,7 +720,7 @@ int cDrmDevice::InitEGL(void)
 
 	LOGDEBUG2(L_OPENGL, "drmdevice: %s: GLSurface %p on EGLDisplay %p for %d x %d BO created", __FUNCTION__, m_eglSurface, m_eglDisplay, s_width, s_height);
 
-	m_glInitiated = 1;
+	m_glInitiated = true;
 	LOGINFO("DRM Setup: EGL context initialized");
 
 	return 0;

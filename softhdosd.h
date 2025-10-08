@@ -49,7 +49,7 @@ public:
 
 private:
 	cSoftHdDevice *m_pDevice;        ///< pointer to the cSoftHdDevice object
-	char m_dirty;                    ///< flag to force redrawing everything
+	bool m_dirty;                    ///< flag to force redrawing everything
 	int m_osdLevel;                  ///< current osd level
 };
 

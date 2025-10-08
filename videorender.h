@@ -95,7 +95,7 @@ public:
 	void CleanUp(void);
 	int HardwareQuirks(void) { return m_hardwareQuirks; };
 	void DisableDeint(int);
-	void DisableOglOsd(void) { m_disableOglOsd = 1; };
+	void DisableOglOsd(void) { m_disableOglOsd = true; };
 	int OglOsdDisabled(void) { return m_disableOglOsd; };
 
 	void SetDisplayResolution(const char *);
@@ -191,26 +191,26 @@ private:
 	atomic_t m_framesFilled;            ///< how many of m_framesRb is used
 	int m_trickSpeed;                   ///< current trick speed
 	int m_trickCounter;                 ///< current trick speed counter (handles, how much trickspeed frame are left to be rendered)
-	int m_trickForward;                 ///< true, if trickspeed plays forward
-	int m_videoIsPaused;                ///< true, if video is paused
-	int m_closing;                      ///< flag if render thread should be closed()
+	bool m_trickForward;                ///< true, if trickspeed plays forward
+	bool m_videoIsPaused;               ///< true, if video is paused
+	bool m_closing;                     ///< flag if render thread should be closed()
 	                                    ///< a black frame is set instead of video frame)
-	int m_flushing;                     ///< flag if render thread should be closed
+	bool m_flushing;                    ///< flag if render thread should be closed
 	                                    ///< in difference to m_closing, the video frame is untouched,
 	                                    ///< i.e. the last one remains displayed
-	int m_flushLastFrame;               ///< flag about need to clear the last video frame in next turn
+	bool m_flushLastFrame;              ///< flag about need to clear the last video frame in next turn
 	                                    ///< i.e. when did m_flushing and the video frame hasn't been freed
-	int m_exitThread;                   ///< internal flag, which is set, when display thread should be stopped
+	bool m_exitThread;                  ///< internal flag, which is set, when display thread should be stopped
 
 	int m_numFramesToFilter;            ///< number of frames to be filtered
-	int m_deintDisabled;                ///< set, if deinterlacer is disabled
-	int m_configDeintDisabled;          ///< set, if a deinterlacer on/off should be triggered
+	bool m_deintDisabled;               ///< set, if deinterlacer is disabled
+	bool m_configDeintDisabled;         ///< set, if a deinterlacer on/off should be triggered
 	int m_numWrongProgressive;          ///< counter for progressive frames sent in an interlaced stream
 	                                    ///< (only used for logging)
 
-	int m_disableOglOsd;                ///< set, if ogl osd is disabled
+	bool m_disableOglOsd;               ///< set, if ogl osd is disabled
 
-	int m_startgrab;                    ///< internal flag to trigger grabbing
+	bool m_startgrab;                   ///< internal flag to trigger grabbing
 	cCondVar m_grabCond;                ///< condition gets signalled, if renederer finished to clone the grabbed buffers
 	cSoftHdGrab m_grabOsd;              ///< keeps the current grabbed osd
 	cSoftHdGrab m_grabVideo;            ///< keeps the current grabbed video
@@ -223,7 +223,7 @@ private:
 	int64_t m_pts;                      ///< current video PTS
 
 	cRect m_videoRect;                  ///< rect of the currently displayed video
-	int m_videoIsScaled;                ///< true, if the currently displayed video is scaled
+	bool m_videoIsScaled;               ///< true, if the currently displayed video is scaled
 
 	cDrmDevice *m_pDrmDevice;           ///< pointer cDrmDevice object
 	cDrmBuffer m_buffer[RENDERBUFFERS]; ///< array of video drm buffer objects
@@ -232,7 +232,7 @@ private:
 	struct lastFrame *m_pLastFrame;     ///< pointer to last rendered frame struct (for later free)
 	int m_numBuffers;                   ///< numer of framebuffers currently set up
 	int m_enqueueBufferIdx;             ///< index of the current (sw) framebuffer in the array
-	int m_osdShown;                     ///< set, if osd is shown currently
+	bool m_osdShown;                    ///< set, if osd is shown currently
 
 #ifdef USE_GLES
 	struct gbm_bo *m_bo;                ///< pointer to current gbm buffer object

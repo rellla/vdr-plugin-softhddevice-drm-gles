@@ -546,7 +546,7 @@ void cSoftHdDevice::Exit(void)
 		m_pAudioDecoder->Close();
 		delete m_pAudioDecoder;
 	}
-	m_newAudioStream = 0;
+	m_newAudioStream = false;
 	av_packet_free(&m_pAudioAvPkt);
 
 	m_pRender->Exit();
@@ -612,7 +612,7 @@ void cSoftHdDevice::ClearAudio(void)
 		LOGDEBUG("device: %s:", __FUNCTION__);
 		m_pAudioDecoder->FlushBuffers();
 		m_pAudio->FlushBuffers();
-		m_newAudioStream = 1;
+		m_newAudioStream = true;
 	}
 }
 
@@ -682,11 +682,11 @@ bool cSoftHdDevice::SetPlayMode(ePlayMode play_mode)
 		m_pVideoStream->CloseDecoder();
 
 		m_pRender->SetClosing(1);
-		m_skipAudio = 0;
+		m_skipAudio = false;
 		m_pAudio->Resume();
 		ClearAudio();	// flush all AUDIO buffers
 		if (m_pAudioDecoder && m_audioCodecID != AV_CODEC_ID_NONE)
-			m_newAudioStream = 1;
+			m_newAudioStream = true;
 
 		m_pVideoStream->SetInterlaced(0); // probably not necessary
 		m_pVideoStream->Start();
@@ -804,7 +804,7 @@ void cSoftHdDevice::Play(void)
 	m_pVideoStream->Start();
 	m_pVideoStream->Resume();
 
-	m_skipAudio = 0;
+	m_skipAudio = false;
 	m_pAudio->Resume();
 
 	m_pRender->SetTrickSpeed(0, 1);
@@ -840,7 +840,7 @@ void cSoftHdDevice::Mute(void)
 	LOGDEBUG("device: %s:", __FUNCTION__);
 	cDevice::Mute();
 
-	m_skipAudio = 1;
+	m_skipAudio = true;
 }
 
 /**
@@ -1152,7 +1152,7 @@ int cSoftHdDevice::PlayAudio(const uchar *data, int size, uchar id)
 //		SetBufferTimeInMs(m_pConfig->ConfigAudioBufferTime);		// ???
 		m_audioCodecID = AV_CODEC_ID_NONE;
 		m_audioChannelID = -1;
-		m_newAudioStream = 0;
+		m_newAudioStream = false;
 	}
 
 	// PES header 0x00 0x00 0x01 ID

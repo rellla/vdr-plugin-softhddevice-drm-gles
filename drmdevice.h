@@ -129,7 +129,7 @@ private:
 	int m_userReqDisplayHeight;            ///< user requested display height
 	uint32_t m_userReqDisplayRefreshRate;  ///< user requested display refresh rate
 
-	int m_useZpos;                         ///< is set, if drm hardware can use zpos
+	bool m_useZpos;                        ///< is set, if drm hardware can use zpos
 	uint64_t m_zposOverlay;                ///< zpos of overlay plane
 	uint64_t m_zposPrimary;                ///< zpos of primary plane
 	cDrmPlane m_videoPlane;                ///< the video drm plane
@@ -143,7 +143,7 @@ private:
 	EGLSurface m_eglSurface;               ///< EGL surface
 	EGLDisplay m_eglDisplay;               ///< EGL display
 	EGLContext m_eglContext;               ///< EGL context
-	int m_glInitiated;                     ///< true, if OpenGL/ES context is initiated
+	bool m_glInitiated;                    ///< true, if OpenGL/ES context is initiated
 
 	int InitEGL(void);
 	EGLConfig GetEGLConfig(void);

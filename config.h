@@ -35,19 +35,19 @@ public:
 	bool SetupParse(const char *, const char *, cSoftHdDevice *, cSoftHdAudio *);
 #ifdef USE_GLES
 #ifdef WRITE_PNG
-	char ConfigWritePngs = 0;                   ///< config write pngs from OSD
+	bool ConfigWritePngs = false;               ///< config write pngs from OSD
 #endif
 	int ConfigMaxSizeGPUImageCache = 128;       ///< config max gpu image cache size
 	int ConfigDisableOglOsd = 0;                ///< config disable ogl osd
 #endif
 	int ConfigVideoAudioDelay = 0;              ///< config audio delay
-	char ConfigAudioPassthrough = 0;            ///< config audio pass-through mask
-	char AudioPassthroughState = 0;             ///< flag audio-passthrough on/off
-	char ConfigAudioDownmix = 0;                ///< config ffmpeg audio downmix
-	char ConfigAudioSoftvol = 0;                ///< config use software volume
-	char ConfigAudioNormalize = 0;              ///< config use normalize volume
+	bool ConfigAudioPassthrough = false;        ///< config audio pass-through mask
+	bool AudioPassthroughState = false;         ///< flag audio-passthrough on/off
+	bool ConfigAudioDownmix = false;            ///< config ffmpeg audio downmix
+	bool ConfigAudioSoftvol = false;            ///< config use software volume
+	bool ConfigAudioNormalize = false;          ///< config use normalize volume
 	int ConfigAudioMaxNormalize = 0;            ///< config max normalize factor
-	char ConfigAudioCompression = 0;            ///< config use volume compression
+	bool ConfigAudioCompression = false;        ///< config use volume compression
 	int ConfigAudioMaxCompression = 0;          ///< config max volume compression
 	int ConfigAudioStereoDescent = 0;           ///< config reduce stereo loudness
 	int ConfigAudioBufferTime = 0;              ///< config size ms of audio buffer
@@ -57,9 +57,9 @@ public:
 		{ 0, 0, 0, 0, 0, 0, 0, 0, 0,
 		  0, 0, 0, 0, 0, 0, 0, 0, 0 };      ///< config equalizer filter bands
 
-	char ConfigMakePrimary = 0;                 ///< config primary wanted
-	char ConfigHideMainMenuEntry = 0;           ///< config hide main menu entry
-	char LogState = 1;                          ///< flag logging on/off
+	bool ConfigMakePrimary = false;             ///< config primary wanted
+	bool ConfigHideMainMenuEntry = false;       ///< config hide main menu entry
+	bool LogState = true;                       ///< flag logging on/off
 	int ConfigLog = 0;                          ///< loglevel config
 
 	int ConfigDisableDeint = 0;                 ///< disable deinterlacer

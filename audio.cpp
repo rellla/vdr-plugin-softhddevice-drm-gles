@@ -675,7 +675,7 @@ void cSoftHdAudio::StartAudioThread(AVFrame *frame)
 			m_startThreshold * 1000 / m_hwSampleRate / m_hwNumChannels / m_bytesPerSample,
 			n * 1000 / m_hwSampleRate / m_hwNumChannels / m_bytesPerSample,
 			m_videoIsReady);
-		m_running = 1;
+		m_running = true;
 		LOGDEBUG2(L_SOUND, "audio: %s: start thread", __FUNCTION__);
 		m_pAudioThread->SendStartSignal();
 	}
@@ -880,11 +880,11 @@ int cSoftHdAudio::VideoReady(int64_t videoPts)
 
 	// enough audio buffered
 	if (m_startThreshold < used) {
-		m_running = 1;
+		m_running = true;
 		LOGDEBUG2(L_SOUND, "audio: %s: start thread", __FUNCTION__);
 		m_pAudioThread->SendStartSignal();
 	}
-	m_videoIsReady = 1;
+	m_videoIsReady = true;
 	return 1;
 }
 
@@ -961,7 +961,7 @@ void cSoftHdAudio::FlushBuffers(void)
 	LOGDEBUG2(L_SOUND, "audio: %s", __FUNCTION__);
 
 	if (m_running)
-		m_alsaPlayerRunning = 0;
+		m_alsaPlayerRunning = false;
 	else if (m_pts != AV_NOPTS_VALUE)
 		FlushAlsaBuffers();
 
@@ -1082,7 +1082,7 @@ void cSoftHdAudio::Resume(void)
 			}
 		}
 	} else {
-		m_paused = 0;
+		m_paused = false;
 		if (m_startThreshold < m_pRingbuffer->UsedBytes()) {
 			LOGDEBUG2(L_SOUND, "audio: %s: start thread", __FUNCTION__);
 			m_pAudioThread->SendStartSignal();
@@ -1113,7 +1113,7 @@ void cSoftHdAudio::Pause(void)
 			}
 		}
 	} else {
-		m_paused = 1;
+		m_paused = true;
 	}
 }
 
@@ -1152,7 +1152,7 @@ void cSoftHdAudio::SetDownmix(int onoff)
 void cSoftHdAudio::SetSoftvol(int onoff)
 {
 	if (onoff < 0) {
-		m_softVolume ^= 1;
+		m_softVolume = !m_softVolume;
 	} else {
 		m_softVolume = onoff;
 	}
@@ -1167,7 +1167,7 @@ void cSoftHdAudio::SetSoftvol(int onoff)
 void cSoftHdAudio::SetNormalize(int onoff, int maxfac)
 {
 	if (onoff < 0) {
-		m_normalize ^= 1;
+		m_normalize = !m_normalize;
 	} else {
 		m_normalize = onoff;
 	}
@@ -1183,7 +1183,7 @@ void cSoftHdAudio::SetNormalize(int onoff, int maxfac)
 void cSoftHdAudio::SetCompression(int onoff, int maxfac)
 {
 	if (onoff < 0) {
-		m_compression ^= 1;
+		m_compression = !m_compression;
 	} else {
 		m_compression = onoff;
 	}
@@ -1255,7 +1255,7 @@ void cSoftHdAudio::SetChannel(const char *channel)
 void cSoftHdAudio::SetAutoAES(int onoff)
 {
 	if (onoff < 0) {
-		m_appendAES ^= 1;
+		m_appendAES = !m_appendAES;
 	} else {
 		m_appendAES = onoff;
 	}
@@ -1290,8 +1290,8 @@ void cSoftHdAudio::Exit(void)
 
 		AlsaExit();
 		ExitRingbuffer();
-		m_running = 0;
-		m_paused = 0;
+		m_running = false;
+		m_paused = false;
 	}
 }
 
@@ -1339,7 +1339,7 @@ void cSoftHdAudio::FlushAlsaBuffers(void)
 	m_pRingbuffer->Reset();
 	m_skip = 0;
 	m_pts = AV_NOPTS_VALUE;
-	m_videoIsReady = 0;
+	m_videoIsReady = false;
 }
 
 /******************************************************************************
