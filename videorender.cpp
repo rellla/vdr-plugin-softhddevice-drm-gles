@@ -939,7 +939,7 @@ int cVideoRender::DisplayFrame(void)
 	// sync audio/video
 	cDrmBuffer *buf = NULL;
 
-	if (NeedsSync(frame)) {
+	if (NeedsSync(frame) && !m_flushLastFrame) {
 		ret = Sync(frame);
 
 		if (ret == 2) {
