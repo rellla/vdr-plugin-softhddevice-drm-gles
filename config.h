@@ -62,7 +62,7 @@ public:
 	bool LogState = true;                       ///< flag logging on/off
 	int ConfigLog = 0;                          ///< loglevel config
 
-	int ConfigDisableDeint = 0;                 ///< disable deinterlacer
+	bool ConfigDisableDeint = false;            ///< disable deinterlacer
 	void PrintLogLevel(int);
 private:
 	void SetLogState(void);

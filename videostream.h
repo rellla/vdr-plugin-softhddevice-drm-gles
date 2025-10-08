@@ -51,10 +51,10 @@ public:
 	int DecodeInput(void);
 	void Start(void) { m_closing = false; };
 	void Stop(void);
-	int IsClosing(void) { return m_closing; };
+	bool IsClosing(void) { return m_closing; };
 	void Resume(void) { m_paused = false; };
 	void Pause(void);
-	int IsPaused(void) { return m_paused; };
+	bool IsPaused(void) { return m_paused; };
 	void InitPacketRb(void);
 	void EnqueueInRb(int64_t, const void *, int);
 
@@ -65,7 +65,7 @@ public:
 	void SetParameters(AVCodecParameters *par) { m_pPar = par; };
 	void SetTimebase(int, int);
 	void SetTrickpkts(int pkts) { m_trickpkts = pkts; };
-	void SetInterlaced(int);
+	void SetInterlaced(bool interlaced) { m_interlaced = interlaced; };
 	int GetPacketsFilled(void);
 	void IncreasePacketsFilled(void);
 	AVPacket *GetPacketToWrite(void);

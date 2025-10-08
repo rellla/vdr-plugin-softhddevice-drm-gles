@@ -1489,12 +1489,12 @@ uchar *cSoftHdDevice::GrabImage(int &size, bool jpeg, int quality, int width, in
 	LOGDEBUG2(L_GRAB, "device: %s: %d, %d, %d, %dx%d", __FUNCTION__, size, jpeg, quality, width, height);
 
 	// 1. Trigger grab in render thread and wait for the buffers to be cloned
-	m_grabActive = 1;
+	m_grabActive = true;
 	// TriggerGrab does wait and return 0, if buffers are available,
 	// otherwise it returns != 0, if we ran into a timeout
 	if (m_pRender->TriggerGrab()) {
 		m_pRender->ClearGrab();
-		m_grabActive = 0;
+		m_grabActive = false;
 		return NULL;
 	}
 
@@ -1583,7 +1583,7 @@ uchar *cSoftHdDevice::GrabImage(int &size, bool jpeg, int quality, int width, in
 	free(scaledresult);
 	LOGDEBUG2(L_GRAB, "device: %s: finished %s image (%dx%d, quality %d) at %p (size %d)", __FUNCTION__, jpeg ? "jpg" : "pnm", grabwidth, grabheight, jpeg ? quality : 0, grabbedimage, size);
 
-	m_grabActive = 0;
+	m_grabActive = false;
 	return grabbedimage;
 }
 

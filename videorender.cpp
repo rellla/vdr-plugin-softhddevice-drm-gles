@@ -598,7 +598,7 @@ void cVideoRender::SetFrameFlags(AVFrame *frame, int flags)
  *
  * @return         true, if this frame is marked as a trickspeed frame
  */
-int cVideoRender::IsTrickspeedFrame(AVFrame *frame)
+bool cVideoRender::IsTrickspeedFrame(AVFrame *frame)
 {
 	return GetFrameFlags(frame) & FRAME_FLAG_TRICKSPEED;
 }
@@ -608,9 +608,9 @@ int cVideoRender::IsTrickspeedFrame(AVFrame *frame)
  *
  * @param frame    AVFrame
  *
- * @return         true, if this frame is marked as a sillpicture frame
+ * @return         true, if this frame is marked as a stillpicture frame
  */
-int cVideoRender::IsStillpictureFrame(AVFrame *frame)
+bool cVideoRender::IsStillpictureFrame(AVFrame *frame)
 {
 	return GetFrameFlags(frame) & FRAME_FLAG_STILLPICTURE;
 }
@@ -705,19 +705,19 @@ cDrmBuffer *cVideoRender::GetBuffer(AVFrame *frame)
  * @retval 0     wait for video to sync with audio
  * @retval 1     wait for audio to sync with video
  */
-int cVideoRender::ShouldWaitForAudio(void) {
+bool cVideoRender::ShouldWaitForAudio(void) {
 	int64_t audioPts = m_pAudio->GetClock();
 	int64_t videoPts = GetVideoClock() * 1000 * av_q2d(*m_timebase);
 	if (videoPts == AV_NOPTS_VALUE || audioPts == AV_NOPTS_VALUE)
-		return 1;
+		return true;
 
 	int diff = videoPts - audioPts - m_pDevice->GetVideoAudioDelay();
 	// audio is behind video, wait for audio
 	if (diff > 0)
-		return 1;
+		return true;
 
 	// video is behind audio, so don't wait
-	return 0;
+	return false;
 }
 
 /**
@@ -725,29 +725,29 @@ int cVideoRender::ShouldWaitForAudio(void) {
  *
  * @param frame  AVFrame
  *
- * @retval 0     skip sync
- * @retval 1     sync needed
+ * @retval false     skip sync
+ * @retval true      sync needed
  */
-int cVideoRender::NeedsSync(AVFrame *frame)
+bool cVideoRender::NeedsSync(AVFrame *frame)
 {
 	// Stillpicture -> don't sync
 	if (IsStillpictureFrame(frame)) {
 		LOGDEBUG2(L_STILL, "videorender: %s: Stillpicture has AV_NOPTS_VALUE, skip sync ...", __FUNCTION__);
-		return 0;
+		return false;
 	}
 
 	// Trickspeed -> don't sync
 	if (IsTrickspeedFrame(frame)) {
 		m_pAudio->Skip(frame->pts, 0);	// skip all old audio data in trickspeed
-		return 0;
+		return false;
 	}
 
 	if (m_pLastFrame->frame && m_pLastFrame->trickspeed) {
 		m_pAudio->Skip(frame->pts, 1);	// skip old audio data after trickspeed, keeping one byte
-		return 0;
+		return false;
 	}
 
-	return 1;
+	return true;
 }
 
 /**
@@ -1272,7 +1272,7 @@ void cVideoRender::EnqueueFB(AVFrame *inframe)
  */
 int cVideoRender::RenderFrame(AVCodecContext * videoCtx, AVFrame * frame)
 {
-	int interlaced;
+	bool interlaced;
 
 	if (!m_startCounter) {
 		m_timebase = &videoCtx->pkt_timebase;
@@ -1288,7 +1288,7 @@ int cVideoRender::RenderFrame(AVCodecContext * videoCtx, AVFrame * frame)
 	}
 
 #if LIBAVUTIL_VERSION_INT < AV_VERSION_INT(58,7,100)
-	interlaced = frame->interlaced_frame;
+	interlaced = (bool)frame->interlaced_frame;
 #else
 	interlaced = !!(frame->flags & AV_FRAME_FLAG_INTERLACED);
 #endif
@@ -1299,20 +1299,20 @@ int cVideoRender::RenderFrame(AVCodecContext * videoCtx, AVFrame * frame)
 		// set the interlaced switch depending on the framerate
 		if ((videoCtx->framerate.num > 0) &&
 		    (videoCtx->framerate.num / videoCtx->framerate.den > 30))
-			interlaced = 0;
+			interlaced = false;
 		else if (videoCtx->framerate.num > 0)
-			interlaced = 1;
+			interlaced = true;
 
 		// set the interlaced switch depending on an active deinterlace filter, if framerate is not available
 		if ((videoCtx->framerate.num == 0) &&
 		    !interlaced && m_pFilterThread->Active() && m_pFilterThread->IsInterlaceFilter()) {
 			LOGWARNING("videorender: %s: WARNING!!! frame without interlaced flag arrived while deinterlace filter is active (P %d)!", __FUNCTION__, ++m_numWrongProgressive);
-			interlaced = 1;
+			interlaced = true;
 		}
 
 		// hevc is always progressive
 		if (videoCtx->codec_id == AV_CODEC_ID_HEVC)
-			interlaced = 0;
+			interlaced = false;
 
 		m_pDevice->VideoStream()->SetInterlaced(interlaced);
 	}
@@ -1512,9 +1512,9 @@ void cVideoRender::ResumeVideo(void)
  * @retval 1     if paused
  * @retval 0     if rendering
  */
-int cVideoRender::VideoIsPaused(void)
+bool cVideoRender::VideoIsPaused(void)
 {
-	int ret;
+	bool ret;
 	m_playbackMutex.Lock();
 	ret = m_videoIsPaused;
 	m_playbackMutex.Unlock();
@@ -2035,23 +2035,12 @@ void cVideoRender::SetVideoOutputPosition(const cRect &rect)
 }
 
 /**
- * Disable the deinterlacer
- *
- * @param disable         1: disable the deinterlacer
- *                        0: don't disable the deinterlacer, so use it if available
- */
-void cVideoRender::DisableDeint(int disable)
-{
-	m_configDeintDisabled = disable;
-}
-
-/**
  * Check the decoding thread status
  *
  * @retval     1 if active
  *             0 if stopped
  */
-int cVideoRender::DecodingThreadIsActive(void) {
+bool cVideoRender::DecodingThreadIsActive(void) {
 	return m_pDecodingThread->Active();
 };
 

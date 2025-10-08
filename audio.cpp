@@ -832,10 +832,10 @@ void cSoftHdAudio::Filter(AVFrame *inframe, AVCodecContext *ctx)
  *
  * @param videoPts	real video presentation timestamp
  *
- * @retval 0       we did not get a valid audio pts to sync, so video thread must wait
- * @retval 1       audio was started or is already running
+ * @retval false       we did not get a valid audio pts to sync, so video thread must wait
+ * @retval true        audio was started or is already running
  */
-int cSoftHdAudio::VideoReady(int64_t videoPts)
+bool cSoftHdAudio::VideoReady(int64_t videoPts)
 {
 	int64_t audioPts;
 	int64_t used;
@@ -843,13 +843,13 @@ int cSoftHdAudio::VideoReady(int64_t videoPts)
 
 	if (m_running) {
 		LOGDEBUG2(L_SOUND, "audio: %s: Audio is already running?", __FUNCTION__);
-		return 1;
+		return true;
 	}
 
 	// no valid audio known
 	if (m_pts == AV_NOPTS_VALUE) {
 		LOGDEBUG2(L_SOUND, "audio: %s: can't do a/v start, no valid PTS", __FUNCTION__);
-		return 0;
+		return false;
 	}
 
 	used = m_pRingbuffer->UsedBytes();
@@ -885,7 +885,7 @@ int cSoftHdAudio::VideoReady(int64_t videoPts)
 		m_pAudioThread->SendStartSignal();
 	}
 	m_videoIsReady = true;
-	return 1;
+	return true;
 }
 
 /**
@@ -1715,7 +1715,7 @@ int cSoftHdAudio::AlsaSetup(int channels, int sample_rate, int passthrough)
 	}
 
 	if (!snd_pcm_hw_params_test_access(m_pAlsaPCMHandle, hwparams, SND_PCM_ACCESS_MMAP_INTERLEAVED)) {
-		m_alsaUseMmap = 1;
+		m_alsaUseMmap = true;
 	}
 
 	m_hwSampleRate = sample_rate;

@@ -94,9 +94,9 @@ public:
 	void Exit(void);
 	void CleanUp(void);
 	int HardwareQuirks(void) { return m_hardwareQuirks; };
-	void DisableDeint(int);
+	void DisableDeint(bool disable) { m_deintDisabled = disable; };
 	void DisableOglOsd(void) { m_disableOglOsd = true; };
-	int OglOsdDisabled(void) { return m_disableOglOsd; };
+	bool OglOsdDisabled(void) { return m_disableOglOsd; };
 
 	void SetDisplayResolution(const char *);
 	void SetVideoOutputPosition(const cRect &);
@@ -106,10 +106,10 @@ public:
 	void StartVideo(void);
 	void PauseVideo(void);
 	void ResumeVideo(void);
-	int VideoIsPaused(void);
+	bool VideoIsPaused(void);
 	void SetClosing(int);
-	int ShouldClose(void) { return m_closing; };
-	int ShouldFlush(void) { return m_flushing; };
+	bool ShouldClose(void) { return m_closing; };
+	bool ShouldFlush(void) { return m_flushing; };
 
 	// OSD
 	void OsdClear(void);
@@ -132,7 +132,7 @@ public:
 
 	// Threads
 	void Prepare(void);
-	int DecodingThreadIsActive(void);
+	bool DecodingThreadIsActive(void);
 	void WakeupDecodingThread(void);
 	void WakeupDisplayThread(void);
 	void ExitDecodingThread(void);
@@ -150,8 +150,8 @@ public:
 	AVFrame *RbGetFrame(void);
 	void FramesRbLock(void);
 	void FramesRbUnlock(void);
-	int IsTrickspeedFrame(AVFrame *);
-	int IsStillpictureFrame(AVFrame *);
+	bool IsTrickspeedFrame(AVFrame *);
+	bool IsStillpictureFrame(AVFrame *);
 	void MarkAsTrickspeedFrame(AVFrame *);
 	void MarkAsStillpictureFrame(AVFrame *);
 
@@ -242,14 +242,14 @@ private:
 	int GetFrameFlags(AVFrame *);
 	void SetFrameFlags(AVFrame *, int);
 	void SetVideoClock(int64_t);
-	int ShouldWaitForAudio(void);
+	bool ShouldWaitForAudio(void);
 	int GetFrame(AVFrame **);
 	int WaitForFrames(void);
 	int WaitForAudioReady(int64_t, int64_t);
 	int WaitForAudioClock(int64_t *);
 	int HandleDropDup(int64_t, int64_t);
 	int Sync(AVFrame *);
-	int NeedsSync(AVFrame *);
+	bool NeedsSync(AVFrame *);
 	int PageFlip(AVFrame *, cDrmBuffer *, int);
 	int PageFlipBlack(void);
 	int PageFlipOsd(void);

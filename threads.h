@@ -96,7 +96,7 @@ public:
 	void Stop(void);
 	int GetRbFramesFilled(void);
 	void RbPushFrame(AVFrame *);
-	int IsInterlaceFilter(void) { return m_isInterlaceFilter; };
+	bool IsInterlaceFilter(void) { return m_isInterlaceFilter; };
 	void WaitForIdle(void);
 
 private:

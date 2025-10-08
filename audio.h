@@ -47,12 +47,12 @@ public:
 	int Setup(AVCodecContext *, int , int , int);
 	void Resume(void);
 	void Pause(void);
-	char IsPaused(void) { return m_paused; };
-	char IsRunning(void) { return m_running; };
+	bool IsPaused(void) { return m_paused; };
+	bool IsRunning(void) { return m_running; };
 	void SetRunning(volatile bool running) { m_running = running; };
 	void Filter(AVFrame *, AVCodecContext *);
 	void EnqueueRawData(uint16_t *, int, AVFrame *);
-	int VideoReady(int64_t);
+	bool VideoReady(int64_t);
 	int Skip(int64_t, int);
 
 	void FlushBuffers(void);
@@ -82,7 +82,7 @@ public:
 	void StartAlsaPlayer(void) { m_alsaPlayerRunning = true; };
 	void FlushAlsaBuffers(void);
 	int PlayWithAlsa(void);
-	char AlsaPlayerRunning(void) { return m_alsaPlayerRunning; };
+	bool AlsaPlayerRunning(void) { return m_alsaPlayerRunning; };
 
 private:
 	void Init(void);
@@ -177,7 +177,7 @@ private:
 	snd_mixer_elem_t *m_pAlsaMixerElem;  ///< alsa mixer element
 	int m_alsaRatio;                     ///< internal -> mixer ratio * 1000
 	bool m_alsaPlayerRunning;            ///< start/ stop audio player thread
-	int m_alsaUseMmap;                   ///< use mmap
+	bool m_alsaUseMmap;                  ///< use mmap
 	bool m_alsaCanPause;                 ///< hw supports pause
 
 	void XrunRecovery(void);
