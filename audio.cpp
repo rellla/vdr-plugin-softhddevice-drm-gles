@@ -698,8 +698,6 @@ int cSoftHdAudio::Setup(AVCodecContext *ctx, int samplerate, int channels, int p
 {
 	int err = 0;
 
-	Init();
-
 	if (samplerate != (int)m_hwSampleRate ||
 	   (channels != (int)m_hwNumChannels && !(m_downmix && m_hwNumChannels == 2))) {
 
@@ -1265,7 +1263,7 @@ void cSoftHdAudio::SetAutoAES(int onoff)
  * Initialize audio output module
  *
  */
-void cSoftHdAudio::Init()
+void cSoftHdAudio::LazyInit()
 {
 	if (!m_initialized) {
 		InitRingbuffer();

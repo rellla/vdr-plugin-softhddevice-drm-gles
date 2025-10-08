@@ -1138,6 +1138,8 @@ int cSoftHdDevice::PlayAudio(const uchar *data, int size, uchar id)
 		return size;
 	}
 
+	m_pAudio->LazyInit();
+
 	// hard limit buffer full: don't overrun audio buffers on replay
 	if (m_pAudio->GetFreeBytes() < AUDIO_MIN_BUFFER_FREE){
 //		LOGDEBUG("device: %s: Buffer is Full (%d|%d)!", __FUNCTION__, m_pAudio->GetFreeBytes(), AUDIO_MIN_BUFFER_FREE);
@@ -1403,6 +1405,7 @@ int cSoftHdDevice::PlayVideo(const uchar * data, int size)
 	if (size < 9 || !data || data[0] || data[1] || data[2] != 0x01 || data[3] >> 4 != 0x0e)
 		return size;
 
+	m_pAudio->LazyInit();
 
 	// hard limit buffer full: needed for replay
 	if (m_pVideoStream->GetPacketsFilled() >= VIDEO_PACKET_MAX - 10)
@@ -1844,6 +1847,8 @@ void cSoftHdDevice::SetVideoCodec(enum AVCodecID codecId, AVCodecParameters * pa
  */
 int cSoftHdDevice::PlayAudioPkts(AVPacket * pkt)
 {
+	m_pAudio->LazyInit();
+	
 	if (m_pAudio->GetFreeBytes() < AUDIO_MIN_BUFFER_FREE) {
 //		LOGERROR("device: %s: m_pAudio->GetFreeBytes() < AUDIO_MIN_BUFFER_FREE!", __FUNCTION__);
 		return 0;
@@ -1863,6 +1868,8 @@ int cSoftHdDevice::PlayAudioPkts(AVPacket * pkt)
 int cSoftHdDevice::PlayVideoPkts(AVPacket * pkt)
 {
 	AVPacket *avpkt;
+
+	m_pAudio->LazyInit();
 
 	if (m_pVideoStream->GetPacketsFilled() >= VIDEO_PACKET_MAX - 10) {
 		return 0;

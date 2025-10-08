@@ -43,6 +43,7 @@ public:
 	cSoftHdAudio(cSoftHdDevice *);
 	virtual ~cSoftHdAudio(void);
 
+	void LazyInit(void);
 	void Exit(void);
 	int Setup(AVCodecContext *, int , int , int);
 	void Resume(void);
@@ -85,8 +86,6 @@ public:
 	char AlsaPlayerRunning(void) { return m_alsaPlayerRunning; };
 
 private:
-	void Init(void);
-
 	cSoftHdDevice *m_pDevice;               ///< pointer to device
 
 	// thread
