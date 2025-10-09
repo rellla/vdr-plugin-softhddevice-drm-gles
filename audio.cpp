@@ -1042,7 +1042,7 @@ int64_t cSoftHdAudio::GetClock(void)
 void cSoftHdAudio::SetVolume(int volume)
 {
 	m_volume = volume;
-	m_muted = !volume;
+	m_muted = volume == 0;
 	// reduce loudness for stereo output
 	if (m_stereoDescent && m_hwNumChannels == 2 && !m_passthrough) {
 		volume -= m_stereoDescent;
@@ -1131,62 +1131,27 @@ void cSoftHdAudio::SetBufferTimeInMs(int delayInMs)
 }
 
 /**
- * Set audio downmix
- *
- * @param onoff		-1: toggle, 1: turn on, 0: turn off
- */
-void cSoftHdAudio::SetDownmix(int onoff)
-{
-	if (onoff < 0) {
-		m_downmix ^= 1;
-	} else {
-		m_downmix = onoff;
-	}
-}
-
-/**
- * Set software volume
- *
- * @param onoff          -1: toggle, 1: turn on, 0: turn off
- */
-void cSoftHdAudio::SetSoftvol(int onoff)
-{
-	if (onoff < 0) {
-		m_softVolume = !m_softVolume;
-	} else {
-		m_softVolume = onoff;
-	}
-}
-
-/**
  * Set normalize volume parameters
  *
- * @param onoff          -1: toggle, 1: turn on, 0: turn off
+ * @param enable         true, turn on normalize
  * @param maxfac         max. factor of normalize / 1000
  */
-void cSoftHdAudio::SetNormalize(int onoff, int maxfac)
+void cSoftHdAudio::SetNormalize(bool enable, int maxfac)
 {
-	if (onoff < 0) {
-		m_normalize = !m_normalize;
-	} else {
-		m_normalize = onoff;
-	}
+	m_normalize = enable;
 	m_normalizeMaxFactor = maxfac;
 }
 
 /**
  * Set volume compression parameters
  *
- * @param onoff         -1: toggle, 1: turn on, 0: turn off
+ * @param enable         true, turn on compression
  * @param maxfac        max. factor of compression / 1000
  */
-void cSoftHdAudio::SetCompression(int onoff, int maxfac)
+void cSoftHdAudio::SetCompression(bool enable, int maxfac)
 {
-	if (onoff < 0) {
-		m_compression = !m_compression;
-	} else {
-		m_compression = onoff;
-	}
+	m_compression = enable;
+
 	m_compressionMaxFactor = maxfac;
 	if (!m_compressionFactor) {
 		m_compressionFactor = 1000;
@@ -1245,20 +1210,6 @@ void cSoftHdAudio::SetPassthrough(int mask)
 void cSoftHdAudio::SetChannel(const char *channel)
 {
 	m_pMixerChannel = channel;
-}
-
-/**
- * Set automatic AES flag handling
- *
- * @param onoff     turn setting AES flag on or off
- */
-void cSoftHdAudio::SetAutoAES(int onoff)
-{
-	if (onoff < 0) {
-		m_appendAES = !m_appendAES;
-	} else {
-		m_appendAES = onoff;
-	}
 }
 
 /**

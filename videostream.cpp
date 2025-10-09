@@ -398,6 +398,17 @@ int cVideoStream::GetPacketsFilled(void)
 }
 
 /**
+ * Set the interlaced flag for the stream
+ *
+ * @param interlaced        true, if interlaced
+ */
+void cVideoStream::SetInterlaced(bool interlaced)
+{
+//	LOGDEBUG("videostream %s: %d", __FUNCTION__, m_interlaced);
+	m_interlaced = interlaced;
+}
+
+/**
  * Set the timebase for the stream
  *
  * @param num       timbase numerator

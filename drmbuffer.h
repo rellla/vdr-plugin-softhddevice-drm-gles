@@ -69,12 +69,12 @@ public:
 	int IsDirty(void) { return m_dirty; };
 	void MarkClean(void) { m_dirty = false; };
 	void MarkDirty(void) { m_dirty = true; };
-	int IsSwBuffer(void) { return m_swbuffer; };
+	bool IsSwBuffer(void) { return m_swbuffer; };
 	void MarkAsHwBuffer(void) { m_swbuffer = false; };
 	void MarkAsSwBuffer(void) { m_swbuffer = true; };
 
 	void SetTrickspeed(int trickspeed) { m_trickspeed = trickspeed; };
-	int IsTrickspeedBuffer(void) { return m_trickspeed; };
+	bool IsTrickspeedBuffer(void) { return m_trickspeed; };
 
 	int Id(void) { return m_fbId; };
 	void SetId(int id) { m_fbId = id; };

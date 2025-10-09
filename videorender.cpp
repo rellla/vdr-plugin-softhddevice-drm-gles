@@ -1288,7 +1288,7 @@ int cVideoRender::RenderFrame(AVCodecContext * videoCtx, AVFrame * frame)
 	}
 
 #if LIBAVUTIL_VERSION_INT < AV_VERSION_INT(58,7,100)
-	interlaced = (bool)frame->interlaced_frame;
+	interlaced = frame->interlaced_frame;
 #else
 	interlaced = !!(frame->flags & AV_FRAME_FLAG_INTERLACED);
 #endif

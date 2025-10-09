@@ -65,7 +65,7 @@ public:
 	void SetParameters(AVCodecParameters *par) { m_pPar = par; };
 	void SetTimebase(int, int);
 	void SetTrickpkts(int pkts) { m_trickpkts = pkts; };
-	void SetInterlaced(bool interlaced) { m_interlaced = interlaced; };
+	void SetInterlaced(bool interlaced);
 	int GetPacketsFilled(void);
 	void IncreasePacketsFilled(void);
 	AVPacket *GetPacketToWrite(void);

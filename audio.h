@@ -66,16 +66,16 @@ public:
 	void SetEq(int[17], int);
 	void SetVolume(int);
 	void SetBufferTimeInMs(int);
-	void SetDownmix(int);
-	void SetSoftvol(int);
-	void SetNormalize(int, int);
-	void SetCompression(int, int);
+	void SetDownmix(int downMix) { m_downmix = downMix; };
+	void SetSoftvol(bool softVolume) { m_softVolume = softVolume; };
+	void SetNormalize(bool, int);
+	void SetCompression(bool, int);
 	void SetStereoDescent(int);
 	void SetDevice(const char *);
 	void SetPassthroughDevice(const char *);
 	void SetPassthrough(int);
 	void SetChannel(const char *);
-	void SetAutoAES(int);
+	void SetAutoAES(bool appendAes) { m_appendAES = appendAes; }
 	void SetTimebase(AVRational *timebase) { m_pTimebase = timebase; };
 
 	void StopAlsaPlayer(void) { m_alsaPlayerRunning = false; };

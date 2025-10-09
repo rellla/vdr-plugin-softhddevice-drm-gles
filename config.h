@@ -41,7 +41,7 @@ public:
 	int ConfigDisableOglOsd = 0;                ///< config disable ogl osd
 #endif
 	int ConfigVideoAudioDelay = 0;              ///< config audio delay
-	bool ConfigAudioPassthrough = false;        ///< config audio pass-through mask
+	int ConfigAudioPassthrough = 0;             ///< config audio pass-through mask
 	bool AudioPassthroughState = false;         ///< flag audio-passthrough on/off
 	bool ConfigAudioDownmix = false;            ///< config ffmpeg audio downmix
 	bool ConfigAudioSoftvol = false;            ///< config use software volume
