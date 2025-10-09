@@ -1145,7 +1145,7 @@ void cSoftHdAudio::SetNormalize(bool enable, int maxfac)
 /**
  * Set volume compression parameters
  *
- * @param enable         true, turn on compression
+ * @param enable        true, turn on compression
  * @param maxfac        max. factor of compression / 1000
  */
 void cSoftHdAudio::SetCompression(bool enable, int maxfac)

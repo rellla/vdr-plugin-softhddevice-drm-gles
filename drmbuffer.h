@@ -66,14 +66,14 @@ public:
 	uint32_t PixFmt(void) { return m_pixFmt; };
 	void SetPixFmt(uint32_t pixFmt) { m_pixFmt = pixFmt; };
 
-	int IsDirty(void) { return m_dirty; };
+	bool IsDirty(void) { return m_dirty; };
 	void MarkClean(void) { m_dirty = false; };
 	void MarkDirty(void) { m_dirty = true; };
 	bool IsSwBuffer(void) { return m_swbuffer; };
 	void MarkAsHwBuffer(void) { m_swbuffer = false; };
 	void MarkAsSwBuffer(void) { m_swbuffer = true; };
 
-	void SetTrickspeed(int trickspeed) { m_trickspeed = trickspeed; };
+	void SetTrickspeed(bool trickspeed) { m_trickspeed = trickspeed; };
 	bool IsTrickspeedBuffer(void) { return m_trickspeed; };
 
 	int Id(void) { return m_fbId; };
