@@ -225,10 +225,6 @@ int cFilterThread::Init(const AVCodecContext *videoCtx, AVFrame *frame, int disa
 		return -1;
 	}
 
-	atomic_set(&m_numFramesFilled, 0);
-	m_framesRead = 0;
-	m_framesWrite =  0;
-
 	m_pRender->ClearFramesToFilter();
 	m_filterBug = false;
 	m_filterTrick = false;
@@ -379,13 +375,13 @@ void cFilterThread::Action(void)
 	LOGDEBUG("threads: video filter thread started");
 
 	while (Running()) {
-		if (!GetRbFramesFilled()) {
+		if (m_frames.Empty()) {
 			m_waitIdleCondition.Broadcast();
 			usleep(10000);
 			continue;
 		}
 
-		frame = RbGetFrame();
+		frame = m_frames.Pop();
 
 		int interlaced;
 #if LIBAVUTIL_VERSION_INT < AV_VERSION_INT(58,7,100)
@@ -469,31 +465,17 @@ void cFilterThread::Action(void)
 /**
  * Get the number of frames in the ringbuffer to be filtered
  */
-int cFilterThread::GetRbFramesFilled(void)
+int cFilterThread::GetBufferFrameCount(void)
 {
-	return atomic_read(&m_numFramesFilled);
-}
-
-/**
- * Get the next frame of the ringbuffer to be filtered
- */
-AVFrame *cFilterThread::RbGetFrame(void)
-{
-	AVFrame *frame = m_pFramesRb[m_framesRead];
-	m_framesRead = (m_framesRead + 1) % VIDEO_SURFACES_MAX;
-	atomic_dec(&m_numFramesFilled);
-
-	return frame;
+	return m_frames.Size();
 }
 
 /**
  * Put a frame in the ringbuffer to be filtered
  */
-void cFilterThread::RbPushFrame(AVFrame *frame)
+bool cFilterThread::PushFrame(AVFrame *frame)
 {
-	m_pFramesRb[m_framesWrite] = frame;
-	m_framesWrite = (m_framesWrite + 1) % VIDEO_SURFACES_MAX;
-	atomic_inc(&m_numFramesFilled);
+	return m_frames.Push(frame);
 }
 
 void cFilterThread::Stop(void)
@@ -508,8 +490,8 @@ void cFilterThread::Stop(void)
 	m_filterStill = false;
 	m_pRender->ClearFramesToFilter();
 
-	while (GetRbFramesFilled()) {
-		AVFrame *frame = RbGetFrame();
+	while (!m_frames.Empty()) {
+		AVFrame *frame = m_frames.Pop();
 		av_frame_free(&frame);
 	}
 

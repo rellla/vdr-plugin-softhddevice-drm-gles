@@ -21,6 +21,7 @@
 #define __THREADS_H
 
 #include "vdr/thread.h"
+#include "queue.h"
 
 #define VIDEO_SURFACES_MAX 3
 
@@ -94,8 +95,8 @@ public:
 	virtual ~cFilterThread(void);
 	int Init(const AVCodecContext *, AVFrame *, int);
 	void Stop(void);
-	int GetRbFramesFilled(void);
-	void RbPushFrame(AVFrame *);
+	int GetBufferFrameCount(void);
+	bool PushFrame(AVFrame *);
 	bool IsInterlaceFilter(void) { return m_isInterlaceFilter; };
 	void WaitForIdle(void);
 
@@ -111,14 +112,9 @@ private:
 	bool m_filterStill;                         ///< the current filter handles stillpicture frames
 	bool m_isInterlaceFilter;                   ///< the current filter is an deinterlace filter
 
-	AVFrame *m_pFramesRb[VIDEO_SURFACES_MAX];   ///< ringbuffer for frames to be filtered
-	int m_numFramesFilled;                      ///< number of frames in the ringbuffer
-	int m_framesWrite;                          ///< ringbuffer write pointer
-	int m_framesRead;                           ///< ringbuffer read pointer
+	cQueue<AVFrame *> m_frames{VIDEO_SURFACES_MAX}; ///< queue for frames to be filtered
 
 	cCondVar m_waitIdleCondition;               ///< condition is triggered, if ringbuffer is empty
-
-	AVFrame *RbGetFrame(void);
 
 protected:
 	virtual void Action(void);
