@@ -23,7 +23,7 @@
 #include <cstdint>
 
 /**
- * @brief Thread-safe queue class
+ * Thread-safe queue class
  *
  * This class provides a thread-safe queue implementation using std::deque
  * and std::mutex for synchronization. It supports both FIFO queue operations
