@@ -18,6 +18,7 @@
  * GNU Affero General Public License for more details.}
  */
 
+ #include <stdexcept>
  #include <libavutil/frame.h>
  #include <libavcodec/packet.h>
 
