@@ -1,0 +1,86 @@
+/**
+ * @file pes.h
+ * PES packet parser header
+ *
+ * @copyright (c) 2025 by Andreas Baierl. All Rights Reserved.
+ *
+ * @license{AGPLv3
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as
+ * published by the Free Software Foundation, either version 3 of the
+ * License.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.}
+ */
+
+#ifndef __SOFTHDDEVICE_PES_H
+#define __SOFTHDDEVICE_PES_H
+
+#include <stdint.h>
+#include <stddef.h>
+
+extern "C"
+{
+#include <libavcodec/avcodec.h>
+}
+
+/**
+ * @brief Convert AVCodecID to a human-readable string
+ *
+ * @param c The codec ID to convert
+ * @return A string representation of the codec ID
+ */
+constexpr const char* to_string(AVCodecID c) {
+    switch (c) {
+        case AV_CODEC_ID_NONE: return "None";
+        case AV_CODEC_ID_MPEG2VIDEO: return "MPEG2";
+        case AV_CODEC_ID_H264: return "H.264";
+        case AV_CODEC_ID_HEVC: return "HEVC";
+		default: return "Unknown codec";
+    }
+}
+
+/**
+ * PES packet parser class
+ *
+ * This class parses PES (Packetized Elementary Stream) packets
+ * to extract header information, video codec, PTS, and payload data.
+ */
+class cPes
+{
+public:
+	cPes(const uint8_t *data, int size);
+	void Parse();
+	bool IsHeaderValid();
+	bool IsVideoStream();
+	bool IsAudioStream();
+	AVCodecID GetCodec() { return m_codec; }
+	int64_t GetPts();
+	const uint8_t *GetPayload();
+	int GetPayloadSize();
+
+	private:
+	uint32_t ReadBytes(int offset, int count);
+	uint8_t GetStreamId() { return m_data[3]; }
+	AVCodecID ParseCodec();
+
+	// According to H.222.0 03/2017 Table 2-21 packet_start_code_prefix
+	// And also according to H.264/HEVC payload
+	static constexpr uint32_t START_CODE_PREFIX = 0x00'0001;
+	static constexpr uint32_t START_CODE_PREFIX_LEN = 3;
+
+	static constexpr uint8_t MPEG2_STREAM_TYPE = 0xB3;
+	static constexpr uint8_t H264_STREAM_TYPE = 0x09;
+	static constexpr uint8_t HEVC_STREAM_TYPE = 0x46;
+
+	const uint8_t *m_data;   ///< pointer to the raw PES packet data
+	int m_size;              ///< size of the PES packet
+	bool m_payloadHasLeadingZero = false;   ///< flag indicating if codec payload has leading zero byte for H.264/HEVC
+	AVCodecID m_codec = AV_CODEC_ID_NONE; ///< detected codec ID
+};
+
+#endif

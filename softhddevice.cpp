@@ -56,6 +56,7 @@ extern "C" {
 #include "videorender.h"
 #include "codec_audio.h"
 #include "codec_video.h"
+#include "pes.h"
 
 #define _(str) gettext(str)                    ///< gettext shortcut
 #define _N(str) str                            ///< gettext_noop shortcut
@@ -226,7 +227,7 @@ static inline int FastLatmCheck(const uint8_t * p)
  *
  * @param data   incomplete PES packet
  * @param size   number of bytes
- * 
+ *
  * @retval <0    possible AAC LATM audio, but need more data
  * @retval 0     no valid AAC LATM audio
  * @retval >0    valid AAC LATM audio
@@ -1055,7 +1056,7 @@ bool cSoftHdDevice::Flush(int timeout)
 
 /**
  * Sets the video display format
- * 
+ *
  * @param videoDisplayFormat      video display format
  * Set it to the given one (only useful if this device has an MPEG decoder).
  */
@@ -1358,99 +1359,65 @@ int cSoftHdDevice::PesHeadLength(const uint8_t *p)
  * @param data        pointer to stream data
  * @param offset      print from here
  */
-static void PrintStreamData10(const uchar *data, int offset)
+static void PrintStreamData10(const uchar *payload)
 {
-	LOGDEBUG2(L_CODEC, "Stream: 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x",
-		data[offset],
-		data[offset + 1],
-		data[offset + 2],
-		data[offset + 3],
-		data[offset + 4],
-		data[offset + 5],
-		data[offset + 6],
-		data[offset + 7],
-		data[offset + 8],
-		data[offset + 9],
-		data[offset + 10]);
-}
-
-void cSoftHdDevice::SetCodecAndEnqueue(const uchar *data, int offset, int size,
-                                          enum AVCodecID codecId, int64_t pts)
-{
-	PrintStreamData10(data, offset);
-	m_pVideoStream->SetCodecId(codecId);
-	m_pVideoStream->SetTrickpkts(codecId == AV_CODEC_ID_MPEG2VIDEO ? 1 : 2);
-	m_pVideoStream->Open();
-	m_pVideoStream->SetTimebase(1, 90000);
-	m_pVideoStream->EnqueueInRb(pts, data + offset, size - offset);
+	LOGDEBUG2(L_CODEC, "Stream: 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x",
+		payload[0],
+		payload[1],
+		payload[2],
+		payload[3],
+		payload[4],
+		payload[5],
+		payload[6],
+		payload[7],
+		payload[8],
+		payload[9],
+		payload[10],
+		payload[11],
+		payload[12]
+	);
 }
 
 /**
  * Play a video packet
  *
- * @param data  exactly one complete PES packet (which is incomplete)
- * @param size  length of PES packet
+ * @param data A PES packet (which can be incomplete)
+ * @param size the length of the PES packet including header
  */
-int cSoftHdDevice::PlayVideo(const uchar * data, int size)
+int cSoftHdDevice::PlayVideo(const uchar *data, int size)
 {
-	//LOGDEBUG("device: %s: %p %d", __FUNCTION__, data, length);
+	//LOGDEBUG("device: %s: %p %d", __FUNCTION__, data, size);
 
-	int64_t pts = AV_NOPTS_VALUE;
-	int i, n;
-
-	if (m_pVideoStream->IsPaused())
+	if (m_pVideoStream->IsPaused() || m_pVideoStream->GetPacketsFilled() >= VIDEO_PACKET_MAX - 10)
 		return 0;
 
-	// must be a PES video start code
-	if (size < 9 || !data || data[0] || data[1] || data[2] != 0x01 || data[3] >> 4 != 0x0e)
+	cPes pesPacket(data, size);
+
+	if (!pesPacket.IsHeaderValid() || !pesPacket.IsVideoStream())
 		return size;
 
-	m_pAudio->LazyInit();
+	pesPacket.Parse();
 
-	// hard limit buffer full: needed for replay
-	if (m_pVideoStream->GetPacketsFilled() >= VIDEO_PACKET_MAX - 10)
-		return 0;
+	if (m_pVideoStream->GetCodecId() == AV_CODEC_ID_NONE) {
+		// The playback has just started. Detect the codec and store it.
+		PrintStreamData10(data);
+		AVCodecID codec = pesPacket.GetCodec();
 
-
-	// get pts
-	if (data[7] & 0x80) {
-		pts = (int64_t) (data[9] & 0x0E) << 29 | data[10] << 22 | (data[11] &
-		       0xFE) << 14 | data[12] << 7 | (data[13] & 0xFE) >> 1;
-	}
-
-	n = PesHeadLength(data);	// PES header size
-
-	for (i = 0; (i < 2) && (i + 4 < size); i++) {
-		int offset = i + n;
-		// ES start code 0x00 0x00 0x01
-		if (!data[offset] && !data[offset + 1] && data[offset + 2] == 0x01) {
-			if (m_pVideoStream->GetCodecId() == AV_CODEC_ID_NONE) {
-				if (data[offset + 3] == 0xb3) {
-					// MPEG2 I-Frame
-					LOGDEBUG("device: %s: mpeg2 detected", __FUNCTION__);
-					SetCodecAndEnqueue(data, offset, size, AV_CODEC_ID_MPEG2VIDEO, pts);
-				} else if (data[offset + 3] == 0x09 && (data[offset + 4] == 0x10 || data[offset + 4] == 0xF0 || data[offset + 10] == 0x64)) {
-					// H264 I-Frame
-					LOGDEBUG("device: %s: H264 detected", __FUNCTION__);
-					SetCodecAndEnqueue(data, offset, size, AV_CODEC_ID_H264, pts);
-				} else if (data[i + n + 3] == 0x46 && (data[offset + 5] == 0x10 || data[offset + 5] == 0x50 || data[offset + 10] == 0x40)) {
-					// HEVC I-Frame
-					LOGDEBUG("device: %s: hevc detected", __FUNCTION__);
-					SetCodecAndEnqueue(data, offset, size, AV_CODEC_ID_HEVC, pts);
-				}
-			} else {
-				m_pVideoStream->EnqueueInRb(pts, data + offset, size - offset);
-			}
+		if (codec == AV_CODEC_ID_NONE)
 			return size;
-		}
+
+		LOGDEBUG("device: %s: %s detected", __FUNCTION__, to_string(codec));
+
+		m_pAudio->LazyInit();
+
+		m_pVideoStream->SetCodecId(codec);
+		m_pVideoStream->SetTrickpkts(codec == AV_CODEC_ID_MPEG2VIDEO ? 1 : 2);
+		m_pVideoStream->Open();
+		m_pVideoStream->SetTimebase(1, 90000);
 	}
 
-	// this happens when vdr sends incomplete packets and no stream is started
-	if (m_pVideoStream->GetCodecId() == AV_CODEC_ID_NONE)
-		return size;
+	m_pVideoStream->EnqueueInRb(pesPacket.GetPts(), pesPacket.GetPayload(), pesPacket.GetPayloadSize());
 
-	// complete last frame
-	m_pVideoStream->EnqueueInRb(pts, data + n, size - n);
 	return size;
 }
 
