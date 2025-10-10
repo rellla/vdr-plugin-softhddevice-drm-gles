@@ -872,7 +872,25 @@ void cSoftHdDevice::GetOsdSize(int &width, int &height, double &aspectRatio)
 	if (IsDetached())
 		return;
 
-	m_pRender->GetScreenSize(&width, &height, &aspectRatio);
+	std::lock_guard<std::mutex> lock(m_sizeMutex);
+	width = m_screenWidth;
+	height = m_screenHeight;
+	aspectRatio = (double)width / (double)height;
+}
+
+/**
+ * Set the screen size
+ *
+ * @param width           screen width
+ * @param height          screen height
+ * @param refreshRate     screen refresh rate (currently unused)
+ */
+void cSoftHdDevice::SetScreenSize(int width, int height, uint32_t refreshRate)
+{
+	std::lock_guard<std::mutex> lock(m_sizeMutex);
+	m_screenWidth = width;
+	m_screenHeight = height;
+	m_screenRefreshRate = refreshRate;
 }
 
 /**
@@ -1110,10 +1128,11 @@ uchar *cSoftHdDevice::GrabImage(int &size, bool jpeg, int quality, int width, in
 	m_pRender->ConvertVideoBufToRgb();
 
 	// 3. get screen dimensions
-	int screenwidth;
-	int screenheight;
-	double pixelAspect;
-	m_pRender->GetScreenSize(&screenwidth, &screenheight, &pixelAspect);
+	int screenwidth = 0;
+	int screenheight = 0;
+	double aspectRatio = 0.0f;
+	GetOsdSize(screenwidth, screenheight, aspectRatio);
+
 	int screensize = screenwidth * screenheight * 3; // we want a RGB24
 
 	// 4. set grab dimensions

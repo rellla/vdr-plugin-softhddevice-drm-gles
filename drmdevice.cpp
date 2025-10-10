@@ -363,6 +363,8 @@ int cDrmDevice::Init(void)
 		}
 	}
 
+	m_pRender->SetScreenSize(m_drmModeInfo.hdisplay, m_drmModeInfo.vdisplay, m_drmModeInfo.vrefresh);
+
 	LOGINFO("DRM Setup: Using Monitor Mode %dx%d@%d, m_crtcId %d crtc_idx %d",
 		m_drmModeInfo.hdisplay, m_drmModeInfo.vdisplay, m_drmModeInfo.vrefresh, m_crtcId, m_crtcIndex);
 
@@ -566,11 +568,7 @@ int cDrmDevice::Init(void)
 		return 0;
 
 	// init gbm
-	int w, h;
-	double pixel_aspect;
-	GetScreenSize(&w, &h, &pixel_aspect);
-
-	if (InitGbm(w, h, DRM_FORMAT_ARGB8888, GBM_BO_USE_SCANOUT | GBM_BO_USE_RENDERING)) {
+	if (InitGbm(m_drmModeInfo.hdisplay, m_drmModeInfo.vdisplay, DRM_FORMAT_ARGB8888, GBM_BO_USE_SCANOUT | GBM_BO_USE_RENDERING)) {
 		LOGERROR("drmdevice: %s: failed to init gbm device and surface!", __FUNCTION__);
 		return -1;
 	}
@@ -583,21 +581,6 @@ int cDrmDevice::Init(void)
 #endif
 
 	return 0;
-}
-
-/**
- * Get the display size
- *
- * @param[out] width           display width
- * @param[out] height          display height
- * @param[out] pixelAspect     display aspect ratio
- *                             (currently hardcoded to 16/9)
- */
-void cDrmDevice::GetScreenSize(int *width, int *height, double *pixel_aspect)
-{
-	*width = m_drmModeInfo.hdisplay;
-	*height = m_drmModeInfo.vdisplay;
-	*pixel_aspect = (double)16 / (double)9;
 }
 
 #ifdef USE_GLES

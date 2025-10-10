@@ -2740,7 +2740,7 @@ cOglOsd::cOglOsd(int Left, int Top, uint Level, std::shared_ptr<cOglThread> oglT
 	double pixel_aspect;
 	dirtyViewport = new cRect();
 
-	Render->GetScreenSize(&osdWidth, &osdHeight, &pixel_aspect);
+	Device->GetOsdSize(osdWidth, osdHeight, pixel_aspect);
 	LOGDEBUG2(L_OSD, "openglosd: %s: New Osd %p osdLeft %d osdTop %d screenWidth %d screenHeight %d", __FUNCTION__, this, Left, Top, osdWidth, osdHeight);
 
 	maxPixmapSize.Set(oglThread->MaxTextureSize(), oglThread->MaxTextureSize());

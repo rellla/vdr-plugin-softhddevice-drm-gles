@@ -1351,15 +1351,15 @@ void cVideoRender::GetStats(int *duped, int *dropped, int *counter)
  ****************************************************************************/
 
 /**
- * Wrapper to get the screen size from the drm device
+ * Wrapper to set the screen size in the device
  *
- * @param[out] width           screen width
- * @param[out] height          screen height
- * @param[out] pixelAspect     screen aspect ratio
+ * @param width           screen width
+ * @param height          screen height
+ * @param refreshRate     screen refresh rate
  */
-void cVideoRender::GetScreenSize(int *width, int *height, double *pixelAspect)
+void cVideoRender::SetScreenSize(int width, int height, uint32_t refreshRate)
 {
-	m_pDrmDevice->GetScreenSize(width, height, pixelAspect);
+	m_pDevice->SetScreenSize(width, height, refreshRate);
 }
 
 /**

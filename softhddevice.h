@@ -191,6 +191,7 @@ public:
 	void SetDisableDeint(void);
 	void OsdClose(void);
 	void OsdDrawARGB(int, int, int, int, int, const uint8_t *, int, int);
+	void SetScreenSize(int, int, uint32_t);
 
 	// audio
 	void SetVideoAudioDelay(int delay) { m_videoAudioDelay = delay; };
@@ -234,6 +235,11 @@ private:
 	bool m_grabActive;               ///< simple lock variable
 	                                 ///< skips a new grab request if the last one is still active
 	mutable std::mutex m_mutex;      ///< mutex to lock the state machine
+	std::mutex m_sizeMutex;          ///< mutex to lock screen size (which is accessed by different threads)
+
+	int m_screenWidth;
+	int m_screenHeight;
+	uint32_t m_screenRefreshRate;
 
 	void ClearAudio(void);
 	void Exit(void);

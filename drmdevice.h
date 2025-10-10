@@ -79,7 +79,6 @@ public:
 	virtual ~cDrmDevice(void);
 
 	int Init(void);
-	void GetScreenSize(int *, int *, double *);
 	int Fd(void) { return m_fdDrm; };
 	void Close(void);
 

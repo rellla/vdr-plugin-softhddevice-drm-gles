@@ -87,7 +87,7 @@ public:
 	void DisableDeint(bool disable) { m_userDisabledDeinterlacer = disable; };
 
 	void SetVideoOutputPosition(const cRect &);
-	void GetScreenSize(int *, int *, double *);
+	void SetScreenSize(int, int, uint32_t);
 	int64_t GetVideoClock(void);
 	void GetStats(int *, int *, int *);
 	void ResetFrameCounter(void);
