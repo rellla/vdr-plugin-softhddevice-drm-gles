@@ -7,3 +7,13 @@ po/*.pot
 .dependencies
 srcdoc
 .vscode
+
+# test coverage files
+*.gcda
+*.gcno
+*.gcov
+
+tests/test_runner
+tests/test-results.xml
+tests/coverage.info
+tests/coverage-html/
