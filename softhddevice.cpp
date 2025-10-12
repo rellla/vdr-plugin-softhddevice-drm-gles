@@ -56,6 +56,7 @@ extern "C" {
 #include "videorender.h"
 #include "codec_audio.h"
 #include "codec_video.h"
+#include "pes.h"
 
 #define _(str) gettext(str)                    ///< gettext shortcut
 #define _N(str) str                            ///< gettext_noop shortcut
@@ -592,7 +593,6 @@ void cSoftHdDevice::Start(void)
 		m_pRender->Init();
 
 		m_pVideoStream->StartDecoder(new cVideoDecoder(m_pRender));
-		m_pVideoStream->InitPacketRb();
 	}
 }
 
@@ -862,88 +862,35 @@ void cSoftHdDevice::StillPicture(const uchar *data, int size)
 	}
 
 	LOGDEBUG("device: %s: %s %p %d", __FUNCTION__, data[0] == 0x47 ? "ts" : "pes", data, size);
-	AVPacket *avpkt;
-	AVFrame *frame;
 
-	const uchar * pos;
-	int sizeRest;
-	enum AVCodecID codec = AV_CODEC_ID_NONE;
-	int i;
-	int pesLength;
-	int headLength;
-	int context = 0;
+	cPesVideo pesPacket((const uint8_t*)data, size);
 
-	avpkt = m_pVideoStream->GetPacketToWrite();
-	avpkt->size = 0;
-	avpkt->pts = AV_NOPTS_VALUE;
-	pos = data;
-	sizeRest = size;
+	if (!pesPacket.IsValid()) {
+		m_pVideoStream->ResetFragmentationBuffer();
 
-	// detect codec and build packet
-	while (sizeRest >= 6 ) {
-		if (pos[3] >> 4 == 0x0e) {	// PES video start code
-			pesLength = PesHasLength(pos) ? PesLength(pos) : size;
-			headLength = PesHeadLength(pos);
-		} else {	// ES video start code
-			pesLength = size;
-			headLength = 0;
-		}
-
-		if (codec == AV_CODEC_ID_NONE) {
-			for (i = 0; (i < 2); i++) {
-				// ES start code 0x00 0x00 0x01
-				if (!pos[i + headLength] && !pos[i + headLength + 1] &&
-				    pos[i + headLength + 2] == 0x01) {
-
-					// AV_CODEC_ID_MPEG2VIDEO 0x00 0x00 0x01 0xb3
-					if (pos[i + headLength + 3] == 0xb3) {
-						codec = AV_CODEC_ID_MPEG2VIDEO;
-						break;
-					}
-					// AV_CODEC_ID_H264 0x00 0x00 0x01 0x09
-					if (pos[i + headLength + 3] == 0x09) {
-						codec = AV_CODEC_ID_H264;
-						break;
-					}
-					// AV_CODEC_ID_HEVC 0x00 0x00 0x01 0x46
-					if (pos[i + headLength + 3] == 0x46) {
-						codec = AV_CODEC_ID_HEVC;
-						break;
-					}
-				}
-			}
-		}
-
-		LOGDEBUG2(L_STILL, "device: %s: memcpy avpkt.size %d size %d sizeRest %d peslength %d headlength %d I %d", __FUNCTION__,
-		                    avpkt->size, size, sizeRest, pesLength, headLength, i);
-		if ((size_t)(avpkt->size + pesLength - headLength - i) >= avpkt->buf->size) {
-			int pkt_size = avpkt->size;
-			LOGWARNING("device: %s: packet buffer too small for %d", __FUNCTION__,
-			avpkt->size + pesLength - headLength - i);
-			av_grow_packet(avpkt, pesLength - headLength - i);
-			avpkt->size = pkt_size;
-		}
-
-		memcpy(avpkt->data + avpkt->size, pos + headLength + i, pesLength - headLength - i);
-		avpkt->size += pesLength - headLength - i;
-		sizeRest -= pesLength;
-		pos += pesLength;
-		i = 0;
+		return;
 	}
-	m_pVideoStream->IncreasePacketsFilled();
+
+	AVPacket *avpkt = CreateAvPacket(pesPacket.GetPayload(), pesPacket.GetPayloadSize(), pesPacket.GetPts());
+
+	if (!m_pVideoStream->PushAvPacket(avpkt)) {
+		LOGERROR("device: %s: video packet buffer overflow", __FUNCTION__);
+		return;
+	}
 
 	m_pVideoStream->Pause();
 	// close the decoder if opened and another codec id arrives
 	if (m_pVideoStream->Decoder()->GetContext()) {
-		if ((int)(m_pVideoStream->Decoder()->GetContext()->codec_id) != codec) {
+		if ((int)(m_pVideoStream->Decoder()->GetContext()->codec_id) != pesPacket.GetCodec()) {
 			m_pVideoStream->Decoder()->Close();
 		}
 	}
 	// open the decoder if we have none (context flag is set)
+	bool context = false;
 	if (!m_pVideoStream->Decoder()->GetContext()) {
-		if (m_pVideoStream->Decoder()->Open(codec, NULL, NULL, 0, 0, 0))
+		if (m_pVideoStream->Decoder()->Open(pesPacket.GetCodec(), NULL, NULL, 0, 0, 0))
 			LOGFATAL("device: %s: Could not open the decoder!", __FUNCTION__);
-		context = 1;
+		context = true;
 	}
 	m_pAudio->Pause();
 
@@ -957,6 +904,7 @@ void cSoftHdDevice::StillPicture(const uchar *data, int size)
 	// force decoder to enter draining because we only want 1 avpkt to be decoded
 	m_pVideoStream->Decoder()->SendPacket(NULL);
 
+	AVFrame *frame;
 	ret = m_pVideoStream->Decoder()->ReceiveFrame(1, &frame);
 	// we got a frame, so try to render it and try another one (should end up with AVERROR_EOF)
 	while (!ret) {
@@ -1358,105 +1306,89 @@ int cSoftHdDevice::PesHeadLength(const uint8_t *p)
 }
 
 /**
- * Print the first 11 bytes of the stream
+ * Print the start code, stream id, length, first three bytes (start code) of the payload, and the following 16 bytes of the codec payload.
  *
  * @param data        pointer to stream data
  * @param offset      print from here
  */
-static void PrintStreamData10(const uchar *data, int offset)
-{
-	LOGDEBUG2(L_CODEC, "Stream: 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x",
-		data[offset],
-		data[offset + 1],
-		data[offset + 2],
-		data[offset + 3],
-		data[offset + 4],
-		data[offset + 5],
-		data[offset + 6],
-		data[offset + 7],
-		data[offset + 8],
-		data[offset + 9],
-		data[offset + 10]);
-}
-
-void cSoftHdDevice::SetCodecAndEnqueue(const uchar *data, int offset, int size,
-                                          enum AVCodecID codecId, int64_t pts)
-{
-	PrintStreamData10(data, offset);
-	m_pVideoStream->SetCodecId(codecId);
-	m_pVideoStream->SetTrickpkts(codecId == AV_CODEC_ID_MPEG2VIDEO ? 1 : 2);
-	m_pVideoStream->Open();
-	m_pVideoStream->SetTimebase(1, 90000);
-	m_pVideoStream->EnqueueInRb(pts, data + offset, size - offset);
-}
+// static void PrintStreamData(const uchar *payload)
+// {
+// 	LOGDEBUG2(L_CODEC, "Stream: %02X%02X%02X | %02X | %02X%02X | %02X%02X%02X | %02X%02X%02X%02X %02X%02X%02X%02X %02X%02X%02X%02X %02X%02X%02X%02X",
+// 		payload[0],
+// 		payload[1],
+// 		payload[2],
+// 		payload[3],
+// 		payload[4],
+// 		payload[5],
+// 		payload[6],
+// 		payload[7],
+// 		payload[8],
+// 		payload[9],
+// 		payload[10],
+// 		payload[11],
+// 		payload[12],
+// 		payload[13],
+// 		payload[14],
+// 		payload[15],
+// 		payload[16],
+// 		payload[17],
+// 		payload[18],
+// 		payload[19],
+// 		payload[20],
+// 		payload[21],
+// 		payload[22],
+// 		payload[23],
+// 		payload[24]
+// 	);
+// }
 
 /**
  * Play a video packet
  *
- * @param data  exactly one complete PES packet (which is incomplete)
- * @param size  length of PES packet
+ * @param data A PES packet (with optionally fragmented payload)
+ * @param size the length of the PES packet including header
  */
-int cSoftHdDevice::PlayVideo(const uchar * data, int size)
+int cSoftHdDevice::PlayVideo(const uchar *data, int size)
 {
-	//LOGDEBUG("device: %s: %p %d", __FUNCTION__, data, length);
+	//LOGDEBUG("device: %s: %p %d", __FUNCTION__, data, size);
 
-	int64_t pts = AV_NOPTS_VALUE;
-	int i, n;
-
-	if (m_pVideoStream->IsPaused())
+	if (m_pVideoStream->IsPaused() || m_pVideoStream->GetPacketsFilled() >= VIDEO_PACKET_MAX - 10)
 		return 0;
 
-	// must be a PES video start code
-	if (size < 9 || !data || data[0] || data[1] || data[2] != 0x01 || data[3] >> 4 != 0x0e)
+	cPesVideo pesPacket((const uint8_t*)data, size);
+
+	if (!pesPacket.IsValid()) {
+		m_pVideoStream->ResetFragmentationBuffer();
+
 		return size;
-
-	m_pAudio->LazyInit();
-
-	// hard limit buffer full: needed for replay
-	if (m_pVideoStream->GetPacketsFilled() >= VIDEO_PACKET_MAX - 10)
-		return 0;
-
-
-	// get pts
-	if (data[7] & 0x80) {
-		pts = (int64_t) (data[9] & 0x0E) << 29 | data[10] << 22 | (data[11] &
-		       0xFE) << 14 | data[12] << 7 | (data[13] & 0xFE) >> 1;
 	}
 
-	n = PesHeadLength(data);	// PES header size
+	if (m_pVideoStream->GetCodecId() == AV_CODEC_ID_NONE) {
+		// The playback has just started
+		if (pesPacket.GetCodec() == AV_CODEC_ID_NONE) {
+			LOGWARNING("device: %s: unknown video codec", __FUNCTION__);
+			m_pVideoStream->ResetFragmentationBuffer();
 
-	for (i = 0; (i < 2) && (i + 4 < size); i++) {
-		int offset = i + n;
-		// ES start code 0x00 0x00 0x01
-		if (!data[offset] && !data[offset + 1] && data[offset + 2] == 0x01) {
-			if (m_pVideoStream->GetCodecId() == AV_CODEC_ID_NONE) {
-				if (data[offset + 3] == 0xb3) {
-					// MPEG2 I-Frame
-					LOGDEBUG("device: %s: mpeg2 detected", __FUNCTION__);
-					SetCodecAndEnqueue(data, offset, size, AV_CODEC_ID_MPEG2VIDEO, pts);
-				} else if (data[offset + 3] == 0x09 && (data[offset + 4] == 0x10 || data[offset + 4] == 0xF0 || data[offset + 10] == 0x64)) {
-					// H264 I-Frame
-					LOGDEBUG("device: %s: H264 detected", __FUNCTION__);
-					SetCodecAndEnqueue(data, offset, size, AV_CODEC_ID_H264, pts);
-				} else if (data[i + n + 3] == 0x46 && (data[offset + 5] == 0x10 || data[offset + 5] == 0x50 || data[offset + 10] == 0x40)) {
-					// HEVC I-Frame
-					LOGDEBUG("device: %s: hevc detected", __FUNCTION__);
-					SetCodecAndEnqueue(data, offset, size, AV_CODEC_ID_HEVC, pts);
-				}
-			} else {
-				m_pVideoStream->EnqueueInRb(pts, data + offset, size - offset);
-			}
 			return size;
 		}
+
+		AVCodecID codec = pesPacket.GetCodec();
+
+		LOGDEBUG("device: %s: %s detected", __FUNCTION__, to_string(codec));
+
+		m_pAudio->LazyInit();
+
+		m_pVideoStream->SetCodecId(codec);
+		m_pVideoStream->SetTrickpkts(codec == AV_CODEC_ID_MPEG2VIDEO ? 1 : 2);
+		m_pVideoStream->Open();
+		m_pVideoStream->SetTimebase(1, 90000);
 	}
 
-	// this happens when vdr sends incomplete packets and no stream is started
-	if (m_pVideoStream->GetCodecId() == AV_CODEC_ID_NONE)
+	if (m_pVideoStream->PushPesPacket(&pesPacket)) {
 		return size;
-
-	// complete last frame
-	m_pVideoStream->EnqueueInRb(pts, data + n, size - n);
-	return size;
+	} else {
+		return 0;
+	}
 }
 
 /**
@@ -1872,27 +1804,13 @@ int cSoftHdDevice::PlayAudioPkts(AVPacket * pkt)
  */
 int cSoftHdDevice::PlayVideoPkts(AVPacket * pkt)
 {
-	AVPacket *avpkt;
-
 	m_pAudio->LazyInit();
 
 	if (m_pVideoStream->GetPacketsFilled() >= VIDEO_PACKET_MAX - 10) {
 		return 0;
 	}
 
-	avpkt = m_pVideoStream->GetPacketToWrite();
-	m_pVideoStream->AdvancePacketToWrite();
-	m_pVideoStream->IncreasePacketsFilled();
+	m_pVideoStream->PushAvPacket(pkt);
 
-	if ((size_t)pkt->size > avpkt->buf->size) {
-		LOGINFO("device: %s: grow packet buffer size by %d", __FUNCTION__,
-			(int)(pkt->size - avpkt->buf->size + AV_INPUT_BUFFER_PADDING_SIZE));
-		av_grow_packet(avpkt, pkt->size - avpkt->buf->size +
-			AV_INPUT_BUFFER_PADDING_SIZE);
-	}
-
-	memcpy(avpkt->data, pkt->data, pkt->size);
-	avpkt->pts = pkt->pts;
-	avpkt->size = pkt->size;
 	return 1;
 }

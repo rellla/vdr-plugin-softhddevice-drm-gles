@@ -188,7 +188,6 @@ void cSoftHdPlayer::SetEntry(int index)
 
 void cSoftHdPlayer::Player(const char *url)
 {
-	AVPacket packet;
 #if LIBAVFORMAT_VERSION_INT < AV_VERSION_INT(59,0,100)
 	AVCodec *video_codec;
 #else
@@ -241,21 +240,28 @@ void cSoftHdPlayer::Player(const char *url)
 	start_time = format->start_time / AV_TIME_BASE;
 
 	while (!StopPlay) {
-		err = av_read_frame(format, &packet);
+		AVPacket *packet = av_packet_alloc();
+
+		if (!packet) {
+			LOGFATAL("mediaplayer: %s: out of memory", __FUNCTION__);
+			return;
+		}
+
+		err = av_read_frame(format, packet);
 		if (err == 0) {
 repeat:
-			if (audio_stream_index == packet.stream_index) {
-				if (!m_pDevice->PlayAudioPkts(&packet)) {
-					usleep(packet.duration * AV_TIME_BASE *
+			if (audio_stream_index == packet->stream_index) {
+				if (!m_pDevice->PlayAudioPkts(packet)) {
+					usleep(packet->duration * AV_TIME_BASE *
 						av_q2d(format->streams[audio_stream_index]->time_base));
 					goto repeat;
 				}
 				CurrentTime = m_pAudio->GetClock() / 1000 - start_time;
 			}
 
-			if (video_stream_index == packet.stream_index) {
-				if (!m_pDevice->PlayVideoPkts(&packet)) {
-					usleep(packet.duration * AV_TIME_BASE *
+			if (video_stream_index == packet->stream_index) {
+				if (!m_pDevice->PlayVideoPkts(packet)) {
+					usleep(packet->duration * AV_TIME_BASE *
 						av_q2d(format->streams[video_stream_index]->time_base));
 					goto repeat;
 				}
@@ -273,7 +279,7 @@ repeat:
 
 		if (Jump && format->pb->seekable) {
 			av_seek_frame(format, format->streams[jump_stream_index]->index,
-				packet.pts + (int64_t)(Jump /		// - BufferOffset
+				packet->pts + (int64_t)(Jump /		// - BufferOffset
 				av_q2d(format->streams[jump_stream_index]->time_base)), 0);
 			m_pDevice->Clear();
 			Jump = 0;
@@ -281,8 +287,6 @@ repeat:
 
 		if (StopPlay)
 			m_pDevice->Clear();
-
-		av_packet_unref(&packet);
 	}
 
 	Duration = 0;

@@ -166,7 +166,6 @@ private:
 	void ClearAudio(void);
 	void Exit(void);
 	int PesHeadLength(const uint8_t *);
-	void SetCodecAndEnqueue(const uchar *, int, int, enum AVCodecID, int64_t);
 };
 
 #endif

@@ -29,6 +29,7 @@
 #include <sys/syscall.h>
 #include <string.h>
 #include <inttypes.h>
+#include <stdint.h>
 
 #ifndef AV_NOPTS_VALUE
 #define AV_NOPTS_VALUE INT64_C(0x8000000000000000)
@@ -73,6 +74,10 @@ static inline const char *Timestamp2String(int64_t ts)
 		(int)((ts / (1000)) % 60), (int)(ts % 1000));
 
 	return buf[idx];
+}
+
+extern "C" {
+AVPacket *CreateAvPacket(const uint8_t *data, int size, int64_t pts);
 }
 
 #endif

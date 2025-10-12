@@ -165,7 +165,7 @@ void cSoftHdLogger::LogDebug2(const int cat, const char *format, ...)
 	char fmt[256];
 	char prefix[20] = "";
 
-	switch (logLevel & cat) {
+	switch ( cat) {
 	case L_AV_SYNC:
 		strcpy(prefix, "[AV_Sync]");
 		break;

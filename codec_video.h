@@ -40,7 +40,7 @@ public:
 	virtual ~cVideoDecoder(void);
 	int Open(enum AVCodecID, AVCodecParameters *, AVRational *, int, int, int);
 	void Close(void);
-	int SendPacket(const AVPacket *);
+	int SendPacket(AVPacket *);
 	int ReceiveFrame(int, AVFrame **);
 	void FlushBuffers(void);
 	int ReopenCodec(enum AVCodecID, AVCodecParameters *, AVRational *, int);

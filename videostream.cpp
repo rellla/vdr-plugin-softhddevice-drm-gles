@@ -51,6 +51,8 @@ extern "C" {
 #include "codec_audio.h"
 #include "codec_video.h"
 
+#include "queue.h"
+
 /*****************************************************************************
  * cVideoStream class
  ****************************************************************************/
@@ -86,69 +88,47 @@ cVideoStream::~cVideoStream(void)
 }
 
 /**
- * Initialize video packet ringbuffer
- */
-void cVideoStream::InitPacketRb(void)
-{
-	for (int i = 0; i < VIDEO_PACKET_MAX; ++i) {
-		AVPacket *avpkt;
-
-		avpkt = &m_packetRb[i];
-		if (av_new_packet(avpkt, VIDEO_BUFFER_SIZE)) {
-			LOGFATAL("videostream %s: out of memory", __FUNCTION__);
-		}
-		avpkt->size = 0;
-	}
-
-	atomic_set(&m_packetsFilled, 0);
-	m_packetRead = 0;
-	m_packetWrite = 0;
-}
-
-/**
  * Cleanup video packet ringbuffer
  */
 void cVideoStream::CleanupPacketRb(void)
 {
-	atomic_set(&m_packetsFilled, 0);
-
-	for (int i = 0; i < VIDEO_PACKET_MAX; ++i) {
-		av_packet_unref(&m_packetRb[i]);
+	while (!m_packets.Empty()) {
+		av_packet_unref(m_packets.Pop());
 	}
 }
 
 /**
  * Place video data in packet ringbuffer
  *
- * @param pts       presentation timestamp of pes packet
- * @param data      data of pes packet
- * @param size      size of pes packet
+ * @param pesPacket  PES packet to push
+ * @retval true      packet was pushed or buffered for reassembly
  */
-void cVideoStream::EnqueueInRb(int64_t pts, const void *data, int size)
+bool cVideoStream::PushPesPacket(cPes *pesPacket)
 {
-	AVPacket *avpkt = &m_packetRb[m_packetWrite];
-
-	if (pts != AV_NOPTS_VALUE) {
-		if (avpkt->size) {
-			m_packetWrite = (m_packetWrite + 1) % VIDEO_PACKET_MAX;
-			atomic_inc(&m_packetsFilled);
+	if (pesPacket->HasPts()) {
+		// Received the first fragment of the upcoming codec packet.
+		if (!m_currentCodecPacket.empty()) {
+			// Push the buffered PES fragments as one reassembled codec packet to the next stage.
+			m_packets.Push(CreateAvPacket(m_currentCodecPacket.data(), m_currentCodecPacket.size(), m_currentPacketPts));
+			m_currentCodecPacket.clear();
 		}
-		avpkt = &m_packetRb[m_packetWrite];
-		avpkt->size = 0;
-		avpkt->pts = pts;
-		avpkt->dts = AV_NOPTS_VALUE;
+
+		m_currentPacketPts = pesPacket->GetPts();
 	}
 
-	if ((size_t)(avpkt->size + size) >= avpkt->buf->size) {
-		int pktSize = avpkt->size;
-		LOGWARNING("videostream %s: packet buffer too small for %d", __FUNCTION__, avpkt->size + size);
-		av_grow_packet(avpkt, size);
-		avpkt->size = pktSize;
-	}
+	// buffer the payload of the just received PES packet in the fragmentation buffer
+	m_currentCodecPacket.insert(m_currentCodecPacket.end(), pesPacket->GetPayload(), pesPacket->GetPayload() + pesPacket->GetPayloadSize());
 
-	memcpy(avpkt->data + avpkt->size, data, size);
-	avpkt->size += size;
-	memset(avpkt->data + avpkt->size, 0, AV_INPUT_BUFFER_PADDING_SIZE);
+	return true;
+}
+
+void cVideoStream::ResetFragmentationBuffer() {
+	m_currentCodecPacket.clear();
+}
+
+bool cVideoStream::PushAvPacket(AVPacket *avpkt)
+{
+	return m_packets.Push(avpkt);
 }
 
 /**
@@ -172,18 +152,9 @@ void cVideoStream::Exit(void)
  */
 void cVideoStream::Clear(void)
 {
-	LOGDEBUG("videostream %s: packets %d", __FUNCTION__, atomic_read(&m_packetsFilled));
+	LOGDEBUG("videostream %s: packets %d", __FUNCTION__, m_packets.Size());
 
-	AVPacket *avpkt;
-	m_pktsMutex.Lock();
-	atomic_set(&m_packetsFilled, 0);
-	m_packetRead = m_packetWrite = 0;
-
-	avpkt = &m_packetRb[m_packetWrite];
-	avpkt->size = 0;
-	avpkt->pts = AV_NOPTS_VALUE;
-
-	m_pktsMutex.Unlock();
+	CleanupPacketRb();
 }
 
 /**
@@ -239,7 +210,6 @@ void cVideoStream::FlushDecoder(void)
  */
 int cVideoStream::DecodeInput(void)
 {
-	AVPacket *avpkt;
 	AVFrame *frame;
 	int ret = 0;
 	static int sent = 0;
@@ -255,29 +225,20 @@ int cVideoStream::DecodeInput(void)
 		return 1;
 	}
 
-	// early skip, if there are no packets to decode
-	m_pktsMutex.Lock();
-	if (!atomic_read(&m_packetsFilled)) {
-		m_pktsMutex.Unlock();
-		return -1;
-	}
-	m_pktsMutex.Unlock();
-
 	if (m_newStream && m_codecId != AV_CODEC_ID_NONE) {
 		int width = 0;
 		int height = 0;
 
 		// amlogic h264 decoder needs this
 		if ((m_codecId == AV_CODEC_ID_H264) && (m_pRender->HardwareQuirks() & QUIRK_CODEC_NEEDS_EXT_INIT)) {
-			m_pktsMutex.Lock();
-			if (!atomic_read(&m_packetsFilled)) {
-				m_pktsMutex.Unlock();
+			AVPacket *packet = m_packets.Peek();
+
+			if (packet == nullptr) {
 				return -1;
 			}
 
-			cH264Parser h264Parser(&m_packetRb[m_packetRead]);
+			cH264Parser h264Parser(packet);
 			h264Parser.GetDimensions(&width, &height);
-			m_pktsMutex.Unlock();
 
 			LOGDEBUG2(L_CODEC, "videostream %s: Parsed width %d height %d", __FUNCTION__, width, height);
 		}
@@ -288,7 +249,6 @@ int cVideoStream::DecodeInput(void)
 	}
 
 	if (m_codecId != AV_CODEC_ID_NONE) {
-		m_pktsMutex.Lock();
 		// wait for m_trickpkts packets
 		//
 		// m_trickpkts is the number of packets we need to have in the ringbuffer
@@ -296,17 +256,13 @@ int cVideoStream::DecodeInput(void)
 		// This guarantees, that we don't drain the decoder too early, but exactly after
 		// m_trickpkts sent packets
 		int minPkts = (m_pRender->GetTrickSpeed() && m_interlaced) ? m_trickpkts : 1;
-		if (atomic_read(&m_packetsFilled) < minPkts) {
-			m_pktsMutex.Unlock();
+		if ((int)m_packets.Size() < minPkts) {
 			return -1;
 		}
-		avpkt = &m_packetRb[m_packetRead];
 
 		// send packet to decoder
-		ret = m_pDecoder->SendPacket(avpkt);
+		ret = m_pDecoder->SendPacket(m_packets.Pop());
 		if (ret != AVERROR(EAGAIN)) { // something went wrong or packet was sent, advance packet
-			m_packetRead = (m_packetRead + 1) % VIDEO_PACKET_MAX;
-			atomic_dec(&m_packetsFilled);
 			// in backward trickspeed force the decoder to decode the frame, if minPkts are sent
 			if (ret == 0 && m_pRender->GetTrickSpeed() && !m_pRender->GetTrickForward()) {
 				sent++;
@@ -378,44 +334,6 @@ int cVideoStream::DecodeInput(void)
 	}
 
 	return -1;
-}
-
-/**
- * Get pointer to avpkt in ringbuffer, where we can write to
- *
- * @return     avpkt to write data in
- */
-AVPacket *cVideoStream::GetPacketToWrite(void)
-{
-	AVPacket *avpkt = &m_packetRb[m_packetWrite];
-
-	return avpkt;
-}
-
-/**
- * Advance the write pointer to avpkt in ringbuffer
- */
-void cVideoStream::AdvancePacketToWrite(void)
-{
-	m_packetWrite = (m_packetWrite + 1) % VIDEO_PACKET_MAX;
-}
-
-/**
- * Increase filled packets counter
- */
-void cVideoStream::IncreasePacketsFilled(void)
-{
-	atomic_inc(&m_packetsFilled);
-}
-
-/**
- * Get number of video buffers.
- *
- * @param stream            video stream
- */
-int cVideoStream::GetPacketsFilled(void)
-{
-	return atomic_read(&m_packetsFilled);
 }
 
 /**
