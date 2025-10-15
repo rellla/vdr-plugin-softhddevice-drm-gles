@@ -294,7 +294,7 @@ int cVideoStream::DecodeInput(void)
 		// m_trickpkts is the number of packets we need to have in the ringbuffer
 		// while in interlaced trickspeed mode, needed to get a frame.
 		// This guarantees, that we don't drain the decoder too early, but exactly after
-		// m_trickpkts sent packets 
+		// m_trickpkts sent packets
 		int minPkts = (m_pRender->GetTrickSpeed() && m_interlaced) ? m_trickpkts : 1;
 		if (atomic_read(&m_packetsFilled) < minPkts) {
 			m_pktsMutex.Unlock();

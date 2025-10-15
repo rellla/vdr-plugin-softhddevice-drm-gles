@@ -4,7 +4,7 @@
  *
  * This file defines cSoftHdGrab, which is used to handle
  * grab requests.
- * 
+ *
  * @copyright (c) 2025 by Andreas Baierl. All Rights Reserved.
  *
  * @license{AGPLv3

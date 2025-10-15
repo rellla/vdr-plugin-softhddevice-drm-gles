@@ -4,7 +4,7 @@
  *
  * This file defines cDrmPlane, which is a class to describe
  * planes, that are used for modesetting in the DRM system.
- * 
+ *
  * @copyright (c) 2018 by zille.  All Rights Reserved.
  * @copyright (c) 2025 by Andreas Baierl. All Rights Reserved.
  *
@@ -179,7 +179,7 @@ void cDrmPlane::SetPlane(drmModeAtomicReqPtr ModeReq)
  * Check, if the plane is able to set the zpos property
  *
  * @param fdDrm     drm file descriptor
- * 
+ *
  * @returns 1       plane can use zpos
  * @returns 0       plane can't use zpos
  */

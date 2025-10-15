@@ -1,7 +1,7 @@
 /**
  * @file softhdconfig.cpp
  * SoftHdDevice config class
- * 
+ *
  * This file defines cSoftHdConfig, which is used to keep all
  * the config settings, which are set via setup.conf, commandline
  * or setup menu.

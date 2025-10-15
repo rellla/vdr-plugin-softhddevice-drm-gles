@@ -340,7 +340,7 @@ cSoftOsdProvider::~cSoftOsdProvider()
  * Create a new OSD
  *
  * Create either a hardware accelerated (cOglOsd) or software rendered (cSoftOsd) OSD
- * 
+ *
  * @param left   x-coordinate of OSD
  * @param top    y-coordinate of OSD
  * @param level  layer level of OSD

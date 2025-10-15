@@ -226,7 +226,7 @@ static inline int FastLatmCheck(const uint8_t * p)
  *
  * @param data   incomplete PES packet
  * @param size   number of bytes
- * 
+ *
  * @retval <0    possible AAC LATM audio, but need more data
  * @retval 0     no valid AAC LATM audio
  * @retval >0    valid AAC LATM audio
@@ -1060,7 +1060,7 @@ bool cSoftHdDevice::Flush(int timeout)
 
 /**
  * Sets the video display format
- * 
+ *
  * @param videoDisplayFormat      video display format
  * Set it to the given one (only useful if this device has an MPEG decoder).
  */

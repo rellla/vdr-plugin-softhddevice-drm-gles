@@ -4,7 +4,7 @@
  *
  * This file defines cSoftHdRinguffer, which is a ringbuffer
  * implementation used for the audio data.
- * 
+ *
  * @copyright (c) 2009, 2011, 2014 by Johns. All Rights Reserved.
  * @copyright (c) 2025 by Andreas Baierl. All Rights Reserved.
  *

@@ -117,7 +117,7 @@ void cDisplayThread::Stop(void)
 
 /*****************************************************************************
  * cAudioThread class
- * 
+ *
  * This thread is decodes the audio data and moves it to hardware
  ****************************************************************************/
 cAudioThread::cAudioThread(cSoftHdAudio *audio) : cThread("audio")

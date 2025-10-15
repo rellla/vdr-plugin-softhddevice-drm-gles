@@ -4,7 +4,7 @@
  *
  * This file defines cDrmDevice, which keeps some functions
  * to interact with the DRM (display) system.
- * 
+ *
  * @copyright (c) 2018 by zille.  All Rights Reserved.
  * @copyright (c) 2025 by Andreas Baierl. All Rights Reserved.
  *

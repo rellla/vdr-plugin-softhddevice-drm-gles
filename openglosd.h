@@ -141,7 +141,7 @@ private:
 	int bearingTop;
 	int width;
 	int height;
-	int advanceX;      
+	int advanceX;
 	cVector<tKerning> kerningCache;
 	GLuint texture;
 	void LoadTexture(FT_BitmapGlyph ftGlyph);
@@ -300,7 +300,7 @@ public:
 
 /****************************************************************************************
 * cOglVb
-* Vertex Buffer - OpenGl Vertices for the different drawing commands  
+* Vertex Buffer - OpenGl Vertices for the different drawing commands
 ****************************************************************************************/
 enum eVertexBufferType {
 	vbRect,
@@ -459,7 +459,7 @@ private:
 	GLint quadrants;
 	GLfloat *CreateVerticesFull(int &numVertices);
 	GLfloat *CreateVerticesQuadrant(int &numVertices);
-	GLfloat *CreateVerticesHalf(int &numVertices); 
+	GLfloat *CreateVerticesHalf(int &numVertices);
 public:
 	cOglCmdDrawEllipse(cOglFb *fb, GLint x, GLint y, GLint width, GLint height, GLint color, GLint quadrants);
 	virtual ~cOglCmdDrawEllipse(void) {};

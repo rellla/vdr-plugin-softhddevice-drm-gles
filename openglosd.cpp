@@ -168,7 +168,7 @@ void ConvertColor(const GLint &colARGB, glm::vec4 &col) {
 /****************************************************************************************
 * cShader
 ****************************************************************************************/
-const char *rectVertexShader = 
+const char *rectVertexShader =
 "#version 100 \n\
 \
 attribute vec2 position; \
@@ -183,7 +183,7 @@ void main() \
 } \
 ";
 
-const char *rectFragmentShader = 
+const char *rectFragmentShader =
 "#version 100 \n\
 precision mediump float; \
 varying vec4 rectCol; \
@@ -194,7 +194,7 @@ void main() \
 } \
 ";
 
-const char *textureVertexShader = 
+const char *textureVertexShader =
 "#version 100 \n\
 \
 attribute vec2 position; \
@@ -217,7 +217,7 @@ void main() \
 } \
 ";
 
-const char *textureFragmentShader = 
+const char *textureFragmentShader =
 "#version 100 \n\
 precision mediump float; \
 varying vec2 TexCoords; \
@@ -242,7 +242,7 @@ void main() \
 } \
 ";
 
-const char *textureFragmentShaderSwapBR = 
+const char *textureFragmentShaderSwapBR =
 "#version 100 \n\
 precision mediump float; \
 varying vec2 TexCoords; \
@@ -268,7 +268,7 @@ void main() \
 } \
 ";
 
-const char *textVertexShader = 
+const char *textVertexShader =
 "#version 100 \n\
 \
 attribute vec2 position; \
@@ -288,7 +288,7 @@ void main() \
 } \
 ";
 
-const char *textFragmentShader = 
+const char *textFragmentShader =
 "#version 100 \n\
 precision mediump float; \
 varying vec2 TexCoords; \
@@ -303,7 +303,7 @@ void main() \
 } \
 ";
 
-static cShader *Shaders[stCount]; 
+static cShader *Shaders[stCount];
 
 void cShader::Use(void) {
 	GL_CHECK(glUseProgram(id));
@@ -1022,7 +1022,7 @@ void cOglOutputFb::Unbind(void) {
 /****************************************************************************************
 * cOglVb
 ****************************************************************************************/
-static cOglVb *VertexBuffers[vbCount]; 
+static cOglVb *VertexBuffers[vbCount];
 
 cOglVb::cOglVb(int type) {
 	this->type = (eVertexBufferType)type;
@@ -1544,7 +1544,7 @@ GLfloat *cOglCmdDrawEllipse::CreateVerticesQuadrant(int &numVertices) {
 			vertices[0] = x + width;
 			vertices[1] = y + height;
 			startAngle = 270;
-			break;            
+			break;
 		default:
 			break;
 	}
@@ -1562,7 +1562,7 @@ GLfloat *cOglCmdDrawEllipse::CreateVerticesHalf(int &numVertices) {
 	GLfloat radiusY = 0.0f;
 	GLint transX = 0;
 	GLint transY = 0;
-	GLint startAngle = 0;    
+	GLint startAngle = 0;
 	GLfloat *vertices = new GLfloat[size];
 	switch (quadrants) {
 		case 5:
@@ -1696,7 +1696,7 @@ bool cOglCmdDrawSlope::Execute(void) {
 }
 
 //------------------ cOglCmdDrawText --------------------
-cOglCmdDrawText::cOglCmdDrawText(cOglFb *fb, GLint x, GLint y, unsigned int *symbols, GLint limitX, 
+cOglCmdDrawText::cOglCmdDrawText(cOglFb *fb, GLint x, GLint y, unsigned int *symbols, GLint limitX,
                                  const char *name, int fontSize, tColor colorText, int length) : cOglCmd(fb), fontName(name)  {
 	this->x = x;
 	this->y = y;
@@ -1916,7 +1916,7 @@ bool cOglCmdDrawImage::Execute(void) {
 
 		x1, y2,   0.0, 1.0,     // left bottom
 		x2, y1,   1.0, 0.0,     // right top
-		x2, y2,   1.0, 1.0      // right bottom     
+		x2, y2,   1.0, 1.0      // right bottom
 	};
 
 	VertexBuffers[vbTextureSwapBR]->ActivateShader();
@@ -2162,7 +2162,7 @@ void cOglThread::ClearSlot(int slot) {
 	int i = -slot - 1;
 	if (i >= 0 && i < OGL_MAX_OSDIMAGES) {
 		Lock();
-		imageCache[i].used = false;    
+		imageCache[i].used = false;
 		imageCache[i].texture = GL_NONE;
 		imageCache[i].width = 0;
 		imageCache[i].height = 0;

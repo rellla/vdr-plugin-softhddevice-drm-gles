@@ -4,7 +4,7 @@
  *
  * This file defines cVideoDecoder, which has all the functions
  * to decode video data. It's the video interface to ffmpeg.
- * 
+ *
  * @copyright (c) 2009 - 2015 by Johns.  All Rights Reserved.
  * @copyright (c) 2018 by zille.  All Rights Reserved.
  * @copyright (c) 2025 by Andreas Baierl. All Rights Reserved.
@@ -649,7 +649,7 @@ void cVideoDecoder::GetVideoSize(int *width, int *height, double *aspect_ratio)
 
 	*width = m_pVideoCtx->coded_width;
 	*height = m_pVideoCtx->coded_height;
-	// TODO: use correct aspect ratio 
+	// TODO: use correct aspect ratio
 	if (m_pVideoCtx->coded_height > 0)
 		*aspect_ratio = (double)(m_pVideoCtx->coded_width) / (double)(m_pVideoCtx->coded_height);
 }
