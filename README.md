@@ -1,7 +1,7 @@
 softhddevice-drm-gles
 =====================
 
-A software and GPU emulated HD output device for VDR
+A software and GPU emulated HD output device for VDR  
 (https://github.com/rellla/vdr-plugin-softhddevice-drm-gles)
 
 
@@ -271,15 +271,15 @@ SVDRP:
 Copyright:
 ----------
 
-Copyright (c) 2011 - 2013 by Johns.  All Rights Reserved.
-Copyright (c) 2018 - 2021 by zillevdr.  All Rights Reserved.
-Copyright (c) 2020 - 2025 by rellla.  All Rights Reserved.
+Copyright (c) 2011 - 2013 by Johns.  All Rights Reserved.  
+Copyright (c) 2018 - 2021 by zillevdr.  All Rights Reserved.  
+Copyright (c) 2020 - 2025 by rellla.  All Rights Reserved.  
 
 
 License:
 --------
 
-**AGPLv3**
+**AGPLv3**  
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU Affero General Public License as
