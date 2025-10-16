@@ -70,7 +70,6 @@ cVideoStream::cVideoStream(cSoftHdDevice *device)
 	m_codecId = AV_CODEC_ID_NONE;
 	m_newStream = false;
 	m_paused = false;
-	m_packetsFilled = 0;
 	m_pPar = nullptr;
 
 	m_interlaced = 0;
@@ -95,6 +94,8 @@ void cVideoStream::CleanupPacketRb(void)
 	while (!m_packets.Empty()) {
 		av_packet_unref(m_packets.Pop());
 	}
+
+	ResetFragmentationBuffer();
 }
 
 /**
