@@ -808,6 +808,14 @@ void cSoftHdDevice::Play(void)
 	LOGDEBUG("device: %s:", __FUNCTION__);
 	cDevice::Play();
 
+	// In case we get a play in slow forward, we need to restart the filter thread.
+	// Because trickspeed doesn't do deinterlacing but can use the scale filter
+	// we need to stop the filter here, to get the deinterlace filter started in normal
+	// playback if needed.
+	m_pVideoStream->Pause();
+	m_pRender->WaitForFilterIdle();
+	m_pRender->StopFilter();
+
 	m_pVideoStream->Start();
 	m_pVideoStream->Resume();
 
@@ -906,9 +914,16 @@ void cSoftHdDevice::StillPicture(const uchar *data, int size)
 	m_pVideoStream->Decoder()->SendPacket(NULL);
 
 	AVFrame *frame;
-	ret = m_pVideoStream->Decoder()->ReceiveFrame(1, &frame);
+	ret = m_pVideoStream->Decoder()->ReceiveFrame(&frame);
+
 	// we got a frame, so try to render it and try another one (should end up with AVERROR_EOF)
 	while (!ret) {
+		// always treat the frame as progressive frame
+#if LIBAVUTIL_VERSION_INT < AV_VERSION_INT(58,7,100)
+		frame->interlaced_frame = 0;
+#else
+		frame->flags &= ~AV_FRAME_FLAG_INTERLACED;
+#endif
 		LOGDEBUG2(L_STILL, "device: %s: frame received", __FUNCTION__);
 		m_pRender->MarkAsStillpictureFrame(frame);
 		while (m_pRender->RenderFrame(m_pVideoStream->Decoder()->GetContext(), frame)) {
@@ -918,7 +933,7 @@ void cSoftHdDevice::StillPicture(const uchar *data, int size)
 			}
 		}
 		// try to get another frame
-		ret = m_pVideoStream->Decoder()->ReceiveFrame(1, &frame);
+		ret = m_pVideoStream->Decoder()->ReceiveFrame(&frame);
 	}
 
 	// no more frames available or error

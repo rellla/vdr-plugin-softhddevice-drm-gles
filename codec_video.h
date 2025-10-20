@@ -41,7 +41,7 @@ public:
 	int Open(enum AVCodecID, AVCodecParameters *, AVRational *, int, int, int);
 	void Close(void);
 	int SendPacket(const AVPacket *);
-	int ReceiveFrame(int, AVFrame **);
+	int ReceiveFrame(AVFrame **);
 	void FlushBuffers(void);
 	int ReopenCodec(enum AVCodecID, AVCodecParameters *, AVRational *, int);
 	void GetVideoSize(int *, int *, double *);

@@ -306,7 +306,7 @@ int cVideoStream::DecodeInput(void)
 	if (!m_pRender->GetTrickSpeed()) {
 		// this is normal Playback
 		 if (!m_newStream) { // this is for mediaplayer?
-			ret = m_pDecoder->ReceiveFrame(0, &frame);
+			ret = m_pDecoder->ReceiveFrame(&frame);
 			if (ret == 0) {
 				while (m_pRender->RenderFrame(m_pDecoder->GetContext(), frame)) {
 					if (IsClosing()) {
@@ -318,8 +318,20 @@ int cVideoStream::DecodeInput(void)
 		}
 	} else {
 		// this is TrickSpeed
-		ret = m_pDecoder->ReceiveFrame(1, &frame);
+		ret = m_pDecoder->ReceiveFrame(&frame);
 		while (ret == 0) {
+			bool isInterlaced;
+#if LIBAVUTIL_VERSION_INT < AV_VERSION_INT(58,7,100)
+			isInterlaced = frame->interlaced_frame;
+			frame->interlaced_frame = 0;
+#else
+			isInterlaced = frame->flags & AV_FRAME_FLAG_INTERLACED;
+			frame->flags &= ~AV_FRAME_FLAG_INTERLACED;
+#endif
+			// deinterlacer is disabled in trickspeed mode
+			// in order to have the right speed, we double the count of frames to be displayed in trickspeed mode
+			// if we have an interlaced frame - we simply just dup the frame
+			m_pRender->SetTrickCounter(m_pRender->GetTrickSpeed() * (isInterlaced ? 2 : 1));
 			if (RenderTrickspeedFrames(frame)) { // returns -1 only if stream should be closed
 				av_frame_free(&frame);
 				m_sentTrickPkts = 0;
@@ -329,8 +341,7 @@ int cVideoStream::DecodeInput(void)
 			av_frame_free(&frame);
 			m_sentTrickPkts = 0;
 
-			m_pRender->SetTrickCounter(m_pRender->GetTrickSpeed());
-			ret = m_pDecoder->ReceiveFrame(1, &frame);
+			ret = m_pDecoder->ReceiveFrame(&frame);
 		} // try receiving another frame from decoder, should end up with AVERROR_EOF
 
 		if (ret == AVERROR_EOF) { // needs flush / reopen

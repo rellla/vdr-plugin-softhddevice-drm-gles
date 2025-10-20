@@ -507,7 +507,7 @@ int cVideoDecoder::SendPacket(const AVPacket *avpkt)
 /**
  * Receive a decoded a video frame
  *
- * @param noDeint               if set, force decoded frame to be progressive
+ * @param[out] frame            decoded AVFrame
  *
  * @returns 0                   received frame
  * @returns AVERROR(EAGAIN)     get no frame, send avpkt again
@@ -515,7 +515,7 @@ int cVideoDecoder::SendPacket(const AVPacket *avpkt)
  * @returns AVERROR(EINVAL)     get no frame, something went wrong
  * @returns ret                 return other ffmpeg error
  */
-int cVideoDecoder::ReceiveFrame(int noDeint, AVFrame **frame)
+int cVideoDecoder::ReceiveFrame(AVFrame **frame)
 {
 	int ret;
 	AVFrame *pFrame;
@@ -545,15 +545,6 @@ int cVideoDecoder::ReceiveFrame(int noDeint, AVFrame **frame)
 
 	if (pFrame->flags == AV_FRAME_FLAG_CORRUPT)
 		LOGDEBUG2(L_CODEC, "videocodec: %s: AV_FRAME_FLAG_CORRUPT", __FUNCTION__);
-
-	if (noDeint) {
-#if LIBAVUTIL_VERSION_INT < AV_VERSION_INT(58,7,100)
-		pFrame->interlaced_frame = 0;
-#else
-		pFrame->flags &= ~AV_FRAME_FLAG_INTERLACED;
-#endif
-		LOGDEBUG2(L_CODEC, "videocodec: %s: interlaced_frame = 0", __FUNCTION__);
-	}
 
 	// codec artifacts workaround for amlogic H264:
 	// skip QUIRK_CODEC_SKIP_NUM_FRAMES key frames
