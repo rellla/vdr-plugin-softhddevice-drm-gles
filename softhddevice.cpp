@@ -689,6 +689,7 @@ bool cSoftHdDevice::SetPlayMode(ePlayMode play_mode)
 
 		m_pRender->SetClosing(1);
 		m_skipAudio = false;
+		m_pAudio->Unmute();
 		m_pAudio->Resume();
 		ClearAudio();	// flush all AUDIO buffers
 		if (m_pAudioDecoder && m_audioCodecID != AV_CODEC_ID_NONE)
@@ -811,6 +812,7 @@ void cSoftHdDevice::Play(void)
 	m_pVideoStream->Resume();
 
 	m_skipAudio = false;
+	m_pAudio->Unmute();
 	m_pAudio->Resume();
 
 	m_pRender->SetTrickSpeed(0, 1);
@@ -846,7 +848,8 @@ void cSoftHdDevice::Mute(void)
 	LOGDEBUG("device: %s:", __FUNCTION__);
 	cDevice::Mute();
 
-	m_skipAudio = true;
+	m_pAudio->Mute();
+//	m_skipAudio = true;
 }
 
 /**

@@ -78,6 +78,7 @@ cSoftHdAudio::cSoftHdAudio(cSoftHdDevice *device)
 	m_hwNumChannels = 0;
 	m_downmix = false;
 	m_paused = false;
+	m_muted = false;
 	m_running = false;
 	m_alsaPlayerRunning = false;
 	m_alsaCanPause = false;
@@ -1073,6 +1074,24 @@ void cSoftHdAudio::SetVolume(int volume)
 	if (!m_softVolume) {
 		AlsaSetVolume(volume);
 	}
+}
+
+/**
+ * Mute audio
+ */
+void cSoftHdAudio::Mute(void)
+{
+	LOGDEBUG2(L_SOUND, "audio: %s", __FUNCTION__);
+	m_muted = true;
+}
+
+/**
+ * Unmute audio
+ */
+void cSoftHdAudio::Unmute(void)
+{
+	LOGDEBUG2(L_SOUND, "audio: %s", __FUNCTION__);
+	m_muted = false;
 }
 
 /**

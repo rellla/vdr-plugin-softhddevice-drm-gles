@@ -66,6 +66,8 @@ public:
 	void ResetCompressor(void);
 	void SetEq(int[17], int);
 	void SetVolume(int);
+	void Mute(void);
+	void Unmute(void);
 	void SetBufferTimeInMs(int);
 	void SetDownmix(int downMix) { m_downmix = downMix; };
 	void SetSoftvol(bool softVolume) { m_softVolume = softVolume; };
