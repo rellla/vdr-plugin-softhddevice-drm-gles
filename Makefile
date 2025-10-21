@@ -201,6 +201,12 @@ clean:
 	@-rm -f $(PODIR)/*.mo $(PODIR)/*.pot
 	@-rm -f $(DEPFILE) *.o *.so *.tgz core* *~
 	@-rm -rf srcdoc
+	@$(MAKE) -C tests clean 2>/dev/null || true
+
+# Unit tests:
+.PHONY: test
+test:
+	@$(MAKE) -C tests test
 
 # Source documentation:
 srcdoc:

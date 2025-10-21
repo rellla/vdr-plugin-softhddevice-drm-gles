@@ -21,6 +21,9 @@ jobs:
           build-essential \
           pkg-config \
           git \
+          catch2 \
+          lcov \
+          valgrind \
           gettext \
           cppcheck \
           libavcodec-dev \
@@ -62,6 +65,29 @@ jobs:
       run: |
         cd vdr/PLUGINS/src/softhddevice-drm-gles
         cppcheck --quiet --error-exitcode=1 .
+
+    - name: Run unit tests
+      run: |
+        cd vdr/PLUGINS/src/softhddevice-drm-gles/tests
+        make test
+      continue-on-error: false
+
+    - name: Publish test results
+      uses: EnricoMi/publish-unit-test-result-action@v2
+      with:
+        files: vdr/PLUGINS/src/softhddevice-drm-gles/tests/test-results.xml
+        check_name: Unit Test Results
+
+    - name: Generate coverage report
+      run: |
+        cd vdr/PLUGINS/src/softhddevice-drm-gles/tests
+        make coverage-html
+
+    - name: Upload coverage HTML report
+      uses: actions/upload-artifact@v4
+      with:
+        name: coverage-html-report
+        path: vdr/PLUGINS/src/softhddevice-drm-gles/tests/coverage-html/
 
   build-without-gles:
     runs-on: ubuntu-latest
