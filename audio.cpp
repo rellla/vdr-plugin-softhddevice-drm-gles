@@ -1520,7 +1520,8 @@ char *cSoftHdAudio::OpenAlsaDevice(const char *device, int passthrough)
  * @param hint             string to compare with device name hints
  * @param passthrough      set, if we want a passthrough device
  *
- * @returns	an opened alsa device if successful, NULL otherwise
+ * @returns	an opened alsa device name if successful, NULL otherwise
+ *              NOTE: Returned string is allocated and must be freed by caller
  */
 char *cSoftHdAudio::FindAlsaDevice(const char *devname, const char *hint, int passthrough)
 {
@@ -1528,7 +1529,6 @@ char *cSoftHdAudio::FindAlsaDevice(const char *devname, const char *hint, int pa
 	int err;
 	char **n;
 	char *name;
-	char *device = NULL;
 
 	err = snd_device_name_hint(-1, devname, (void ***)&hints);
 	if (err != 0) {
@@ -1541,12 +1541,9 @@ char *cSoftHdAudio::FindAlsaDevice(const char *devname, const char *hint, int pa
 		name = snd_device_name_get_hint(*n, "NAME");
 
 		if (name && strstr(name, hint)) {
-			if ((device = OpenAlsaDevice(name, passthrough))) {
-				device = (char *)malloc(sizeof(char) * (strlen(name) + 1));
-				strcpy(device, name);
-				free(name);
+			if (OpenAlsaDevice(name, passthrough)) {
 				snd_device_name_free_hint((void **)hints);
-				return (char *)device;
+				return name;
 			}
 		}
 
@@ -1565,6 +1562,7 @@ char *cSoftHdAudio::FindAlsaDevice(const char *devname, const char *hint, int pa
 void cSoftHdAudio::AlsaInitPCMDevice(void)
 {
 	char *device = NULL;
+	bool freeDevice = false;  // track if device needs to be freed
 	int err;
 	LOGDEBUG2(L_SOUND, "audio: %s: passthrough %d", __FUNCTION__, m_passthrough);
 
@@ -1585,12 +1583,14 @@ void cSoftHdAudio::AlsaInitPCMDevice(void)
 	if (!device) {
 		LOGDEBUG2(L_SOUND, "audio: %s: Try hdmi: devices...", __FUNCTION__);
 		device = FindAlsaDevice("pcm", "hdmi:", m_passthrough);
+		freeDevice = (device != NULL);  // FindAlsaDevice allocates memory
 	}
 
 	// walkthrough default: devices
 	if (!device) {
 		LOGDEBUG2(L_SOUND, "audio: %s: Try default: devices...", __FUNCTION__);
 		device = FindAlsaDevice("pcm", "default:", m_passthrough);
+		freeDevice = (device != NULL);  // FindAlsaDevice allocates memory
 	}
 
 	// try default device
@@ -1614,6 +1614,10 @@ void cSoftHdAudio::AlsaInitPCMDevice(void)
 	else
 		LOGINFO("audio: using %sdevice '%s'",
 			m_passthrough ? "pass-through " : "", device);
+
+	// Free device string if it was allocated by FindAlsaDevice
+	if (freeDevice)
+		free(device);
 
 	if ((err = snd_pcm_nonblock(m_pAlsaPCMHandle, 0)) < 0) {
 		LOGERROR("audio: %s: can't set block mode: %s", __FUNCTION__, snd_strerror(err));
