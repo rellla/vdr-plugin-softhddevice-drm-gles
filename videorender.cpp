@@ -1380,22 +1380,22 @@ int cVideoRender::RenderFrame(AVCodecContext * videoCtx, AVFrame * frame)
 	// do some tricks in normal playback
 	if (!(IsTrickspeedFrame(frame) || IsStillpictureFrame(frame))) {
 
-		// set the interlaced switch depending on the framerate
+		// framerate available -> set the interlaced switch depending on the framerate
 		if ((videoCtx->framerate.num > 0) &&
-		    (videoCtx->framerate.num / videoCtx->framerate.den > 30)) {
+		    (videoCtx->framerate.num / videoCtx->framerate.den > 30)) {    // framerate > 30fps -> progressive stream
 			interlaced = false;
-		} else if (videoCtx->framerate.num > 0) {
-			if (!interlaced)
-				LOGWARNING("videorender: %s: WARNING!!! progressive frame arrived in interlaced stream (P %d)!",
-					__FUNCTION__, ++m_numWrongProgressive);
+		} else if (videoCtx->framerate.num > 0 && !interlaced) {           // framerate <= 30fps -> interlaced stream
+//			LOGWARNING("videorender: %s: WARNING!!! progressive frame arrived in interlaced stream (P %d)!",
+//				__FUNCTION__, ++m_numWrongProgressive);
 			interlaced = true;
 		}
 
-		// set the interlaced switch depending on an active deinterlace filter, if framerate is not available
-		if ((videoCtx->framerate.num == 0) &&
-		    !interlaced && m_pFilterThread->Active() && m_pFilterThread->IsInterlaceFilter()) {
-			LOGWARNING("videorender: %s: WARNING!!! frame without interlaced flag arrived while deinterlace filter is active (P %d)!",
-				__FUNCTION__, ++m_numWrongProgressive);
+		// framerate not available -> set the interlaced switch depending on an active deinterlace filter
+		// this doesn't work, if the first frame is wrong, because it should init the filter!
+		if ((videoCtx->framerate.num == 0) && !interlaced &&
+		     m_pFilterThread->Active() && m_pFilterThread->IsInterlaceFilter()) {
+//			LOGWARNING("videorender: %s: WARNING!!! frame without interlaced flag arrived while deinterlace filter is active (P %d)!",
+//				__FUNCTION__, ++m_numWrongProgressive);
 			interlaced = true;
 		}
 

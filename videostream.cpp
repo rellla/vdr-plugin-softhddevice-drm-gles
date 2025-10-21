@@ -321,12 +321,12 @@ int cVideoStream::DecodeInput(void)
 		// this is TrickSpeed
 		ret = m_pDecoder->ReceiveFrame(&frame);
 		while (ret == 0) {
-			bool isInterlaced = m_pRender->MarkAsProgressiveFrame(frame);
+			m_pRender->MarkAsProgressiveFrame(frame);
 			// deinterlacer is disabled in trickspeed mode
 			// in order to have the right speed, we double the count of frames to be displayed in trickspeed mode
-			// if we have an interlaced frame - we simply just dup the frame
-			LOGDEBUG2(L_TRICK, "videostream: %s trickspeed %d isInterlaced %d", __FUNCTION__, m_pRender->GetTrickSpeed(), isInterlaced);
-			m_pRender->SetTrickCounter(m_pRender->GetTrickSpeed() * (isInterlaced ? 2 : 1));
+			// if we have an interlaced stream - we simply just dup the frame
+			LOGDEBUG2(L_TRICK, "videostream: %s trickspeed %d isInterlaced %d", __FUNCTION__, m_pRender->GetTrickSpeed(), m_interlaced);
+			m_pRender->SetTrickCounter(m_pRender->GetTrickSpeed() * (m_interlaced ? 2 : 1));
 			if (RenderTrickspeedFrames(frame)) { // returns -1 only if stream should be closed
 				av_frame_free(&frame);
 				m_sentTrickPkts = 0;
