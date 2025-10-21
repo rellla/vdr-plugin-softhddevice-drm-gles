@@ -1540,7 +1540,7 @@ char *cSoftHdAudio::FindAlsaDevice(const char *devname, const char *hint, int pa
 	while (*n != NULL) {
 		name = snd_device_name_get_hint(*n, "NAME");
 
-		if (strstr(name, hint)) {
+		if (name && strstr(name, hint)) {
 			if ((device = OpenAlsaDevice(name, passthrough))) {
 				device = (char *)malloc(sizeof(char) * (strlen(name) + 1));
 				strcpy(device, name);
@@ -1550,7 +1550,8 @@ char *cSoftHdAudio::FindAlsaDevice(const char *devname, const char *hint, int pa
 			}
 		}
 
-		if (name && strcmp("null", name)) free(name);
+		if (name)
+			free(name);
 		n++;
 	}
 
