@@ -234,27 +234,21 @@ int cFilterThread::Init(const AVCodecContext *videoCtx, AVFrame *frame, int disa
 	const AVFilter *buffersrc  = avfilter_get_by_name("buffer");
 	const AVFilter *buffersink = avfilter_get_by_name("buffersink");
 
-	int interlaced;
-#if LIBAVUTIL_VERSION_INT < AV_VERSION_INT(58,7,100)
-	interlaced = frame->interlaced_frame;
-#else
-	interlaced = frame->flags & AV_FRAME_FLAG_INTERLACED;
-#endif
-
+	bool interlaced = m_pRender->IsInterlacedFrame(frame);
 	if (videoCtx->framerate.num > 0) {
 		if (videoCtx->framerate.num / videoCtx->framerate.den > 30)
-			interlaced = 0;
+			interlaced = false;
 		else
-			interlaced = 1;
+			interlaced = true;
 	}
 
 	if (videoCtx->codec_id == AV_CODEC_ID_HEVC)
-		interlaced = 0;
+		interlaced = false;
 
 	if (disabled) {
 		if (interlaced)
 			LOGDEBUG2(L_CODEC, "filter thread: %s: Deinterlacer wanted, but disabled in setup!", __FUNCTION__);
-		interlaced = 0;
+		interlaced = false;
 	}
 
 	// interlaced and non-trickspeed AV_PIX_FMT_DRM_PRIME (hardware decoded) -> hardware deinterlacer
@@ -383,13 +377,7 @@ void cFilterThread::Action(void)
 
 		frame = m_frames.Pop();
 
-		int interlaced;
-#if LIBAVUTIL_VERSION_INT < AV_VERSION_INT(58,7,100)
-		interlaced = frame->interlaced_frame;
-#else
-		interlaced = frame->flags & AV_FRAME_FLAG_INTERLACED;
-#endif
-		if (interlaced) {
+		if (m_pRender->IsInterlacedFrame(frame)) {
 			m_pRender->IncFramesToFilter();
 			m_pRender->IncFramesToFilter();
 		} else {

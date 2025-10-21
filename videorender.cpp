@@ -652,6 +652,42 @@ bool cVideoRender::IsStillpictureFrame(AVFrame *frame)
 }
 
 /**
+ * Check, if this is an interlaced frame
+ *
+ * @param frame    AVFrame
+ *
+ * @return         true, if this frame is an interlaced frame
+ */
+bool cVideoRender::IsInterlacedFrame(AVFrame *frame)
+{
+	bool interlaced = false;
+#if LIBAVUTIL_VERSION_INT < AV_VERSION_INT(58,7,100)
+	interlaced = frame->interlaced_frame;
+#else
+	interlaced = frame->flags & AV_FRAME_FLAG_INTERLACED;
+#endif
+	return interlaced;
+}
+
+/**
+ * Check, if this is a key frame
+ *
+ * @param frame    AVFrame
+ *
+ * @return         true, if this frame is a key frame
+ */
+bool cVideoRender::IsKeyFrame(AVFrame *frame)
+{
+	bool key = false;
+#if LIBAVUTIL_VERSION_INT < AV_VERSION_INT(58,7,100)
+	key = frame->key_frame;
+#else
+	key = frame->flags & AV_FRAME_FLAG_KEY;
+#endif
+	return key;
+}
+
+/**
  * Mark this frame as a trickspeed frame
  *
  * @param frame      AVFrame
@@ -670,6 +706,24 @@ void cVideoRender::MarkAsStillpictureFrame(AVFrame *frame)
 {
 	SetFrameFlags(frame, FRAME_FLAG_STILLPICTURE);
 	frame->pts = AV_NOPTS_VALUE;
+}
+
+/**
+ * Force this frame to be a progressive frame
+ *
+ * @param frame     AVFrame
+ *
+ * @returns         true, if the frame was an interlaced frame before
+ */
+bool cVideoRender::MarkAsProgressiveFrame(AVFrame *frame)
+{
+	bool wasInterlaced = IsInterlacedFrame(frame);
+#if LIBAVUTIL_VERSION_INT < AV_VERSION_INT(58,7,100)
+	frame->interlaced_frame = 0;
+#else
+	frame->flags &= ~AV_FRAME_FLAG_INTERLACED;
+#endif
+	return wasInterlaced;
 }
 
 /**
@@ -1308,8 +1362,6 @@ void cVideoRender::EnqueueFB(AVFrame *inframe)
  */
 int cVideoRender::RenderFrame(AVCodecContext * videoCtx, AVFrame * frame)
 {
-	bool interlaced;
-
 	if (!m_startCounter) {
 		m_timebase = &videoCtx->pkt_timebase;
 	}
@@ -1323,26 +1375,27 @@ int cVideoRender::RenderFrame(AVCodecContext * videoCtx, AVFrame * frame)
 		return 0;
 	}
 
-#if LIBAVUTIL_VERSION_INT < AV_VERSION_INT(58,7,100)
-	interlaced = frame->interlaced_frame;
-#else
-	interlaced = !!(frame->flags & AV_FRAME_FLAG_INTERLACED);
-#endif
+	bool interlaced = IsInterlacedFrame(frame);
 	// we can't trust frame->interlaced_frame ...
 	// do some tricks in normal playback
 	if (!(IsTrickspeedFrame(frame) || IsStillpictureFrame(frame))) {
 
 		// set the interlaced switch depending on the framerate
 		if ((videoCtx->framerate.num > 0) &&
-		    (videoCtx->framerate.num / videoCtx->framerate.den > 30))
+		    (videoCtx->framerate.num / videoCtx->framerate.den > 30)) {
 			interlaced = false;
-		else if (videoCtx->framerate.num > 0)
+		} else if (videoCtx->framerate.num > 0) {
+			if (!interlaced)
+				LOGWARNING("videorender: %s: WARNING!!! progressive frame arrived in interlaced stream (P %d)!",
+					__FUNCTION__, ++m_numWrongProgressive);
 			interlaced = true;
+		}
 
 		// set the interlaced switch depending on an active deinterlace filter, if framerate is not available
 		if ((videoCtx->framerate.num == 0) &&
 		    !interlaced && m_pFilterThread->Active() && m_pFilterThread->IsInterlaceFilter()) {
-			LOGWARNING("videorender: %s: WARNING!!! frame without interlaced flag arrived while deinterlace filter is active (P %d)!", __FUNCTION__, ++m_numWrongProgressive);
+			LOGWARNING("videorender: %s: WARNING!!! frame without interlaced flag arrived while deinterlace filter is active (P %d)!",
+				__FUNCTION__, ++m_numWrongProgressive);
 			interlaced = true;
 		}
 

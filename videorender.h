@@ -153,8 +153,11 @@ public:
 	void FramesRbUnlock(void);
 	bool IsTrickspeedFrame(AVFrame *);
 	bool IsStillpictureFrame(AVFrame *);
+	bool IsInterlacedFrame(AVFrame *);
+	bool IsKeyFrame(AVFrame *);
 	void MarkAsTrickspeedFrame(AVFrame *);
 	void MarkAsStillpictureFrame(AVFrame *);
+	bool MarkAsProgressiveFrame(AVFrame *);
 
 	// Filter
 	void ClearFramesToFilter(void) { m_numFramesToFilter = 0; };

@@ -211,7 +211,8 @@ int cVideoStream::RenderTrickspeedFrames(AVFrame *frame)
 			LOGERROR("videostream %s: could not clone frame", __FUNCTION__);
 			return -1;
 		}
-		LOGDEBUG2(L_TRICK, "videostream %s: Trickspeed, send another cloned trick frame %d %p", __FUNCTION__, m_pRender->GetTrickCounter(), trickframe);
+		LOGDEBUG2(L_TRICK, "videostream %s: Trickspeed, send another cloned trick frame %d %s %p",
+		          __FUNCTION__, m_pRender->GetTrickCounter(), Timestamp2String(trickframe->pts / 90), trickframe);
 		m_pRender->MarkAsTrickspeedFrame(trickframe);
 		while (m_pRender->RenderFrame(m_pDecoder->GetContext(), trickframe)) {
 			if (IsClosing()) {
@@ -320,17 +321,11 @@ int cVideoStream::DecodeInput(void)
 		// this is TrickSpeed
 		ret = m_pDecoder->ReceiveFrame(&frame);
 		while (ret == 0) {
-			bool isInterlaced;
-#if LIBAVUTIL_VERSION_INT < AV_VERSION_INT(58,7,100)
-			isInterlaced = frame->interlaced_frame;
-			frame->interlaced_frame = 0;
-#else
-			isInterlaced = frame->flags & AV_FRAME_FLAG_INTERLACED;
-			frame->flags &= ~AV_FRAME_FLAG_INTERLACED;
-#endif
+			bool isInterlaced = m_pRender->MarkAsProgressiveFrame(frame);
 			// deinterlacer is disabled in trickspeed mode
 			// in order to have the right speed, we double the count of frames to be displayed in trickspeed mode
 			// if we have an interlaced frame - we simply just dup the frame
+			LOGDEBUG2(L_TRICK, "videostream: %s trickspeed %d isInterlaced %d", __FUNCTION__, m_pRender->GetTrickSpeed(), isInterlaced);
 			m_pRender->SetTrickCounter(m_pRender->GetTrickSpeed() * (isInterlaced ? 2 : 1));
 			if (RenderTrickspeedFrames(frame)) { // returns -1 only if stream should be closed
 				av_frame_free(&frame);

@@ -550,15 +550,10 @@ int cVideoDecoder::ReceiveFrame(AVFrame **frame)
 	// skip QUIRK_CODEC_SKIP_NUM_FRAMES key frames
 	if (m_pVideoCtx->codec_id == AV_CODEC_ID_H264 &&
 	   (m_pRender->HardwareQuirks() & QUIRK_CODEC_SKIP_FIRST_FRAMES) && m_cntStartKeyFrames) {
-#if LIBAVUTIL_VERSION_INT < AV_VERSION_INT(58,7,100)
-		if (pFrame->key_frame) {
+		if (m_pRender->IsKeyFrame(pFrame)) {
 			LOGDEBUG2(L_CODEC, "videocodec: %s: artifact workaround - skip %s I-frame nr %d", __FUNCTION__,
-				pFrame->interlaced_frame ? "interlaced" : "progressive", m_cntStartKeyFrames);
-#else
-		if (pFrame->flags & AV_FRAME_FLAG_KEY) {
-			LOGDEBUG2(L_CODEC, "videocodec: %s: artifact workaround - skip %s I-frame nr %d", __FUNCTION__,
-				pFrame->flags & AV_FRAME_FLAG_INTERLACED ? "interlaced" : "progressive", m_cntStartKeyFrames);
-#endif
+				m_pRender->IsInterlacedFrame(pFrame) ? "interlaced" : "progressive", m_cntStartKeyFrames);
+
 			if (m_cntStartKeyFrames++ > QUIRK_CODEC_SKIP_NUM_FRAMES - 1)
 				m_cntStartKeyFrames = 0;
 		}
@@ -571,8 +566,9 @@ int cVideoDecoder::ReceiveFrame(AVFrame **frame)
 	*frame = pFrame;
 
 	m_cntFramesReceived++;
-	LOGDEBUG2(L_PACKET, "videocodec: %s: %6d PTS %s --->> (%2d)", __FUNCTION__,
-		m_cntFramesReceived, Timestamp2String(pFrame->pts / 90), m_cntPacketsSent - m_cntFramesReceived);
+	LOGDEBUG2(L_PACKET, "videocodec: %s: %6d PTS %s --->> (%2d)%s", __FUNCTION__,
+		m_cntFramesReceived, Timestamp2String(pFrame->pts / 90), m_cntPacketsSent - m_cntFramesReceived,
+		m_pRender->IsInterlacedFrame(pFrame) ? " I" : "");
 	m_mutex.Unlock();
 	return 0;
 }

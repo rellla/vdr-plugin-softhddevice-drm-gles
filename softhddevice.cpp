@@ -919,12 +919,8 @@ void cSoftHdDevice::StillPicture(const uchar *data, int size)
 	// we got a frame, so try to render it and try another one (should end up with AVERROR_EOF)
 	while (!ret) {
 		// always treat the frame as progressive frame
-#if LIBAVUTIL_VERSION_INT < AV_VERSION_INT(58,7,100)
-		frame->interlaced_frame = 0;
-#else
-		frame->flags &= ~AV_FRAME_FLAG_INTERLACED;
-#endif
 		LOGDEBUG2(L_STILL, "device: %s: frame received", __FUNCTION__);
+		m_pRender->MarkAsProgressiveFrame(frame);
 		m_pRender->MarkAsStillpictureFrame(frame);
 		while (m_pRender->RenderFrame(m_pVideoStream->Decoder()->GetContext(), frame)) {
 			if (m_pVideoStream->IsClosing()) {
