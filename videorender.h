@@ -231,7 +231,7 @@ private:
 	cDrmBuffer *m_pBufOsd;              ///< pointer to osd drm buffer object
 	cDrmBuffer m_bufBlack;              ///< black drm buffer object
 	struct lastFrame *m_pLastFrame;     ///< pointer to last rendered frame struct (for later free)
-	int m_numBuffers = 0;               ///< numer of framebuffers currently set up
+	int m_numBuffers = 0;               ///< number of framebuffers currently set up
 	int m_enqueueBufferIdx;             ///< index of the current (sw) framebuffer in the array
 	bool m_osdShown;                    ///< set, if osd is shown currently
 
