@@ -146,8 +146,8 @@ private:
 	const char *m_pMixerChannel;            ///< mixer channel name
 
 	// filter
-	int m_filterChanged;                    ///< filter has changed
-	int m_filterReady;                      ///< filter is ready
+	int m_filterChanged = 0;                ///< filter has changed
+	int m_filterReady = 0;                  ///< filter is ready
 	AVFilterGraph *m_pFilterGraph;
 	AVFilterContext *m_pBuffersrcCtx;
 	AVFilterContext *m_pBuffersinkCtx;

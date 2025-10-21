@@ -1240,7 +1240,7 @@ void cVideoRender::EnqueueFB(AVFrame *inframe)
 
 			int primefd;
 			if (drmPrimeHandleToFD(fdDrm, buf->Handle(0), DRM_CLOEXEC | DRM_RDWR, &primefd))
-				LOGERROR("videorender: %s: Failed to retrieve the Prime FD (%d): %m", __FUNCTION__, errno);
+				LOGERROR("videorender: %s: Failed to retrieve the Prime FD", __FUNCTION__);
 			buf->SetFdPrime(0, primefd);
 		}
 	}

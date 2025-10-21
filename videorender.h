@@ -205,7 +205,7 @@ private:
 
 	int m_numFramesToFilter;            ///< number of frames to be filtered
 	bool m_deintDisabled;               ///< set, if deinterlacer is disabled
-	bool m_configDeintDisabled;         ///< set, if a deinterlacer on/off should be triggered
+	bool m_configDeintDisabled = false; ///< set, if a deinterlacer on/off should be triggered
 	int m_numWrongProgressive;          ///< counter for progressive frames sent in an interlaced stream
 	                                    ///< (only used for logging)
 
@@ -218,8 +218,8 @@ private:
 	cRect m_lastVideoGrab;              ///< crtc rect of the last shown video frame
 
 	int m_startCounter;                 ///< counter for displayed frames, indicates a video start
-	int m_framesDuped;                  ///< number of frames duplicated
-	int m_framesDropped;                ///< number of frames dropped
+	int m_framesDuped = 0;              ///< number of frames duplicated
+	int m_framesDropped = 0;            ///< number of frames dropped
 	AVRational *m_timebase;             ///< pointer to AVCodecContext pkts_timebase
 	int64_t m_pts;                      ///< current video PTS
 
@@ -231,7 +231,7 @@ private:
 	cDrmBuffer *m_pBufOsd;              ///< pointer to osd drm buffer object
 	cDrmBuffer m_bufBlack;              ///< black drm buffer object
 	struct lastFrame *m_pLastFrame;     ///< pointer to last rendered frame struct (for later free)
-	int m_numBuffers;                   ///< numer of framebuffers currently set up
+	int m_numBuffers = 0;               ///< numer of framebuffers currently set up
 	int m_enqueueBufferIdx;             ///< index of the current (sw) framebuffer in the array
 	bool m_osdShown;                    ///< set, if osd is shown currently
 
