@@ -68,6 +68,8 @@ cSoftHdAudio::cSoftHdAudio(cSoftHdDevice *device)
 	m_pPassthroughDevice = nullptr;
 	m_pPCMDevice = nullptr;
 
+	m_pFilterGraph = nullptr;
+
 	m_pAlsaMixer = nullptr;
 	m_pMixerDevice = nullptr;
 	m_pMixerChannel = nullptr;
@@ -460,14 +462,22 @@ int cSoftHdAudio::InitFilter(AVCodecContext *audioCtx)
 	avfilter_register_all();
 #endif
 
-	if (!(m_pFilterGraph = avfilter_graph_alloc()))
+	if (!(m_pFilterGraph = avfilter_graph_alloc())) {
 		LOGERROR("audio: %s: Unable to create filter graph.", __FUNCTION__);
+		return -1;
+	}
 
 	// input buffer
-	if (!(abuffer = avfilter_get_by_name("abuffer")))
+	if (!(abuffer = avfilter_get_by_name("abuffer"))) {
 		LOGWARNING("audio: %s: Could not find the abuffer filter.", __FUNCTION__);
-	if (!(m_pBuffersrcCtx = avfilter_graph_alloc_filter(m_pFilterGraph, abuffer, "src")))
+		avfilter_graph_free(&m_pFilterGraph);
+		return -1;
+	}
+	if (!(m_pBuffersrcCtx = avfilter_graph_alloc_filter(m_pFilterGraph, abuffer, "src"))) {
 		LOGWARNING("audio: %s: Could not allocate the m_pBuffersrcCtx instance.", __FUNCTION__);
+		avfilter_graph_free(&m_pFilterGraph);
+		return -1;
+	}
 
 	av_channel_layout_describe(&audioCtx->ch_layout, channelLayout, sizeof(channelLayout));
 
@@ -481,15 +491,24 @@ int cSoftHdAudio::InitFilter(AVCodecContext *audioCtx)
 //	av_opt_set_int(m_pBuffersrcCtx, "channel_counts", audioCtx->channels,                           AV_OPT_SEARCH_CHILDREN);
 
 	// initialize the filter with NULL options, set all options above.
-	if (avfilter_init_str(m_pBuffersrcCtx, NULL) < 0)
+	if (avfilter_init_str(m_pBuffersrcCtx, NULL) < 0) {
 		LOGWARNING("audio: %s: Could not initialize the abuffer filter.", __FUNCTION__);
+		avfilter_graph_free(&m_pFilterGraph);
+		return -1;
+	}
 
 	// superequalizer
 	if (m_useEqualizer) {
-		if (!(eq = avfilter_get_by_name("superequalizer")))
+		if (!(eq = avfilter_get_by_name("superequalizer"))) {
 			LOGWARNING("audio: %s: Could not find the superequalizer filter.", __FUNCTION__);
-		if (!(pfilterCtx[numFilter] = avfilter_graph_alloc_filter(m_pFilterGraph, eq, "superequalizer")))
+			avfilter_graph_free(&m_pFilterGraph);
+			return -1;
+		}
+		if (!(pfilterCtx[numFilter] = avfilter_graph_alloc_filter(m_pFilterGraph, eq, "superequalizer"))) {
 			LOGWARNING("audio: %s: Could not allocate the superequalizer instance.", __FUNCTION__);
+			avfilter_graph_free(&m_pFilterGraph);
+			return -1;
+		}
 		snprintf(optionsStr, sizeof(optionsStr),"1b=%.2f:2b=%.2f:3b=%.2f:4b=%.2f:5b=%.2f"
 			":6b=%.2f:7b=%.2f:8b=%.2f:9b=%.2f:10b=%.2f:11b=%.2f:12b=%.2f:13b=%.2f:14b=%.2f:"
 			"15b=%.2f:16b=%.2f:17b=%.2f:18b=%.2f ", m_equalizerBand[0], m_equalizerBand[1],
@@ -497,8 +516,11 @@ int cSoftHdAudio::InitFilter(AVCodecContext *audioCtx)
 			m_equalizerBand[6], m_equalizerBand[7], m_equalizerBand[8], m_equalizerBand[9],
 			m_equalizerBand[10], m_equalizerBand[11], m_equalizerBand[12], m_equalizerBand[13],
 			m_equalizerBand[14], m_equalizerBand[15], m_equalizerBand[16], m_equalizerBand[17]);
-		if (avfilter_init_str(pfilterCtx[numFilter], optionsStr) < 0)
+		if (avfilter_init_str(pfilterCtx[numFilter], optionsStr) < 0) {
 			LOGWARNING("audio: %s: Could not initialize the superequalizer filter.", __FUNCTION__);
+			avfilter_graph_free(&m_pFilterGraph);
+			return -1;
+		}
 		numFilter++;
 	}
 
@@ -510,24 +532,42 @@ int cSoftHdAudio::InitFilter(AVCodecContext *audioCtx)
 	// should use IN layout if more then 2 ch!?
 	LOGDEBUG2(L_SOUND, "audio: %s: OUT m_downmix %d m_hwNumChannels %d m_hwSampleRate %d channelLayout %s bytes_per_sample %d",
 			  __FUNCTION__, m_downmix, m_hwNumChannels, m_hwSampleRate, channelLayout, av_get_bytes_per_sample(AV_SAMPLE_FMT_S16));
-	if (!(aformat = avfilter_get_by_name("aformat")))
+	if (!(aformat = avfilter_get_by_name("aformat"))) {
 		LOGWARNING("audio: %s: Could not find the aformat filter.", __FUNCTION__);
-	if (!(pfilterCtx[numFilter] = avfilter_graph_alloc_filter(m_pFilterGraph, aformat, "aformat")))
+		avfilter_graph_free(&m_pFilterGraph);
+		return -1;
+	}
+	if (!(pfilterCtx[numFilter] = avfilter_graph_alloc_filter(m_pFilterGraph, aformat, "aformat"))) {
 		LOGWARNING("audio: %s: Could not allocate the aformat instance.", __FUNCTION__);
+		avfilter_graph_free(&m_pFilterGraph);
+		return -1;
+	}
 	snprintf(optionsStr, sizeof(optionsStr),
 		"sample_fmts=%s:sample_rates=%d:channel_layouts=%s",
 		av_get_sample_fmt_name(AV_SAMPLE_FMT_S16), m_hwSampleRate, channelLayout);
-	if (avfilter_init_str(pfilterCtx[numFilter], optionsStr) < 0)
+	if (avfilter_init_str(pfilterCtx[numFilter], optionsStr) < 0) {
 		LOGWARNING("audio: %s: Could not initialize the aformat filter.", __FUNCTION__);
+		avfilter_graph_free(&m_pFilterGraph);
+		return -1;
+	}
 	numFilter++;
 
 	// abuffersink
-	if (!(abuffersink = avfilter_get_by_name("abuffersink")))
+	if (!(abuffersink = avfilter_get_by_name("abuffersink"))) {
 		LOGWARNING("audio: %s: Could not find the abuffersink filter.", __FUNCTION__);
-	if (!(pfilterCtx[numFilter] = avfilter_graph_alloc_filter(m_pFilterGraph, abuffersink, "sink")))
+		avfilter_graph_free(&m_pFilterGraph);
+		return -1;
+	}
+	if (!(pfilterCtx[numFilter] = avfilter_graph_alloc_filter(m_pFilterGraph, abuffersink, "sink"))) {
 		LOGWARNING("audio: %s: Could not allocate the abuffersink instance.", __FUNCTION__);
-	if (avfilter_init_str(pfilterCtx[numFilter], NULL) < 0)
+		avfilter_graph_free(&m_pFilterGraph);
+		return -1;
+	}
+	if (avfilter_init_str(pfilterCtx[numFilter], NULL) < 0) {
 		LOGWARNING("audio: %s: Could not initialize the abuffersink instance.", __FUNCTION__);
+		avfilter_graph_free(&m_pFilterGraph);
+		return -1;
+	}
 	numFilter++;
 
 	// Connect the filters
@@ -538,12 +578,18 @@ int cSoftHdAudio::InitFilter(AVCodecContext *audioCtx)
 			err = avfilter_link(pfilterCtx[i - 1], 0, pfilterCtx[i], 0);
 		}
 	}
-	if (err < 0)
+	if (err < 0) {
 		LOGWARNING("audio: %s: Error connecting audio filters", __FUNCTION__);
+		avfilter_graph_free(&m_pFilterGraph);
+		return -1;
+	}
 
 	// Configure the graph.
-	if (avfilter_graph_config(m_pFilterGraph, NULL) < 0)
+	if (avfilter_graph_config(m_pFilterGraph, NULL) < 0) {
 		LOGWARNING("audio: %s: Error configuring the audio filter graph", __FUNCTION__);
+		avfilter_graph_free(&m_pFilterGraph);
+		return -1;
+	}
 
 	m_pBuffersinkCtx = pfilterCtx[numFilter - 1];
 	m_filterChanged = 0;
@@ -1255,6 +1301,8 @@ void cSoftHdAudio::Exit(void)
 		if (m_pAudioThread->Active())
 			m_pAudioThread->Stop();
 		delete m_pAudioThread;
+
+		avfilter_graph_free(&m_pFilterGraph);
 
 		AlsaExit();
 		ExitRingbuffer();
