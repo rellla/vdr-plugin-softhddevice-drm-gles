@@ -40,9 +40,9 @@ graph TD
 
     %% Filter Thread Path
     FilterPush --> FilterQueue["cFilterThread::m_frames"]
-    FilterQueue --> FilterAction["cFilterThread::Action<br />[FFMPEG]"]
-    FilterAction --> |Interlaced DRM_PRIME|HWDeint["HW Deinterlacer<br />[FFMPEG]"]
-    FilterAction --> |YUV420P|SWDeint["SW Deinterlacer<br />or Resolution Scaling<br />[FFMPEG]"]
+    FilterQueue --> FilterAction["cFilterThread::Action"]
+    FilterAction --> |Interlaced DRM_PRIME|HWDeint["FFMPEG filter:<br />HW Deinterlacer"]
+    FilterAction --> |YUV420P|SWDeint["FFMPEG filter:<br/>Convert to NV12 with optional SW Deinterlacing"]
     HWDeint -->|Progressive DRM_PRIME| RenderRB["cVideoRender::m_framesRb"]
     SWDeint --> |NV12 Format|EnqFB["cVideoRender::EnqueueFB"]
 
