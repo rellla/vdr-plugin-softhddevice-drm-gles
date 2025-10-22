@@ -53,23 +53,19 @@ graph TD
     RenderRB --> |AVFrame|DispThread["cDisplayThread::Action"]
     DispThread --> DisplayFrame["cVideoRender::DisplayFrame<br/>A/V sync"]
     DisplayFrame --> GetFrame["cVideoRender::GetFrame"]
-    GetFrame --> RbGetFrame["RbGetFrame"]
-    RbGetFrame --> DecrementFilled["atomic_dec m_framesFilled"]
+    GetFrame -->|AVFrame| DisplayFrame
 
-    DisplayFrame --> GetBuffer["cVideoRender::GetBuffer"]
-    GetBuffer --> FindFB["Search m_buffer"]
-    GetBuffer --> DrmBuf["cDrmBuffer"]
+    DisplayFrame --> |AVFrame|GetBuffer["cVideoRender::GetBuffer"]
+    GetBuffer -->|cDrmBuffer| DisplayFrame
 
-    DisplayFrame --> SetFrame["cDrmBuffer::SetFrame"]
-    DisplayFrame --> PageFlipVid["cVideoRender::PageFlipVideo"]
+    DisplayFrame -->|AVFrame| SetFrame["cDrmBuffer::SetFrame"]
+    SetFrame --> DisplayFrame
+    DisplayFrame --> |AVFrame & cDrmBuffer|PageFlipVid["cVideoRender::PageFlipVideo"]
 
-    PageFlipVid --> PageFlip["PageFlip"]
-    PageFlip --> CommitBuf["CommitBuffer"]
+    PageFlipVid --> |AVFrame & cDrmBuffer|PageFlip["PageFlip"]
+    PageFlip --> |cDrmBuffer|CommitBuf["CommitBuffer"]
 
-    CommitBuf --> SetVideoBuf["SetVideoBuffer"]
-    SetVideoBuf --> SetParams["cDrmPlane::SetParams"]
-    CommitBuf --> SetOsdBuf["SetOsdBuffer"]
-    CommitBuf --> DrmCommit["drmModeAtomicCommit"]
+    CommitBuf --> |cDrmDevice|DrmCommit["drmModeAtomicCommit"]
 
     DrmCommit --> Hardware["Display Hardware"]
 
@@ -84,8 +80,8 @@ graph TD
     class VDR,PlayVideo,PushPes,CreatePkt vdrThread
     class PktQueue,DecThread,DecInput,SendPkt,RecvFrame,RenderFrame,FilterPush decThread
     class FilterQueue,FilterAction,HWDeint,SWDeint filterThread
-    class DispThread,DisplayFrame,GetFrame,RbGetFrame,PageFlipVid,PageFlip,CommitBuf,SetVideoBuf,SetOsdBuf,DrmCommit displayThread
+    class DispThread,DisplayFrame,GetFrame,PageFlipVid,PageFlip,CommitBuf,DrmCommit,GetBuffer,SetFrame displayThread
     class Hardware hardware
-    class RenderRB,DrmBuf,FindFB,EnqFB buffer
+    class RenderRB,EnqFB buffer
     class FormatCheck decThread
 ```
