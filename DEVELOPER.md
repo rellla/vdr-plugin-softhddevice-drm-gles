@@ -1,6 +1,115 @@
-# Video Data Flow Call Graph - softhddevice-drm-gles
+# Developer Documentation - softhddevice-drm-gles
 
-This document shows the complete data flow of video frames from VDR through the plugin to the display hardware.
+This document contains technical documentation for developers, including the playback state machine and video data flow.
+
+## State Diagram
+
+### Fat Version
+
+```mermaid
+stateDiagram-v2
+    PrepareContinuePlay: PREPARE CONTINUE PLAY<br/>→ Play()<br/>• Halt ("pause") decoding thread<br/>• Wait filter thread idle<br/>• Cancel filter thread<br />• Continue ("pause", "close") decoder thread<br/>• Resume audio<br/>• Reset trick speed<br/>• Reset cVideoRender pause flag<br/>• Start filter thread lazily
+
+    PrepareNewPlay: PREPARE NEW PLAYBACK<br/>→ SetPlayMode()<br/>• Start decoding & display thread<br/>• Start filter thread lazily
+
+    PrepareStop: PREPARE STOP<br/>→ PlayMode(pmNone)<br/>• Halt ("close") decoding thread<br/>• Clear decoding queue<br/>• Free FFMPEG context<br/>• Flush audio
+
+    PreparePause: PREPARE PAUSE<br/>→ Freeze()<br/>• Halt ("pause") decoding thread<br/>• Wait filter thread idle<br/>• Cancel filter thread<br />• Pause audio<br/>• Set cVideoRender pause flag
+
+    FastTrickSpeed: Fast Reverse/Forward
+
+    [*] --> Stop: Initialize
+
+    PrepareStop --> Stop
+    Stop --> PrepareNewPlay
+
+    PrepareNewPlay --> Play
+    PrepareContinuePlay --> Play
+    Play --> PreparePause
+    Play --> FastTrickSpeed: Clear() & TrickSpeed()
+    Play --> PrepareStop
+
+    PreparePause --> Pause
+    Pause --> PrepareContinuePlay
+    Pause --> PrepareStop
+    Pause --> SlowForward
+    Pause --> SlowReverse
+
+    FastTrickSpeed --> PrepareContinuePlay: Clear() & Play()
+    FastTrickSpeed --> PreparePause: Clear() & Freeze()
+    FastTrickSpeed --> PrepareStop
+
+    SlowForward --> PrepareContinuePlay: Play() [no clear]
+    SlowForward --> PreparePause: Freeze() [no clear]
+    SlowForward --> PrepareStop
+    SlowForward --> SlowReverse: Clear() & TrickSpeed()
+
+    SlowReverse --> PrepareContinuePlay: Clear() & Play()
+    SlowReverse --> PreparePause: Clear() & Freeze()
+    SlowReverse --> PrepareStop
+    SlowReverse --> SlowForward: Clear() & TrickSpeed()
+
+    classDef stopState fill:#e57373,stroke:#d32f2f,stroke-width:2px,color:#000
+    classDef playState fill:#81c784,stroke:#388e3c,stroke-width:2px,color:#000
+    classDef pauseState fill:#fff59d,stroke:#fbc02d,stroke-width:2px,color:#000
+    classDef fastTrickspeedState fill:#64b5f6,stroke:#1976d2,stroke-width:2px,color:#000
+        classDef slowForwardState fill:#4dd0e1,stroke:#0097a7,stroke-width:2px,color:#000
+    classDef slowReverseState fill:#ffb74d,stroke:#f57c00,stroke-width:2px,color:#000
+
+    class Stop stopState
+    class Play playState
+    class Pause pauseState
+    class FastTrickSpeed fastTrickspeedState
+    class SlowForward slowForwardState
+    class SlowReverse slowReverseState
+```
+
+### Boiled Down Version
+
+```mermaid
+stateDiagram-v2
+    PrepareContinuePlay: PREPARE CONTINUE PLAY<br/>• Halt ("pause") decoding thread<br/>• Wait filter thread idle<br/>• Cancel filter thread<br />• Continue ("pause", "close") decoder thread<br/>• Resume audio<br/>• Reset trick speed<br/>• Reset cVideoRender pause flag<br/>• Start filter thread lazily
+
+    PrepareNewPlay: PREPARE NEW PLAYBACK<br/>• Start decoding & display thread<br/>• Start filter thread lazily
+
+    PrepareStop: PREPARE STOP<br/>• Halt ("close") decoding thread<br/>• Clear decoding queue<br/>• Free FFMPEG context<br/>Flush audio
+
+    PreparePause: PREPARE PAUSE<br/>• Halt ("pause") decoding thread<br/>• Wait filter thread idle<br/>• Cancel filter thread<br />• Pause audio<br/>• Set cVideoRender pause flag
+
+    [*] --> Stop: Initialize
+
+    PrepareStop --> Stop
+    Stop --> PrepareNewPlay
+
+    PrepareNewPlay --> Play
+    PrepareContinuePlay --> Play
+    Play --> PreparePause: Freeze()
+    Play --> TrickSpeed: TrickSpeed()
+    Play --> PrepareStop: PlayMode(pmNone)
+
+    PreparePause --> Pause
+    Pause --> PrepareContinuePlay: Play()
+    Pause --> PrepareStop: PlayMode(pmNone)
+    Pause --> TrickSpeed: TrickSpeed()
+
+    TrickSpeed --> PrepareContinuePlay: Play()
+    TrickSpeed --> PreparePause: Freeze()
+    TrickSpeed --> PrepareStop: PlayMode(pmNone)
+
+    classDef stopState fill:#e57373,stroke:#d32f2f,stroke-width:2px,color:#000
+    classDef playState fill:#81c784,stroke:#388e3c,stroke-width:2px,color:#000
+    classDef pauseState fill:#fff59d,stroke:#fbc02d,stroke-width:2px,color:#000
+    classDef trickspeedState fill:#64b5f6,stroke:#1976d2,stroke-width:2px,color:#000
+
+    class Stop stopState
+    class Play playState
+    class Pause pauseState
+    class TrickSpeed trickspeedState
+```
+
+## Video Data Flow Call Graph
+
+This section shows the complete data flow of video frames from VDR through the plugin to the display hardware.
 
 ## Overview
 
