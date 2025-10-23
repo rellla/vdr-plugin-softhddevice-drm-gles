@@ -232,28 +232,27 @@ int cVideoStream::RenderTrickspeedFrames(AVFrame *frame)
 /**
  * Decodes a reassembled codec packet.
  *
- * @retval 0        packet was decoded or more data is needed
- * @retval 1        stream is paused
- * @retval -1       stream is empty or closed
+ * @retval false       packet was decoded or more data is needed
+ * @retval true        stream is paused, empty or closed
  */
-int cVideoStream::DecodeInput(void)
+bool cVideoStream::DecodeInput(void)
 {
 	AVFrame *frame = nullptr;
 	int ret = 0;
 
 	if (IsClosing()) {
 		m_closeCondition.Signal();
-		return -1;
+		return true;
 	}
 
 	if (IsPaused()) {
 //		LOGDEBUG2(L_CODEC, "videostream %s: stream is paused", __FUNCTION__);
 		m_pauseCondition.Broadcast();
-		return 1;
+		return true;
 	}
 
 	if (m_codecId == AV_CODEC_ID_NONE)
-		return -1;
+		return true;
 
 	if (m_newStream) {
 		int width = 0;
@@ -284,7 +283,7 @@ int cVideoStream::DecodeInput(void)
 	// m_trickpkts sent packets
 	int minPkts = (m_pRender->GetTrickSpeed() && m_interlaced) ? m_trickpkts : 1;
 	if ((int)m_packets.Size() < minPkts) {
-		return -1;
+		return true;
 	}
 
 	// send packet to decoder
@@ -312,7 +311,7 @@ int cVideoStream::DecodeInput(void)
 				while (m_pRender->RenderFrame(m_pDecoder->GetContext(), frame)) {
 					if (IsClosing()) {
 						av_frame_free(&frame);
-						return -1;
+						return true;
 					}
 				}
 			}
@@ -330,7 +329,7 @@ int cVideoStream::DecodeInput(void)
 			if (RenderTrickspeedFrames(frame)) { // returns -1 only if stream should be closed
 				av_frame_free(&frame);
 				m_sentTrickPkts = 0;
-				return -1;
+				return true;
 			}
 
 			av_frame_free(&frame);
@@ -345,7 +344,7 @@ int cVideoStream::DecodeInput(void)
 		}
 	}
 
-	return 0;
+	return false;
 }
 
 
