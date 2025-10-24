@@ -215,14 +215,14 @@ int cVideoStream::RenderTrickspeedFrames(AVFrame *frame)
 		          __FUNCTION__, m_pRender->GetTrickCounter(), Timestamp2String(trickframe->pts / 90), trickframe);
 		m_pRender->MarkAsTrickspeedFrame(trickframe);
 		while (m_pRender->RenderFrame(m_pDecoder->GetContext(), trickframe)) {
-			if (IsClosing()) {
+			if (m_closing) {
 				av_frame_free(&trickframe);
 				return -1;
 			}
 		}
 		m_pRender->DecTrickCounter();
 
-		if (IsClosing())
+		if (m_closing)
 			return -1;
 	}
 
@@ -241,12 +241,12 @@ int cVideoStream::DecodeInput(void)
 	AVFrame *frame = nullptr;
 	int ret = 0;
 
-	if (IsClosing()) {
+	if (m_closing) {
 		m_closeCondition.Signal();
 		return -1;
 	}
 
-	if (IsPaused()) {
+	if (m_paused) {
 //		LOGDEBUG2(L_CODEC, "videostream %s: stream is paused", __FUNCTION__);
 		m_pauseCondition.Broadcast();
 		return 1;
@@ -310,7 +310,7 @@ int cVideoStream::DecodeInput(void)
 			ret = m_pDecoder->ReceiveFrame(&frame);
 			if (ret == 0) {
 				while (m_pRender->RenderFrame(m_pDecoder->GetContext(), frame)) {
-					if (IsClosing()) {
+					if (m_closing) {
 						av_frame_free(&frame);
 						return -1;
 					}
@@ -396,7 +396,7 @@ void cVideoStream::StillPicture(cPesVideo *pesPacket)
 		m_pRender->MarkAsProgressiveFrame(frame);
 		m_pRender->MarkAsStillpictureFrame(frame);
 		while (m_pRender->RenderFrame(Decoder()->GetContext(), frame)) {
-			if (IsClosing()) {
+			if (m_closing) {
 				av_frame_free(&frame);
 				break;
 			}

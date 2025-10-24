@@ -55,7 +55,6 @@ public:
 	void StillPicture(cPesVideo *);
 	void Start(void) { m_closing = false; };
 	void Stop(void);
-	bool IsClosing(void) { return m_closing; };
 	void Resume(void) { m_paused = false; };
 	void Pause(void);
 	bool IsPaused(void) { return m_paused; };
