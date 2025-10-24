@@ -76,7 +76,7 @@ cVideoStream::cVideoStream(cSoftHdDevice *device)
 	m_interlaced = 0;
 	m_trickpkts = 1;
 
-	Start();
+	StartDecoding();
 }
 
 /**
@@ -454,7 +454,7 @@ void cVideoStream::SetTimebase(int num, int den)
  *
  * Skips the decoding of the stream until m_closing gets false again (with Start())
  */
-void cVideoStream::Stop(void)
+void cVideoStream::StopAndWaitDecodingIdle(void)
 {
 	int timeoutInMs = 1000;
 	m_closing = true;

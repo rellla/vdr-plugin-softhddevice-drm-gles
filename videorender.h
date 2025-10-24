@@ -107,7 +107,7 @@ public:
 	void PauseVideo(void);
 	void ResumeVideo(void);
 	bool VideoIsPaused(void);
-	void SetClosing(int);
+	void CleanupAndClose(bool);
 	bool ShouldClose(void) { return m_closing; };
 	bool ShouldFlush(void) { return m_flushing; };
 

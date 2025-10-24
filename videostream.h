@@ -53,8 +53,8 @@ public:
 	void CloseDecoder(void);
 	int DecodeInput(void);
 	void StillPicture(cPesVideo *);
-	void Start(void) { m_closing = false; };
-	void Stop(void);
+	void StartDecoding(void) { m_closing = false; };
+	void StopAndWaitDecodingIdle(void);
 	void Resume(void) { m_paused = false; };
 	void Pause(void);
 	bool IsPaused(void) { return m_paused; };

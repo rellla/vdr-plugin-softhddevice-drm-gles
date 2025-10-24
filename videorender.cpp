@@ -1213,7 +1213,7 @@ void cVideoRender::ExitDisplayThread(void)
 {
 	LOGDEBUG("videorender: %s", __FUNCTION__);
 
-	SetClosing(1);
+	CleanupAndClose(true);
 	if (m_pDisplayThread->Active()) {
 		m_exitThread = true;
 		m_pDisplayThread->Stop();
@@ -1547,7 +1547,7 @@ void cVideoRender::StartVideo(void)
  * @param black     true, if a black fb should be set and the last rendered buffer should be cleared,
  *                  otherwise don't set a black fb and wait for the clear until the next frame arrives
  */
-void cVideoRender::SetClosing(int black)
+void cVideoRender::CleanupAndClose(bool black)
 {
 	LOGDEBUG("videorender: %s: m_startCounter %d%s", __FUNCTION__, m_startCounter, black ? " closing": " flushing");
 	if (!m_pDisplayThread->Active())

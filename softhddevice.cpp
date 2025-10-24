@@ -683,11 +683,12 @@ bool cSoftHdDevice::SetPlayMode(ePlayMode play_mode)
 
 	switch (play_mode) {
 	case pmNone:
-		m_pVideoStream->Stop();
+		m_pVideoStream->StopAndWaitDecodingIdle();
+		m_pRender->CleanupAndClose(true);
+
 		m_pVideoStream->ClearPacketQueue();
 		m_pVideoStream->CloseDecoder();
 
-		m_pRender->SetClosing(1);
 		m_skipAudio = false;
 		m_pAudio->Unmute();
 		m_pAudio->Resume();
@@ -696,7 +697,7 @@ bool cSoftHdDevice::SetPlayMode(ePlayMode play_mode)
 			m_newAudioStream = true;
 
 		m_pVideoStream->SetInterlaced(0); // probably not necessary
-		m_pVideoStream->Start();
+		m_pVideoStream->StartDecoding();
 		m_pVideoStream->Resume();
 		break;
 	case pmAudioVideo:
@@ -753,7 +754,7 @@ void cSoftHdDevice::TrickSpeed(int speed, bool forward)
 {
 	LOGDEBUG("device: %s: %d %s", __FUNCTION__, speed, forward ? "forward" : "backward");
 
-	m_pVideoStream->Start();     // start stream if closed
+	m_pVideoStream->StartDecoding();     // start stream if closed
 	m_pVideoStream->Resume();   // start stream if paused
 
 	m_pRender->SetTrickSpeed(speed, forward);
@@ -780,17 +781,17 @@ void cSoftHdDevice::Clear(void)
 	LOGDEBUG("device: %s:", __FUNCTION__);
 	cDevice::Clear();
 
-	m_pVideoStream->Stop();
+	m_pVideoStream->StopAndWaitDecodingIdle();
 	m_pVideoStream->ClearPacketQueue();
 	m_pVideoStream->FlushDecoder();
 
-	m_pRender->SetClosing(0);
+	m_pRender->CleanupAndClose(false);
 
 	ClearAudio();
 
 	// we need a Start() here, because when VDR does SkipSeconds()
 	// it doesn't send a Play() again, if we skip during a playing stream
-	m_pVideoStream->Start();
+	m_pVideoStream->StartDecoding();
 }
 
 /**
@@ -816,7 +817,7 @@ void cSoftHdDevice::Play(void)
 	m_pRender->WaitForFilterIdle();
 	m_pRender->StopFilter();
 
-	m_pVideoStream->Start();
+	m_pVideoStream->StartDecoding();
 	m_pVideoStream->Resume();
 
 	m_skipAudio = false;
