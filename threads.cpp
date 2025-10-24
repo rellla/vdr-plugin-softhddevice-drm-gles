@@ -387,8 +387,8 @@ void cFilterThread::Action(void)
 		// add frame to filter
 		if (av_buffersrc_add_frame_flags(m_pBuffersrcCtx, frame, AV_BUFFERSRC_FLAG_KEEP_REF) < 0)
 			LOGWARNING("filter thread: %s: can't add_frame.", __FUNCTION__);
-		else
-			av_frame_free(&frame);
+
+		av_frame_free(&frame);
 
 		// get filtered frames
 		while (Running()) {
