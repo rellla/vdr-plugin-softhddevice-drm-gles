@@ -249,7 +249,7 @@ graph TD
     VDR[VDR Core] --> |PES Packet|PlayVideo["cSoftHdDevice::PlayVideo"]
     PlayVideo --> |PES Packet|PushPes["cVideoStream::PushPesPacket"]
     PushPes --> |Reassambled Codec Packet|CreatePkt["CreateAvPacket"]
-    CreatePkt --> |AVPacket|PktQueue["cVideoStream::m_packets"]
+    CreatePkt --> |AVPacket|PktQueue["cVideoStream::m_packets<br/>**192**x AVPacket"]
 
     %% Decoding Thread
     PktQueue --> DecThread["cDecodingThread::Action"]
@@ -266,11 +266,11 @@ graph TD
     FormatCheck -->|NV12 Format| EnqFB["cVideoRender::EnqueueFB"]
 
     %% Filter Thread Path
-    FilterPush --> FilterQueue["cFilterThread::m_frames"]
+    FilterPush --> FilterQueue["cFilterThread::m_frames<br/>**3x** AVFrame"]
     FilterQueue --> FilterAction["cFilterThread::Action"]
     FilterAction --> |Interlaced DRM_PRIME|HWDeint["FFMPEG filter:<br />HW Deinterlacer"]
     FilterAction --> |YUV420P|SWDeint["FFMPEG filter:<br/>Convert to NV12 with optional SW Deinterlacing"]
-    HWDeint -->|Progressive DRM_PRIME| RenderRB["cVideoRender::m_framesRb"]
+    HWDeint -->|Progressive DRM_PRIME| RenderRB["cVideoRender::m_framesRb<br/>Size: **3**x AVFrame"]
     SWDeint --> |NV12 Format|EnqFB["cVideoRender::EnqueueFB"]
 
     %% EnqueueFB Path (Software frames need buffer prep)
@@ -278,7 +278,7 @@ graph TD
 
     %% Display Thread
     RenderRB --> |AVFrame|DispThread["cDisplayThread::Action"]
-    DispThread --> DisplayFrame["cVideoRender::DisplayFrame<br/>A/V sync"]
+    DispThread --> DisplayFrame["cVideoRender::DisplayFrame<br/>(A/V sync)<br/>cVideoRender::m_buffer **36**x cDrmBuffer"]
     DisplayFrame --> GetFrame["cVideoRender::GetFrame"]
     GetFrame -->|AVFrame| DisplayFrame
 
@@ -305,10 +305,10 @@ graph TD
     classDef buffer fill:#fff59d,stroke:#fbc02d,stroke-width:2px,color:#000000
 
     class VDR,PlayVideo,PushPes,CreatePkt vdrThread
-    class PktQueue,DecThread,DecInput,SendPkt,RecvFrame,RenderFrame,FilterPush decThread
-    class FilterQueue,FilterAction,HWDeint,SWDeint filterThread
+    class DecThread,DecInput,SendPkt,RecvFrame,RenderFrame,FilterPush decThread
+    class FilterAction,HWDeint,SWDeint filterThread
     class DispThread,DisplayFrame,GetFrame,PageFlipVid,PageFlip,CommitBuf,DrmCommit,GetBuffer,SetFrame displayThread
     class Hardware hardware
-    class RenderRB,EnqFB buffer
+    class PktQueue,FilterQueue,RenderRB,EnqFB buffer
     class FormatCheck decThread
 ```
