@@ -12,7 +12,7 @@ stateDiagram-v2
 
     PrepareNewPlay: PREPARE NEW PLAYBACK<br/>• Start decoding & display thread<br/>• Start filter thread lazily
 
-    PrepareStop: PREPARE STOP<br/>• Halt ("close") decoding thread<br/>• Clear decoding queue<br/>• Free FFMPEG context<br/>Flush audio
+    PrepareStop: PREPARE STOP<br/>• Halt ("close") decoding thread<br/>• Clear decoding queue<br/>• Cancel filter thread<br/>• Free FFMPEG context<br/>• Flush audio
 
     PreparePause: PREPARE PAUSE<br/>• Halt ("pause") decoding thread<br/>• Wait filter thread idle<br/>• Cancel filter thread<br />• Pause audio<br/>• Set cVideoRender pause flag
 
@@ -67,7 +67,7 @@ stateDiagram-v2
 
     PrepareNewPlay: PREPARE NEW PLAYBACK<br/>→ SetPlayMode()<br/>• Start decoding & display thread<br/>• Start filter thread lazily
 
-    PrepareStop: PREPARE STOP<br/>→ PlayMode(pmNone)<br/>• Halt ("close") decoding thread<br/>• Clear decoding queue<br/>• Free FFMPEG context<br/>• Flush audio
+    PrepareStop: PREPARE STOP<br/>→ PlayMode(pmNone)<br/>• Halt ("close") decoding thread<br/>• Cancel filter thread<br/>• Clear decoding queue<br/>• Free FFMPEG context<br/>• Flush audio
 
     PreparePause: PREPARE PAUSE<br/>→ Freeze()<br/>• Halt ("pause") decoding thread<br/>• Wait filter thread idle<br/>• Cancel filter thread<br />• Pause audio<br/>• Set cVideoRender pause flag
 
