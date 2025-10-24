@@ -266,7 +266,7 @@ graph TD
     FormatCheck -->|NV12 Format| EnqFB["cVideoRender::EnqueueFB"]
 
     %% Filter Thread Path
-    FilterPush --> FilterQueue["cFilterThread::m_frames<br/>**3x** AVFrame"]
+    FilterPush --> FilterQueue["cFilterThread::m_frames<br/>**3**x AVFrame"]
     FilterQueue --> FilterAction["cFilterThread::Action"]
     FilterAction --> |Interlaced DRM_PRIME|HWDeint["FFMPEG filter:<br />HW Deinterlacer"]
     FilterAction --> |YUV420P|SWDeint["FFMPEG filter:<br/>Convert to NV12 with optional SW Deinterlacing"]
