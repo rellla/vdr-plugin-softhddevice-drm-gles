@@ -459,6 +459,7 @@ void cVideoStream::StopAndWaitDecodingIdle(void)
 	int timeoutInMs = 1000;
 	m_closing = true;
 
+	m_closeCondition.Wait(1); // Reset the signal. If the decode thread is idle, the signal is sent periodically.
 	if (!m_closeCondition.Wait(timeoutInMs))
 		LOGERROR("videostream %s: Timeout while closing stream (%d ms)!", __FUNCTION__, timeoutInMs);
 
