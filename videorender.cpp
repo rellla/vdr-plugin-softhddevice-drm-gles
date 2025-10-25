@@ -82,7 +82,7 @@ cVideoRender::cVideoRender(cSoftHdDevice *device)
 	m_disableOglOsd = false;
 	m_exitThread = false;
 	m_startgrab = false;
-	m_startCounter = false;
+	m_startCounter = 0;
 	m_videoIsScaled = false;
 
 	m_trickSpeed = 0;
