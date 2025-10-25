@@ -265,7 +265,7 @@ int cVideoDecoder::Open(enum AVCodecID codecId, AVCodecParameters * par,
 		}
 		LOGDEBUG2(L_CODEC, "videocodec: %s: Using %s HW codec", __FUNCTION__,
 			type_name ? type_name : "unknown");
-		m_pVideoCtx->hw_device_ctx = av_buffer_ref(hwDeviceCtx);
+		m_pVideoCtx->hw_device_ctx = hwDeviceCtx;
 		m_pVideoCtx->pix_fmt = AV_PIX_FMT_DRM_PRIME;
 	}
 
