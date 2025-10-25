@@ -91,7 +91,7 @@ private:
 	volatile bool m_closing;               ///< flag for closing request
 	volatile bool m_paused;                ///< flag for paused stream
 	bool m_interlaced;                     ///< flag for interlaced stream
-	cCondWait m_closeCondition;            ///< condition object to wait for finishing jobs while closing
+	cCondVar m_closeCondition;             ///< condition object to wait for finishing jobs while closing
 	cCondVar m_pauseCondition;             ///< condition object to wait for pausing the stream
 
 	int RenderTrickspeedFrames(AVFrame *);
