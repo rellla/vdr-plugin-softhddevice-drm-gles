@@ -395,15 +395,11 @@ void cFilterThread::Action(void)
 			AVFrame *filtFrame = av_frame_alloc();
 			ret = av_buffersink_get_frame(m_pBuffersinkCtx, filtFrame);
 
-			if (ret == AVERROR(EAGAIN)) {
-				av_frame_free(&filtFrame);
-				break;
-			} else if (ret == AVERROR_EOF) {
+			if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
 				av_frame_free(&filtFrame);
 				break;
 			} else if (ret < 0) {
-				LOGERROR("filter thread: %s: can't get filtered frame: %s", __FUNCTION__,
-				av_err2str(ret));
+				LOGERROR("filter thread: %s: can't get filtered frame: %s", __FUNCTION__, av_err2str(ret));
 				av_frame_free(&filtFrame);
 				break;
 			}
