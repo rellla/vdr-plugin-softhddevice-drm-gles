@@ -125,7 +125,7 @@ private:
 	uint32_t m_handle[4];       ///< array of the plane handles
 	uint32_t m_offset[4];       ///< array of the plane offset
 	uint32_t m_pitch[4];        ///< array of the plane pitch
-	uint32_t m_size[4];         ///< array of the plane size
+	uint32_t m_size[4]{0};      ///< array of the plane size
 
 	AVFrame *m_pFrame;
 #ifdef USE_GLES
