@@ -448,7 +448,8 @@ int cVideoRender::HandleDropDup(int64_t videoPts, int64_t audioPts)
 			Timestamp2String(videoPts, 1), m_pDevice->GetVideoAudioDelay(), diff);
 	}
 
-	if (diff < -5 && !(abs(diff) > 5000)) {	// video is more than 5ms behind audio, drop video frame
+	if (diff < -5) {	// video is more than 5ms behind audio, drop video frame
+		m_framesDropped++;
 		LOGDEBUG2(L_AV_SYNC, "FrameDropped (drop %d, dup %d) Pkts %d deint %d Frames %d UsedBytes %d audio %s video %s Delay %dms diff %dms",
 			m_framesDropped, m_framesDuped,
 			m_pDevice->VideoStream()->GetAvPacketsFilled(), m_pFilterThread->GetBufferFrameCount(),
@@ -458,18 +459,17 @@ int cVideoRender::HandleDropDup(int64_t videoPts, int64_t audioPts)
 		if (!m_startCounter)
 			m_startCounter++;
 
-		m_framesDropped++;
 		return -1;
 	}
 
-	if (diff > 35 && !(abs(diff) > 5000)) {	// audio is more than 35ms behind video, duplicate video frame
+	if (diff > 35) {	// audio is more than 35ms behind video, duplicate video frame
+		m_framesDuped++;
 		LOGDEBUG2(L_AV_SYNC, "FrameDuped (drop %d, dup %d) Pkts %d deint %d Frames %d UsedBytes %d audio %s video %s Delay %dms diff %dms",
 			m_framesDropped, m_framesDuped,
 			m_pDevice->VideoStream()->GetAvPacketsFilled(), m_pFilterThread->GetBufferFrameCount(),
 			atomic_read(&m_framesFilled), m_pAudio->GetUsedBytes(), Timestamp2String(audioPts, 1),
 			Timestamp2String(videoPts, 1), m_pDevice->GetVideoAudioDelay(), diff);
 
-		m_framesDuped++;
 		usleep(20000);
 		return 0;
 	}
