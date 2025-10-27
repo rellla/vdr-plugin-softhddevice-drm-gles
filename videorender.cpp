@@ -94,6 +94,8 @@ cVideoRender::cVideoRender(cSoftHdDevice *device)
 	m_framesRead = 0;
 	m_numFramesToFilter = 0;
 
+	m_timebase = av_make_q(1, 90000);
+
 	m_pBufOsd = nullptr;
 #ifdef USE_GLES
 	m_bo = nullptr;
@@ -562,7 +564,7 @@ int cVideoRender::Sync(AVFrame *frame)
 	int64_t audioPts;
 	int64_t videoPts;
 
-	videoPts = frame->pts * 1000 * av_q2d(*m_timebase);
+	videoPts = frame->pts * 1000 * av_q2d(m_timebase);
 	int skipWaiting = WaitForAudioReady(videoPts, frame->pts);
 	if (skipWaiting)
 		return skipWaiting;
@@ -800,7 +802,7 @@ cDrmBuffer *cVideoRender::GetBuffer(AVFrame *frame)
  */
 bool cVideoRender::ShouldWaitForAudio(void) {
 	int64_t audioPts = m_pAudio->GetClock();
-	int64_t videoPts = GetVideoClock() * 1000 * av_q2d(*m_timebase);
+	int64_t videoPts = GetVideoClock() * 1000 * av_q2d(m_timebase);
 	if (videoPts == AV_NOPTS_VALUE || audioPts == AV_NOPTS_VALUE)
 		return true;
 
@@ -1366,7 +1368,8 @@ void cVideoRender::EnqueueFB(AVFrame *inframe)
 int cVideoRender::RenderFrame(AVCodecContext * videoCtx, AVFrame * frame)
 {
 	if (!m_startCounter) {
-		m_timebase = &videoCtx->pkt_timebase;
+		m_timebase.num = videoCtx->pkt_timebase.num;
+		m_timebase.den = videoCtx->pkt_timebase.den;
 	}
 
 	if (frame->decode_error_flags || frame->flags & AV_FRAME_FLAG_CORRUPT) {
