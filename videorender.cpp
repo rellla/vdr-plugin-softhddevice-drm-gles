@@ -1263,7 +1263,7 @@ void cVideoRender::EnqueueFB(AVFrame *inframe)
 				break;
 		}
 		if (i == RENDERBUFFERS)
-			LOGFATAL("videorender: %s: SHOULD NOT HAPPEN! no free buffer available!");
+			LOGFATAL("videorender: %s: SHOULD NOT HAPPEN! no free buffer available!", __FUNCTION__);
 
 		buf = &m_buffer[i];
 		if (buf->Setup(fdDrm, (uint32_t)inframe->width, (uint32_t)inframe->height,
