@@ -1923,8 +1923,13 @@ static int ReadHWPlatform(void)
 	LOGDEBUG2(L_DRM, "videorender: %s: found \"%s\", set hardware quirks", __FUNCTION__, _txt_buf);
 
 	while(read_size) {
+		if (strstr(read_ptr, "bcm2836")) {
+			LOGDEBUG2(L_DRM, "videorender: %s: bcm2836 (Raspberry Pi 2 Model B) found", __FUNCTION__);
+			hardwareQuirks |= QUIRK_CODEC_FLUSH_WORKAROUND;
+			break;
+		}
 		if (strstr(read_ptr, "bcm2837")) {
-			LOGDEBUG2(L_DRM, "videorender: %s: bcm2837 (Raspberry Pi 2/3) found", __FUNCTION__);
+			LOGDEBUG2(L_DRM, "videorender: %s: bcm2837 (Raspberry Pi 2 Model B v1.2/ 3 Model B, Raspberry Pi 3 Compute Module 3) found", __FUNCTION__);
 			hardwareQuirks |= QUIRK_CODEC_FLUSH_WORKAROUND;
 			break;
 		}
