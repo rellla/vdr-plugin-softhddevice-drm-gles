@@ -224,6 +224,7 @@ private:
 	int m_framesDuped = 0;              ///< number of frames duplicated
 	int m_framesDropped = 0;            ///< number of frames dropped
 	AVRational m_timebase;              ///< timebase used for pts, set by first RenderFrame()
+	cMutex m_timebaseMutex;             ///< mutex used around m_timebase
 	int64_t m_pts;                      ///< current video PTS
 
 	cRect m_videoRect;                  ///< rect of the currently displayed video

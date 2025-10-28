@@ -564,7 +564,9 @@ int cVideoRender::Sync(AVFrame *frame)
 	int64_t audioPts;
 	int64_t videoPts;
 
+	m_timebaseMutex.Lock();
 	videoPts = frame->pts * 1000 * av_q2d(m_timebase);
+	m_timebaseMutex.Unlock();
 	int skipWaiting = WaitForAudioReady(videoPts, frame->pts);
 	if (skipWaiting)
 		return skipWaiting;
@@ -802,7 +804,9 @@ cDrmBuffer *cVideoRender::GetBuffer(AVFrame *frame)
  */
 bool cVideoRender::ShouldWaitForAudio(void) {
 	int64_t audioPts = m_pAudio->GetClock();
+	m_timebaseMutex.Lock();
 	int64_t videoPts = GetVideoClock() * 1000 * av_q2d(m_timebase);
+	m_timebaseMutex.Unlock();
 	if (videoPts == AV_NOPTS_VALUE || audioPts == AV_NOPTS_VALUE)
 		return true;
 
@@ -1368,8 +1372,10 @@ void cVideoRender::EnqueueFB(AVFrame *inframe)
 int cVideoRender::RenderFrame(AVCodecContext * videoCtx, AVFrame * frame)
 {
 	if (!m_startCounter) {
+		m_timebaseMutex.Lock();
 		m_timebase.num = videoCtx->pkt_timebase.num;
 		m_timebase.den = videoCtx->pkt_timebase.den;
+		m_timebaseMutex.Unlock();
 	}
 
 	if (frame->decode_error_flags || frame->flags & AV_FRAME_FLAG_CORRUPT) {
