@@ -87,7 +87,7 @@ public:
 	void Init(void);
 	void Exit(void);
 	int HardwareQuirks(void) { return m_hardwareQuirks; };
-	void DisableDeint(bool disable) { m_deintDisabled = disable; };
+	void DisableDeint(bool disable) { m_configDeintDisabled = disable; };
 	void DisableOglOsd(void) { m_disableOglOsd = true; };
 	bool OglOsdDisabled(void) { return m_disableOglOsd; };
 
@@ -192,8 +192,10 @@ private:
 	int m_framePresentationCounter = 0; ///< number of times the current frame has to be shown (for slow motion)
 
 	int m_numFramesToFilter;            ///< number of frames to be filtered
-	bool m_deintDisabled;               ///< set, if deinterlacer is disabled
+	bool m_deintDisabled;               ///< set, if deinterlacer is disabled - used in RenderFrame()
 	bool m_configDeintDisabled = false; ///< set, if a deinterlacer on/off should be triggered
+	                                    ///< Prepare() and Cleanup() sets m_deintDisabled depending upon m_configDeintDisabled
+	                                    ///< That way, we don't change the current render pipeline (RenderFrame())
 	int m_numWrongProgressive;          ///< counter for progressive frames sent in an interlaced stream
 	                                    ///< (only used for logging)
 
