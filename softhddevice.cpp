@@ -27,6 +27,8 @@
 #define __USE_GNU
 #endif
 
+#include <variant>
+
 #include <assert.h>
 #include <unistd.h>
 
@@ -507,7 +509,6 @@ cSoftHdDevice::cSoftHdDevice(cSoftHdConfig *config)
 
 	m_pAudioDecoder = nullptr;
 
-	m_skipAudio = false;
 	m_newAudioStream = false;
 }
 
@@ -609,17 +610,13 @@ void cSoftHdDevice::Stop(void)
 
 /**
  * Clear all audio data from the decoder and ringbuffer
- *
- * @note does nothing, if audio is muted
  */
 void cSoftHdDevice::ClearAudio(void)
 {
-	if (!m_skipAudio) {
-		LOGDEBUG("device: %s:", __FUNCTION__);
-		m_pAudioDecoder->FlushBuffers();
-		m_pAudio->FlushBuffers();
-		m_newAudioStream = true;
-	}
+	LOGDEBUG("device: %s:", __FUNCTION__);
+	m_pAudioDecoder->FlushBuffers();
+	m_pAudio->FlushBuffers();
+	m_newAudioStream = true;
 }
 
 /**
@@ -673,6 +670,194 @@ bool cSoftHdDevice::CanReplay(void) const
 }
 
 /**
+ * Handle pause state
+ *
+ * Pauses both video rendering and audio playback.
+ */
+void cSoftHdDevice::HandlePause(void)
+{
+	m_pRender->SetPlaybackPaused(true);
+	m_pAudio->Pause();
+}
+
+/**
+ * Event handler for playback state transitions
+ *
+ * Processes events (Play, Pause, Stop, TrickSpeed, StillPicture) and performs
+ * the appropriate state transitions based on the current state. The method halts
+ * both display and decoding threads before processing the event and resumes them
+ * afterwards to ensure thread-safe state transitions.
+ *
+ * @param event     The event to process (variant type containing specific event data)
+ */
+void cSoftHdDevice::OnEventReceived(const Event& event) {
+	LOGDEBUG("device: received %s", EventToString(event));
+
+	m_pRender->DisplayThreadHalt(); // the display thread needs to be halted first, otherwise a deadlock can occur in WaitForAudioClock()
+	m_pRender->DecodingThreadHalt();
+
+	auto invalid = [this, &event]() {
+		LOGWARNING("device: Invalid event '%s' in state '%s' received", EventToString(event), StateToString(m_state));
+	};
+
+	switch (m_state) {
+		case State::STOP:
+			std::visit(overload{
+				[this](const PlayEvent&) {
+					SetState(PLAY);
+					m_pRender->ResetFrameCounter();
+				},
+				[&invalid](const PauseEvent&) { invalid(); },
+				[&invalid](const StopEvent&) { invalid(); },
+				[&invalid](const TrickSpeedEvent&) { invalid(); },
+				[&invalid](const StillPictureEvent&) { invalid(); },
+			}, event);
+			break;
+		case State::PLAY:
+			std::visit(overload{
+				[this](const PlayEvent&) {
+					// resume from pause
+					m_pAudio->Resume();
+					m_pRender->SetPlaybackPaused(false);
+				},
+				[this](const PauseEvent&) {
+					HandlePause();
+				 },
+				[this](const StopEvent&) {
+					SetState(STOP);
+				},
+				[this](const TrickSpeedEvent& t) {
+					m_pRender->SetTrickSpeed(t.speed, t.forward);
+					SetState(TRICK_SPEED);
+				},
+				[this](const StillPictureEvent& s) {
+					m_pVideoStream->StillPicture(&s.pesPacket);
+				 },
+			}, event);
+			break;
+		case State::TRICK_SPEED:
+			std::visit(overload{
+				[this](const PlayEvent&) {
+					SetState(PLAY);
+				},
+				[this](const PauseEvent&) {
+					HandlePause();
+				 },
+				[this](const StopEvent&) {
+					SetState(STOP);
+				},
+				[this](const TrickSpeedEvent& t) {
+					// resume from pause, or change trick speed direction/speed
+					m_pRender->SetTrickSpeed(t.speed, t.forward);
+					m_pRender->SetPlaybackPaused(false);
+				 },
+				[this](const StillPictureEvent& s) {
+					m_pVideoStream->StillPicture(&s.pesPacket);
+				 },
+			}, event);
+			break;
+	}
+
+	m_pRender->DecodingThreadResume();
+	m_pRender->DisplayThreadResume();
+}
+
+/**
+ * Actions to be performed when entering a state
+ *
+ * These are only executed when the state actually changes.
+ * E.g. a state transition PLAY -> PLAY does not trigger this.
+ *
+ * @param state         state being entered
+ */
+void cSoftHdDevice::OnEnteringState(enum State state) {
+	switch (state) {
+		case PLAY:
+			m_pAudio->Resume();
+			m_pRender->SetPlaybackPaused(false);
+			break;
+		case TRICK_SPEED:
+			m_pAudio->Pause();
+			m_pRender->SetPlaybackPaused(false);
+			break;
+		case STOP:
+			m_pRender->CancelFilterThread();
+
+			m_pRender->Reset();
+			m_pRender->DestroyFrameBuffers();
+			m_pRender->ScheduleDisplayBlackFrame();
+
+			m_pVideoStream->ClearVdrCoreToDecoderQueue();
+			m_pRender->ClearDecoderToDisplayQueue();
+			m_pVideoStream->CloseDecoder();
+
+			m_pAudio->Resume();
+			ClearAudio();
+
+			if (m_pAudioDecoder && m_audioCodecID != AV_CODEC_ID_NONE)
+				m_newAudioStream = true;
+
+			m_pVideoStream->SetInterlaced(0); // probably not necessary
+			break;
+	}
+}
+
+/**
+ * Actions to be performed when leaving a state
+ *
+ * These are only executed when the state actually changes.
+ * E.g. a state transition PLAY -> PLAY does not trigger this.
+ *
+ * @param state         state being left
+ */
+void cSoftHdDevice::OnLeavingState(enum State state) {
+	switch (state) {
+		case PLAY:
+			// nothing
+			break;
+		case TRICK_SPEED:
+			// In case we get a play in slow forward, we need to restart the filter thread.
+			// Because trickspeed doesn't do deinterlacing but can use the scale filter
+			// we need to stop the filter here, to get the deinterlace filter started in normal
+			// playback.
+			if (m_pRender->GetTrickForward())
+				m_pRender->CancelFilterThread(); // filter thread is restarted lazily
+
+			m_pRender->DestroyFrameBuffers();
+
+			m_pRender->SetTrickSpeed(0, 1);
+			m_pRender->ResetFrameCounter();
+			m_pVideoStream->ResetTrickSpeedFramesSentCounter();
+
+			m_pAudio->Resume();
+			break;
+		case STOP:
+			// nothing
+			break;
+	}
+}
+
+
+/**
+ * Sets the device into the given state.
+ *
+ * @param newState       new state
+ */
+void cSoftHdDevice::SetState(enum State newState)
+{
+	// No synchronization needed, because SetState is only called from the VDR main thread.
+
+	if (m_state != newState) {
+		LOGDEBUG("device: Preparing to leave state %s", StateToString(m_state));
+		OnLeavingState(m_state);
+		LOGDEBUG("device: Changing state %s -> %s", StateToString(m_state), StateToString(newState));
+		m_state = newState;
+		OnEnteringState(m_state);
+		LOGDEBUG("device: State changed to %s", StateToString(m_state));
+	}
+}
+
+/**
  * Sets the device into the given play mode.
  *
  * @param play_mode       new play mode (Audio/Video/External...)
@@ -683,39 +868,13 @@ bool cSoftHdDevice::SetPlayMode(ePlayMode play_mode)
 
 	switch (play_mode) {
 	case pmNone:
-		m_pVideoStream->StopAndWaitDecodingIdle();
-		m_pRender->CleanupAndClose(true);
-
-		m_pVideoStream->ClearPacketQueue();
-		m_pVideoStream->CloseDecoder();
-
-		m_skipAudio = false;
-		m_pAudio->Unmute();
-		m_pAudio->Resume();
-		ClearAudio();	// flush all AUDIO buffers
-		if (m_pAudioDecoder && m_audioCodecID != AV_CODEC_ID_NONE)
-			m_newAudioStream = true;
-
-		m_pVideoStream->SetInterlaced(0); // probably not necessary
-		m_pVideoStream->StartDecoding();
-		m_pVideoStream->Resume();
+		OnEventReceived(StopEvent{});
 		break;
 	case pmAudioVideo:
-		m_pRender->WakeupDecodingThread();
-		m_pRender->WakeupDisplayThread();
-		break;
 	case pmAudioOnly:
-		m_pRender->ExitDecodingThread();
-		m_pRender->ExitDisplayThread();
-		break;
 	case pmAudioOnlyBlack:
-		LOGDEBUG("device: %s: FIXME: audio only, silence video errors");
-		m_pRender->WakeupDecodingThread();
-		m_pRender->WakeupDisplayThread();
-		break;
 	case pmVideoOnly:
-		m_pRender->WakeupDecodingThread();
-		m_pRender->WakeupDisplayThread();
+		OnEventReceived(PlayEvent{});
 		break;
 	default:
 		LOGERROR("device: %s: playmode not supported %d", play_mode);
@@ -754,78 +913,54 @@ void cSoftHdDevice::TrickSpeed(int speed, bool forward)
 {
 	LOGDEBUG("device: %s: %d %s", __FUNCTION__, speed, forward ? "forward" : "backward");
 
-	m_pVideoStream->StartDecoding();     // start stream if closed
-	m_pVideoStream->Resume();   // start stream if paused
-
-	m_pRender->SetTrickSpeed(speed, forward);
-	m_pRender->StartVideo();    // start render thread
+	OnEventReceived(TrickSpeedEvent{speed, forward});
 }
 
 /**
  * Clears all video and audio data from the device.
  *
- * This is called by VDR via DeviceClear() in the Empty() call
+ * This is called by VDR via DeviceClear() in the Empty() call.
  *
- * Empty() does clears all VDR internal packets
+ * Empty() does clear all VDR internal packets.
  *
- * DeviceClear() needs to
- *  1. stop the stream and let the decoding thread wait
- *  2. clear the packet buffer (drop packets which are not yet decoded)
- *  3. flush the packets already sent to the decoder
- *  4. stop/finish the renderer thread (this also does stopping the filter thread
- *  5. clear audio data
- *  6. start the stream again
  */
 void cSoftHdDevice::Clear(void)
 {
 	LOGDEBUG("device: %s:", __FUNCTION__);
 	cDevice::Clear();
 
-	m_pVideoStream->StopAndWaitDecodingIdle();
-	m_pVideoStream->ClearPacketQueue();
-	m_pVideoStream->FlushDecoder();
+	m_pRender->DisplayThreadHalt(); // the display thread needs to be halted first, otherwise a deadlock can occur in WaitForAudioClock()
+	m_pRender->DecodingThreadHalt();
 
-	m_pRender->CleanupAndClose(false);
+	m_pRender->CancelFilterThread();
 
+	m_pVideoStream->ClearVdrCoreToDecoderQueue();
+	m_pRender->ClearDecoderToDisplayQueue();
+
+	if (m_pVideoStream->GetCodecId() != AV_CODEC_ID_NONE) // audio only (e.g. radio) has no video codec. So, don't flush the video decoder then.
+		m_pVideoStream->FlushDecoder();
+
+	m_pRender->DestroyFrameBuffers();
+	m_pRender->Reset();
+
+	m_pAudio->Resume();
 	ClearAudio();
 
-	// we need a Start() here, because when VDR does SkipSeconds()
-	// it doesn't send a Play() again, if we skip during a playing stream
-	m_pVideoStream->StartDecoding();
+	m_pRender->DisplayThreadResume();
+	m_pRender->DecodingThreadResume();
 }
 
 /**
- * Sets the device into play mode (after a previous trick mode)
+ * Sets the device into play mode (after a previous trick mode, or pause)
  *
  * This is called by VDR via DevicePlay() in the Play() and Goto() call
  *
- * Play() needs to
- *  1. start and/or resume the stream
- *  2. unmute and resume audio
- *  3. wakeup the renderer
  */
 void cSoftHdDevice::Play(void)
 {
-	LOGDEBUG("device: %s:", __FUNCTION__);
 	cDevice::Play();
 
-	// In case we get a play in slow forward, we need to restart the filter thread.
-	// Because trickspeed doesn't do deinterlacing but can use the scale filter
-	// we need to stop the filter here, to get the deinterlace filter started in normal
-	// playback if needed.
-	m_pVideoStream->Pause();
-	m_pRender->WaitForFilterIdle();
-	m_pRender->StopFilter();
-
-	m_pVideoStream->StartDecoding();
-	m_pVideoStream->Resume();
-
-	m_skipAudio = false;
-	m_pAudio->Unmute();
-	m_pAudio->Resume();
-
-	m_pRender->SetTrickSpeed(0, 1);
-	m_pRender->StartVideo();
+	OnEventReceived(PlayEvent{});
 }
 
 /**
@@ -836,28 +971,7 @@ void cSoftHdDevice::Freeze(void)
 	LOGDEBUG("device: %s:", __FUNCTION__);
 	cDevice::Freeze();
 
-	// pause video stream
-	m_pVideoStream->Pause();
-
-	// wait for the filter thread to have an empty ringbuffer and close the filter
-	m_pRender->WaitForFilterIdle();
-	m_pRender->StopFilter();
-
-	// pause audio playpack
-	m_pAudio->Pause();
-	// pause the renderer
-	m_pRender->PauseVideo();
-}
-
-/**
- * Turns off audio while replaying.
- */
-void cSoftHdDevice::Mute(void)
-{
-	LOGDEBUG("device: %s:", __FUNCTION__);
-	cDevice::Mute();
-
-	m_pAudio->Mute();
+	OnEventReceived(PauseEvent{});
 }
 
 /**
@@ -876,17 +990,10 @@ void cSoftHdDevice::StillPicture(const uchar *data, int size)
 	}
 
 	cPesVideo pesPacket((const uint8_t*)data, size);
-	if (!pesPacket.IsValid()) {
+	if (pesPacket.IsValid()) {
+		OnEventReceived(StillPictureEvent{pesPacket});
+	} else
 		m_pVideoStream->ResetFragmentationBuffer();
-		return;
-	}
-
-	m_pAudio->Pause();
-
-	m_pVideoStream->StillPicture(&pesPacket);
-
-	ClearAudio();
-	m_pAudio->Resume();
 }
 
 /**
@@ -1028,16 +1135,6 @@ int cSoftHdDevice::PlayAudio(const uchar *data, int size, uchar id)
 	timebase.num = 1;
 
 	m_pAudioAvPkt->pts = AV_NOPTS_VALUE;
-
-	if (m_pVideoStream->IsPaused()) {	// stream is paused, don't accept new audio data
-		LOGDEBUG("device: %s: Stream is paused", __FUNCTION__);
-		return 0;
-	}
-
-	if (m_skipAudio) {	// skip audio
-		LOGDEBUG("device: %s: skip audio", __FUNCTION__);
-		return size;
-	}
 
 	m_pAudio->LazyInit();
 
@@ -1300,7 +1397,7 @@ int cSoftHdDevice::PlayVideo(const uchar *data, int size)
 {
 	//LOGDEBUG("device: %s: %p %d", __FUNCTION__, data, size);
 
-	if (m_pVideoStream->IsPaused() || m_pVideoStream->GetAvPacketsFilled() >= VIDEO_PACKET_MAX - 10)
+	if (m_pVideoStream->GetAvPacketsFilled() >= VIDEO_PACKET_MAX - 10)
 		return 0;
 
 	cPesVideo pesPacket((const uint8_t*)data, size);

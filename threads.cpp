@@ -57,9 +57,13 @@ void cDecodingThread::Action(void)
 {
 	LOGDEBUG("threads: decoding thread started");
 	while(Running()) {
-		if (m_pDevice->VideoStream()->DecodeInput()) {
-			usleep(10000);
-		}
+		m_mutex.lock();
+
+		m_pDevice->VideoStream()->DecodeInput();
+
+		m_mutex.unlock();
+
+		usleep(1000);
 	}
 	LOGDEBUG("threads: decoding thread stopped");
 }
@@ -92,16 +96,21 @@ void cDisplayThread::Action(void)
 {
 	LOGDEBUG("threads: display thread started");
 	while(Running()) {
-		int ret = m_pRender->DisplayFrame();
+		m_mutex.lock();
 
-		if (ret)
-			usleep(1000);
-		else if (m_pRender->DrmHandleEvent() != 0)
-			LOGERROR("threads: display thread: drmHandleEvent failed!");
+		m_pRender->FramesRbLock();
 
-		if (m_pRender->ShouldClose() || m_pRender->ShouldFlush())
-			m_pRender->CleanUp();
+		AVFrame *frame = nullptr;
+		if (m_pRender->GetFramesFilled() > 0 && !m_pRender->IsPlaybackPaused() && m_pRender->ShallDisplayNextFrame())
+			frame = m_pRender->RbGetFrame();
 
+		m_pRender->FramesRbUnlock();
+
+		m_pRender->DisplayFrame(frame);
+
+		m_mutex.unlock();
+
+		usleep(1000);
 	}
 	LOGDEBUG("threads: display thread stopped");
 }
@@ -370,8 +379,7 @@ void cFilterThread::Action(void)
 
 	while (Running()) {
 		if (m_frames.Empty()) {
-			m_waitIdleCondition.Broadcast();
-			usleep(10000);
+			usleep(1000);
 			continue;
 		}
 
@@ -386,7 +394,7 @@ void cFilterThread::Action(void)
 
 		// add frame to filter
 		if (av_buffersrc_add_frame_flags(m_pBuffersrcCtx, frame, AV_BUFFERSRC_FLAG_KEEP_REF) < 0)
-			LOGWARNING("filter thread: %s: can't add_frame.", __FUNCTION__);
+			LOGWARNING("filter thread: %s: can't add_frame: %s", __FUNCTION__, av_err2str(ret));
 
 		av_frame_free(&frame);
 
@@ -480,16 +488,4 @@ void cFilterThread::Stop(void)
 	}
 
 	avfilter_graph_free(&m_pFilterGraph);
-}
-
-void cFilterThread::WaitForIdle(void)
-{
-	if (!Active())
-		return;
-
-	cMutex mutex;
-	int timeoutInMs = 2000;
-	mutex.Lock();
-	if (!m_waitIdleCondition.TimedWait(mutex, timeoutInMs))
-		LOGERROR("filter thread: %s: timeout (%dms) while waiting for empty filter ringbuffer", __FUNCTION__, timeoutInMs);
 }

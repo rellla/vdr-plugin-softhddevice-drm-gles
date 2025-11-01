@@ -21,6 +21,8 @@
 #ifndef __SOFTHDDEVICE_H
 #define __SOFTHDDEVICE_H
 
+#include <variant>
+
 #include <vdr/dvbspu.h>
 
 extern "C"
@@ -33,6 +35,51 @@ extern "C"
 #include "videostream.h"
 #include "audio.h"
 #include "videorender.h"
+
+// State machine definitions
+// Implementing C++17 visitor pattern
+
+enum State {
+	STOP,
+	PLAY,
+	TRICK_SPEED,
+};
+
+struct PlayEvent {};
+struct PauseEvent {};
+struct StopEvent {};
+struct TrickSpeedEvent {
+	int speed;
+	bool forward;
+};
+struct StillPictureEvent {
+	cPesVideo& pesPacket;
+};
+
+using Event = std::variant<PlayEvent, PauseEvent, StopEvent, TrickSpeedEvent, StillPictureEvent>;
+
+template<class... Ts>
+struct overload : Ts... { using Ts::operator()...; };
+template<class... Ts> overload(Ts...) -> overload<Ts...>;
+
+inline const char* EventToString(const Event& e) {
+    return std::visit(overload{
+        [](const PlayEvent&) -> const char* { return "PlayEvent"; },
+        [](const PauseEvent&) -> const char* { return "PauseEvent"; },
+        [](const StopEvent&) -> const char* { return "StopEvent"; },
+        [](const TrickSpeedEvent&) -> const char* { return "TrickSpeedEvent"; },
+        [](const StillPictureEvent&) -> const char* { return "StillPictureEvent"; },
+    }, e);
+}
+
+inline const char* StateToString(State s) {
+    switch(s) {
+        case State::STOP: return "STOP";
+        case State::PLAY: return "PLAY";
+        case State::TRICK_SPEED: return "TRICK_SPEED";
+    }
+    return "Unknown";
+}
 
 class cAudioDecoder;
 
@@ -77,7 +124,6 @@ public:
 	virtual void Clear(void);
 	virtual void Play(void);
 	virtual void Freeze(void);
-	virtual void Mute(void);
 	virtual void StillPicture(const uchar *, int);
 	virtual bool Poll(cPoller &, int = 0);
 	virtual bool Flush(int = 0);
@@ -145,7 +191,13 @@ public:
 	int PlayAudioPkts(AVPacket *);
 	int PlayVideoPkts(AVPacket *);
 
+	// State machine
+	void SetState(enum State);
+	void OnEnteringState(enum State);
+	void OnLeavingState(enum State);
+
 private:
+	enum State m_state = STOP;       ///< current plugin state
 	cDvbSpuDecoder *m_pSpuDecoder;   ///< pointer to spu decoder
 	cSoftHdConfig *m_pConfig;        ///< pointer to cSoftHdConfig object
 	cVideoRender *m_pRender;         ///< pointer to cVideoRender object
@@ -158,14 +210,15 @@ private:
 	enum AVCodecID m_audioCodecID;   ///< pointer to current audio AVPacket
 	int m_audioChannelID;            ///< current audio channel ID
 	volatile bool m_newAudioStream;  ///< set, if we a new audio stream arrived
-	volatile bool m_skipAudio;       ///< set, if audio should be skipped (mute)
 	int m_videoAudioDelay;           ///< audio/video delay set via setup menu
-	bool m_grabActive;                ///< simple lock variable
+	bool m_grabActive;               ///< simple lock variable
 	                                 ///< skips a new grab request if the last one is still active
 
 	void ClearAudio(void);
 	void Exit(void);
 	int PesHeadLength(const uint8_t *);
+	void OnEventReceived(const Event&);
+	void HandlePause(void);
 };
 
 #endif

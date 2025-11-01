@@ -26,6 +26,8 @@
 #define __USE_GNU
 #endif
 
+#include <algorithm>
+
 #include <stdbool.h>
 #include <unistd.h>
 
@@ -80,13 +82,11 @@ cVideoRender::cVideoRender(cSoftHdDevice *device)
 	m_pDrmDevice = new cDrmDevice(this);
 
 	m_disableOglOsd = false;
-	m_exitThread = false;
 	m_startgrab = false;
 	m_startCounter = 0;
 	m_videoIsScaled = false;
 
 	m_trickSpeed = 0;
-	m_trickCounter = 0;
 	m_trickForward = true;
 
 	m_framesFilled = 0;
@@ -114,7 +114,6 @@ cVideoRender::~cVideoRender(void)
 		delete m_pDisplayThread;
 	if (m_pDecodingThread)
 		delete m_pDecodingThread;
-	free(m_pLastFrame);
 	LOGDEBUG2(L_DRM, "videorender: %s", __FUNCTION__);
 }
 
@@ -127,13 +126,8 @@ void cVideoRender::Prepare(void)
 	m_pFilterThread = new cFilterThread(this);
 
 	atomic_set(&m_framesFilled, 0);
-	m_closing = false;
-	m_flushing = false;
-	m_flushLastFrame = false;
 	m_deintDisabled = m_configDeintDisabled;
 	m_enqueueBufferIdx = 0;
-	m_pLastFrame = (struct lastFrame *)calloc(1, sizeof(struct lastFrame));
-	ResumeVideo();
 }
 
 /**
@@ -161,58 +155,37 @@ void cVideoRender::SetDisplayResolution(const char* resolution)
 }
 
 /**
- * Cleanup the renderer
- *
- * Stop the filter thread, clean the render ringbuffer and destroy the framebuffers
+ * Clear (empty) the decoder to display queue
  */
-void cVideoRender::CleanUp(void)
+void cVideoRender::ClearDecoderToDisplayQueue(void)
 {
-	AVFrame *frame;
-	int i;
-
-	// first wait for m_pFilterThread to be closed
-	if (m_pFilterThread->Active()) {
-		LOGDEBUG("videorender: %s: cancel filter thread", __FUNCTION__);
-		m_pFilterThread->Stop();
-	}
-
 	FramesRbLock();
 	while (atomic_read(&m_framesFilled)) {
-		frame = RbGetFrame();
-		av_frame_free(&frame);
+		AVFrame *frame = RbGetFrame();
+
+		if (!m_pCurrentlyDisplayed || frame != m_pCurrentlyDisplayed->Frame()) // the currently displayed frame (if any) is freed by the display thread
+			av_frame_free(&frame);
 	}
 	FramesRbUnlock();
+}
 
-	if (m_closing && m_pLastFrame->frame) {
-		av_frame_free(&m_pLastFrame->frame);
-		m_pLastFrame->trickspeed = 0;
-		m_pLastFrame->buf = nullptr;
-	}
+/**
+ * Destroy all frame buffers, except the currently displayed one.
+ */
+void cVideoRender::DestroyFrameBuffers(void)
+{
+	for (int i = 0; i < RENDERBUFFERS; ++i) {
+		if (!m_buffer[i].IsDirty() || m_pCurrentlyDisplayed == &m_buffer[i])
+			continue; // let the display thread destroy the currently displayed frame, once the following frame has been displayed
 
-	// Destroy FBs
-	for (i = 0; i < RENDERBUFFERS; ++i) {
-		if (!m_buffer[i].IsDirty())
-			continue;
-
-		// TODO: can m_pLastFrame->buf ever be the black buffer??
-		if (m_closing || (m_buffer[i].Id() != m_pLastFrame->buf->Id())) {
-			m_buffer[i].Destroy();
-		}
+		m_buffer[i].Destroy();
 	}
 
 	m_numBuffers = 0;
 	m_enqueueBufferIdx = 0;
 
-	m_waitCleanCondition.Signal();
-	// m_flushing is set, if we want to keep the last rendered frame during cleanup
-	// m_flushLastFrame signals the rendering thread to clean this frame on the next turn
-	if (m_flushing)
-		m_flushLastFrame = true;
-	m_flushing = false;
-	m_closing = false;
-	m_deintDisabled = m_configDeintDisabled;
-
-	LOGDEBUG("videorender: %s: DRM cleaned (m_framesFilled %d m_numFramesToFilter %d)", __FUNCTION__, atomic_read(&m_framesFilled), atomic_read(&m_numFramesToFilter));
+	if (m_pCurrentlyDisplayed)
+		m_destroyCurrentlyDisplayed = true;
 }
 
 /**
@@ -328,7 +301,7 @@ void cVideoRender::Grab(cDrmBuffer *buf)
 		m_grabOsd.SetBuf(osdBuf);
 	}
 
-	cDrmBuffer *pbuf = buf ? buf : (m_pLastFrame->buf ? m_pLastFrame->buf : NULL);
+	cDrmBuffer *pbuf = buf ? buf : (m_pCurrentlyDisplayed ? m_pCurrentlyDisplayed : NULL);
 	if (pbuf) {
 		LOGDEBUG2(L_GRAB, "videorender: %s: Trigger video grab arrived", __FUNCTION__);
 		cDrmBuffer *videoBuf = new cDrmBuffer(pbuf);
@@ -370,11 +343,11 @@ int cVideoRender::CommitBuffer(cDrmBuffer *buf, int osdOnly)
 		videoPlane->SetPlane(modeReq);
 		dirty += 2;
 //		LOGDEBUG2(L_DRM, "videorender: %s: SetPlane Video (fb = %" PRIu64 ")", __FUNCTION__, videoPlane->GetFbId());
-	} else if (m_pLastFrame && m_pLastFrame->buf) {
+	} else if (m_pCurrentlyDisplayed) {
 		// If no new video is available, set the old buffer again, if available.
 		// This is necessary to recognize a size-change in SetVideoBuffer().
 		// Though this is not expensive, maybe we should only call that, if size really changed.
-		SetVideoBuffer(m_pLastFrame->buf);
+		SetVideoBuffer(m_pCurrentlyDisplayed);
 		videoPlane->SetPlane(modeReq);
 		dirty += 2;
 	}
@@ -422,72 +395,37 @@ int cVideoRender::CommitBuffer(cDrmBuffer *buf, int osdOnly)
  * @param[in] videoPts       video pts
  * @param[in] framePts       AVFrame pts
  *
- * @retval 2                 close requested, show black frame
- * @retval 1                 flush requested, skip video
- * @retval 0                 nothing to sync or paused
  */
-int cVideoRender::WaitForAudioReady(int64_t videoPts, int64_t framePts)
+void cVideoRender::WaitForAudioReady(int64_t videoPts, int64_t framePts)
 {
-	if(!m_startCounter && !m_closing) {
+	if(!m_startCounter) {
 		LOGDEBUG("videorender: %s: start PTS %s", __FUNCTION__, Timestamp2String(videoPts, 1));
 		m_pAudio->Skip(framePts, 0);
 
 		while (!m_pAudio->VideoReady(videoPts)) {
+			if (m_pDisplayThread->ShouldHalt())
+				return;
 			usleep(10000);
-			// check for close/flush request or pause
-			if (m_closing) {
-				LOGDEBUG2(L_DRM, "videorender: %s: closing while sync, set a black FB", __FUNCTION__);
-				return 2;
-			}
-
-			if (m_flushing) {
-				LOGDEBUG2(L_DRM, "videorender: %s: flushing while sync, skip video", __FUNCTION__);
-				return 1;
-			}
-
-			if (VideoIsPaused()) {
-				return 0;
-			}
 		}
 	}
-
-	return 0;
 }
 
 /**
  * Wait for audio clock
  *
  * @param[out] audioPts      audio pts
- *
- * @retval 2                 close requested, show black frame
- * @retval 1                 flush requested, skip video
- * @retval 0                 paused or valid audio clock
  */
-int cVideoRender::WaitForAudioClock(int64_t *audioPts)
+void cVideoRender::WaitForAudioClock(int64_t *audioPts)
 {
 	*audioPts = m_pAudio->GetClock();
 
 	// check for close/flush request or pause
 	while (*audioPts == (int64_t)AV_NOPTS_VALUE) {
-		if (m_closing) {
-			LOGDEBUG2(L_DRM, "videorender: %s: closing while sync, set a black FB", __FUNCTION__);
-			return 2;
-		}
-
-		if (m_flushing) {
-			LOGDEBUG2(L_DRM, "videorender: %s: flushing while sync, skip video", __FUNCTION__);
-			return 1;
-		}
-
-		if (VideoIsPaused()) {
-			return 0;
-		}
-
+		if (m_pDisplayThread->ShouldHalt())
+			return;
 		usleep(20000);
 		*audioPts = m_pAudio->GetClock();
 	};
-
-	return 0;
 }
 
 /**
@@ -496,9 +434,8 @@ int cVideoRender::WaitForAudioClock(int64_t *audioPts)
  * @param videoPts       video pts
  * @param audioPts       AVFrame pts
  *
- * @retval 1             dup a frame
  * @retval -1            drop a frame
- * @retval 0             we are in sync
+ * @retval 0             we are in sync, or frame duped
  */
 int cVideoRender::HandleDropDup(int64_t videoPts, int64_t audioPts)
 {
@@ -512,15 +449,6 @@ int cVideoRender::HandleDropDup(int64_t videoPts, int64_t audioPts)
 	}
 
 	if (diff < -5 && !(abs(diff) > 5000)) {	// video is more than 5ms behind audio, drop video frame
-		// don't drop the frame, if we are waiting for a flush
-		if (m_flushLastFrame) {
-			LOGDEBUG2(L_AV_SYNC, "Video too late, but skip sync (drop %d, dup %d) audio %s video %s Delay %dms diff %dms",
-				m_framesDropped, m_framesDuped,
-				Timestamp2String(audioPts, 1), Timestamp2String(videoPts, 1),
-				m_pDevice->GetVideoAudioDelay(), diff);
-			return 0;
-		}
-
 		LOGDEBUG2(L_AV_SYNC, "FrameDropped (drop %d, dup %d) Pkts %d deint %d Frames %d UsedBytes %d audio %s video %s Delay %dms diff %dms",
 			m_framesDropped, m_framesDuped,
 			m_pDevice->VideoStream()->GetAvPacketsFilled(), m_pFilterThread->GetBufferFrameCount(),
@@ -543,63 +471,10 @@ int cVideoRender::HandleDropDup(int64_t videoPts, int64_t audioPts)
 
 		m_framesDuped++;
 		usleep(20000);
-		return 1;
+		return 0;
 	}
 
 	return 0;
-}
-
-/**
- * Sync the frames
- *
- * @param[in] frame          AVFrame to sync
- *
- * @retval 2                 close requested, show black frame
- * @retval 1                 flush requested, skip video
- * @retval 0                 nothing to sync or paused
- * @retval -1                drop frame
- */
-int cVideoRender::Sync(AVFrame *frame)
-{
-	int64_t audioPts;
-	int64_t videoPts;
-
-	m_timebaseMutex.Lock();
-	videoPts = frame->pts * 1000 * av_q2d(m_timebase);
-	m_timebaseMutex.Unlock();
-	int skipWaiting = WaitForAudioReady(videoPts, frame->pts);
-	if (skipWaiting)
-		return skipWaiting;
-
-	int ret = 1;
-	while (ret == 1) {
-		skipWaiting = WaitForAudioClock(&audioPts);
-		if (skipWaiting)
-			return skipWaiting;
-
-		ret = HandleDropDup(videoPts, audioPts);
-	}
-
-	return ret;
-}
-
-/**
- * Get next video frame from ringbuffer
- *
- * @retval 1     received frame with PTS value
- * @retval 0     received frame without PTS value
- */
-int cVideoRender::GetFrame(AVFrame **frame)
-{
-	AVFrame *pframe = NULL;
-
-	pframe = RbGetFrame();
-	*frame = pframe;
-
-	if (pframe->pts == AV_NOPTS_VALUE)
-		return 0;
-
-	return 1;
 }
 
 /**
@@ -752,9 +627,6 @@ cDrmBuffer *cVideoRender::GetBuffer(AVFrame *frame)
 
 	// search for a made fd / FB combination
 	for (i = 0; i < RENDERBUFFERS; i++) {
-		if (m_flushLastFrame && !m_buffer[i].IsSwBuffer())
-			break;
-
 		if (m_buffer[i].IsTrickspeedBuffer() && !m_buffer[i].IsSwBuffer())
 			break;
 
@@ -820,110 +692,45 @@ bool cVideoRender::ShouldWaitForAudio(void) {
 }
 
 /**
- * Do we need to sync audio/ video
- *
- * @param frame  AVFrame
- *
- * @retval false     skip sync
- * @retval true      sync needed
- */
-bool cVideoRender::NeedsSync(AVFrame *frame)
-{
-	// Stillpicture -> don't sync
-	if (IsStillpictureFrame(frame)) {
-		LOGDEBUG2(L_STILL, "videorender: %s: Stillpicture has AV_NOPTS_VALUE, skip sync ...", __FUNCTION__);
-		return false;
-	}
-
-	// Trickspeed -> don't sync
-	if (IsTrickspeedFrame(frame)) {
-		m_pAudio->Skip(frame->pts, 0);	// skip all old audio data in trickspeed
-		return false;
-	}
-
-	if (m_pLastFrame->frame && m_pLastFrame->trickspeed) {
-		m_pAudio->Skip(frame->pts, 1);	// skip old audio data after trickspeed, keeping one byte
-		return false;
-	}
-
-	return true;
-}
-
-/**
  * Do the pageflip
  *
  * @param frame     AVFrame
  * @param buf       drm buffer
- * @param osdOnly   true, if video should be skipped
- *
- * @retval 0        modesetting and commit was done, need to process outstanding DRM events
- * @retval 1        no new frames or OSD, no modesetting was done, don't process outstanding DRM events
  */
-int cVideoRender::PageFlip(AVFrame *frame, cDrmBuffer *buf, int osdOnly)
+void cVideoRender::PageFlip(AVFrame *frame, cDrmBuffer *buf, int osdOnly)
 {
-	if (CommitBuffer(buf, osdOnly) < 0) {	// no modesetting was done
+	if (CommitBuffer(buf, osdOnly) < 0) {
+		// no modesetting was done
 		if (frame)
 			av_frame_free(&frame);
-		return 1;
-	}
+	} else {
+		if (m_pDrmDevice->HandleEvent() != 0)
+			LOGERROR("threads: display thread: drmHandleEvent failed!");
 
-	// only osd was set (and maybe m_pLastFrame->buf again)
-	if (osdOnly)
-		return 0;
+		// now, that we had a successful commit, set the STC if we have a frame. Skip if only the OSD was updated.
+		if (frame && !osdOnly) {
+			SetVideoClock(frame->pts);
 
-	// now, that we had a successful commit, set the STC if we have a frame
-	if (frame)
-		SetVideoClock(frame->pts);
-
-	if (frame)
-		LOGDEBUG2(L_PACKET, "videorender: %s:                 PTS %s", __FUNCTION__, Timestamp2String(frame->pts, 90));
-
-	// new video frame was sent, rotate the frames
-	if (m_pLastFrame->frame) {
-		// if the m_pLastFrame was a trickframe or a flush is forced, destroy the FB
-		if (m_flushLastFrame || m_pLastFrame->trickspeed) {
-			m_pLastFrame->buf->Destroy();
-			m_pLastFrame->buf = nullptr;
-			m_pLastFrame->trickspeed = 0;
-			m_flushLastFrame = false;
-		}
-		av_frame_free(&m_pLastFrame->frame);
-	}
-
-	if (buf) {
-		if (buf->Id() == m_bufBlack.Id()) {
-			m_pLastFrame->buf = nullptr;
-			m_pLastFrame->trickspeed = 0;
-		} else {
-			m_pLastFrame->frame = buf->Frame();
-			m_pLastFrame->buf = buf;
-			m_pLastFrame->trickspeed = buf->IsTrickspeedBuffer();
+			LOGDEBUG2(L_PACKET, "videorender: %s: ID %d:                 PTS %s", __FUNCTION__, buf->Id(), Timestamp2String(frame->pts, 90));
 		}
 	}
-
-	return 0;
 }
 
 /**
  * Do the pageflip and set a black buffer for the video
  *
- * @retval 0     modesetting and commit was done, need to process outstanding DRM events
- * @retval 1     no new frames or OSD, no modesetting was done, don't process outstanding DRM events
  */
-int cVideoRender::PageFlipBlack(void)
+void cVideoRender::PageFlipBlack(void)
 {
-	return PageFlip(NULL, &m_bufBlack, 0);
+	PageFlip(NULL, &m_bufBlack, 0);
 }
 
 /**
  * Do the pageflip for osd and skip the video
- *
- * @retval 0     modesetting and commit was done, need to process outstanding DRM events
- * @retval 1     no new frames or OSD, no modesetting was done, don't process outstanding DRM events
  */
-int cVideoRender::PageFlipOsd(void)
+void cVideoRender::PageFlipOsd(void)
 {
-	return PageFlip(NULL, NULL, 1);
+	PageFlip(NULL, NULL, 1);
 }
 
 /**
@@ -931,139 +738,116 @@ int cVideoRender::PageFlipOsd(void)
  *
  * @param frame     AVFrame
  * @param buf       drm buffer
- *
- * @retval 0     modesetting and commit was done, need to process outstanding DRM events
- * @retval 1     no new frames or OSD, no modesetting was done, don't process outstanding DRM events
  */
-int cVideoRender::PageFlipVideo(AVFrame *frame, cDrmBuffer *buf)
+void cVideoRender::PageFlipVideo(AVFrame *frame, cDrmBuffer *buf)
 {
-	return PageFlip(frame, buf, 0);
-}
-
-/**
- * Wait for frames in the ringbuffer
- *
- * @retval 2     no frames, but set a black buffer
- * @retval 1     no frames but osd, set osd
- * @retval 0     go on, we have frames
- * @retval -1     exit requested
- */
-int cVideoRender::WaitForFrames(void)
-{
-	int timeoutInMs = 15;
-
-	while (!atomic_read(&m_framesFilled)) {
-		if (m_exitThread) {
-			LOGDEBUG2(L_DRM, "videorender: %s: -> Exit Thread", __FUNCTION__);
-			return -1;
-		}
-
-		if (ShouldClose()) {
-			LOGDEBUG2(L_DRM, "videorender: %s: closing, set a black FB", __FUNCTION__);
-			return 2;
-		}
-
-		if (ShouldFlush()) {
-			LOGDEBUG2(L_DRM, "videorender: %s: flushing, just skip video", __FUNCTION__);
-			return 1;
-		}
-
-		if (VideoIsPaused()) {
-			usleep(10000);
-			// LOGDEBUG2(L_DRM, "videorender: %s: paused, skip video", __FUNCTION__);
-			return 1;
-		}
-
-		// wait max. 15ms in case we have an osd
-		if (m_pBufOsd && m_pBufOsd->IsDirty() && !timeoutInMs--) {
-			LOGDEBUG2(L_DRM, "videorender: %s: no video but osd, skip video", __FUNCTION__);
-			return 1;
-		}
-
-		if (m_startgrab) {
-			LOGDEBUG2(L_DRM, "videorender: %s: grab requested, skip video", __FUNCTION__);
-			return 1;
-		}
-
-		usleep(1000);
-	}
-
-	return 0;
+	PageFlip(frame, buf, 0);
 }
 
 /**
  * Display the frame (video and/or osd)
- *
- * @retval 0     modesetting and commit was done, need to process outstanding DRM events
- * @retval 1     no new frames or OSD, no modesetting was done, don't process outstanding DRM events
  */
-int cVideoRender::DisplayFrame(void)
+void cVideoRender::DisplayFrame(AVFrame *frame)
 {
-	int ret;
-
-	if (ShouldClose()) {
+	if (m_displayBlackFrame) {
 		LOGDEBUG2(L_DRM, "videorender: %s: closing, set a black FB", __FUNCTION__);
-		return PageFlipBlack();
-	}
 
-	if (ShouldFlush()) {
-		LOGDEBUG2(L_DRM, "videorender: %s: flushing, just skip video", __FUNCTION__);
-		return PageFlipOsd();
-	}
+		PageFlipBlack();
 
-	// wait for a frame in the ringbuffer
-	ret = WaitForFrames();
-	if (ret == 2)
-		return PageFlipBlack();
-	else if (ret == 1)
-		return PageFlipOsd();
-	else if (ret == -1)
-		return 1;
+		if (m_pCurrentlyDisplayed) {
+			m_pCurrentlyDisplayed->Destroy();
 
-	// if the video is paused, lets wait all remaining audio
-	// this is necessary for a correct Play() after Pause()
-	if (VideoIsPaused() && ShouldWaitForAudio()) {
-		usleep(10000);
-		return PageFlipOsd();
-	}
-
-	AVFrame *frame = NULL;
-	// advance frame
-	if (!GetFrame(&frame) && !IsStillpictureFrame(frame)) { // we have no valid pts and it's no stillpicture
-		LOGDEBUG2(L_DRM, "videorender: %s: no AV_NOPTS_VALUE, use next frame ...", __FUNCTION__);
-		av_frame_free(&frame);
-		return 1;
-	}
-
-	// sync audio/video
-	cDrmBuffer *buf = NULL;
-
-	if (NeedsSync(frame)) {
-		ret = Sync(frame);
-
-		if (ret == 2) {
+			AVFrame *frame = m_pCurrentlyDisplayed->Frame();
 			av_frame_free(&frame);
-			return PageFlipBlack();
-		} else if (ret == 1) {
-			av_frame_free(&frame);
-			return PageFlipOsd();
-		} else if (ret < 0) {	// drop frame (dup is handled within Sync())
-			av_frame_free(&frame);
-			return 1;
+
+			m_pCurrentlyDisplayed = nullptr;
+			m_destroyCurrentlyDisplayed = false;
 		}
-		m_startCounter++;
+
+		m_displayBlackFrame = false;
 	}
 
-	// get suitable framebuffer
-	buf = GetBuffer(frame);
-	if (!buf) {
-		av_frame_free(&frame);
-		return 1;
+	if (m_framePresentationCounter == 0)
+		m_framePresentationCounter = std::max(1, m_trickSpeed);
+
+	if (frame) {
+		if (frame->pts == AV_NOPTS_VALUE && !IsStillpictureFrame(frame)) {
+			// we have no valid pts and it's no stillpicture
+			LOGDEBUG2(L_DRM, "videorender: %s: no AV_NOPTS_VALUE, use next frame ...", __FUNCTION__);
+			av_frame_free(&frame);
+
+			return;
+		}
+
+		// sync audio/video
+		if (!GetTrickSpeed() && !m_destroyCurrentlyDisplayed && !m_playbackPaused) {
+			int64_t audioPts;
+			int64_t videoPts;
+
+			m_timebaseMutex.Lock();
+			videoPts = frame->pts * 1000 * av_q2d(m_timebase);
+			m_timebaseMutex.Unlock();
+
+			WaitForAudioReady(videoPts, frame->pts);
+			WaitForAudioClock(&audioPts);
+
+			int dropNeeded = HandleDropDup(videoPts, audioPts); // blocks if the frame should be duped
+
+			if (dropNeeded < 0) {	// skip the pageflip
+				av_frame_free(&frame);
+
+				return;
+			}
+			m_startCounter++;
+		}
+
+		if (GetTrickSpeed()) // clear the unplayed samples in the audio buffer in trickspeed to keep it in sync with the video
+			m_pAudio->Skip(frame->pts, 0);
+
+		// get suitable framebuffer
+		cDrmBuffer *buf = GetBuffer(frame);
+		if (!buf) {
+			av_frame_free(&frame);
+
+			return;
+		}
+
+		buf->SetFrame(frame);
+
+		PageFlipVideo(frame, buf);
+
+		if (m_pCurrentlyDisplayed && m_pCurrentlyDisplayed != buf) { // do not destroy the frame, if it is displayed again
+			if (IsTrickspeedFrame(m_pCurrentlyDisplayed->Frame()) || m_destroyCurrentlyDisplayed) {
+				m_pCurrentlyDisplayed->Destroy();
+
+				m_destroyCurrentlyDisplayed = false;
+			}
+
+			AVFrame *frame = m_pCurrentlyDisplayed->Frame();
+			av_frame_free(&frame);
+		}
+
+		m_pCurrentlyDisplayed = buf;
+	} else if (GetTrickSpeed() && !m_playbackPaused && m_pCurrentlyDisplayed) {
+		// display the current frame again in trickspeed mode when no OSD update is pending
+		PageFlipVideo(m_pCurrentlyDisplayed->Frame(), m_pCurrentlyDisplayed);
+	} else if ((m_pBufOsd && m_pBufOsd->IsDirty()) || m_startgrab) {
+		PageFlipOsd();
 	}
 
-	buf->SetFrame(frame);
+	m_framePresentationCounter--;
+}
 
-	return PageFlipVideo(frame, buf);
+/**
+ * Checks, if the next frame shall be displayed. Otherwise, the current frame shall be kept displaying.
+ * In normal playback, this always returns true.
+ *
+ * @retval true      display the next frame
+ * @retval false     let the current frame display one period more
+ */
+bool cVideoRender::ShallDisplayNextFrame(void)
+{
+	return m_framePresentationCounter == 0;
 }
 
 /**
@@ -1203,37 +987,15 @@ void cVideoRender::ExitDecodingThread(void)
 }
 
 /**
- * Start decoding thread
- */
-void cVideoRender::WakeupDecodingThread(void)
-{
-	LOGDEBUG("videorender: %s", __FUNCTION__);
-	if (!m_pDecodingThread->Active())
-		m_pDecodingThread->Start();
-}
-
-/**
  * Stop display thread
  */
 void cVideoRender::ExitDisplayThread(void)
 {
 	LOGDEBUG("videorender: %s", __FUNCTION__);
 
-	CleanupAndClose(true);
-	if (m_pDisplayThread->Active()) {
-		m_exitThread = true;
+	Reset();
+	if (m_pDisplayThread->Active())
 		m_pDisplayThread->Stop();
-	}
-}
-
-/**
- * Start display thread
- */
-void cVideoRender::WakeupDisplayThread(void)
-{
-	LOGDEBUG("videorender: %s", __FUNCTION__);
-	if (!m_pDisplayThread->Active())
-		m_pDisplayThread->Start();
 }
 
 /**
@@ -1286,8 +1048,8 @@ void cVideoRender::EnqueueFB(AVFrame *inframe)
 		buf = &m_buffer[m_enqueueBufferIdx];
 		if (m_numBuffers < VIDEO_SURFACES_MAX + 2) {
 			while (buf->IsDirty()) {
-				// try the next buffer, because it is either referenced by m_pLastFrame or is already setup
-				// this should be safe, because we only have 1 m_pLastFrame, which should be destroyed as soon as
+				// try the next buffer, because it is either referenced by m_pCurrentlyDisplayed or is already setup
+				// this should be safe, because we only have 1 m_pCurrentlyDisplayed, which should be destroyed as soon as
 				// a new buffer arrives in DisplayFrame
 				// after that destroy, we should be able to setup 0, 1, 2, ..., VIDEO_SURFACES_MAX + 2 framebuffers
 				m_enqueueBufferIdx = (m_enqueueBufferIdx + 1) % (VIDEO_SURFACES_MAX + 2);
@@ -1339,12 +1101,6 @@ void cVideoRender::EnqueueFB(AVFrame *inframe)
 	frame->buf[0] = av_buffer_create((uint8_t *)primedata, sizeof(*primedata),
 				ReleaseFrame, NULL, AV_BUFFER_FLAG_READONLY);
 
-	if (m_closing || m_flushing) {
-		av_frame_free(&inframe);
-		av_frame_free(&frame);
-		return;
-	}
-
 	FramesRbLock();
 	RbPushFrame(frame);
 	FramesRbUnlock();
@@ -1380,11 +1136,6 @@ int cVideoRender::RenderFrame(AVCodecContext * videoCtx, AVFrame * frame)
 
 	if (frame->decode_error_flags || frame->flags & AV_FRAME_FLAG_CORRUPT) {
 		LOGWARNING("videorender: %s: error_flag or FRAME_FLAG_CORRUPT", __FUNCTION__);
-	}
-
-	if (m_closing || m_flushing) {
-		av_frame_free(&frame);
-		return 0;
 	}
 
 	bool interlaced = IsInterlacedFrame(frame);
@@ -1435,27 +1186,20 @@ int cVideoRender::RenderFrame(AVCodecContext * videoCtx, AVFrame * frame)
 			}
 		}
 
-		if (!m_pFilterThread->PushFrame(frame)) {
-			usleep(10000);
-			return -1;
-		}
+		if (!m_pFilterThread->PushFrame(frame))
+			LOGFATAL("Filter buffer full. This is a bug.");
 	} else {
 		// don't use deinterlace/scale filter
 		if (frame->format == AV_PIX_FMT_DRM_PRIME) {
 			// AV_PIX_FMT_DRM_PRIME, interlaced, hw deinterlacer not available
 			// AV_PIX_FMT_DRM_PRIME, progressive
 			// -> put the frame directly in render Rb
-			if (m_closing || m_flushing) {
-				av_frame_free(&frame);
-				return 0;
-			}
 			FramesRbLock();
 			if (atomic_read(&m_framesFilled) < VIDEO_SURFACES_MAX && !m_numFramesToFilter) {
 				RbPushFrame(frame);
 				FramesRbUnlock();
 			} else {
 				FramesRbUnlock();
-				usleep(1000);
 				return -1;
 			}
 		} else {
@@ -1467,12 +1211,25 @@ int cVideoRender::RenderFrame(AVCodecContext * videoCtx, AVFrame * frame)
 				EnqueueFB(frame);
 			} else {
 				FramesRbUnlock();
-				usleep(5000);
 				return -1;
 			}
 		}
 	}
+
 	return 0;
+}
+
+
+/**
+ * Check, if the render output buffer is full.
+ * If a filter is used, the render output buffer is the input buffer of the filter thread.
+ * Otherwise, it is its own output buffer.
+ *
+ * @retval true     render output buffer is full
+  */
+bool cVideoRender::IsBufferFull(void)
+{
+	return m_pFilterThread->GetBufferFrameCount() >= VIDEO_SURFACES_MAX || atomic_read(&m_framesFilled) >= VIDEO_SURFACES_MAX;
 }
 
 /**
@@ -1542,82 +1299,20 @@ int64_t cVideoRender::GetVideoClock(void)
 /**
  * Send start condition to video thread
  */
-void cVideoRender::StartVideo(void)
+void cVideoRender::ResetFrameCounter(void)
 {
-	ResumeVideo();
 	m_startCounter = 0;
-	LOGDEBUG("videorender: %s: reset m_startCounter %d Closing %d TrickSpeed %d", __FUNCTION__,
-		m_startCounter, m_closing, GetTrickSpeed());
+	LOGDEBUG("videorender: %s: reset m_startCounter %d TrickSpeed %d", __FUNCTION__, m_startCounter, GetTrickSpeed());
 }
 
-/**
- * Close the renderer wait for the frames and framebuffers to be cleared
- *
- * @param black     true, if a black fb should be set and the last rendered buffer should be cleared,
- *                  otherwise don't set a black fb and wait for the clear until the next frame arrives
- */
-void cVideoRender::CleanupAndClose(bool black)
+void cVideoRender::Reset()
 {
-	LOGDEBUG("videorender: %s: m_startCounter %d%s", __FUNCTION__, m_startCounter, black ? " closing": " flushing");
-	if (!m_pDisplayThread->Active())
-		return;
-
-	if (m_pFilterThread->Active())
-		m_pFilterThread->Stop();
-	m_flushing = !black;
-	m_closing = black;
-
-	if (VideoIsPaused())
-		ResumeVideo();
-
-	LOGDEBUG("videorender: %s: wait for cleanup", __FUNCTION__);
-	if (!m_waitCleanCondition.Wait(2000)) {
-		LOGERROR("videorender: %s: timeout while waiting for cleanup", __FUNCTION__);
-	}
-
 	m_startCounter = 0;
 	m_framesDuped = 0;
 	m_framesDropped = 0;
 	m_numWrongProgressive = 0;
-	if (black)
-		SetTrickSpeed(0, 1);
-}
 
-/**
- * Pause the renderer
- */
-void cVideoRender::PauseVideo(void)
-{
-	LOGDEBUG("videorender: %s:", __FUNCTION__);
-	m_playbackMutex.Lock();
-	m_videoIsPaused = true;
-	m_playbackMutex.Unlock();
-}
-
-/**
- * Resume the renderer after pausing
- */
-void cVideoRender::ResumeVideo(void)
-{
-	LOGDEBUG("videorender: %s:", __FUNCTION__);
-	m_playbackMutex.Lock();
-	m_videoIsPaused = false;
-	m_playbackMutex.Unlock();
-}
-
-/**
- * Check the renderers pausing status
- *
- * @retval 1     if paused
- * @retval 0     if rendering
- */
-bool cVideoRender::VideoIsPaused(void)
-{
-	bool ret;
-	m_playbackMutex.Lock();
-	ret = m_videoIsPaused;
-	m_playbackMutex.Unlock();
-	return ret;
+	m_deintDisabled = m_configDeintDisabled;
 }
 
 /**
@@ -1630,8 +1325,8 @@ void cVideoRender::SetTrickSpeed(int speed, int forward)
 {
 	LOGDEBUG2(L_TRICK, "videorender: %s: set trick speed %d %s", __FUNCTION__, speed, forward ? "forward" : "backward");
 	m_trickspeedMutex.Lock();
+	m_framePresentationCounter = std::max(1, speed); // speed is 0 in normal playback. Set it to 1 to display the frames exactly once.
 	m_trickSpeed = speed;
-	m_trickCounter = speed;
 	m_trickForward = forward;
 	m_trickspeedMutex.Unlock();
 }
@@ -1645,7 +1340,7 @@ int cVideoRender::GetTrickSpeed(void)
 {
 	int speed;
 	m_trickspeedMutex.Lock();
-	speed = m_trickSpeed;
+	speed = m_trickSpeed * (m_pDevice->VideoStream()->IsInterlaced() ? 2 : 1);
 	m_trickspeedMutex.Unlock();
 	return speed;
 }
@@ -1663,47 +1358,6 @@ int cVideoRender::GetTrickForward(void)
 	dir = m_trickForward;
 	m_trickspeedMutex.Unlock();
 	return dir;
-}
-
-/**
- * Get the count of frames, which should still be rendered in trickspeed mode
- *
- * @returns       the count of frames still left to be rendered
- */
-int cVideoRender::GetTrickCounter(void)
-{
-	int counter;
-	m_trickspeedMutex.Lock();
-	counter = m_trickCounter;
-	m_trickspeedMutex.Unlock();
-	return counter;
-}
-
-/**
- * Set the count of frames, which should still be rendered in trickspeed mode
- *
- * @param counter       the count of frames to be rendered
- */
-void cVideoRender::SetTrickCounter(int counter)
-{
-	m_trickspeedMutex.Lock();
-	m_trickCounter = counter;
-	m_trickspeedMutex.Unlock();
-}
-
-/**
- * Decrease the number of frames, which should still be rendered in trickspeed mode
- *
- * @returns       the count of frames left to be rendered
- */
-int cVideoRender::DecTrickCounter(void)
-{
-	int counter;
-	m_trickspeedMutex.Lock();
-	m_trickCounter--;
-	counter = m_trickCounter;
-	m_trickspeedMutex.Unlock();
-	return counter;
 }
 
 /*****************************************************************************
@@ -2076,9 +1730,6 @@ void cVideoRender::Init(void)
 
 	// init variables page flip
 	m_pDrmDevice->InitEvent();
-
-	// Wakeup DisplayHandlerThread
-	WakeupDisplayThread();
 }
 
 /**
@@ -2148,19 +1799,3 @@ void cVideoRender::SetVideoOutputPosition(const cRect &rect)
 bool cVideoRender::DecodingThreadIsActive(void) {
 	return m_pDecodingThread->Active();
 };
-
-/**
- * Stop the filter thread
- */
-void cVideoRender::StopFilter(void)
-{
-	m_pFilterThread->Stop();
-}
-
-/**
- * Let the filter thread run into a state, where no new frames need to be filtered
- */
-void cVideoRender::WaitForFilterIdle(void)
-{
-	m_pFilterThread->WaitForIdle();
-}

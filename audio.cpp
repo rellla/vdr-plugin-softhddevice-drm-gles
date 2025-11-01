@@ -905,10 +905,8 @@ bool cSoftHdAudio::VideoReady(int64_t videoPts)
 	int64_t used;
 	int skip;
 
-	if (m_running) {
-		LOGDEBUG2(L_SOUND, "audio: %s: Audio is already running?", __FUNCTION__);
+	if (m_running)
 		return true;
-	}
 
 	// no valid audio known
 	if (m_pts == AV_NOPTS_VALUE) {
@@ -1143,16 +1141,15 @@ void cSoftHdAudio::Unmute(void)
 /**
  * Resume audio
  *
- * Start audio playback after pause
+ * Resume audio playback, if it is paused.
  */
 void cSoftHdAudio::Resume(void)
 {
 	int err;
 
-	if (!m_paused && !m_alsaCanPause) {
-		LOGDEBUG2(L_SOUND, "audio: %s: not paused, check the code", __FUNCTION__);
+	if (!m_paused && !m_alsaCanPause)
 		return;
-	}
+
 	LOGDEBUG2(L_SOUND, "audio: %s", __FUNCTION__);
 	if (m_alsaCanPause) {
 		snd_pcm_state_t state;
@@ -1179,10 +1176,8 @@ void cSoftHdAudio::Pause(void)
 {
 	int err;
 
-	if (m_paused) {
-		LOGDEBUG2(L_SOUND, "audio: %s: already paused, check the code", __FUNCTION__);
+	if (m_paused)
 		return;
-	}
 
 	LOGDEBUG2(L_SOUND, "audio: %s", __FUNCTION__);
 	if (m_alsaCanPause) {

@@ -20,6 +20,8 @@
 #ifndef __THREADS_H
 #define __THREADS_H
 
+#include <mutex>
+
 #include "vdr/thread.h"
 #include "queue.h"
 
@@ -36,8 +38,11 @@ public:
 	cDecodingThread(cSoftHdDevice *);
 	virtual ~cDecodingThread(void);
 	void Stop(void);
+	void Halt(void) { m_mutex.lock(); };
+	void Resume(void) { m_mutex.unlock(); };
 
 private:
+	std::mutex m_mutex;
 	cSoftHdDevice *m_pDevice;
 
 protected:
@@ -55,8 +60,13 @@ public:
 	cDisplayThread(cVideoRender *);
 	virtual ~cDisplayThread(void);
 	void Stop(void);
+	void Halt(void) { m_halt = true; m_mutex.lock(); };
+	void Resume(void) { m_mutex.unlock(); m_halt = false; };
+	bool ShouldHalt(void) { return m_halt; };
 
 private:
+	std::mutex m_mutex;
+	bool m_halt;
 	cVideoRender *m_pRender;
 
 protected:
@@ -98,7 +108,6 @@ public:
 	int GetBufferFrameCount(void);
 	bool PushFrame(AVFrame *);
 	bool IsInterlaceFilter(void) { return m_isInterlaceFilter; };
-	void WaitForIdle(void);
 
 private:
 	cVideoRender *m_pRender;
@@ -113,8 +122,6 @@ private:
 	bool m_isInterlaceFilter;                   ///< the current filter is an deinterlace filter
 
 	cQueue<AVFrame> m_frames{VIDEO_SURFACES_MAX}; ///< queue for frames to be filtered
-
-	cCondVar m_waitIdleCondition;               ///< condition is triggered, if ringbuffer is empty
 
 protected:
 	virtual void Action(void);

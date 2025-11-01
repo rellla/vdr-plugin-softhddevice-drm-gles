@@ -48,16 +48,11 @@ public:
 
 	void Open(void) { m_newStream = true; };
 	void Exit(void);
-	void ClearPacketQueue(void);
+	void ClearVdrCoreToDecoderQueue(void);
 	void FlushDecoder(void);
 	void CloseDecoder(void);
-	int DecodeInput(void);
+	void DecodeInput(void);
 	void StillPicture(cPesVideo *);
-	void StartDecoding(void) { m_closing = false; };
-	void StopAndWaitDecodingIdle(void);
-	void Resume(void) { m_paused = false; };
-	void Pause(void);
-	bool IsPaused(void) { return m_paused; };
 	void PushPesPacket(cPes *pesPacket);
 	bool PushAvPacket(AVPacket *avpkt);
 	void ResetFragmentationBuffer(void);
@@ -70,8 +65,10 @@ public:
 	void SetTimebase(int, int);
 	void SetTrickpkts(int pkts) { m_trickpkts = pkts; };
 	void SetInterlaced(bool interlaced);
+	bool IsInterlaced(void) { return m_interlaced; };
 	size_t GetAvPacketsFilled(void) { return m_packets.Size(); };
 	enum AVCodecID GetCodecId(void) { return m_codecId; };
+	void ResetTrickSpeedFramesSentCounter(void) { m_sentTrickPkts = 0; };
 
 private:
 	cVideoDecoder *m_pDecoder;             ///< video decoder
@@ -88,13 +85,9 @@ private:
 	int m_sentTrickPkts = 0;               ///< how many avpkt have been sent to the decoder in trickspeed mode?
 
 	volatile bool m_newStream;             ///< flag for new stream
-	volatile bool m_closing;               ///< flag for closing request
-	volatile bool m_paused;                ///< flag for paused stream
 	bool m_interlaced;                     ///< flag for interlaced stream
 	cCondVar m_closeCondition;             ///< condition object to wait for finishing jobs while closing
 	cCondVar m_pauseCondition;             ///< condition object to wait for pausing the stream
-
-	int RenderTrickspeedFrames(AVFrame *);
 };
 
 #endif

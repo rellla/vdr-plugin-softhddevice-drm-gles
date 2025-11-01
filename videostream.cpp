@@ -70,13 +70,10 @@ cVideoStream::cVideoStream(cSoftHdDevice *device)
 
 	m_codecId = AV_CODEC_ID_NONE;
 	m_newStream = false;
-	m_paused = false;
 	m_pPar = nullptr;
 
 	m_interlaced = 0;
 	m_trickpkts = 1;
-
-	StartDecoding();
 }
 
 /**
@@ -131,13 +128,13 @@ void cVideoStream::Exit(void)
 		m_pDecoder = nullptr;
 	}
 
-	ClearPacketQueue();
+	ClearVdrCoreToDecoderQueue();
 }
 
 /**
  * Clears all video stream data, which is buffered to be decoded
  */
-void cVideoStream::ClearPacketQueue(void)
+void cVideoStream::ClearVdrCoreToDecoderQueue(void)
 {
 	LOGDEBUG("videostream %s: packets %d", __FUNCTION__, m_packets.Size());
 
@@ -192,68 +189,15 @@ void cVideoStream::FlushDecoder(void)
 }
 
 /**
- * Render a decoded frame as often as trickspeed mode wants it
- *
- * This functions returns if the requested count of frames (GetTrickCounter) was renderer,
- * if TrickSpeed mode ended or if a stream closing was reqeusted.
- *
- * @retval -1     stream closing was requested or sth went wrong
- * @retval 0      frames have been rendered as expected or no need to render anything
- */
-int cVideoStream::RenderTrickspeedFrames(AVFrame *frame)
-{
-	if (!frame)
-		return -1;
-
-	while (m_pRender->GetTrickSpeed() && m_pRender->GetTrickCounter() > 0) {
-		AVFrame *trickframe = av_frame_clone(frame);
-		if (!trickframe) {
-			LOGERROR("videostream %s: could not clone frame", __FUNCTION__);
-			return -1;
-		}
-		LOGDEBUG2(L_TRICK, "videostream %s: Trickspeed, send another cloned trick frame %d %s %p",
-		          __FUNCTION__, m_pRender->GetTrickCounter(), Timestamp2String(trickframe->pts, 90), trickframe);
-		m_pRender->MarkAsTrickspeedFrame(trickframe);
-		while (m_pRender->RenderFrame(m_pDecoder->GetContext(), trickframe)) {
-			if (m_closing) {
-				av_frame_free(&trickframe);
-				return -1;
-			}
-		}
-		m_pRender->DecTrickCounter();
-
-		if (m_closing)
-			return -1;
-	}
-
-	return 0;
-}
-
-/**
  * Decodes a reassembled codec packet.
- *
- * @retval 0        packet was decoded or more data is needed
- * @retval 1        stream is paused
- * @retval -1       stream is empty or closed
  */
-int cVideoStream::DecodeInput(void)
+void cVideoStream::DecodeInput(void)
 {
 	AVFrame *frame = nullptr;
 	int ret = 0;
 
-	if (m_closing) {
-		m_closeCondition.Broadcast();
-		return -1;
-	}
-
-	if (m_paused) {
-//		LOGDEBUG2(L_CODEC, "videostream %s: stream is paused", __FUNCTION__);
-		m_pauseCondition.Broadcast();
-		return 1;
-	}
-
-	if (m_codecId == AV_CODEC_ID_NONE)
-		return -1;
+	if (m_codecId == AV_CODEC_ID_NONE || m_packets.Empty() || m_pRender->IsBufferFull())
+		return;
 
 	if (m_newStream) {
 		int width = 0;
@@ -261,11 +205,7 @@ int cVideoStream::DecodeInput(void)
 
 		// amlogic h264 decoder needs width an height for correct decoder open
 		if ((m_codecId == AV_CODEC_ID_H264) && (m_pRender->HardwareQuirks() & QUIRK_CODEC_NEEDS_EXT_INIT)) {
-			AVPacket *packet = m_packets.Peek();
-			if (packet == nullptr)
-				return -1;
-
-			cH264Parser h264Parser(packet);
+			cH264Parser h264Parser(m_packets.Peek());
 			h264Parser.GetDimensions(&width, &height);
 
 			LOGDEBUG2(L_CODEC, "videostream %s: Parsed width %d height %d", __FUNCTION__, width, height);
@@ -283,69 +223,41 @@ int cVideoStream::DecodeInput(void)
 	// This guarantees, that we don't drain the decoder too early, but exactly after
 	// m_trickpkts sent packets
 	int minPkts = (m_pRender->GetTrickSpeed() && m_interlaced) ? m_trickpkts : 1;
-	if ((int)m_packets.Size() < minPkts) {
-		return -1;
-	}
 
 	// send packet to decoder
-	ret = m_pDecoder->SendPacket(m_packets.Peek());
-	if (ret != AVERROR(EAGAIN)) { // something went wrong or packet was sent, advance packet
-		AVPacket *avpkt = m_packets.Pop();
-		av_packet_free(&avpkt);
+	AVPacket *avpkt = m_packets.Peek();
+	ret = m_pDecoder->SendPacket(avpkt);
 
-		// in backward trickspeed force the decoder to decode the frame, if minPkts are sent
-		if (ret == 0 && m_pRender->GetTrickSpeed() && !m_pRender->GetTrickForward()) {
-			m_sentTrickPkts++;
-			if (m_sentTrickPkts >= minPkts) {
-				m_pDecoder->SendPacket(NULL);
-				m_sentTrickPkts = 0;
-			}
+	if (ret != AVERROR(EAGAIN)) {
+		avpkt = m_packets.Pop();
+		av_packet_free(&avpkt);
+	}
+
+	// in backward trickspeed force the decoder to decode the frame, if minPkts are sent
+	if (ret == 0 && m_pRender->GetTrickSpeed() && !m_pRender->GetTrickForward()) {
+		m_sentTrickPkts++;
+		if (m_sentTrickPkts >= minPkts) {
+			m_pDecoder->SendPacket(NULL);
+			m_sentTrickPkts = 0;
 		}
 	}
 
 	// receive frame from decoder
-	if (!m_pRender->GetTrickSpeed()) {
-		// this is normal Playback
-		 if (!m_newStream) { // this is for mediaplayer?
-			ret = m_pDecoder->ReceiveFrame(&frame);
-			if (ret == 0) {
-				while (m_pRender->RenderFrame(m_pDecoder->GetContext(), frame)) {
-					if (m_closing) {
-						av_frame_free(&frame);
-						return -1;
-					}
-				}
-			}
-		}
-	} else {
-		// this is TrickSpeed
-		ret = m_pDecoder->ReceiveFrame(&frame);
-		while (ret == 0) {
-			m_pRender->MarkAsProgressiveFrame(frame);
-			// deinterlacer is disabled in trickspeed mode
-			// in order to have the right speed, we double the count of frames to be displayed in trickspeed mode
-			// if we have an interlaced stream - we simply just dup the frame
-			LOGDEBUG2(L_TRICK, "videostream: %s trickspeed %d isInterlaced %d", __FUNCTION__, m_pRender->GetTrickSpeed(), m_interlaced);
-			m_pRender->SetTrickCounter(m_pRender->GetTrickSpeed() * (m_interlaced ? 2 : 1));
-			if (RenderTrickspeedFrames(frame)) { // returns -1 only if stream should be closed
-				av_frame_free(&frame);
-				m_sentTrickPkts = 0;
-				return -1;
+	if (!m_newStream) { // this is for mediaplayer?
+		if (m_pDecoder->ReceiveFrame(&frame) == 0) {
+			if (m_pRender->GetTrickSpeed()) {
+				m_pRender->MarkAsProgressiveFrame(frame);
+				m_pRender->MarkAsTrickspeedFrame(frame);
 			}
 
-			av_frame_free(&frame);
-			m_sentTrickPkts = 0;
-
-			ret = m_pDecoder->ReceiveFrame(&frame);
-		} // try receiving another frame from decoder, should end up with AVERROR_EOF
-
-		if (ret == AVERROR_EOF) { // needs flush / reopen
-			FlushDecoder();
-			m_sentTrickPkts = 0;
+			m_pRender->RenderFrame(m_pDecoder->GetContext(), frame);
 		}
 	}
 
-	return 0;
+	if (m_pRender->GetTrickSpeed() && ret == AVERROR_EOF) { // needs flush / reopen
+		FlushDecoder();
+		m_sentTrickPkts = 0;
+	}
 }
 
 
@@ -357,8 +269,6 @@ int cVideoStream::DecodeInput(void)
 void cVideoStream::StillPicture(cPesVideo *pesPacket)
 {
 	AVPacket *avpkt = CreateAvPacket(pesPacket->GetPayload(), pesPacket->GetPayloadSize(), pesPacket->GetPts());
-
-	Pause();
 
 	// close the decoder if open and another codec id arrives
 	if (Decoder()->GetContext()) {
@@ -395,12 +305,7 @@ void cVideoStream::StillPicture(cPesVideo *pesPacket)
 		LOGDEBUG2(L_STILL, "videostream: %s: frame received", __FUNCTION__);
 		m_pRender->MarkAsProgressiveFrame(frame);
 		m_pRender->MarkAsStillpictureFrame(frame);
-		while (m_pRender->RenderFrame(Decoder()->GetContext(), frame)) {
-			if (m_closing) {
-				av_frame_free(&frame);
-				break;
-			}
-		}
+		while (m_pRender->RenderFrame(Decoder()->GetContext(), frame)) {}
 		// try to get another frame
 		ret = Decoder()->ReceiveFrame(&frame);
 	}
@@ -420,10 +325,7 @@ void cVideoStream::StillPicture(cPesVideo *pesPacket)
 		SetCodecId(AV_CODEC_ID_NONE);
 	}
 
-	ClearPacketQueue();
 	FlushDecoder();
-
-	Resume();
 }
 
 /**
@@ -447,39 +349,4 @@ void cVideoStream::SetTimebase(int num, int den)
 {
 	m_timebase.num = num;
 	m_timebase.den = den;
-}
-
-/**
- * Stop the stream
- *
- * Skips the decoding of the stream until m_closing gets false again (with Start())
- */
-void cVideoStream::StopAndWaitDecodingIdle(void)
-{
-	int timeoutInMs = 1000;
-	m_closing = true;
-
-	cMutex mutex;
-	mutex.Lock();
-	if (!m_closeCondition.TimedWait(mutex, timeoutInMs))
-		LOGERROR("videostream %s: Timeout while closing stream (%d ms)!", __FUNCTION__, timeoutInMs);
-
-	LOGDEBUG2(L_CODEC, "videostream %s: stream is closing", __FUNCTION__);
-}
-
-/**
- * Pause the stream
- *
- * Prevent the stream from decoding new frames and sending them to filter or renderer
- * cCondVar is necessary to finish a decoding loop
- */
-void cVideoStream::Pause(void)
-{
-	int timeoutInMs = 2000;
-
-	m_paused = true;
-	cMutex mutex;
-	mutex.Lock();
-	if (!m_pauseCondition.TimedWait(mutex, timeoutInMs))
-		LOGERROR("videostream %s: Timeout while pausing stream (%d ms)!", __FUNCTION__, timeoutInMs);
 }

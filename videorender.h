@@ -73,12 +73,6 @@ extern "C" {
 #define FRAME_FLAG_TRICKSPEED           1 << 0     ///< mark frame as a trickspeed frame
 #define FRAME_FLAG_STILLPICTURE         1 << 1     ///< mark frame as a stillpicture frame
 
-struct lastFrame {
-	AVFrame *frame;
-	cDrmBuffer *buf;
-	int trickspeed;
-};
-
 class cDrmDevice;
 
 /**
@@ -92,7 +86,6 @@ public:
 
 	void Init(void);
 	void Exit(void);
-	void CleanUp(void);
 	int HardwareQuirks(void) { return m_hardwareQuirks; };
 	void DisableDeint(bool disable) { m_deintDisabled = disable; };
 	void DisableOglOsd(void) { m_disableOglOsd = true; };
@@ -103,13 +96,10 @@ public:
 	void GetScreenSize(int *, int *, double *);
 	int64_t GetVideoClock(void);
 	void GetStats(int *, int *, int *);
-	void StartVideo(void);
-	void PauseVideo(void);
-	void ResumeVideo(void);
-	bool VideoIsPaused(void);
-	void CleanupAndClose(bool);
-	bool ShouldClose(void) { return m_closing; };
-	bool ShouldFlush(void) { return m_flushing; };
+	void ResetFrameCounter(void);
+	void Reset();
+	void SetPlaybackPaused(bool pause) { m_playbackPaused = pause; };
+	bool IsPlaybackPaused(void) { return m_playbackPaused; };
 
 	// OSD
 	void OsdClear(void);
@@ -118,10 +108,8 @@ public:
 	// TrickSpeed
 	void SetTrickSpeed(int, int);
 	int GetTrickSpeed(void);
-	int GetTrickCounter(void);
 	int GetTrickForward(void);
-	void SetTrickCounter(int);
-	int DecTrickCounter(void);
+	bool ShallDisplayNextFrame(void);
 
 	// Grab
 	int TriggerGrab(void);
@@ -134,17 +122,22 @@ public:
 	void Prepare(void);
 	void CreateDecodingThread(void);
 	bool DecodingThreadIsActive(void);
-	void WakeupDecodingThread(void);
-	void WakeupDisplayThread(void);
 	void ExitDecodingThread(void);
 	void ExitDisplayThread(void);
+
+	void DecodingThreadHalt(void) { m_pDecodingThread->Halt(); };
+	void DecodingThreadResume(void) { m_pDecodingThread->Resume(); };
+	void DisplayThreadHalt(void) { m_pDisplayThread->Halt(); };
+	void DisplayThreadResume(void) { m_pDisplayThread->Resume(); };
+
+	void CancelFilterThread(void) { if (m_pFilterThread->Active()) m_pFilterThread->Stop(); };
 
 	// DRM
 	int DrmHandleEvent(void);
 
 	// Frame and buffer
 	int RenderFrame(AVCodecContext *, AVFrame *);
-	int DisplayFrame(void);
+	void DisplayFrame(AVFrame *);
 	void EnqueueFB(AVFrame *);
 	int GetFramesFilled(void) { return atomic_read(&m_framesFilled); };
 	void RbPushFrame(AVFrame *);
@@ -158,13 +151,15 @@ public:
 	void MarkAsTrickspeedFrame(AVFrame *);
 	void MarkAsStillpictureFrame(AVFrame *);
 	bool MarkAsProgressiveFrame(AVFrame *);
+	void ScheduleDisplayBlackFrame(void) { m_displayBlackFrame = true; };
+	void DestroyFrameBuffers(void);
+	void ClearDecoderToDisplayQueue(void);
+	bool IsBufferFull(void);
 
 	// Filter
 	void ClearFramesToFilter(void) { m_numFramesToFilter = 0; };
 	void IncFramesToFilter(void) { m_numFramesToFilter++; };
 	void DecFramesToFilter(void) { m_numFramesToFilter--; };
-	void WaitForFilterIdle(void);
-	void StopFilter(void);
 
 #ifdef USE_GLES
 	// GLES
@@ -180,7 +175,6 @@ private:
 	cDecodingThread *m_pDecodingThread; ///< pointer to decoding thread
 	cDisplayThread *m_pDisplayThread;   ///< pointer to display thread
 	cFilterThread *m_pFilterThread;     ///< pointer to deinterlace filter thread
-	cCondWait m_waitCleanCondition;     ///< condition to wait on while display cleanup
 	cMutex m_waitCleanMutex;            ///< mutex used while display cleanup
 	cMutex m_trickspeedMutex;           ///< mutex used while accessing trickspeed parameters
 	cMutex m_playbackMutex;             ///< mutex used around m_videoIsPaused
@@ -194,17 +188,8 @@ private:
 	int m_framesRead;                   ///< m_framesRb read pointer
 	atomic_t m_framesFilled;            ///< how many of m_framesRb is used
 	int m_trickSpeed;                   ///< current trick speed
-	int m_trickCounter;                 ///< current trick speed counter (handles, how much trickspeed frame are left to be rendered)
 	bool m_trickForward;                ///< true, if trickspeed plays forward
-	bool m_videoIsPaused;               ///< true, if video is paused
-	bool m_closing;                     ///< flag if render thread should be closed()
-	                                    ///< a black frame is set instead of video frame)
-	bool m_flushing;                    ///< flag if render thread should be closed
-	                                    ///< in difference to m_closing, the video frame is untouched,
-	                                    ///< i.e. the last one remains displayed
-	bool m_flushLastFrame;              ///< flag about need to clear the last video frame in next turn
-	                                    ///< i.e. when did m_flushing and the video frame hasn't been freed
-	bool m_exitThread;                  ///< internal flag, which is set, when display thread should be stopped
+	int m_framePresentationCounter = 0; ///< number of times the current frame has to be shown (for slow motion)
 
 	int m_numFramesToFilter;            ///< number of frames to be filtered
 	bool m_deintDisabled;               ///< set, if deinterlacer is disabled
@@ -234,10 +219,13 @@ private:
 	cDrmBuffer m_buffer[RENDERBUFFERS]; ///< array of video drm buffer objects
 	cDrmBuffer *m_pBufOsd;              ///< pointer to osd drm buffer object
 	cDrmBuffer m_bufBlack;              ///< black drm buffer object
-	struct lastFrame *m_pLastFrame;     ///< pointer to last rendered frame struct (for later free)
+	cDrmBuffer *m_pCurrentlyDisplayed = nullptr; ///< pointer to currently displayed DRM buffer
 	int m_numBuffers = 0;               ///< number of framebuffers currently set up
 	int m_enqueueBufferIdx;             ///< index of the current (sw) framebuffer in the array
 	bool m_osdShown;                    ///< set, if osd is shown currently
+	bool m_displayBlackFrame = false;   ///< set, if a black frame shall be displayed
+	bool m_destroyCurrentlyDisplayed = false; ///< set, if the currently displayed buffer shall be destroyed in the display thread
+	bool m_playbackPaused = false;		///< set, if playback is frozen (used for pause)
 
 #ifdef USE_GLES
 	struct gbm_bo *m_bo;                ///< pointer to current gbm buffer object
@@ -248,17 +236,13 @@ private:
 	void SetFrameFlags(AVFrame *, int);
 	void SetVideoClock(int64_t);
 	bool ShouldWaitForAudio(void);
-	int GetFrame(AVFrame **);
-	int WaitForFrames(void);
-	int WaitForAudioReady(int64_t, int64_t);
-	int WaitForAudioClock(int64_t *);
+	void WaitForAudioReady(int64_t, int64_t);
+	void WaitForAudioClock(int64_t *);
 	int HandleDropDup(int64_t, int64_t);
-	int Sync(AVFrame *);
-	bool NeedsSync(AVFrame *);
-	int PageFlip(AVFrame *, cDrmBuffer *, int);
-	int PageFlipBlack(void);
-	int PageFlipOsd(void);
-	int PageFlipVideo(AVFrame *, cDrmBuffer *);
+	void PageFlip(AVFrame *, cDrmBuffer *, int);
+	void PageFlipBlack(void);
+	void PageFlipOsd(void);
+	void PageFlipVideo(AVFrame *, cDrmBuffer *);
 	cDrmBuffer *GetBuffer(AVFrame *);
 	int SetOsdBuffer(drmModeAtomicReqPtr);
 	void SetVideoBuffer(cDrmBuffer *);
