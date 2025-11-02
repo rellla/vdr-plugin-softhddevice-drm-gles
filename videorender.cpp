@@ -429,7 +429,7 @@ int cVideoRender::CommitBuffer(cDrmBuffer *buf, int osdOnly)
 int cVideoRender::WaitForAudioReady(int64_t videoPts, int64_t framePts)
 {
 	if(!m_startCounter && !m_closing) {
-		LOGDEBUG("videorender: %s: start PTS %s", __FUNCTION__, Timestamp2String(videoPts));
+		LOGDEBUG("videorender: %s: start PTS %s", __FUNCTION__, Timestamp2String(videoPts, 1));
 		m_pAudio->Skip(framePts, 0);
 
 		while (!m_pAudio->VideoReady(videoPts)) {
@@ -507,8 +507,8 @@ int cVideoRender::HandleDropDup(int64_t videoPts, int64_t audioPts)
 	if (abs(diff) > 5000) {	// more than 5s
 		LOGDEBUG2(L_AV_SYNC, "More then 5s Pkts %d deint %d, Frames %d UsedBytes %d audio %s video %s Delay %dms diff %dms",
 			m_pDevice->VideoStream()->GetAvPacketsFilled(), m_pFilterThread->GetBufferFrameCount(),
-			atomic_read(&m_framesFilled), m_pAudio->GetUsedBytes(), Timestamp2String(audioPts),
-			Timestamp2String(videoPts), m_pDevice->GetVideoAudioDelay(), diff);
+			atomic_read(&m_framesFilled), m_pAudio->GetUsedBytes(), Timestamp2String(audioPts, 1),
+			Timestamp2String(videoPts, 1), m_pDevice->GetVideoAudioDelay(), diff);
 	}
 
 	if (diff < -5 && !(abs(diff) > 5000)) {	// video is more than 5ms behind audio, drop video frame
@@ -516,7 +516,7 @@ int cVideoRender::HandleDropDup(int64_t videoPts, int64_t audioPts)
 		if (m_flushLastFrame) {
 			LOGDEBUG2(L_AV_SYNC, "Video too late, but skip sync (drop %d, dup %d) audio %s video %s Delay %dms diff %dms",
 				m_framesDropped, m_framesDuped,
-				Timestamp2String(audioPts), Timestamp2String(videoPts),
+				Timestamp2String(audioPts, 1), Timestamp2String(videoPts, 1),
 				m_pDevice->GetVideoAudioDelay(), diff);
 			return 0;
 		}
@@ -524,8 +524,8 @@ int cVideoRender::HandleDropDup(int64_t videoPts, int64_t audioPts)
 		LOGDEBUG2(L_AV_SYNC, "FrameDropped (drop %d, dup %d) Pkts %d deint %d Frames %d UsedBytes %d audio %s video %s Delay %dms diff %dms",
 			m_framesDropped, m_framesDuped,
 			m_pDevice->VideoStream()->GetAvPacketsFilled(), m_pFilterThread->GetBufferFrameCount(),
-			atomic_read(&m_framesFilled), m_pAudio->GetUsedBytes(), Timestamp2String(audioPts),
-			Timestamp2String(videoPts), m_pDevice->GetVideoAudioDelay(), diff);
+			atomic_read(&m_framesFilled), m_pAudio->GetUsedBytes(), Timestamp2String(audioPts, 1),
+			Timestamp2String(videoPts, 1), m_pDevice->GetVideoAudioDelay(), diff);
 
 		if (!m_startCounter)
 			m_startCounter++;
@@ -538,8 +538,8 @@ int cVideoRender::HandleDropDup(int64_t videoPts, int64_t audioPts)
 		LOGDEBUG2(L_AV_SYNC, "FrameDuped (drop %d, dup %d) Pkts %d deint %d Frames %d UsedBytes %d audio %s video %s Delay %dms diff %dms",
 			m_framesDropped, m_framesDuped,
 			m_pDevice->VideoStream()->GetAvPacketsFilled(), m_pFilterThread->GetBufferFrameCount(),
-			atomic_read(&m_framesFilled), m_pAudio->GetUsedBytes(), Timestamp2String(audioPts),
-			Timestamp2String(videoPts), m_pDevice->GetVideoAudioDelay(), diff);
+			atomic_read(&m_framesFilled), m_pAudio->GetUsedBytes(), Timestamp2String(audioPts, 1),
+			Timestamp2String(videoPts, 1), m_pDevice->GetVideoAudioDelay(), diff);
 
 		m_framesDuped++;
 		usleep(20000);
@@ -876,7 +876,7 @@ int cVideoRender::PageFlip(AVFrame *frame, cDrmBuffer *buf, int osdOnly)
 		SetVideoClock(frame->pts);
 
 	if (frame)
-		LOGDEBUG2(L_PACKET, "videorender: %s:                 PTS %s", __FUNCTION__, Timestamp2String(frame->pts / 90));
+		LOGDEBUG2(L_PACKET, "videorender: %s:                 PTS %s", __FUNCTION__, Timestamp2String(frame->pts, 90));
 
 	// new video frame was sent, rotate the frames
 	if (m_pLastFrame->frame) {

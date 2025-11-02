@@ -212,7 +212,7 @@ int cVideoStream::RenderTrickspeedFrames(AVFrame *frame)
 			return -1;
 		}
 		LOGDEBUG2(L_TRICK, "videostream %s: Trickspeed, send another cloned trick frame %d %s %p",
-		          __FUNCTION__, m_pRender->GetTrickCounter(), Timestamp2String(trickframe->pts / 90), trickframe);
+		          __FUNCTION__, m_pRender->GetTrickCounter(), Timestamp2String(trickframe->pts, 90), trickframe);
 		m_pRender->MarkAsTrickspeedFrame(trickframe);
 		while (m_pRender->RenderFrame(m_pDecoder->GetContext(), trickframe)) {
 			if (m_closing) {

@@ -1004,9 +1004,9 @@ int cSoftHdAudio::Skip(int64_t videoPts, int full)
 		LOGDEBUG2(L_AV_SYNC, "audio: %s: RB %" PRId64 "ms skip %dms audio %s -> %s video %s", __FUNCTION__,
 			used * 1000 / m_hwSampleRate / m_hwNumChannels / m_bytesPerSample,
 			skip * 1000 / m_hwSampleRate / m_hwNumChannels / m_bytesPerSample,
-			Timestamp2String(audioPts),
-			Timestamp2String(audioPts + skip * 1000 / m_hwSampleRate / m_hwNumChannels / m_bytesPerSample),
-			Timestamp2String(videoPts * 1000 * av_q2d(*m_pTimebase)));
+			Timestamp2String(audioPts, 1),
+			Timestamp2String(audioPts + skip * 1000 / m_hwSampleRate / m_hwNumChannels / m_bytesPerSample, 1),
+			Timestamp2String(videoPts * 1000 * av_q2d(*m_pTimebase), 1));
 
 		m_pRingbuffer->ReadAdvance(skip);
 	}

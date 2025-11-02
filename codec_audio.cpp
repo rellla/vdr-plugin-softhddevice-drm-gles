@@ -370,7 +370,7 @@ void cAudioDecoder::Decode(const AVPacket * avpkt)
 				// we remember the avpkt->pts if we have one and could use it for the frame->pts,
 				// if we don't get one after decode. This way, m_lastPts also gets set.
 				LOGDEBUG2(L_CODEC, "audiocodec: %s: New audio stream, set initial pts to avpkt->pts %s", __FUNCTION__,
-					Timestamp2String(avpkt->pts * 1000 * av_q2d(m_pAudioCtx->pkt_timebase)));
+					Timestamp2String(avpkt->pts * 1000 * av_q2d(m_pAudioCtx->pkt_timebase), 1));
 				m_initialAvpktPts = avpkt->pts;
 			}
 		} else {
@@ -380,7 +380,7 @@ void cAudioDecoder::Decode(const AVPacket * avpkt)
 				// If we don't get a valid pts for the decoded frame and also can not set it to m_lastPts, because
 				// this is the first decoded frame, we use the pts of the initial avpkt.
 				LOGWARNING("audiocodec: %s: NO VALID PTS, set frame->pts to last known avpkt->pts %s", __FUNCTION__,
-					Timestamp2String(m_initialAvpktPts * 1000 * av_q2d(m_pAudioCtx->pkt_timebase)));
+					Timestamp2String(m_initialAvpktPts * 1000 * av_q2d(m_pAudioCtx->pkt_timebase), 1));
 				frame->pts = m_initialAvpktPts;
 				m_initialAvpktPts = AV_NOPTS_VALUE;
 			}

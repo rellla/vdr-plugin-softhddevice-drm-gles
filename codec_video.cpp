@@ -499,7 +499,7 @@ int cVideoDecoder::SendPacket(const AVPacket *avpkt)
 	}
 
 	m_cntPacketsSent++;
-	LOGDEBUG2(L_PACKET, "videocodec: %s:   %6d PTS %s <<---", __FUNCTION__, m_cntPacketsSent, Timestamp2String(avpkt->pts / 90));
+	LOGDEBUG2(L_PACKET, "videocodec: %s:   %6d PTS %s <<---", __FUNCTION__, m_cntPacketsSent, Timestamp2String(avpkt->pts, 90));
 	m_mutex.Unlock();
 	return 0;
 }
@@ -567,7 +567,7 @@ int cVideoDecoder::ReceiveFrame(AVFrame **frame)
 
 	m_cntFramesReceived++;
 	LOGDEBUG2(L_PACKET, "videocodec: %s: %6d PTS %s --->> (%2d)%s", __FUNCTION__,
-		m_cntFramesReceived, Timestamp2String(pFrame->pts / 90), m_cntPacketsSent - m_cntFramesReceived,
+		m_cntFramesReceived, Timestamp2String(pFrame->pts, 90), m_cntPacketsSent - m_cntFramesReceived,
 		m_pRender->IsInterlacedFrame(pFrame) ? " I" : "");
 	m_mutex.Unlock();
 	return 0;
