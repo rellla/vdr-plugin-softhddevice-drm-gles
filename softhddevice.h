@@ -53,7 +53,8 @@ struct TrickSpeedEvent {
 	bool forward;
 };
 struct StillPictureEvent {
-	cPesVideo& pesPacket;
+	const uchar *data;
+	int size;
 };
 
 using Event = std::variant<PlayEvent, PauseEvent, StopEvent, TrickSpeedEvent, StillPictureEvent>;
@@ -219,6 +220,7 @@ private:
 	int PesHeadLength(const uint8_t *);
 	void OnEventReceived(const Event&);
 	void HandlePause(void);
+	void HandleStillPicture(const uchar *data, int size);
 };
 
 #endif

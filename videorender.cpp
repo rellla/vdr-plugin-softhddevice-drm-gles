@@ -577,6 +577,7 @@ bool cVideoRender::IsKeyFrame(AVFrame *frame)
 void cVideoRender::MarkAsTrickspeedFrame(AVFrame *frame)
 {
 	SetFrameFlags(frame, FRAME_FLAG_TRICKSPEED);
+	MarkAsProgressiveFrame(frame);
 }
 
 /**
@@ -588,24 +589,21 @@ void cVideoRender::MarkAsStillpictureFrame(AVFrame *frame)
 {
 	SetFrameFlags(frame, FRAME_FLAG_STILLPICTURE);
 	frame->pts = AV_NOPTS_VALUE;
+	MarkAsProgressiveFrame(frame);
 }
 
 /**
  * Force this frame to be a progressive frame
  *
  * @param frame     AVFrame
- *
- * @returns         true, if the frame was an interlaced frame before
  */
-bool cVideoRender::MarkAsProgressiveFrame(AVFrame *frame)
+void cVideoRender::MarkAsProgressiveFrame(AVFrame *frame)
 {
-	bool wasInterlaced = IsInterlacedFrame(frame);
 #if LIBAVUTIL_VERSION_INT < AV_VERSION_INT(58,7,100)
 	frame->interlaced_frame = 0;
 #else
 	frame->flags &= ~AV_FRAME_FLAG_INTERLACED;
 #endif
-	return wasInterlaced;
 }
 
 /**
@@ -1121,11 +1119,8 @@ void cVideoRender::EnqueueFB(AVFrame *inframe)
  *
  * @param videoCtx   ffmpeg video codec context
  * @param frame       frame to render
- *
- * @retval 0          success or error, return (frame is either freed or moved to the render ringbuffer)
- * @retval -1         ringbuffer full, try again
  */
-int cVideoRender::RenderFrame(AVCodecContext * videoCtx, AVFrame * frame)
+void cVideoRender::RenderFrame(AVCodecContext * videoCtx, AVFrame * frame)
 {
 	if (!m_startCounter) {
 		m_timebaseMutex.Lock();
@@ -1180,7 +1175,7 @@ int cVideoRender::RenderFrame(AVCodecContext * videoCtx, AVFrame * frame)
 			LOGDEBUG("videorender: %s: wakeup filter thread", __FUNCTION__);
 			if (m_pFilterThread->Init(videoCtx, frame, m_deintDisabled)) {
 				av_frame_free(&frame);
-				return 0;
+				return;
 			} else {
 				m_pFilterThread->Start();
 			}
@@ -1200,7 +1195,7 @@ int cVideoRender::RenderFrame(AVCodecContext * videoCtx, AVFrame * frame)
 				FramesRbUnlock();
 			} else {
 				FramesRbUnlock();
-				return -1;
+				return;
 			}
 		} else {
 			// AV_PIX_FMT_DRM_NV12 ?
@@ -1211,12 +1206,10 @@ int cVideoRender::RenderFrame(AVCodecContext * videoCtx, AVFrame * frame)
 				EnqueueFB(frame);
 			} else {
 				FramesRbUnlock();
-				return -1;
+				return;
 			}
 		}
 	}
-
-	return 0;
 }
 
 

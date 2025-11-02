@@ -176,3 +176,28 @@ int cPes::GetPayloadSize()
 {
 	return m_size - (GetPayload() - m_data);
 }
+
+/**
+ * Get the total length of the PES packet
+ *
+ * Returns the complete size of the PES packet including both header and payload.
+ * The length is read from the PES packet header (bytes 4-5).
+ *
+ * For packets with a specified length field (common for audio):
+ *   - Returns the actual PES packet length from the header
+ *   - Calculated as 6 + length_field (per H.222.0 standard)
+ *   - The length_field specifies bytes after the 6-byte header prefix
+ *     (3 bytes start code + 1 byte stream ID + 2 bytes length field)
+ *
+ * For unbounded packets (length field = 0, common for video streams):
+ *   - Returns the input buffer size (m_size)
+ *
+ * @return Total size in bytes: actual packet length if specified, otherwise input buffer size
+ */
+int cPes::GetPacketLength()
+{
+	if (!PesHasLength(m_data))
+		return m_size; // Length field is 0, meaning unbounded/unspecified. Return raw data size.
+
+	return PesLength(m_data);
+}

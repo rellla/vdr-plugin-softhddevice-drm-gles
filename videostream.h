@@ -52,10 +52,11 @@ public:
 	void FlushDecoder(void);
 	void CloseDecoder(void);
 	void DecodeInput(void);
-	void StillPicture(cPesVideo *);
 	void PushPesPacket(cPes *pesPacket);
 	bool PushAvPacket(AVPacket *avpkt);
+	void FinishFragmentationBuffer(void);
 	void ResetFragmentationBuffer(void);
+	void Flush(void);
 
 	// getters and setters
 	cVideoDecoder *Decoder(void) { return m_pDecoder; };

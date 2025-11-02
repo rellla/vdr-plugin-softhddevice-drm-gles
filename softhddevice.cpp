@@ -732,7 +732,7 @@ void cSoftHdDevice::OnEventReceived(const Event& event) {
 					SetState(TRICK_SPEED);
 				},
 				[this](const StillPictureEvent& s) {
-					m_pVideoStream->StillPicture(&s.pesPacket);
+					HandleStillPicture(s.data, s.size);
 				 },
 			}, event);
 			break;
@@ -753,7 +753,7 @@ void cSoftHdDevice::OnEventReceived(const Event& event) {
 					m_pRender->SetPlaybackPaused(false);
 				 },
 				[this](const StillPictureEvent& s) {
-					m_pVideoStream->StillPicture(&s.pesPacket);
+					HandleStillPicture(s.data, s.size);
 				 },
 			}, event);
 			break;
@@ -990,11 +990,33 @@ void cSoftHdDevice::StillPicture(const uchar *data, int size)
 		return;
 	}
 
-	cPesVideo pesPacket((const uint8_t*)data, size);
-	if (pesPacket.IsValid()) {
-		OnEventReceived(StillPictureEvent{pesPacket});
-	} else
-		m_pVideoStream->ResetFragmentationBuffer();
+	OnEventReceived(StillPictureEvent{data, size});
+}
+
+/**
+ * The still picture data received from VDR can contain multiple PES packets.
+ * This sends each PES packet's raw data separately to PlayVideo(), and does a flush to display the frame immediately.
+ *
+ * @param data       pes data of one or more frames
+ * @param size       length of data area
+ */
+void cSoftHdDevice::HandleStillPicture(const uchar *data, int size)
+{
+	const uchar *currentPacketStart = data;
+	while (currentPacketStart < data + size) {
+		cPesVideo pesPacket((const uint8_t*)currentPacketStart, size - (currentPacketStart - data));
+
+		if (pesPacket.IsValid())
+			PlayVideo(currentPacketStart, pesPacket.GetPacketLength());
+		else {
+			LOGWARNING("device: %s: invalid PES packet", __FUNCTION__);
+			break;
+		}
+
+		currentPacketStart += pesPacket.GetPacketLength();
+	}
+
+	m_pVideoStream->Flush();
 }
 
 /**

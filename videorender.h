@@ -136,7 +136,7 @@ public:
 	int DrmHandleEvent(void);
 
 	// Frame and buffer
-	int RenderFrame(AVCodecContext *, AVFrame *);
+	void RenderFrame(AVCodecContext *, AVFrame *);
 	void DisplayFrame(AVFrame *);
 	void EnqueueFB(AVFrame *);
 	int GetFramesFilled(void) { return atomic_read(&m_framesFilled); };
@@ -150,7 +150,6 @@ public:
 	bool IsKeyFrame(AVFrame *);
 	void MarkAsTrickspeedFrame(AVFrame *);
 	void MarkAsStillpictureFrame(AVFrame *);
-	bool MarkAsProgressiveFrame(AVFrame *);
 	void ScheduleDisplayBlackFrame(void) { m_displayBlackFrame = true; };
 	void DestroyFrameBuffers(void);
 	void ClearDecoderToDisplayQueue(void);
@@ -236,6 +235,7 @@ private:
 #endif
 	int GetFrameFlags(AVFrame *);
 	void SetFrameFlags(AVFrame *, int);
+	void MarkAsProgressiveFrame(AVFrame *);
 	void SetVideoClock(int64_t);
 	bool ShouldWaitForAudio(void);
 	void WaitForAudioReady(int64_t, int64_t);

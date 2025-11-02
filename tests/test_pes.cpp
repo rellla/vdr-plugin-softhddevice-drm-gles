@@ -28,7 +28,7 @@ extern "C" {
 // - Stream ID: 1 byte
 // - PES packet length: 2 bytes
 // - Optional PES header fields
-std::vector<uint8_t> createBasicPesVideoHeader(uint8_t streamId, bool withPts = false) {
+std::vector<uint8_t> createBasicPesVideoHeader(uint8_t streamId, bool withPts = false, uint16_t pesLength = 0) {
     std::vector<uint8_t> data;
 
     // Start code prefix
@@ -40,8 +40,8 @@ std::vector<uint8_t> createBasicPesVideoHeader(uint8_t streamId, bool withPts = 
     data.push_back(streamId);
 
     // PES packet length (0 = unspecified)
-    data.push_back(0x00);
-    data.push_back(0x00);
+    data.push_back((pesLength >> 8) & 0xFF);
+    data.push_back(pesLength & 0xFF);
 
     // PES extension
     data.push_back(0x80); // '10'xxxxxx (no PES scrambling control, PES priority, data alignment indicator, copyright, original or copy)
@@ -331,6 +331,116 @@ TEST_CASE("cPesVideo - Payload extraction", "[pes]") {
         // Verify payload + header size equals total size
         int headerSize = payload - data.data();
         REQUIRE(headerSize + payloadSize == static_cast<int>(data.size()));
+    }
+}
+
+TEST_CASE("cPesVideo - Packet length", "[pes]") {
+    SECTION("Get packet length for unbounded MPEG2 (length field = 0)") {
+        auto data = createMpeg2PesPacket();
+        cPesVideo pes(data.data(), data.size());
+
+        REQUIRE(pes.GetPacketLength() == static_cast<int>(data.size()));
+    }
+
+    SECTION("Get packet length for unbounded H.264 (length field = 0)") {
+        auto data = createH264PesPacket(false);
+        cPesVideo pes(data.data(), data.size());
+
+        REQUIRE(pes.GetPacketLength() == static_cast<int>(data.size()));
+    }
+
+    SECTION("Get packet length with specified length field") {
+        // Create a PES packet with a specific length
+        // PES length field specifies bytes after the length field itself
+        uint16_t pesPayloadLength = 20; // Header data (3 bytes) + actual payload
+        auto data = createBasicPesVideoHeader(0xE0, false, pesPayloadLength);
+
+        // Add some payload to match the specified length
+        for (int i = data.size() - 6; i < pesPayloadLength; i++) {
+            data.push_back(0x00);
+        }
+
+        cPesVideo pes(data.data(), data.size());
+
+        REQUIRE(pes.GetPacketLength() == 6 + pesPayloadLength);
+    }
+
+    SECTION("Get packet length for packet with PTS and specified length") {
+        // PTS takes 5 bytes, so header data length = 5
+        // Total PES header = 9 (fixed header) + 5 (PTS) = 14 bytes
+        // If we want total packet of 50 bytes, length field = 50 - 6 = 44
+        uint16_t pesPayloadLength = 44;
+        auto data = createBasicPesVideoHeader(0xE0, true, pesPayloadLength);
+
+        // Add payload to make total packet 50 bytes
+        int currentSize = data.size();
+        int targetTotalSize = 6 + pesPayloadLength;
+        for (int i = currentSize; i < targetTotalSize; i++) {
+            data.push_back(0x00);
+        }
+
+        cPesVideo pes(data.data(), data.size());
+
+        REQUIRE(pes.GetPacketLength() == 50);
+    }
+
+    SECTION("Get packet length when input buffer is larger than PES packet") {
+        // Create a PES packet with specified length
+        uint16_t pesPayloadLength = 20;
+        auto data = createBasicPesVideoHeader(0xE0, false, pesPayloadLength);
+
+        // Add payload matching the PES length
+        for (int i = data.size() - 6; i < pesPayloadLength; i++) {
+            data.push_back(0xAA);
+        }
+
+        // Add extra data beyond the PES packet (simulating buffer with multiple packets)
+        for (int i = 0; i < 50; i++) {
+            data.push_back(0xFF);
+        }
+
+        cPesVideo pes(data.data(), data.size());
+
+        REQUIRE(pes.GetPacketLength() == 6 + pesPayloadLength);
+        REQUIRE(pes.GetPacketLength() < static_cast<int>(data.size()));
+    }
+
+    SECTION("Unbounded packet with buffer larger than actual data") {
+        // Create an unbounded packet (length field = 0)
+        auto data = createBasicPesVideoHeader(0xE0, false, 0);
+
+        // Add some actual payload
+        for (int i = 0; i < 30; i++) {
+            data.push_back(0xAA);
+        }
+
+        // Store the actual data size
+        int actualSize = data.size();
+
+        // Add extra buffer space (simulating oversized buffer)
+        for (int i = 0; i < 50; i++) {
+            data.push_back(0xFF);
+        }
+
+        cPesVideo pes(data.data(), data.size());
+
+        REQUIRE(pes.GetPacketLength() == static_cast<int>(data.size()));
+        REQUIRE(pes.GetPacketLength() > actualSize);
+    }
+
+    SECTION("Get packet length for audio packet with specified length") {
+        // Audio packets typically have bounded length
+        uint16_t pesPayloadLength = 30;
+        auto data = createBasicPesVideoHeader(0xC0, false, pesPayloadLength);
+
+        // Add audio payload
+        for (int i = data.size() - 6; i < pesPayloadLength; i++) {
+            data.push_back(0xFF);
+        }
+
+        cPesAudio pes(data.data(), data.size());
+
+        REQUIRE(pes.GetPacketLength() == 6 + pesPayloadLength);
     }
 }
 

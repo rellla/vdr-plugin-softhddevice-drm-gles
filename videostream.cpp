@@ -93,11 +93,8 @@ void cVideoStream::PushPesPacket(cPes *pesPacket)
 {
 	if (pesPacket->HasPts()) {
 		// Received the first fragment of the upcoming codec packet.
-		if (!m_currentCodecPacket.empty()) {
-			// Push the buffered PES fragments as one reassembled codec packet to the next stage.
-			m_packets.Push(CreateAvPacket(m_currentCodecPacket.data(), m_currentCodecPacket.size(), m_currentPacketPts));
-			m_currentCodecPacket.clear();
-		}
+		if (!m_currentCodecPacket.empty())
+			FinishFragmentationBuffer(); // Push the buffered PES fragments as one reassembled codec packet to the next stage.
 
 		m_currentPacketPts = pesPacket->GetPts();
 	}
@@ -106,10 +103,47 @@ void cVideoStream::PushPesPacket(cPes *pesPacket)
 	m_currentCodecPacket.insert(m_currentCodecPacket.end(), pesPacket->GetPayload(), pesPacket->GetPayload() + pesPacket->GetPayloadSize());
 }
 
-void cVideoStream::ResetFragmentationBuffer() {
+/**
+ * Finishes the fragmentation buffer by creating an AVPacket from accumulated PES fragments.
+ *
+ * This function takes all PES packet fragments that have been buffered in m_currentCodecPacket,
+ * creates a complete AVPacket from them, and pushes it to the processing queue.
+ * The fragmentation buffer is then cleared for the next codec packet.
+ */
+void cVideoStream::FinishFragmentationBuffer(void) {
+	m_packets.Push(CreateAvPacket(m_currentCodecPacket.data(), m_currentCodecPacket.size(), m_currentPacketPts));
 	m_currentCodecPacket.clear();
 }
 
+/**
+ * Flushes the video stream by finalizing any pending data.
+ *
+ * This function completes processing of any remaining PES fragments in the fragmentation
+ * buffer, then pushes a nullptr packet to the queue to signal a flush operation to the decoder.
+ */
+void cVideoStream::Flush(void)
+{
+	FinishFragmentationBuffer();
+	m_packets.Push(nullptr);
+}
+
+/**
+ * Resets the fragmentation buffer by discarding all accumulated PES fragments.
+ */
+void cVideoStream::ResetFragmentationBuffer(void) {
+	m_currentCodecPacket.clear();
+}
+
+/**
+ * Pushes a pre-assembled AVPacket directly to the processing queue.
+ *
+ * This function bypasses the PES fragmentation/reassembly mechanism and directly
+ * pushes an already-complete AVPacket to the m_packets queue for decoding. Used
+ * when packets are received from sources that don't require fragmentation handling.
+ *
+ * @param avpkt    The AVPacket to push to the queue
+ * @return         true if the packet was successfully pushed, false otherwise
+ */
 bool cVideoStream::PushAvPacket(AVPacket *avpkt)
 {
 	return m_packets.Push(avpkt);
@@ -226,6 +260,9 @@ void cVideoStream::DecodeInput(void)
 
 	// send packet to decoder
 	AVPacket *avpkt = m_packets.Peek();
+
+	bool flushStillPictureImmediately = avpkt == nullptr;
+
 	ret = m_pDecoder->SendPacket(avpkt);
 
 	if (ret != AVERROR(EAGAIN)) {
@@ -245,10 +282,11 @@ void cVideoStream::DecodeInput(void)
 	// receive frame from decoder
 	if (!m_newStream) { // this is for mediaplayer?
 		if (m_pDecoder->ReceiveFrame(&frame) == 0) {
-			if (m_pRender->GetTrickSpeed()) {
-				m_pRender->MarkAsProgressiveFrame(frame);
+			if (m_pRender->GetTrickSpeed())
 				m_pRender->MarkAsTrickspeedFrame(frame);
-			}
+
+			if (flushStillPictureImmediately)
+				m_pRender->MarkAsStillpictureFrame(frame);
 
 			m_pRender->RenderFrame(m_pDecoder->GetContext(), frame);
 		}
@@ -258,74 +296,6 @@ void cVideoStream::DecodeInput(void)
 		FlushDecoder();
 		m_sentTrickPkts = 0;
 	}
-}
-
-
-/**
- * Display the given I-frame as a still picture
- *
- * @param pesPacket      cPesVideo packet
- */
-void cVideoStream::StillPicture(cPesVideo *pesPacket)
-{
-	AVPacket *avpkt = CreateAvPacket(pesPacket->GetPayload(), pesPacket->GetPayloadSize(), pesPacket->GetPts());
-
-	// close the decoder if open and another codec id arrives
-	if (Decoder()->GetContext()) {
-		if ((int)(Decoder()->GetContext()->codec_id) != pesPacket->GetCodec()) {
-			Decoder()->Close();
-		}
-	}
-	// open the decoder if we have none (context flag is set)
-	bool context = false;
-	if (!Decoder()->GetContext()) {
-		if (Decoder()->Open(pesPacket->GetCodec(), NULL, NULL, 0, 0, 0))
-			LOGFATAL("videostream: %s: Could not open the decoder!", __FUNCTION__);
-		context = true;
-	}
-
-	int ret = 0;
-	ret = Decoder()->SendPacket(avpkt);
-	if (ret)
-		LOGDEBUG2(L_STILL, "videostream: %s: SendPacket(avpkt) returned %d", __FUNCTION__, ret);
-	else
-		LOGDEBUG2(L_STILL, "videostream: %s: avpkt sent", __FUNCTION__);
-
-	av_packet_free(&avpkt);
-
-	// force decoder to enter draining because we only want 1 avpkt to be decoded
-	Decoder()->SendPacket(NULL);
-
-	AVFrame *frame;
-	ret = Decoder()->ReceiveFrame(&frame);
-
-	// we got a frame, so try to render it and try another one (should end up with AVERROR_EOF)
-	while (!ret) {
-		// always treat a stillpicture frame as a progressive frame
-		LOGDEBUG2(L_STILL, "videostream: %s: frame received", __FUNCTION__);
-		m_pRender->MarkAsProgressiveFrame(frame);
-		m_pRender->MarkAsStillpictureFrame(frame);
-		while (m_pRender->RenderFrame(Decoder()->GetContext(), frame)) {}
-		// try to get another frame
-		ret = Decoder()->ReceiveFrame(&frame);
-	}
-
-	// no more frames available or error
-	if (ret == AVERROR_EOF) {
-		// AVERROR_EOF, flush needed
-		FlushDecoder();
-	} else {
-		// sth went wrong or AVERROR(EAGAIN)
-		LOGDEBUG2(L_STILL, "videostream: %s: ReceiveFrame returned %d, should not happen!", __FUNCTION__, ret);
-	}
-
-	// close the decoder, if it was opened by StillPicture
-	if (context) {
-		Decoder()->Close();
-		SetCodecId(AV_CODEC_ID_NONE);
-	}
-
-	FlushDecoder();
 }
 
 /**

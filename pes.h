@@ -58,6 +58,7 @@ public:
 	int64_t GetPts();
 	const uint8_t *GetPayload();
 	int GetPayloadSize();
+	int GetPacketLength();
 
 protected:
 	void Init();
