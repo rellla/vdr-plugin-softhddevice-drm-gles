@@ -769,16 +769,8 @@ void cVideoRender::DisplayFrame(AVFrame *frame)
 		m_framePresentationCounter = std::max(1, GetTrickSpeed());
 
 	if (frame) {
-		if (frame->pts == AV_NOPTS_VALUE && !IsStillpictureFrame(frame)) {
-			// we have no valid pts and it's no stillpicture
-			LOGDEBUG2(L_DRM, "videorender: %s: no AV_NOPTS_VALUE, use next frame ...", __FUNCTION__);
-			av_frame_free(&frame);
-
-			return;
-		}
-
 		// sync audio/video
-		if (!GetTrickSpeed() && !m_destroyCurrentlyDisplayed && !m_playbackPaused) {
+		if (!GetTrickSpeed() && !m_destroyCurrentlyDisplayed && !m_playbackPaused && frame->pts != AV_NOPTS_VALUE) {
 			int64_t audioPts;
 			int64_t videoPts;
 
