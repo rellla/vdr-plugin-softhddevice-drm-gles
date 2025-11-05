@@ -540,6 +540,7 @@ cSoftHdDevice::~cSoftHdDevice(void)
  */
 void cSoftHdDevice::Init()
 {
+	LOGDEBUG("device: %s:", __FUNCTION__);
 	m_pRender->Prepare();
 }
 

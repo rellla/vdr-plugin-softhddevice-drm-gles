@@ -84,7 +84,6 @@ cPluginSoftHdDevice::cPluginSoftHdDevice(void)
 	m_pConfig = new cSoftHdConfig();
 	m_pDevice = new cSoftHdDevice(m_pConfig); // no need to delete m_pDevice, because VDR does it for us
 	m_pAudio = m_pDevice->Audio();
-	m_pDevice->Init();
 }
 
 /**
@@ -94,7 +93,6 @@ cPluginSoftHdDevice::cPluginSoftHdDevice(void)
  */
 cPluginSoftHdDevice::~cPluginSoftHdDevice(void)
 {
-	LOGDEBUG("plugin: %s:", __FUNCTION__);
 	delete m_pConfig;
 }
 
@@ -133,7 +131,7 @@ const char *cPluginSoftHdDevice::CommandLineHelp(void)
  */
 bool cPluginSoftHdDevice::ProcessArgs(int argc, char *argv[])
 {
-	LOGDEBUG("plugin: %s:", __FUNCTION__);
+//	LOGDEBUG("plugin: %s:", __FUNCTION__);
 
 	return m_pDevice->ProcessArgs(argc, argv);
 }
@@ -147,9 +145,10 @@ bool cPluginSoftHdDevice::ProcessArgs(int argc, char *argv[])
  */
 bool cPluginSoftHdDevice::Initialize(void)
 {
-	LOGDEBUG("plugin: %s:", __FUNCTION__);
+//	LOGDEBUG("plugin: %s:", __FUNCTION__);
 
-	// nothing to do
+	m_pDevice->Init();
+
 	return true;
 }
 
@@ -158,7 +157,7 @@ bool cPluginSoftHdDevice::Initialize(void)
  */
 bool cPluginSoftHdDevice::Start(void)
 {
-	LOGDEBUG("%s:", __FUNCTION__);
+//	LOGDEBUG("plugin: %s:", __FUNCTION__);
 
 	if (!m_pDevice->IsPrimaryDevice()) {
 		LOGINFO("softhddevice %d is not the primary device!",
