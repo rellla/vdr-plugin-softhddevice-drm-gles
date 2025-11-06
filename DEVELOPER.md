@@ -203,9 +203,48 @@ graph TD
     class FormatCheck decThread
 ```
 
+## Frame Routing
+
+The following graph shows the path of the frames from the decoder to the display output device.
+
+```mermaid
+flowchart TD
+    FilterThreadForceProgressive["Filter Thread<br/>_only conversion to NV12_"]
+    FilterThreadProgressive["Filter Thread<br/>_only conversion to NV12_"]
+    FilterThreadHwDeinterlacer["Filter Thread<br/>_deinterlace_v4l2m2m_"]
+    FilterThreadSwDeinterlacer["Filter Thread<br/>_bwdif=1:-1:0_"]
+
+    Decoder --> TrickSpeedDecision{Mode?}
+    TrickSpeedDecision --> |Trick Speed|TrickSpeedFormat{Format?}
+    TrickSpeedFormat --> |__SW decoded__<br/>YUV420P<br/>_progressive or interlaced_<br/>RPI 4&5: 576i MPEG2<br/>RPI4: 1080p HEVC<br/>RPI5: 1080i/p H.264|FilterThreadForceProgressive
+    TrickSpeedFormat --> |__HW decoded__<br/>DRM_PRIME<br/>_progressive or interlaced_<br/>RPI4: 1080i/p H.264<br/>RPI5: 1080p HEVC|Display
+    TrickSpeedFormat --> |__HW decoded__<br/>NV12<br/>_progressive or interlaced_<br/>Not used in practice?|EnqueueFB
+    EnqueueFB --> |DRM_PRIME<br/>progressive or interlaced|Display
+    FilterThreadForceProgressive --> |NV12<br/>progressive or interlaced|EnqueueFB
+
+    TrickSpeedDecision --> |Normal Playback|NormalPlaybackFormat{Format?}
+    NormalPlaybackFormat --> |__SW decoded__<br/>_YUV420P<br/>interlaced_<br/>RPI 4&5: 576i MPEG2<br/>RPI4: 1080p HEVC<br/>RPI5: 1080i/p H.264|FilterThreadSwDeinterlacer
+    NormalPlaybackFormat --> |__SW decoded__<br/>_YUV420P<br/>progressive_<br/>Not used in practice|FilterThreadProgressive
+    NormalPlaybackFormat --> |__HW decoded__<br/>_DRM_PRIME<br/>interlaced_<br/>RPI4: 1080i H.264<br/>RPI5: __None__|FilterThreadHwDeinterlacer
+    NormalPlaybackFormat --> |__HW decoded__<br/>DRM_PRIME<br/>_progressive_<br/>RPI4: 1080p H.264<br/>RPI5: 1080p HEVC|Display
+    FilterThreadSwDeinterlacer --> |NV12<br/>progressive|EnqueueFB
+    FilterThreadProgressive --> |NV12<br/>progressive|EnqueueFB
+    FilterThreadHwDeinterlacer --> |DRM_PRIME<br/>progressive|Display
+
+    classDef decThread fill:#ce93d8,stroke:#8e24aa,stroke-width:2px,color:#000000
+    classDef filterThread fill:#ffb74d,stroke:#f57c00,stroke-width:2px,color:#000000
+    classDef displayThread fill:#81c784,stroke:#388e3c,stroke-width:2px,color:#000000
+    classDef buffer fill:#fff59d,stroke:#fbc02d,stroke-width:2px,color:#000000
+
+    class Decoder decThread
+    class FilterThreadForceProgressive,FilterThreadProgressive,FilterThreadHwDeinterlacer,FilterThreadSwDeinterlacer filterThread
+    class Display displayThread
+    class EnqueueFB buffer
+```
+
 ## VDR State Management
 
-When managing the VDR states (play/pause/trick speed/...), the following paradigms are follow:
+When managing the VDR states (play/pause/trick speed/...), the following paradigms are followed:
 
 - On every call of above VDR methods, we wait at a single and central location, that the display and decoding threads finish their currently processing packet/frame. Then, the threads are locked (halted), and the necessary changes are done in a thread-safe and predictable way, until they resume their normal work.
 - What should happen in which state is also handled in a single and central location. Therefore, VDR's state is tracked in a variable. When one of PlayMode()/Freeze()/Clear()/... are invoked (I call it "events"), they are handled according to in which state VDR is currently in (play/stop/trickspeed). So, you can clearly see in the code, what happens in a particular state, when a specific event is received. The state transitions are handled in cSoftHdDevice::OnEventReceived() and what shall be done when entering or leaving a state is done in cSoftHdDevice::OnEnteringState()/cSoftHdDevice::OnLeavingState().
