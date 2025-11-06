@@ -163,7 +163,7 @@ Requirements:
 - For OpenGL/ES support:
 
 	- gles2 (Mesa)
-	- egl (Mesa
+	- egl (Mesa)
 	- gbm (Mesa)
 	- freetype2
 	- glm - OpenGL Mathematics (GLM)
