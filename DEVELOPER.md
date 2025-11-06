@@ -205,7 +205,7 @@ graph TD
 
 ## Frame Routing
 
-The following graph shows the path of the frames from the decoder to the display output device.
+The following graph shows the path of the frames from the decoder to the display output device, also considering trick speed mode.
 
 ```mermaid
 flowchart TD
