@@ -766,7 +766,7 @@ void cVideoRender::DisplayFrame(AVFrame *frame)
 	}
 
 	if (m_framePresentationCounter == 0)
-		m_framePresentationCounter = std::max(1, m_trickSpeed);
+		m_framePresentationCounter = std::max(1, GetTrickSpeed());
 
 	if (frame) {
 		if (frame->pts == AV_NOPTS_VALUE && !IsStillpictureFrame(frame)) {
