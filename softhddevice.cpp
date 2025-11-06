@@ -944,7 +944,6 @@ void cSoftHdDevice::Clear(void)
 	m_pRender->DestroyFrameBuffers();
 	m_pRender->Reset();
 
-	m_pAudio->Resume();
 	ClearAudio();
 
 	m_pRender->DisplayThreadResume();
