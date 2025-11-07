@@ -83,7 +83,7 @@ public:
 	void Init(void);
 	void Exit(void);
 	int HardwareQuirks(void) { return m_hardwareQuirks; };
-	void DisableDeint(bool disable) { m_configDeintDisabled = disable; };
+	void DisableDeint(bool disable) { m_userDisabledDeinterlacer = disable; };
 	void DisableOglOsd(void) { m_disableOglOsd = true; };
 	bool OglOsdDisabled(void) { return m_disableOglOsd; };
 
@@ -128,7 +128,7 @@ public:
 	void DisplayThreadHalt(void) { m_pDisplayThread->Halt(); };
 	void DisplayThreadResume(void) { m_pDisplayThread->Resume(); };
 
-	void CancelFilterThread(void) { if (m_pFilterThread->Active()) m_pFilterThread->Stop(); };
+	void CancelFilterThread(void);
 
 	// DRM
 	int DrmHandleEvent(void);
@@ -185,13 +185,12 @@ private:
 	int m_framePresentationCounter = 0; ///< number of times the current frame has to be shown (for slow motion)
 
 	int m_numFramesToFilter;            ///< number of frames to be filtered
-	bool m_deintDisabled;               ///< set, if deinterlacer is disabled - used in RenderFrame()
-	bool m_configDeintDisabled = false; ///< set, if a deinterlacer on/off should be triggered
-	                                    ///< Prepare() and Cleanup() sets m_deintDisabled depending upon m_configDeintDisabled
+	bool m_userDisabledDeinterlacer = false; ///< set, if the user configured the deinterlace to be disabled
 	                                    ///< That way, we don't change the current render pipeline (RenderFrame())
 	int m_numWrongProgressive;          ///< counter for progressive frames sent in an interlaced stream
 	                                    ///< (only used for logging)
 	bool m_deinterlacerDeactivated;		///< set, if the deinterlacer shall be deactivated temporarily (used for trick speed and still picture)
+	bool m_checkFilterThreadNeeded;     ///< set, if we have to check, if filter thread is needed at start of playback
 
 	bool m_disableOglOsd;               ///< set, if ogl osd is disabled
 

@@ -126,7 +126,6 @@ void cVideoRender::Prepare(void)
 	m_pFilterThread = new cFilterThread(this);
 
 	atomic_set(&m_framesFilled, 0);
-	m_deintDisabled = m_configDeintDisabled;
 	m_enqueueBufferIdx = 0;
 }
 
@@ -926,6 +925,15 @@ void cVideoRender::ExitDisplayThread(void)
 	if (m_pDisplayThread->Active())
 		m_pDisplayThread->Stop();
 }
+/**
+ * Stop filter thread
+ */
+void cVideoRender::CancelFilterThread(void) {
+	if (m_pFilterThread->Active())
+		m_pFilterThread->Stop();
+
+	m_checkFilterThreadNeeded = true;
+}
 
 /**
  * Callback free primedata if av_buffer is unreferenced
@@ -1043,76 +1051,59 @@ void cVideoRender::EnqueueFB(AVFrame *inframe)
  * - are pushed directly in the render ringbuffer or
  * - go via EnqueueFB to the render ringbuffer if the buffer has to be prepared before.
  *
- * @param videoCtx   ffmpeg video codec context
- * @param frame       frame to render
+ * @param videoCtx      ffmpeg video codec context
+ * @param frame         frame to render
  */
 void cVideoRender::RenderFrame(AVCodecContext * videoCtx, AVFrame * frame)
 {
-	if (!m_startCounter) {
-		m_timebaseMutex.Lock();
-		m_timebase.num = videoCtx->pkt_timebase.num;
-		m_timebase.den = videoCtx->pkt_timebase.den;
-		m_timebaseMutex.Unlock();
-	}
-
-	if (frame->decode_error_flags || frame->flags & AV_FRAME_FLAG_CORRUPT) {
+	if (frame->decode_error_flags || frame->flags & AV_FRAME_FLAG_CORRUPT)
 		LOGWARNING("videorender: %s: error_flag or FRAME_FLAG_CORRUPT", __FUNCTION__);
+
+	if (m_checkFilterThreadNeeded) {
+		m_timebaseMutex.Lock();
+		m_timebase = videoCtx->pkt_timebase;
+		m_timebaseMutex.Unlock();
+
+		// Enable the deinterlacer only if:
+		// - The user did not disable the deinterlacer
+		// - The deinterlacer is not temporarily deactivated (trickspeed and still picture)
+		// - A hardware quirk does not forbid using the deinterlacer
+		// - It is an interlaced stream, determined by:
+		//   - The codec is different from HEVC (always progressive)
+		//   - The framerate is lower or equal to 30fps
+		//   - Or, if the frame's interlaced flag is set
+		// We cannot solely rely on the frame's interlaced flag, because the deinterlacer shall also be enabled with mixed progressive/interlaced streams (e.g. TV station "ProSieben").
+
+		bool interlacedStream =
+			(videoCtx->codec_id != AV_CODEC_ID_HEVC &&
+			videoCtx->framerate.num > 0 &&
+			av_q2d(videoCtx->framerate) < 30.1) || IsInterlacedFrame(frame); // account for rounding errors when comparing double
+
+		bool useDeinterlacer =
+			!m_userDisabledDeinterlacer &&
+			!m_deinterlacerDeactivated &&
+			!(m_hardwareQuirks & QUIRK_NO_HW_DEINT) &&
+			interlacedStream;
+
+		m_pDevice->VideoStream()->SetInterlaced(interlacedStream);
+
+		if (m_userDisabledDeinterlacer)
+			LOGDEBUG("videorender: %s: deinterlacer disabled by user configuration", __FUNCTION__);
+
+		// Use the filter thread if:
+		// - AV_PIX_FMT_YUV420P, interlaced -> software deinterlacer (bwdif filter)
+		// - AV_PIX_FMT_YUV420P, progressive -> scale filter to get NV12 frames
+		// - AV_PIX_FMT_DRM_PRIME, interlaced, hw deinterlacer available -> hw deinterlacer
+		if (frame->format == AV_PIX_FMT_YUV420P || (frame->format == AV_PIX_FMT_DRM_PRIME && useDeinterlacer))
+			m_pFilterThread->InitAndStart(videoCtx, frame, useDeinterlacer);
+
+		m_checkFilterThreadNeeded = false;
 	}
 
-	bool interlaced = IsInterlacedFrame(frame);
-	if (m_deinterlacerDeactivated) {
-		interlaced = false;
-	} else {
-		// we can't trust frame->interlaced_frame ...
-		// do some tricks in normal playback
-
-		// framerate available -> set the interlaced switch depending on the framerate
-		if ((videoCtx->framerate.num > 0) &&
-		    (videoCtx->framerate.num / videoCtx->framerate.den > 30)) {    // framerate > 30fps -> progressive stream
-			interlaced = false;
-		} else if (videoCtx->framerate.num > 0 && !interlaced) {           // framerate <= 30fps -> interlaced stream
-//			LOGWARNING("videorender: %s: WARNING!!! progressive frame arrived in interlaced stream (P %d)!",
-//				__FUNCTION__, ++m_numWrongProgressive);
-			interlaced = true;
-		}
-
-		// framerate not available -> set the interlaced switch depending on an active deinterlace filter
-		// this doesn't work, if the first frame is wrong, because it should init the filter!
-		if ((videoCtx->framerate.num == 0) && !interlaced &&
-		     m_pFilterThread->Active() && m_pFilterThread->IsInterlaceFilter()) {
-//			LOGWARNING("videorender: %s: WARNING!!! frame without interlaced flag arrived while deinterlace filter is active (P %d)!",
-//				__FUNCTION__, ++m_numWrongProgressive);
-			interlaced = true;
-		}
-
-		// hevc is always progressive
-		if (videoCtx->codec_id == AV_CODEC_ID_HEVC)
-			interlaced = false;
-
-		m_pDevice->VideoStream()->SetInterlaced(interlaced);
-	}
-
-	if (frame->format == AV_PIX_FMT_YUV420P ||
-	   (frame->format == AV_PIX_FMT_DRM_PRIME && interlaced && !((m_hardwareQuirks & QUIRK_NO_HW_DEINT) || m_deintDisabled))) {
-		// use deinterlace/scale filter
-		// AV_PIX_FMT_YUV420P, interlaced -> software deinterlacer (bwdif filter)
-		// AV_PIX_FMT_YUV420P, progressive -> scale filter to get NV12 frames
-		// AV_PIX_FMT_DRM_PRIME, interlaced, hw deinterlacer available -> hw deinterlacer
-		// -> put the frame into filter Rb
-		if (!m_pFilterThread->Active()) {
-			LOGDEBUG("videorender: %s: wakeup filter thread", __FUNCTION__);
-			if (m_pFilterThread->Init(videoCtx, frame, m_deintDisabled, m_deinterlacerDeactivated)) {
-				av_frame_free(&frame);
-				return;
-			} else {
-				m_pFilterThread->Start();
-			}
-		}
-
+	if (m_pFilterThread->Active()) {
 		if (!m_pFilterThread->PushFrame(frame))
 			LOGFATAL("Filter buffer full. This is a bug.");
 	} else {
-		// don't use deinterlace/scale filter
 		if (frame->format == AV_PIX_FMT_DRM_PRIME) {
 			// AV_PIX_FMT_DRM_PRIME, interlaced, hw deinterlacer not available
 			// AV_PIX_FMT_DRM_PRIME, progressive
@@ -1125,18 +1116,8 @@ void cVideoRender::RenderFrame(AVCodecContext * videoCtx, AVFrame * frame)
 				FramesRbUnlock();
 				return;
 			}
-		} else {
-			// AV_PIX_FMT_DRM_NV12 ?
-			// -> go through EnqueueFB
-			FramesRbLock();
-			if (atomic_read(&m_framesFilled) < VIDEO_SURFACES_MAX) {
-				FramesRbUnlock();
-				EnqueueFB(frame);
-			} else {
-				FramesRbUnlock();
-				return;
-			}
-		}
+		} else
+			LOGFATAL("videorender: %s: unsupported pixel format %d", __FUNCTION__, frame->format);
 	}
 }
 
@@ -1223,6 +1204,7 @@ int64_t cVideoRender::GetVideoClock(void)
 void cVideoRender::ResetFrameCounter(void)
 {
 	m_startCounter = 0;
+	m_checkFilterThreadNeeded = true;
 	LOGDEBUG("videorender: %s: reset m_startCounter %d TrickSpeed %d", __FUNCTION__, m_startCounter, GetTrickSpeed());
 }
 
@@ -1232,8 +1214,6 @@ void cVideoRender::Reset()
 	m_framesDuped = 0;
 	m_framesDropped = 0;
 	m_numWrongProgressive = 0;
-
-	m_deintDisabled = m_configDeintDisabled;
 }
 
 /**

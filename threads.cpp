@@ -214,65 +214,37 @@ cFilterThread::~cFilterThread(void)
 }
 
 /**
- * Init the video filter
+ * Init and start the video filter thread
  *
- * @param videoCtx                     codec context
- * @param frame                        AVFrame to take init parameters from
- * @param userDisabledDeinterlacer     true, if the deinterlacer was disabled by the user
- * @param forceDeinterlacerDisabled    true, if deinterlacer shall be forced disabled (trick speed or still picture)
- *
- ** @returns 0           on success
- * @return 1            on failure, filter was not initiated
+ * @param videoCtx               codec context
+ * @param frame                  AVFrame to take init parameters from
+ * @param enableDeinterlacer     true, if the deinterlacer should be used
  */
-int cFilterThread::Init(const AVCodecContext *videoCtx, AVFrame *frame, int userDisabledDeinterlacer, bool forceDeinterlacerDisabled)
+void cFilterThread::InitAndStart(const AVCodecContext *videoCtx, AVFrame *frame, bool enableDeinterlacer)
 {
 	int ret;
 	char args[512];
 	const char *filterDescr = NULL;
 	m_pFilterGraph = avfilter_graph_alloc();
-	if (!m_pFilterGraph) {
-		LOGERROR("filter thread: %s: Cannot alloc filter graph", __FUNCTION__);
-		return -1;
-	}
+	if (!m_pFilterGraph)
+		LOGFATAL("filter thread: %s: Cannot alloc filter graph", __FUNCTION__);
 
 	m_pRender->ClearFramesToFilter();
 	m_filterBug = false;
-	m_filterTrick = false;
-	m_filterStill = false;
-	m_isInterlaceFilter = false;
 
 	const AVFilter *buffersrc  = avfilter_get_by_name("buffer");
 	const AVFilter *buffersink = avfilter_get_by_name("buffersink");
-
-	bool interlaced = m_pRender->IsInterlacedFrame(frame);
-	if (videoCtx->framerate.num > 0) {
-		if (videoCtx->framerate.num / videoCtx->framerate.den > 30)
-			interlaced = false;
-		else
-			interlaced = true;
-	}
-
-	if (videoCtx->codec_id == AV_CODEC_ID_HEVC)
-		interlaced = false;
-
-	if (userDisabledDeinterlacer) {
-		if (interlaced)
-			LOGDEBUG2(L_CODEC, "filter thread: %s: Deinterlacer wanted, but disabled in setup!", __FUNCTION__);
-		interlaced = false;
-	}
 
 	// interlaced and non-trickspeed AV_PIX_FMT_DRM_PRIME (hardware decoded) -> hardware deinterlacer
 	// interlaced and non-trickspeed AV_PIX_FMT_YUV420P (software decoded) -> software deinterlacer
 	// progressive and trickspeed AV_PIX_FMT_YUV420P (software decoded) -> scale filter (for NV12 output)
 	// progressive and trickspeed AV_PIX_FMT_DRM_PRIME (hardware decoded) doesn't get to the FilterHandlerThread
-	if (interlaced && !forceDeinterlacerDisabled) {
+	if (enableDeinterlacer) {
 		if (frame->format == AV_PIX_FMT_DRM_PRIME) {
 			filterDescr = "deinterlace_v4l2m2m";
-			m_isInterlaceFilter = true;
 		} else if (frame->format == AV_PIX_FMT_YUV420P) {
 			filterDescr = "bwdif=1:-1:0";
 			m_filterBug = true;
-			m_isInterlaceFilter = true;
 		}
 	} else if (frame->format == AV_PIX_FMT_YUV420P) {
 		filterDescr = "scale";
@@ -297,41 +269,28 @@ int cFilterThread::Init(const AVCodecContext *videoCtx, AVFrame *frame, int user
 	LOGDEBUG2(L_CODEC, "filter thread: %s: filter=\"%s\" args=\"%s\"", __FUNCTION__, filterDescr, args);
 
 	ret = avfilter_graph_create_filter(&m_pBuffersrcCtx, buffersrc, "in", args, NULL, m_pFilterGraph);
-	if (ret < 0) {
-		LOGERROR("filter thread: %s: Cannot create buffer source (%d)", __FUNCTION__, ret);
-		avfilter_graph_free(&m_pFilterGraph);
-		return -1;
-	}
+	if (ret < 0)
+		LOGFATAL("filter thread: %s: Cannot create buffer source (%d)", __FUNCTION__, ret);
 
 	AVBufferSrcParameters *par = av_buffersrc_parameters_alloc();
 	memset(par, 0, sizeof(*par));
 	par->format = AV_PIX_FMT_NONE;
 	par->hw_frames_ctx = frame->hw_frames_ctx;
 	ret = av_buffersrc_parameters_set(m_pBuffersrcCtx, par);
-	if (ret < 0) {
-		LOGERROR("filter thread: %s: Cannot av_buffersrc_parameters_set (%d)", __FUNCTION__, ret);
-		av_free(par);
-		avfilter_graph_free(&m_pFilterGraph);
-		return -1;
-	}
+	if (ret < 0)
+		LOGFATAL("filter thread: %s: Cannot av_buffersrc_parameters_set (%d)", __FUNCTION__, ret);
 
 	av_free(par);
 
 	ret = avfilter_graph_create_filter(&m_pBuffersinkCtx, buffersink, "out", NULL, NULL, m_pFilterGraph);
-	if (ret < 0) {
-		LOGERROR("filter thread: %s: Cannot create buffer sink (%d)", __FUNCTION__, ret);
-		avfilter_graph_free(&m_pFilterGraph);
-		return -1;
-	}
+	if (ret < 0)
+		LOGFATAL("filter thread: %s: Cannot create buffer sink (%d)", __FUNCTION__, ret);
 
 	if (frame->format != AV_PIX_FMT_DRM_PRIME) {
 		enum AVPixelFormat pixFmts[] = { AV_PIX_FMT_NV12, AV_PIX_FMT_NONE };
 		ret = av_opt_set_int_list(m_pBuffersinkCtx, "pix_fmts", pixFmts, AV_PIX_FMT_NONE, AV_OPT_SEARCH_CHILDREN);
-		if (ret < 0) {
-			LOGERROR("filter thread: %s: Cannot set output pixel format (%d)", __FUNCTION__, ret);
-			avfilter_graph_free(&m_pFilterGraph);
-			return -1;
-		}
+		if (ret < 0)
+			LOGFATAL("filter thread: %s: Cannot set output pixel format (%d)", __FUNCTION__, ret);
 	}
 
 	AVFilterInOut *outputs = avfilter_inout_alloc();
@@ -352,19 +311,14 @@ int cFilterThread::Init(const AVCodecContext *videoCtx, AVFrame *frame, int user
 	avfilter_inout_free(&outputs);
 
 	if (ret < 0) {
-		LOGERROR("filter thread: %s: avfilter_graph_parse_ptr failed (%d)", __FUNCTION__, ret);
-		avfilter_graph_free(&m_pFilterGraph);
-		return -1;
+		LOGFATAL("filter thread: %s: avfilter_graph_parse_ptr failed (%d)", __FUNCTION__, ret);
 	}
 
 	ret = avfilter_graph_config(m_pFilterGraph, NULL);
-	if (ret < 0) {
-		LOGERROR("filter thread: %s: avfilter_graph_config failed (%d)", __FUNCTION__, ret);
-		avfilter_graph_free(&m_pFilterGraph);
-		return -1;
-	}
+	if (ret < 0)
+		LOGFATAL("filter thread: %s: avfilter_graph_config failed (%d)", __FUNCTION__, ret);
 
-	return 0;
+	Start();
 }
 
 void cFilterThread::Action(void)
@@ -470,8 +424,6 @@ void cFilterThread::Stop(void)
 	LOGDEBUG("threads: stopping filter thread");
 	Cancel(2);
 	m_filterBug = false;
-	m_filterTrick = false;
-	m_filterStill = false;
 	m_pRender->ClearFramesToFilter();
 
 	while (!m_frames.Empty()) {

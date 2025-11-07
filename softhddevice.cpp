@@ -818,12 +818,9 @@ void cSoftHdDevice::OnEnteringState(enum State state) {
 
 			if (m_pAudioDecoder && m_audioCodecID != AV_CODEC_ID_NONE)
 				m_newAudioStream = true;
-
-			m_pVideoStream->SetInterlaced(0); // probably not necessary
 			break;
 		case STILL_PICTURE:
 			m_pRender->SetDeinterlacerDeactivated(true);
-			m_pVideoStream->SetStillPicture(true);
 			break;
 	}
 }
@@ -859,7 +856,6 @@ void cSoftHdDevice::OnLeavingState(enum State state) {
 			break;
 		case STILL_PICTURE:
 			m_pRender->SetDeinterlacerDeactivated(false);
-			m_pVideoStream->SetStillPicture(false);
 			break;
 	}
 }

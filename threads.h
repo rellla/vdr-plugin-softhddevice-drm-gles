@@ -103,11 +103,10 @@ class cFilterThread : public cThread
 public:
 	cFilterThread(cVideoRender *);
 	virtual ~cFilterThread(void);
-	int Init(const AVCodecContext *, AVFrame *, int, bool);
+	void InitAndStart(const AVCodecContext *, AVFrame *, bool);
 	void Stop(void);
 	int GetBufferFrameCount(void);
 	bool PushFrame(AVFrame *);
-	bool IsInterlaceFilter(void) { return m_isInterlaceFilter; };
 
 private:
 	cVideoRender *m_pRender;
@@ -116,10 +115,7 @@ private:
 	AVFilterContext *m_pBuffersrcCtx;
 	AVFilterContext *m_pBuffersinkCtx;
 
-	bool m_filterBug;                           ///< flag for a ffmpeg bug
-	bool m_filterTrick;                         ///< the current filter handles trickspeed frames
-	bool m_filterStill;                         ///< the current filter handles stillpicture frames
-	bool m_isInterlaceFilter;                   ///< the current filter is an deinterlace filter
+	bool m_filterBug;                             ///< flag for a ffmpeg bug
 
 	cQueue<AVFrame> m_frames{VIDEO_SURFACES_MAX}; ///< queue for frames to be filtered
 
