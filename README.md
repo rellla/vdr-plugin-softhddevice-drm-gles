@@ -44,11 +44,22 @@ with a zero-copy approach. That's the same for OpenGL/ES OSD.
 
 Supported Hardware:
 -------------------
-- Allwinner
-- Amlogic
-- Raspberry Pi 3/4/5
-- Rockchip
 
+|                 | 576i MPEG2 | 720p H.264 | 1080i H.264 | 1080p HEVC |
+| --------------- | ---------- | ---------- | ----------- | ---------- |
+| Allwinner       | Not tested | Not tested | Not tested  | Not tested |
+| Amlogic         | Not tested | Not tested | Not tested  | Not tested |
+| Raspberry Pi 2  | ❌          | SW         | SW          | SW         |
+| Raspberry Pi 3  | Not tested | Not tested | Not tested  | Not tested |
+| Raspberry Pi 4  | SW         | ✅          | ✅           | ✅          |
+| Raspberry Pi 5  | SW         | SW         | SW          | ✅          |
+| Rockchip RK3399 | ✅          | ✅          | ✅           | ✅          |
+
+✅= Hardware decoding  
+SW = Device does not support hardware decoding. Software decoding is used.  
+❌= Device supports hardware decoding, but it is not implemented in this plugin.  
+
+In general, any device that provides a DRM/KMS output and is supported by FFmpeg should work.
 
 Known Bugs/ TODO:
 -----------------
