@@ -224,7 +224,7 @@ flowchart TD
 
     TrickSpeedDecision --> |Normal Playback|NormalPlaybackFormat{Format?}
     NormalPlaybackFormat --> |__SW decoded__<br/>_YUV420P<br/>interlaced_<br/>RPI 4&5: 576i MPEG2<br/>RPI5: 1080i H.264|FilterThreadSwDeinterlacer
-    NormalPlaybackFormat --> |__SW decoded__<br/>_YUV420P<br/>progressive_<br/>RPI4: 1080p HEVC<br/>RPI5: 1080p H.264|FilterThreadProgressive
+    NormalPlaybackFormat --> |__SW decoded__<br/>_YUV420P<br/>progressive_<br/>RPI4: 1080p HEVC<br/>RPI5: 720p H.264|FilterThreadProgressive
     NormalPlaybackFormat --> |__HW decoded__<br/>_DRM_PRIME<br/>interlaced_<br/>RPI4: 1080i H.264<br/>RPI5: __None__|FilterThreadHwDeinterlacer
     NormalPlaybackFormat --> |__HW decoded__<br/>DRM_PRIME<br/>_progressive_<br/>RPI4: 1080p H.264<br/>RPI5: 1080p HEVC|Display
     FilterThreadSwDeinterlacer --> |NV12<br/>progressive|EnqueueFB
