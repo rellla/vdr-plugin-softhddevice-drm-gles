@@ -12,7 +12,7 @@ PLUGIN = softhddevice-drm-gles
 
 # Source documentation:
 DOXYGEN  ?= /usr/bin/doxygen
-DOXYFILE  = Doxyfile
+DOXYFILE  = doxygen/Doxyfile
 
 # Use OpenGL/ES for OSD? Disable autodetection by setting GLES=1 or GLES=0 with make command
 GLES ?= $(shell pkg-config --exists glesv2 egl gbm && echo 1)
