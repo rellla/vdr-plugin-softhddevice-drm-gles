@@ -103,7 +103,7 @@ class cFilterThread : public cThread
 public:
 	cFilterThread(cVideoRender *);
 	virtual ~cFilterThread(void);
-	int Init(const AVCodecContext *, AVFrame *, int);
+	int Init(const AVCodecContext *, AVFrame *, int, bool);
 	void Stop(void);
 	int GetBufferFrameCount(void);
 	bool PushFrame(AVFrame *);

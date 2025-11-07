@@ -43,6 +43,7 @@ enum State {
 	STOP,
 	PLAY,
 	TRICK_SPEED,
+	STILL_PICTURE
 };
 
 struct PlayEvent {};
@@ -78,6 +79,7 @@ inline const char* StateToString(State s) {
         case State::STOP: return "STOP";
         case State::PLAY: return "PLAY";
         case State::TRICK_SPEED: return "TRICK_SPEED";
+		case State::STILL_PICTURE: return "STILL_PICTURE";
     }
     return "Unknown";
 }

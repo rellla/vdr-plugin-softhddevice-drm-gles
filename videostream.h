@@ -70,6 +70,7 @@ public:
 	size_t GetAvPacketsFilled(void) { return m_packets.Size(); };
 	enum AVCodecID GetCodecId(void) { return m_codecId; };
 	void ResetTrickSpeedFramesSentCounter(void) { m_sentTrickPkts = 0; };
+	void SetStillPicture(bool still) { m_stillPicture = still; };
 
 private:
 	cVideoDecoder *m_pDecoder;             ///< video decoder
@@ -87,8 +88,7 @@ private:
 
 	volatile bool m_newStream;             ///< flag for new stream
 	bool m_interlaced;                     ///< flag for interlaced stream
-	cCondVar m_closeCondition;             ///< condition object to wait for finishing jobs while closing
-	cCondVar m_pauseCondition;             ///< condition object to wait for pausing the stream
+	bool m_stillPicture;                   ///< flag for still picture
 };
 
 #endif

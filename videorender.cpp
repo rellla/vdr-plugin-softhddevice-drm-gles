@@ -514,30 +514,6 @@ void cVideoRender::SetFrameFlags(AVFrame *frame, int flags)
 }
 
 /**
- * Check, if this is a trickspeed frame
- *
- * @param frame    AVFrame
- *
- * @return         true, if this frame is marked as a trickspeed frame
- */
-bool cVideoRender::IsTrickspeedFrame(AVFrame *frame)
-{
-	return GetFrameFlags(frame) & FRAME_FLAG_TRICKSPEED;
-}
-
-/**
- * Check, if this is a stillpicture frame
- *
- * @param frame    AVFrame
- *
- * @return         true, if this frame is marked as a stillpicture frame
- */
-bool cVideoRender::IsStillpictureFrame(AVFrame *frame)
-{
-	return GetFrameFlags(frame) & FRAME_FLAG_STILLPICTURE;
-}
-
-/**
  * Check, if this is an interlaced frame
  *
  * @param frame    AVFrame
@@ -566,43 +542,6 @@ bool cVideoRender::IsKeyFrame(AVFrame *frame)
 	return frame->key_frame;
 #else
 	return frame->flags & AV_FRAME_FLAG_KEY;
-#endif
-}
-
-/**
- * Mark this frame as a trickspeed frame
- *
- * @param frame      AVFrame
- */
-void cVideoRender::MarkAsTrickspeedFrame(AVFrame *frame)
-{
-	SetFrameFlags(frame, FRAME_FLAG_TRICKSPEED);
-	MarkAsProgressiveFrame(frame);
-}
-
-/**
- * Mark this frame as a stillpicture frame
- *
- * @param frame     AVFrame
- */
-void cVideoRender::MarkAsStillpictureFrame(AVFrame *frame)
-{
-	SetFrameFlags(frame, FRAME_FLAG_STILLPICTURE);
-	frame->pts = AV_NOPTS_VALUE;
-	MarkAsProgressiveFrame(frame);
-}
-
-/**
- * Force this frame to be a progressive frame
- *
- * @param frame     AVFrame
- */
-void cVideoRender::MarkAsProgressiveFrame(AVFrame *frame)
-{
-#if LIBAVUTIL_VERSION_INT < AV_VERSION_INT(58,7,100)
-	frame->interlaced_frame = 0;
-#else
-	frame->flags &= ~AV_FRAME_FLAG_INTERLACED;
 #endif
 }
 
@@ -661,7 +600,7 @@ cDrmBuffer *cVideoRender::GetBuffer(AVFrame *frame)
 		return nullptr;
 	}
 
-	buf->SetTrickspeed(IsTrickspeedFrame(frame));
+	buf->SetTrickspeed(GetTrickSpeed());
 
 	return buf;
 }
@@ -807,7 +746,7 @@ void cVideoRender::DisplayFrame(AVFrame *frame)
 		PageFlipVideo(frame, buf);
 
 		if (m_pCurrentlyDisplayed && m_pCurrentlyDisplayed != buf) { // do not destroy the frame, if it is displayed again
-			if (IsTrickspeedFrame(m_pCurrentlyDisplayed->Frame()) || m_destroyCurrentlyDisplayed) {
+			if (GetTrickSpeed() || m_destroyCurrentlyDisplayed) {
 				m_pCurrentlyDisplayed->Destroy();
 
 				m_destroyCurrentlyDisplayed = false;
@@ -1015,7 +954,7 @@ void cVideoRender::EnqueueFB(AVFrame *inframe)
 	AVFrame *frame;
 	int i;
 
-	if (IsTrickspeedFrame(inframe)) {	// if we have trickspeed, always use a free buffer, because its destroyed in DisplayFrame after rendering
+	if (GetTrickSpeed()) {	// if we have trickspeed, always use a free buffer, because its destroyed in DisplayFrame after rendering
 		for (i = 0; i < RENDERBUFFERS; i++) {
 			if (!m_buffer[i].IsDirty())
 				break;
@@ -1080,11 +1019,6 @@ void cVideoRender::EnqueueFB(AVFrame *inframe)
 	frame->sample_aspect_ratio.num = inframe->sample_aspect_ratio.num;
 	frame->sample_aspect_ratio.den = inframe->sample_aspect_ratio.den;
 
-	if (IsTrickspeedFrame(inframe))
-		MarkAsTrickspeedFrame(frame);
-	if (IsStillpictureFrame(inframe))
-		MarkAsStillpictureFrame(frame);
-
 	primedata = (AVDRMFrameDescriptor *)av_mallocz(sizeof(AVDRMFrameDescriptor));
 	primedata->objects[0].fd = buf->FdPrime(0);
 	frame->data[0] = (uint8_t *)primedata;
@@ -1095,7 +1029,7 @@ void cVideoRender::EnqueueFB(AVFrame *inframe)
 	RbPushFrame(frame);
 	FramesRbUnlock();
 
-	if (!(IsTrickspeedFrame(inframe)))
+	if (!GetTrickSpeed())
 		m_enqueueBufferIdx = (m_enqueueBufferIdx + 1) % (VIDEO_SURFACES_MAX + 2);
 
 	av_frame_free(&inframe);
@@ -1126,9 +1060,11 @@ void cVideoRender::RenderFrame(AVCodecContext * videoCtx, AVFrame * frame)
 	}
 
 	bool interlaced = IsInterlacedFrame(frame);
-	// we can't trust frame->interlaced_frame ...
-	// do some tricks in normal playback
-	if (!(IsTrickspeedFrame(frame) || IsStillpictureFrame(frame))) {
+	if (m_deinterlacerDeactivated) {
+		interlaced = false;
+	} else {
+		// we can't trust frame->interlaced_frame ...
+		// do some tricks in normal playback
 
 		// framerate available -> set the interlaced switch depending on the framerate
 		if ((videoCtx->framerate.num > 0) &&
@@ -1165,7 +1101,7 @@ void cVideoRender::RenderFrame(AVCodecContext * videoCtx, AVFrame * frame)
 		// -> put the frame into filter Rb
 		if (!m_pFilterThread->Active()) {
 			LOGDEBUG("videorender: %s: wakeup filter thread", __FUNCTION__);
-			if (m_pFilterThread->Init(videoCtx, frame, m_deintDisabled)) {
+			if (m_pFilterThread->Init(videoCtx, frame, m_deintDisabled, m_deinterlacerDeactivated)) {
 				av_frame_free(&frame);
 				return;
 			} else {

@@ -216,14 +216,15 @@ cFilterThread::~cFilterThread(void)
 /**
  * Init the video filter
  *
- * @param videoCtx      codec context
- * @param frame         AVFrame to take init parameters from
- * @param disabled      true, if deinterlacer is disabled
+ * @param videoCtx                     codec context
+ * @param frame                        AVFrame to take init parameters from
+ * @param userDisabledDeinterlacer     true, if the deinterlacer was disabled by the user
+ * @param forceDeinterlacerDisabled    true, if deinterlacer shall be forced disabled (trick speed or still picture)
  *
- * @returns 0           on success
+ ** @returns 0           on success
  * @return 1            on failure, filter was not initiated
  */
-int cFilterThread::Init(const AVCodecContext *videoCtx, AVFrame *frame, int disabled)
+int cFilterThread::Init(const AVCodecContext *videoCtx, AVFrame *frame, int userDisabledDeinterlacer, bool forceDeinterlacerDisabled)
 {
 	int ret;
 	char args[512];
@@ -254,7 +255,7 @@ int cFilterThread::Init(const AVCodecContext *videoCtx, AVFrame *frame, int disa
 	if (videoCtx->codec_id == AV_CODEC_ID_HEVC)
 		interlaced = false;
 
-	if (disabled) {
+	if (userDisabledDeinterlacer) {
 		if (interlaced)
 			LOGDEBUG2(L_CODEC, "filter thread: %s: Deinterlacer wanted, but disabled in setup!", __FUNCTION__);
 		interlaced = false;
@@ -264,7 +265,7 @@ int cFilterThread::Init(const AVCodecContext *videoCtx, AVFrame *frame, int disa
 	// interlaced and non-trickspeed AV_PIX_FMT_YUV420P (software decoded) -> software deinterlacer
 	// progressive and trickspeed AV_PIX_FMT_YUV420P (software decoded) -> scale filter (for NV12 output)
 	// progressive and trickspeed AV_PIX_FMT_DRM_PRIME (hardware decoded) doesn't get to the FilterHandlerThread
-	if (interlaced && !(m_pRender->IsTrickspeedFrame(frame) || m_pRender->IsStillpictureFrame(frame))) {
+	if (interlaced && !forceDeinterlacerDisabled) {
 		if (frame->format == AV_PIX_FMT_DRM_PRIME) {
 			filterDescr = "deinterlace_v4l2m2m";
 			m_isInterlaceFilter = true;
@@ -275,11 +276,8 @@ int cFilterThread::Init(const AVCodecContext *videoCtx, AVFrame *frame, int disa
 		}
 	} else if (frame->format == AV_PIX_FMT_YUV420P) {
 		filterDescr = "scale";
-		if (m_pRender->IsTrickspeedFrame(frame))
-			m_filterTrick = true;
-		if (m_pRender->IsStillpictureFrame(frame))
-			m_filterStill = true;
-	}
+	} else
+		LOGFATAL("filter thread: %s: Unexpected pixel format: %d", __FUNCTION__, frame->format);
 #if LIBAVFILTER_VERSION_INT < AV_VERSION_INT(7,16,100)
 	avfilter_register_all();
 #endif
@@ -411,12 +409,6 @@ void cFilterThread::Action(void)
 				av_frame_free(&filtFrame);
 				break;
 			}
-
-			// set flag of the filtered frame (scale filter and AV_PIX_FMT_YUV420P)
-			if (m_filterTrick)
-				m_pRender->MarkAsTrickspeedFrame(filtFrame);
-			if (m_filterStill)
-				m_pRender->MarkAsStillpictureFrame(filtFrame);
 
 			// put frame into display queue
 			enqueued = 0;

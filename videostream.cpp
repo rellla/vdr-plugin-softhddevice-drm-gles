@@ -261,8 +261,6 @@ void cVideoStream::DecodeInput(void)
 	// send packet to decoder
 	AVPacket *avpkt = m_packets.Peek();
 
-	bool flushStillPictureImmediately = avpkt == nullptr;
-
 	ret = m_pDecoder->SendPacket(avpkt);
 
 	if (ret != AVERROR(EAGAIN)) {
@@ -281,15 +279,8 @@ void cVideoStream::DecodeInput(void)
 
 	// receive frame from decoder
 	if (!m_newStream) { // this is for mediaplayer?
-		if (m_pDecoder->ReceiveFrame(&frame) == 0) {
-			if (m_pRender->GetTrickSpeed())
-				m_pRender->MarkAsTrickspeedFrame(frame);
-
-			if (flushStillPictureImmediately)
-				m_pRender->MarkAsStillpictureFrame(frame);
-
+		if (m_pDecoder->ReceiveFrame(&frame) == 0)
 			m_pRender->RenderFrame(m_pDecoder->GetContext(), frame);
-		}
 	}
 
 	if (m_pRender->GetTrickSpeed() && ret == AVERROR_EOF) { // needs flush / reopen

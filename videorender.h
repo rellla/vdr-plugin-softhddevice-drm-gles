@@ -69,10 +69,6 @@ extern "C" {
 #define QUIRK_CODEC_DISABLE_MPEG_HW     1 << 4     ///< set, if disable mpeg hardware decoder
 #define QUIRK_CODEC_DISABLE_H264_HW     1 << 5     ///< set, if disable h264 hardware decoder
 
-// frame flags
-#define FRAME_FLAG_TRICKSPEED           1 << 0     ///< mark frame as a trickspeed frame
-#define FRAME_FLAG_STILLPICTURE         1 << 1     ///< mark frame as a stillpicture frame
-
 class cDrmDevice;
 
 /**
@@ -100,6 +96,8 @@ public:
 	void Reset();
 	void SetPlaybackPaused(bool pause) { m_playbackPaused = pause; };
 	bool IsPlaybackPaused(void) { return m_playbackPaused; };
+	void SetDeinterlacerDeactivated(bool deactivate) { m_deinterlacerDeactivated = deactivate; };
+	bool IsDeinterlacerDeactivated(void) { return m_deinterlacerDeactivated; };
 
 	// OSD
 	void OsdClear(void);
@@ -144,12 +142,8 @@ public:
 	AVFrame *RbGetFrame(void);
 	void FramesRbLock(void);
 	void FramesRbUnlock(void);
-	bool IsTrickspeedFrame(AVFrame *);
-	bool IsStillpictureFrame(AVFrame *);
 	bool IsInterlacedFrame(AVFrame *);
 	bool IsKeyFrame(AVFrame *);
-	void MarkAsTrickspeedFrame(AVFrame *);
-	void MarkAsStillpictureFrame(AVFrame *);
 	void ScheduleDisplayBlackFrame(void) { m_displayBlackFrame = true; };
 	void DestroyFrameBuffers(void);
 	void ClearDecoderToDisplayQueue(void);
@@ -197,6 +191,7 @@ private:
 	                                    ///< That way, we don't change the current render pipeline (RenderFrame())
 	int m_numWrongProgressive;          ///< counter for progressive frames sent in an interlaced stream
 	                                    ///< (only used for logging)
+	bool m_deinterlacerDeactivated;		///< set, if the deinterlacer shall be deactivated temporarily (used for trick speed and still picture)
 
 	bool m_disableOglOsd;               ///< set, if ogl osd is disabled
 
@@ -235,7 +230,6 @@ private:
 #endif
 	int GetFrameFlags(AVFrame *);
 	void SetFrameFlags(AVFrame *, int);
-	void MarkAsProgressiveFrame(AVFrame *);
 	void SetVideoClock(int64_t);
 	bool ShouldWaitForAudio(void);
 	void WaitForAudioReady(int64_t, int64_t);

@@ -757,6 +757,24 @@ void cSoftHdDevice::OnEventReceived(const Event& event) {
 				 },
 			}, event);
 			break;
+		case State::STILL_PICTURE:
+			std::visit(overload{
+				[this](const PlayEvent&) {
+					SetState(PLAY);
+				},
+				[&invalid](const PauseEvent&) { invalid(); },
+				[this](const StopEvent&) {
+					SetState(STOP);
+				},
+				[this](const TrickSpeedEvent& t) {
+					m_pRender->SetTrickSpeed(t.speed, t.forward);
+					SetState(TRICK_SPEED);
+				},
+				[this](const StillPictureEvent& s) {
+					HandleStillPicture(s.data, s.size);
+				 },
+			}, event);
+			break;
 	}
 
 	m_pRender->DecodingThreadResume();
@@ -778,8 +796,11 @@ void cSoftHdDevice::OnEnteringState(enum State state) {
 			m_pRender->SetPlaybackPaused(false);
 			break;
 		case TRICK_SPEED:
-			m_pAudio->Pause();
+			// The filter thread needs to be restarted for interlaced streams to be rendered without deinterlacer in trick speed mode. It is started lazily.
+			m_pRender->CancelFilterThread();
 			m_pRender->SetPlaybackPaused(false);
+			m_pRender->SetDeinterlacerDeactivated(true);
+			m_pAudio->Pause();
 			break;
 		case STOP:
 			m_pRender->CancelFilterThread();
@@ -800,6 +821,10 @@ void cSoftHdDevice::OnEnteringState(enum State state) {
 
 			m_pVideoStream->SetInterlaced(0); // probably not necessary
 			break;
+		case STILL_PICTURE:
+			m_pRender->SetDeinterlacerDeactivated(true);
+			m_pVideoStream->SetStillPicture(true);
+			break;
 	}
 }
 
@@ -817,23 +842,24 @@ void cSoftHdDevice::OnLeavingState(enum State state) {
 			// nothing
 			break;
 		case TRICK_SPEED:
-			// In case we get a play in slow forward, we need to restart the filter thread.
-			// Because trickspeed doesn't do deinterlacing but can use the scale filter
-			// we need to stop the filter here, to get the deinterlace filter started in normal
-			// playback.
-			if (m_pRender->GetTrickForward())
-				m_pRender->CancelFilterThread(); // filter thread is restarted lazily
+			// The filter thread needs to be restarted for interlaced streams to be rendered with deinterlacer again. It is started lazily.
+			m_pRender->CancelFilterThread();
 
 			m_pRender->DestroyFrameBuffers();
 
 			m_pRender->SetTrickSpeed(0, 1);
 			m_pRender->ResetFrameCounter();
+			m_pRender->SetDeinterlacerDeactivated(false);
 			m_pVideoStream->ResetTrickSpeedFramesSentCounter();
 
 			m_pAudio->Resume();
 			break;
 		case STOP:
 			// nothing
+			break;
+		case STILL_PICTURE:
+			m_pRender->SetDeinterlacerDeactivated(false);
+			m_pVideoStream->SetStillPicture(false);
 			break;
 	}
 }
@@ -1001,6 +1027,8 @@ void cSoftHdDevice::StillPicture(const uchar *data, int size)
  */
 void cSoftHdDevice::HandleStillPicture(const uchar *data, int size)
 {
+	SetState(STILL_PICTURE);
+
 	const uchar *currentPacketStart = data;
 	while (currentPacketStart < data + size) {
 		cPesVideo pesPacket((const uint8_t*)currentPacketStart, size - (currentPacketStart - data));
