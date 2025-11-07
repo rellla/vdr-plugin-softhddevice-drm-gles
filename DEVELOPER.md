@@ -218,7 +218,6 @@ flowchart TD
     TrickSpeedDecision --> |Trick Speed|TrickSpeedFormat{Format?}
     TrickSpeedFormat --> |__SW decoded__<br/>YUV420P<br/>_progressive or interlaced_<br/>RPI 4&5: 576i MPEG2<br/>RPI4: 1080p HEVC<br/>RPI5: 1080i H.264<br/>RK3399: __None__|FilterThreadForceProgressive
     TrickSpeedFormat --> |__HW decoded__<br/>DRM_PRIME<br/>_progressive or interlaced_<br/>RPI4: 1080i H.264<br/>RPI5: 1080p HEVC<br/>RK3399: all|Display
-    TrickSpeedFormat --> |__HW decoded__<br/>NV12<br/>_progressive or interlaced_<br/>Not used in practice?|EnqueueFB
     EnqueueFB --> |DRM_PRIME<br/>progressive or interlaced|Display
     FilterThreadForceProgressive --> |NV12<br/>progressive or interlaced|EnqueueFB
 
