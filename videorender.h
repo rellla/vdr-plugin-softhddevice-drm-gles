@@ -189,7 +189,7 @@ private:
 	                                    ///< That way, we don't change the current render pipeline (RenderFrame())
 	int m_numWrongProgressive;          ///< counter for progressive frames sent in an interlaced stream
 	                                    ///< (only used for logging)
-	bool m_deinterlacerDeactivated;		///< set, if the deinterlacer shall be deactivated temporarily (used for trick speed and still picture)
+	bool m_deinterlacerDeactivated = false; ///< set, if the deinterlacer shall be deactivated temporarily (used for trick speed and still picture)
 	bool m_checkFilterThreadNeeded;     ///< set, if we have to check, if filter thread is needed at start of playback
 
 	bool m_disableOglOsd;               ///< set, if ogl osd is disabled
