@@ -301,13 +301,16 @@ void cVideoStream::SetInterlaced(bool interlaced)
 }
 
 /**
- * Set the timebase for the stream
+ * Open a video codec
  *
- * @param num       timbase numerator
- * @param den       timebase denumerator
+ * @param codecId       video codec id
+ * @param par           video codec parameters
+ * @param timebase      timebase
  */
-void cVideoStream::SetTimebase(int num, int den)
-{
-	m_timebase.num = num;
-	m_timebase.den = den;
+void cVideoStream::Open(AVCodecID codecId, AVCodecParameters *par, AVRational timebase) {
+	m_newStream = true;
+	m_trickpkts = codecId == AV_CODEC_ID_MPEG2VIDEO ? 1 : 2;
+	m_timebase = timebase;
+	m_codecId = codecId;
+	m_pPar = par;
 }

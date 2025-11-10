@@ -46,7 +46,7 @@ public:
 	cVideoStream(cSoftHdDevice *);
 	virtual ~cVideoStream(void);
 
-	void Open(void) { m_newStream = true; };
+	void Open(AVCodecID, AVCodecParameters * = nullptr, AVRational = { .num = 1, .den = 90000 });
 	void Exit(void);
 	void ClearVdrCoreToDecoderQueue(void);
 	void FlushDecoder(void);
@@ -61,10 +61,6 @@ public:
 	// getters and setters
 	cVideoDecoder *Decoder(void) { return m_pDecoder; };
 	void StartDecoder(cVideoDecoder *decoder);
-	void SetCodecId(enum AVCodecID id) { m_codecId = id; };
-	void SetParameters(AVCodecParameters *par) { m_pPar = par; };
-	void SetTimebase(int, int);
-	void SetTrickpkts(int pkts) { m_trickpkts = pkts; };
 	void SetInterlaced(bool interlaced);
 	bool IsInterlaced(void) { return m_interlaced; };
 	size_t GetAvPacketsFilled(void) { return m_packets.Size(); };

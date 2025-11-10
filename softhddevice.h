@@ -189,8 +189,8 @@ public:
 	void GetStats(int *, int *, int *);
 
 	// Mediaplayer
-	void SetAudioCodec(enum AVCodecID, AVCodecParameters *, AVRational *);
-	void SetVideoCodec(enum AVCodecID, AVCodecParameters *, AVRational *);
+	void SetAudioCodec(enum AVCodecID, AVCodecParameters *, AVRational);
+	void SetVideoCodec(enum AVCodecID, AVCodecParameters *, AVRational);
 	int PlayAudioPkts(AVPacket *);
 	int PlayVideoPkts(AVPacket *);
 
@@ -210,7 +210,6 @@ private:
 
 	AVPacket *m_pAudioAvPkt;         ///< pointer to current audio AVPacket
 
-	enum AVCodecID m_audioCodecID;   ///< pointer to current audio AVPacket
 	int m_audioChannelID;            ///< current audio channel ID
 	volatile bool m_newAudioStream;  ///< set, if we a new audio stream arrived
 	int m_videoAudioDelay;           ///< audio/video delay set via setup menu
@@ -219,7 +218,6 @@ private:
 
 	void ClearAudio(void);
 	void Exit(void);
-	int PesHeadLength(const uint8_t *);
 	void OnEventReceived(const Event&);
 	void HandlePause(void);
 	void HandleStillPicture(const uchar *data, int size);

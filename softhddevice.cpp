@@ -705,6 +705,7 @@ void cSoftHdDevice::OnEventReceived(const Event& event) {
 		case State::STOP:
 			std::visit(overload{
 				[this](const PlayEvent&) {
+					m_pAudio->LazyInit();
 					SetState(PLAY);
 					m_pRender->ResetFrameCounter();
 				},
@@ -815,9 +816,6 @@ void cSoftHdDevice::OnEnteringState(enum State state) {
 
 			m_pAudio->Resume();
 			ClearAudio();
-
-			if (m_pAudioDecoder && m_audioCodecID != AV_CODEC_ID_NONE)
-				m_newAudioStream = true;
 			break;
 		case STILL_PICTURE:
 			m_pRender->SetDeinterlacerDeactivated(true);
@@ -1164,6 +1162,43 @@ void cSoftHdDevice::GetOsdSize(int &width, int &height, double &aspectRatio)
 }
 
 /**
+ * Print the start code, stream id, length, first three bytes (start code) of the payload, and the following 16 bytes of the codec payload.
+ *
+ * @param data        pointer to stream data
+ * @param offset      print from here
+ */
+static void PrintStreamData(const uchar *payload)
+{
+	LOGDEBUG2(L_CODEC, "Stream: %02X%02X%02X | %02X | %02X%02X | %02X%02X%02X | %02X%02X%02X%02X %02X%02X%02X%02X %02X%02X%02X%02X %02X%02X%02X%02X",
+		payload[0],
+		payload[1],
+		payload[2],
+		payload[3],
+		payload[4],
+		payload[5],
+		payload[6],
+		payload[7],
+		payload[8],
+		payload[9],
+		payload[10],
+		payload[11],
+		payload[12],
+		payload[13],
+		payload[14],
+		payload[15],
+		payload[16],
+		payload[17],
+		payload[18],
+		payload[19],
+		payload[20],
+		payload[21],
+		payload[22],
+		payload[23],
+		payload[24]
+	);
+}
+
+/**
  * Play an audio packet
  *
  * @param data   data of exactly one complete PES packet
@@ -1384,53 +1419,6 @@ void cSoftHdDevice::SetVolumeDevice(int volume)
 {
 	LOGDEBUG("device: %s: %d", __FUNCTION__, volume);
 	m_pAudio->SetVolume((volume * 1000) / 255);
-}
-
-/**
- * Read the PES header length from PES header.
- *
- * @returns length
- */
-int cSoftHdDevice::PesHeadLength(const uint8_t *p)
-{
-  return 9 + p[8];
-}
-
-/**
- * Print the start code, stream id, length, first three bytes (start code) of the payload, and the following 16 bytes of the codec payload.
- *
- * @param data        pointer to stream data
- * @param offset      print from here
- */
-static void PrintStreamData(const uchar *payload)
-{
-	LOGDEBUG2(L_CODEC, "Stream: %02X%02X%02X | %02X | %02X%02X | %02X%02X%02X | %02X%02X%02X%02X %02X%02X%02X%02X %02X%02X%02X%02X %02X%02X%02X%02X",
-		payload[0],
-		payload[1],
-		payload[2],
-		payload[3],
-		payload[4],
-		payload[5],
-		payload[6],
-		payload[7],
-		payload[8],
-		payload[9],
-		payload[10],
-		payload[11],
-		payload[12],
-		payload[13],
-		payload[14],
-		payload[15],
-		payload[16],
-		payload[17],
-		payload[18],
-		payload[19],
-		payload[20],
-		payload[21],
-		payload[22],
-		payload[23],
-		payload[24]
-	);
 }
 
 /**
@@ -1843,7 +1831,7 @@ void cSoftHdDevice::GetStats(int *duped, int *dropped, int *counter)
  * @param par           audio codec parameters
  * @param timebase      timebase
  */
-void cSoftHdDevice::SetAudioCodec(enum AVCodecID codecId, AVCodecParameters * par, AVRational * timebase)
+void cSoftHdDevice::SetAudioCodec(enum AVCodecID codecId, AVCodecParameters * par, AVRational timebase)
 {
 	m_pAudioDecoder->Open(codecId, par, timebase);
 }
@@ -1855,12 +1843,9 @@ void cSoftHdDevice::SetAudioCodec(enum AVCodecID codecId, AVCodecParameters * pa
  * @param par           video codec parameters
  * @param timebase      timebase
  */
-void cSoftHdDevice::SetVideoCodec(enum AVCodecID codecId, AVCodecParameters * par, AVRational * timebase)
+void cSoftHdDevice::SetVideoCodec(enum AVCodecID codecId, AVCodecParameters * par, AVRational timebase)
 {
-	m_pVideoStream->SetCodecId(codecId);
-	m_pVideoStream->Open();
-	m_pVideoStream->SetParameters(par);
-	m_pVideoStream->SetTimebase(timebase->den, timebase->num);
+	m_pVideoStream->Open(codecId, par, timebase);
 }
 
 /**

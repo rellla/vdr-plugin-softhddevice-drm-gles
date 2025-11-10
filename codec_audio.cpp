@@ -76,9 +76,11 @@ cAudioDecoder::~cAudioDecoder(void)
  * @param par           audio codec parameters
  * @param timebase      timebase
  */
-void cAudioDecoder::Open(enum AVCodecID codecId, AVCodecParameters *par, AVRational *timebase)
+void cAudioDecoder::Open(AVCodecID codecId, AVCodecParameters *par, AVRational timebase)
 {
 	const AVCodec *codec;
+
+	m_codecId = codecId;
 
 	// FIXME: errors shouldn't be fatal, maybe just disable audio
 	if (codecId == AV_CODEC_ID_AC3) {
@@ -99,8 +101,7 @@ void cAudioDecoder::Open(enum AVCodecID codecId, AVCodecParameters *par, AVRatio
 	if (!(m_pAudioCtx = avcodec_alloc_context3(codec)))
 		LOGFATAL("audiocodec: %s: can't allocate audio codec context", __FUNCTION__);
 
-	m_pAudioCtx->pkt_timebase.num = timebase->num;
-	m_pAudioCtx->pkt_timebase.den = timebase->den;
+	m_pAudioCtx->pkt_timebase = timebase;
 
 	if (par && ((avcodec_parameters_to_context(m_pAudioCtx, par)) < 0))
 		LOGERROR("audiocodec: %s: insert parameters to context failed!", __FUNCTION__);
@@ -125,6 +126,8 @@ void cAudioDecoder::Close(void)
 	LOGDEBUG2(L_CODEC, "audiocodec: %s", __FUNCTION__);
 	if (m_pAudioCtx)
 		avcodec_free_context(&m_pAudioCtx);
+
+	m_codecId = AV_CODEC_ID_NONE;
 }
 
 /**

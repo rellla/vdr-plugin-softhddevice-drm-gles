@@ -75,15 +75,17 @@ class cAudioDecoder {
 public:
 	cAudioDecoder(cSoftHdAudio *);
 	virtual ~cAudioDecoder(void);
-	void Open(enum AVCodecID, AVCodecParameters *, AVRational *);
+	void Open(AVCodecID, AVCodecParameters * = nullptr, AVRational = { .num = 1, .den = 90000 });
 	void Close(void);
 	void Decode(const AVPacket *);
 	void FlushBuffers(void);
 	void SetPassthrough(int);
+	AVCodecID GetCodecId() const { return m_codecId; };
 
 private:
 	cSoftHdAudio *m_pAudio;                     ///< audio module
 	AVCodecContext *m_pAudioCtx;                ///< ffmpeg audio codec context
+	AVCodecID m_codecId = AV_CODEC_ID_NONE;     ///< current codec id
 	AVFrame *m_pFrame;                          ///< decoded ffmpeg audio frame
 	int64_t m_lastPts;                          ///< last seen PTS
 	int64_t m_initialAvpktPts;                  ///< PTS of the first valid avpkt

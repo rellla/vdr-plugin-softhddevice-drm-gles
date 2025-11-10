@@ -218,7 +218,7 @@ void cSoftHdPlayer::Player(const char *url)
 	for (unsigned int i = 0; i < format->nb_streams; i++) {
 		if (format->streams[i]->codecpar->codec_type == AVMEDIA_TYPE_AUDIO) {
 			m_pDevice->SetAudioCodec(format->streams[i]->codecpar->codec_id,
-				format->streams[i]->codecpar, &format->streams[i]->time_base);
+				format->streams[i]->codecpar, format->streams[i]->time_base);
 			audio_stream_index = jump_stream_index = i;
 			break;
 		}
@@ -232,7 +232,7 @@ void cSoftHdPlayer::Player(const char *url)
 	} else {
 		m_pDevice->SetVideoCodec(video_codec->id,
 			format->streams[video_stream_index]->codecpar,
-			&format->streams[video_stream_index]->time_base);
+			format->streams[video_stream_index]->time_base);
 		jump_stream_index = video_stream_index;
 	}
 
