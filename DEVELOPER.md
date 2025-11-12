@@ -249,3 +249,43 @@ When managing the VDR states (play/pause/trick speed/...), the following paradig
 - What should happen in which state is also handled in a single and central location. Therefore, VDR's state is tracked in a variable. When one of PlayMode()/Freeze()/Clear()/... are invoked (I call it "events"), they are handled according to in which state VDR is currently in (play/stop/trickspeed). So, you can clearly see in the code, what happens in a particular state, when a specific event is received. The state transitions are handled in cSoftHdDevice::OnEventReceived() and what shall be done when entering or leaving a state is done in cSoftHdDevice::OnEnteringState()/cSoftHdDevice::OnLeavingState().
 
 This was introduced in PR #91.
+
+## Audio/Video Packet Fragmentation Reassembly
+
+The following facts were observed when playing PES streams (live or recorded):
+
+- Video (MPEG2, H.264, HEVC)
+  - A PES packet contains at most one frame (not necessarily a complete one).
+  - A frame can be fragmented across two PES packets (only 1080p HEVC and 720p H.264, not 576i MPEG2).
+  - A frame always starts at the beginning of a PES packet.
+  - A PES packet has only a PTS value when it starts with a new frame.
+- Audio (MP2, AC-3, E-AC-3, LATM/LOAS, ADTS)
+  - A PES packet can contain multiple frames (six were seen with MP2).
+  - A frame can be fragmented across two PES packets (seen with LATM/LOAS, not with MP2).
+  - An MP2 frame always starts at the beginning of a PES packet.
+  - An LATM/LOAS frame normally does not start at the beginning of a PES packet.
+  - There is max one LATM/LOAS frame in a PES packet.
+
+Basically audio and video can use the same reassembly strategy, but audio needs to determine the frame length by reading the codec header.
+To avoid this complexity for video frame reassembly, two different approaches are implemented.
+
+### Video Packet Reassembly
+
+The payload of video PES packets is stored in a fragmentation buffer, when the received PES packet comes without PTS value.
+When a PES packet with a PTS value arrives (meaning there is a new frame at the start of the PES packet), the current content of the fragmentation buffer is finalized and sent to the decoder.
+The *last* received PTS value is used for this frame.
+After clearing the fragmentation buffer, the PES packet's payload is stored in the now empty fragmentation buffer, and the cycle continues.
+
+### Audio Packet Reassembly
+
+Because LATM/LOAS frames (and maybe others) are normally not aligned to PES packet boundaries, the codec's sync word (every codec frame starts with a sync word of usually 11-16 bits) needs to be found in the data.
+
+The challenge is that the codec payload itself can also contain the sync word.
+Therefore, it's not sufficient to just search for the sync word, but the codec frame structure needs to be parsed to determine whether it's the sync word or just some random data in the middle of a codec payload.
+Every above-mentioned codec header contains the length of its payload.
+After the payload, another frame follows immediately in the data stream, again, starting with the sync word.
+If the second sync word is found at the expected position, we can be pretty sure that the parsed header and its length information are correct.
+Then, the frame with the first sync word is sent to the decoder, followed by the frame with the second sync word, and so on.
+
+This synchronization mechanism is only done when a stream starts, or when the data after a frame does not start with the sync word.
+The latter can happen for example on bad reception when garbage is received.

@@ -79,8 +79,4 @@ static inline const char *Timestamp2String(int64_t ts, uint8_t divisor)
 	return buf[idx];
 }
 
-extern "C" {
-AVPacket *CreateAvPacket(const uint8_t *data, int size, int64_t pts);
-}
-
 #endif

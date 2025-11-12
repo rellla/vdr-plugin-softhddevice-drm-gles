@@ -36,6 +36,10 @@ extern "C"
 #include "audio.h"
 #include "videorender.h"
 
+#if __cplusplus < 201703L
+#error "C++17 or higher is required"
+#endif
+
 // State machine definitions
 // Implementing C++17 visitor pattern
 
@@ -207,11 +211,10 @@ private:
 	cVideoStream *m_pVideoStream;    ///< pointer to cVideoStream object
 	cSoftHdAudio *m_pAudio;          ///< pointer to cSoftHdAudio object
 	cAudioDecoder *m_pAudioDecoder;  ///< pointer to cAudioDecoder object
-
-	AVPacket *m_pAudioAvPkt;         ///< pointer to current audio AVPacket
+	cReassemblyBufferVideo m_videoReassemblyBuffer; ///< video pes reassembly buffer
+	cReassemblyBufferAudio m_audioReassemblyBuffer; ///< audio pes reassembly buffer
 
 	int m_audioChannelID;            ///< current audio channel ID
-	volatile bool m_newAudioStream;  ///< set, if we a new audio stream arrived
 	int m_videoAudioDelay;           ///< audio/video delay set via setup menu
 	bool m_grabActive;               ///< simple lock variable
 	                                 ///< skips a new grab request if the last one is still active

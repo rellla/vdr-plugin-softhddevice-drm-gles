@@ -85,37 +85,6 @@ cVideoStream::~cVideoStream(void)
 }
 
 /**
- * Pushes a PES packet to the processing queue. The packet may have a fragmented payload.
- *
- * @param pesPacket    PES packet to push
- */
-void cVideoStream::PushPesPacket(cPes *pesPacket)
-{
-	if (pesPacket->HasPts()) {
-		// Received the first fragment of the upcoming codec packet.
-		if (!m_currentCodecPacket.empty())
-			FinishFragmentationBuffer(); // Push the buffered PES fragments as one reassembled codec packet to the next stage.
-
-		m_currentPacketPts = pesPacket->GetPts();
-	}
-
-	// buffer the payload of the just received PES packet in the fragmentation buffer
-	m_currentCodecPacket.insert(m_currentCodecPacket.end(), pesPacket->GetPayload(), pesPacket->GetPayload() + pesPacket->GetPayloadSize());
-}
-
-/**
- * Finishes the fragmentation buffer by creating an AVPacket from accumulated PES fragments.
- *
- * This function takes all PES packet fragments that have been buffered in m_currentCodecPacket,
- * creates a complete AVPacket from them, and pushes it to the processing queue.
- * The fragmentation buffer is then cleared for the next codec packet.
- */
-void cVideoStream::FinishFragmentationBuffer(void) {
-	m_packets.Push(CreateAvPacket(m_currentCodecPacket.data(), m_currentCodecPacket.size(), m_currentPacketPts));
-	m_currentCodecPacket.clear();
-}
-
-/**
  * Flushes the video stream by finalizing any pending data.
  *
  * This function completes processing of any remaining PES fragments in the fragmentation
@@ -123,15 +92,7 @@ void cVideoStream::FinishFragmentationBuffer(void) {
  */
 void cVideoStream::Flush(void)
 {
-	FinishFragmentationBuffer();
 	m_packets.Push(nullptr);
-}
-
-/**
- * Resets the fragmentation buffer by discarding all accumulated PES fragments.
- */
-void cVideoStream::ResetFragmentationBuffer(void) {
-	m_currentCodecPacket.clear();
 }
 
 /**
@@ -176,8 +137,6 @@ void cVideoStream::ClearVdrCoreToDecoderQueue(void)
 		AVPacket *avpkt = m_packets.Pop();
 		av_packet_free(&avpkt);
 	}
-
-	ResetFragmentationBuffer();
 }
 
 /**

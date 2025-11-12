@@ -128,6 +128,7 @@ void cAudioDecoder::Close(void)
 		avcodec_free_context(&m_pAudioCtx);
 
 	m_codecId = AV_CODEC_ID_NONE;
+	m_lastPts = AV_NOPTS_VALUE;
 }
 
 /**
@@ -429,6 +430,7 @@ void cAudioDecoder::FlushBuffers(void)
 		avcodec_flush_buffers(m_pAudioCtx);
 
 	m_lastPts = AV_NOPTS_VALUE;
+	m_codecId = AV_CODEC_ID_NONE;
 }
 
 /**
