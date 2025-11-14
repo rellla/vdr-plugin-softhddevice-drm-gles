@@ -1,5 +1,5 @@
 /**
- * @file softosd.cpp
+ * @file softhdosd.cpp
  * Osd class
  *
  * This file provides cSoftOsd which is the software accelerated

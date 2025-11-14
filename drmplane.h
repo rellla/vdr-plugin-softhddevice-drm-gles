@@ -1,5 +1,5 @@
 /**
- * @file plane.h
+ * @file drmplane.h
  * DRM plane class header
  *
  * @copyright (c) 2018 by zille.  All Rights Reserved.

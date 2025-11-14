@@ -1,5 +1,5 @@
 /**
- * @file plane.h
+ * @file drmplane.cpp
  * DRM plane class
  *
  * This file defines cDrmPlane, which is a class to describe

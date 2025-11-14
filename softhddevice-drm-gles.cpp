@@ -1,5 +1,5 @@
 /**
- * @file softhddevice.cpp
+ * @file softhddevice-drm-gles.cpp
  * Main plugin class
  *
  * This file defines cPluginSoftHdDevice, which is the main class
@@ -65,7 +65,7 @@ static const char *const DESCRIPTION = trNOOP("A software and GPU emulated HD de
                                                ///< vdr-plugin description.
 
 static const char *const MAINMENUENTRY = trNOOP("SHD Media Player");
-                                               /// what is displayed in the main menu entry
+                                               ///< what is displayed in the main menu entry
 
 /*****************************************************************************
  * cPluginSoftHdDevice

@@ -1,5 +1,5 @@
 /**
- * @file softhdconfig.cpp
+ * @file config.cpp
  * SoftHdDevice config class
  *
  * This file defines cSoftHdConfig, which is used to keep all

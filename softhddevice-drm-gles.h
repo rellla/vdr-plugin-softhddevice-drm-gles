@@ -1,5 +1,5 @@
 /**
- * @file softhddevice.h
+ * @file softhddevice-drm-gles.h
  * Main plugin class header file
  *
  * @copyright (c) 2011, 2014 by Johns.  All Rights Reserved.
