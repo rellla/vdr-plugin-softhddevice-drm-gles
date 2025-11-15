@@ -33,9 +33,9 @@ extern "C" {
 #include <libavcodec/bsf.h>
 #include <libavutil/opt.h>
 #include <libavutil/pixdesc.h>
+}
 
 #include "misc.h"
-}
 
 #include <vdr/thread.h>
 

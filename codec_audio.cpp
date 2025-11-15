@@ -28,9 +28,9 @@
 
 extern "C" {
 #include <libavcodec/avcodec.h>
+}
 
 #include "misc.h"
-}
 
 #include "audio.h"
 #include "codec_audio.h"

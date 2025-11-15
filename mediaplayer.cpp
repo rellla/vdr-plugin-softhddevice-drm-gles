@@ -45,9 +45,9 @@ extern "C"
 {
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
+}
 
 #include "misc.h"
-}
 
 #include "videostream.h"
 #include "audio.h"

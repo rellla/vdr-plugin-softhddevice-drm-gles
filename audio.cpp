@@ -39,9 +39,9 @@ extern "C"
 #include <libavfilter/buffersrc.h>
 #include <libavutil/channel_layout.h>
 #include <libavutil/opt.h>
+}
 
 #include "misc.h"
-}
 
 #include "iatomic.h"
 

@@ -54,9 +54,9 @@ extern "C" {
 #include <libavfilter/buffersink.h>
 #include <libavfilter/buffersrc.h>
 #include <libavutil/opt.h>
+}
 
 #include "misc.h"
-}
 #include "buf2rgb.h"
 
 //#include "videorender.h"
