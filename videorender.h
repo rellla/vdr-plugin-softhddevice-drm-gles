@@ -134,7 +134,6 @@ public:
 	void FramesRbLock(void);
 	void FramesRbUnlock(void);
 	bool IsInterlacedFrame(AVFrame *);
-	bool IsKeyFrame(AVFrame *);
 	void ScheduleDisplayBlackFrame(void) { m_displayBlackFrame = true; };
 	void DestroyFrameBuffers(void);
 	void ClearDecoderToDisplayQueue(void);

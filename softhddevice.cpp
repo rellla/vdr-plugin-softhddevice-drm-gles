@@ -202,7 +202,7 @@ void cSoftHdDevice::Start(void)
 	m_pVideoStream = new cVideoStream(this);
 	m_pAudioDecoder = new cAudioDecoder(m_pAudio);
 	m_pRender->Init(); // starts display thread
-	m_pVideoStream->StartDecoder(new cVideoDecoder(m_pRender)); // start decoding thread
+	m_pVideoStream->StartDecoder(new cVideoDecoder(m_pRender->HardwareQuirks())); // starts decoding thread
 	// Audio is init lazily (includes starting thread)
 
 	m_started = true;

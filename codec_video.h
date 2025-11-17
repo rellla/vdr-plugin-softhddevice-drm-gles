@@ -22,21 +22,18 @@
 #define __CODEC_VIDEO_H
 
 #include <pthread.h>
+#include <vdr/thread.h>
 
 extern "C" {
 #include <libavcodec/avcodec.h>
 }
-
-#include "videorender.h"
-
-class cVideoRender;
 
 /**
  * cVideoDecoder - VideoDecoder class
  */
 class cVideoDecoder {
 public:
-	cVideoDecoder(cVideoRender *);
+	cVideoDecoder(int);
 	virtual ~cVideoDecoder(void);
 	int Open(enum AVCodecID, AVCodecParameters *, AVRational *, int, int, int);
 	void Close(void);
@@ -48,7 +45,6 @@ public:
 	AVCodecContext *GetContext(void) { return m_pVideoCtx; };
 
 private:
-	cVideoRender *m_pRender;                ///< video renderer
 	AVCodecContext *m_pVideoCtx = nullptr;  ///< video codec context
 	cMutex m_mutex;                         ///< mutex to lock codec context (TODO: is this needed?)
 	int m_cntPacketsSent;                   ///< number of packets sent to decoder
@@ -58,8 +54,11 @@ private:
 	                                        ///< in ReceiveFrame() before sending them to the renderer)
 	int m_lastCodedWidth;                   ///< save coded width while closing for a directly reopen
 	int m_lastCodedHeight;                  ///< save coded height while closing for a directly reopen
+	int m_hardwareQuirks;                   ///< hardware specific quirks needed for decoder
 
 	int GetExtraData(const AVPacket *);
+	bool IsKeyFrame(AVFrame *);
+	bool IsInterlacedFrame(AVFrame *);
 };
 
 #endif

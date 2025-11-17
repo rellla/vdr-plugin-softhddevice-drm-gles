@@ -37,6 +37,8 @@ extern "C" {
 #include "misc.h"
 }
 
+#include <vdr/thread.h>
+
 #include "buf2rgb.h"
 #include "codec_video.h"
 #include "videorender.h"
@@ -179,12 +181,12 @@ static const AVCodec *FindDecoder(enum AVCodecID codecId, int forceSoftwareDecod
 /**
  * cVideoDecoder constructor
  *
- * @param render     pointer to cVideoRender object
+ * @param hardwareQuirks     hardware specific quirks for decoder
  */
-cVideoDecoder::cVideoDecoder(cVideoRender *render)
+cVideoDecoder::cVideoDecoder(int hardwareQuirks)
 {
 	m_pVideoCtx = nullptr;
-	m_pRender = render;
+	m_hardwareQuirks = hardwareQuirks;
 
 	av_log_set_callback(CodecLogCallback);
 
@@ -225,9 +227,9 @@ int cVideoDecoder::Open(enum AVCodecID codecId, AVCodecParameters * par,
 
 	int swcodec = forceSoftwareDecoder;
 
-	if ((m_pRender->HardwareQuirks() & QUIRK_CODEC_DISABLE_MPEG_HW && codecId == AV_CODEC_ID_MPEG2VIDEO))
+	if ((m_hardwareQuirks & QUIRK_CODEC_DISABLE_MPEG_HW && codecId == AV_CODEC_ID_MPEG2VIDEO))
 		swcodec = 1;
-	if ((m_pRender->HardwareQuirks() & QUIRK_CODEC_DISABLE_H264_HW && codecId == AV_CODEC_ID_H264))
+	if ((m_hardwareQuirks & QUIRK_CODEC_DISABLE_H264_HW && codecId == AV_CODEC_ID_H264))
 		swcodec = 1;
 
 	LOGDEBUG2(L_CODEC, "videocodec: %s: Try to open decoder for CodecID %s%s", __FUNCTION__,
@@ -548,10 +550,10 @@ int cVideoDecoder::ReceiveFrame(AVFrame **frame)
 	// codec artifacts workaround for amlogic H264:
 	// skip QUIRK_CODEC_SKIP_NUM_FRAMES key frames
 	if (m_pVideoCtx->codec_id == AV_CODEC_ID_H264 &&
-	   (m_pRender->HardwareQuirks() & QUIRK_CODEC_SKIP_FIRST_FRAMES) && m_cntStartKeyFrames) {
-		if (m_pRender->IsKeyFrame(pFrame)) {
+	   (m_hardwareQuirks & QUIRK_CODEC_SKIP_FIRST_FRAMES) && m_cntStartKeyFrames) {
+		if (IsKeyFrame(pFrame)) {
 			LOGDEBUG2(L_CODEC, "videocodec: %s: artifact workaround - skip %s I-frame nr %d", __FUNCTION__,
-				m_pRender->IsInterlacedFrame(pFrame) ? "interlaced" : "progressive", m_cntStartKeyFrames);
+				IsInterlacedFrame(pFrame) ? "interlaced" : "progressive", m_cntStartKeyFrames);
 
 			if (m_cntStartKeyFrames++ > QUIRK_CODEC_SKIP_NUM_FRAMES - 1)
 				m_cntStartKeyFrames = 0;
@@ -567,7 +569,7 @@ int cVideoDecoder::ReceiveFrame(AVFrame **frame)
 	m_cntFramesReceived++;
 	LOGDEBUG2(L_PACKET, "videocodec: %s: %6d PTS %s --->> (%2d)%s", __FUNCTION__,
 		m_cntFramesReceived, Timestamp2String(pFrame->pts, 90), m_cntPacketsSent - m_cntFramesReceived,
-		m_pRender->IsInterlacedFrame(pFrame) ? " I" : "");
+		IsInterlacedFrame(pFrame) ? " I" : "");
 	m_mutex.Unlock();
 	return 0;
 }
@@ -638,4 +640,36 @@ void cVideoDecoder::GetVideoSize(int *width, int *height, double *aspect_ratio)
 	// TODO: use correct aspect ratio
 	if (m_pVideoCtx->coded_height > 0)
 		*aspect_ratio = (double)(m_pVideoCtx->coded_width) / (double)(m_pVideoCtx->coded_height);
+}
+
+/**
+ * Check, if this is an interlaced frame
+ *
+ * @param frame    AVFrame
+ *
+ * @return         true, if this frame is an interlaced frame
+ */
+bool cVideoDecoder::IsInterlacedFrame(AVFrame *frame)
+{
+#if LIBAVUTIL_VERSION_INT < AV_VERSION_INT(58,7,100)
+	return frame->interlaced_frame;
+#else
+	return frame->flags & AV_FRAME_FLAG_INTERLACED;
+#endif
+}
+
+/**
+ * Check, if this is a key frame
+ *
+ * @param frame    AVFrame
+ *
+ * @return         true, if this frame is a key frame
+ */
+bool cVideoDecoder::IsKeyFrame(AVFrame *frame)
+{
+#if LIBAVUTIL_VERSION_INT < AV_VERSION_INT(58,7,100)
+	return frame->key_frame;
+#else
+	return frame->flags & AV_FRAME_FLAG_KEY;
+#endif
 }

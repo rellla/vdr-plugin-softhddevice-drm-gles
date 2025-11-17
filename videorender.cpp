@@ -496,22 +496,6 @@ bool cVideoRender::IsInterlacedFrame(AVFrame *frame)
 }
 
 /**
- * Check, if this is a key frame
- *
- * @param frame    AVFrame
- *
- * @return         true, if this frame is a key frame
- */
-bool cVideoRender::IsKeyFrame(AVFrame *frame)
-{
-#if LIBAVUTIL_VERSION_INT < AV_VERSION_INT(58,7,100)
-	return frame->key_frame;
-#else
-	return frame->flags & AV_FRAME_FLAG_KEY;
-#endif
-}
-
-/**
  * Get suitable framebuffer for frame
  *
  * First, search for an already created buffer. If there is no such buffer, create one.
