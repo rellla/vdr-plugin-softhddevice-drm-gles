@@ -210,9 +210,6 @@ Setup:	environment
 Setup: /etc/vdr/setup.conf
 --------------------------
 
-	softhddevice-drm-gles.MakePrimary = 0
-		0 = no change, 1 make softhddevice primary at start
-
 	softhddevice-drm-gles.HideMainMenuEntry = 0
 		0 = show softhddevice main menu entry, 1 = hide entry
 

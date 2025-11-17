@@ -45,7 +45,6 @@ protected:
 
 	// General
 	int m_cGeneral;
-	int m_cMakePrimary;
 	int m_cHideMainMenuEntry;
 #ifdef USE_GLES
 	int m_cMaxSizeGPUImageCache;

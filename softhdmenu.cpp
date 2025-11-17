@@ -87,7 +87,6 @@ void cMenuSetupSoft::Create(void)
 	//
 	Add(CollapsedItem(tr("General"), m_cGeneral));
 	if (m_cGeneral) {
-		Add(new cMenuEditBoolItem(tr("Make primary device"), &m_cMakePrimary, trVDR("no"), trVDR("yes")));
 		Add(new cMenuEditBoolItem(tr("Hide main menu entry"), &m_cHideMainMenuEntry, trVDR("no"), trVDR("yes")));
 #ifdef USE_GLES
 		if (!m_pConfig->ConfigDisableOglOsd) {
@@ -286,7 +285,6 @@ cMenuSetupSoft::cMenuSetupSoft(cSoftHdDevice *device)
 	// General
 	//
 	m_cGeneral = 0;
-	m_cMakePrimary = m_pConfig->ConfigMakePrimary;
 	m_cHideMainMenuEntry = m_pConfig->ConfigHideMainMenuEntry;
 #ifdef USE_GLES
 	m_cMaxSizeGPUImageCache = m_pConfig->ConfigMaxSizeGPUImageCache;
@@ -373,7 +371,6 @@ void cMenuSetupSoft::Store(void)
 	//
 	// General
 	//
-	SetupStore("MakePrimary", m_pConfig->ConfigMakePrimary = m_cMakePrimary);
 	SetupStore("HideMainMenuEntry", m_pConfig->ConfigHideMainMenuEntry = m_cHideMainMenuEntry);
 #ifdef USE_GLES
 	SetupStore("MaxSizeGPUImageCache", m_pConfig->ConfigMaxSizeGPUImageCache = m_cMaxSizeGPUImageCache);

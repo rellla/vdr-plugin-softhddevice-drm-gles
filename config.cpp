@@ -48,13 +48,12 @@ bool cSoftHdConfig::SetupParse(const char *name, const char *value)
 {
 	//LOGDEBUG("config: %s: '%s' = '%s'", __FUNCTION__, name, value);
 
-	if        (!strcasecmp(name, "MakePrimary"))           { ConfigMakePrimary = atoi(value);
+	if        (!strcasecmp(name, "HideMainMenuEntry"))     { ConfigHideMainMenuEntry = atoi(value);
 #ifdef USE_GLES
 #ifdef WRITE_PNG
 	} else if (!strcasecmp(name, "WritePngs"))             { ConfigWritePngs = atoi(value);
 #endif
 #endif
-	} else if (!strcasecmp(name, "HideMainMenuEntry"))     { ConfigHideMainMenuEntry = atoi(value);
 	} else if (!strcasecmp(name, "LogLevel"))              { ConfigLogLevels = abs(atoi(value));
 	                                                         ConfigLogState = atoi(value) > 0;
                                                                  PrintLogLevel(ConfigLogState ? ConfigLogLevels : 0);

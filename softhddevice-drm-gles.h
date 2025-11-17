@@ -61,7 +61,6 @@ public:
 private:
 	cSoftHdDevice *m_pDevice;          ///< pointer to cSoftHdDevice object
 	cSoftHdConfig *m_pConfig;          ///< pointer to cSoftHdConfig object
-	int m_doMakePrimary;               ///< switch primary device to this
 };
 
 #endif

@@ -158,16 +158,6 @@ bool cPluginSoftHdDevice::Start(void)
 {
 //	LOGDEBUG("plugin: %s:", __FUNCTION__);
 
-	if (!m_pDevice->IsPrimaryDevice()) {
-		LOGINFO("softhddevice %d is not the primary device!",
-			m_pDevice->DeviceNumber());
-		if (m_pConfig->ConfigMakePrimary) {
-			// Must be done in the main thread
-			LOGDEBUG("plugin: %s: making softhddevice %d the primary device!",
-				__FUNCTION__, m_pDevice->DeviceNumber());
-			m_doMakePrimary = m_pDevice->DeviceNumber() + 1;
-		}
-	}
 	m_pDevice->Start();
 
 	return true;

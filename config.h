@@ -58,7 +58,6 @@ public:
 	int ConfigAudioEqBand[18] =
 		{ 0, 0, 0, 0, 0, 0, 0, 0, 0,
 		  0, 0, 0, 0, 0, 0, 0, 0, 0 };      ///< config equalizer filter bands
-	bool ConfigMakePrimary = false;             ///< config primary wanted
 	bool ConfigHideMainMenuEntry = false;       ///< config hide main menu entry
 	bool ConfigLogState = true;                 ///< flag logging on/off
 	int ConfigLogLevels = 0;                    ///< loglevel config
