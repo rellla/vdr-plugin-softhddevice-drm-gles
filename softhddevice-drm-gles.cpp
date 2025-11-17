@@ -83,7 +83,6 @@ cPluginSoftHdDevice::cPluginSoftHdDevice(void)
 {
 	m_pConfig = new cSoftHdConfig();
 	m_pDevice = new cSoftHdDevice(m_pConfig); // no need to delete m_pDevice, because VDR does it for us
-	m_pAudio = m_pDevice->Audio();
 }
 
 /**
@@ -230,7 +229,7 @@ cMenuSetupPage *cPluginSoftHdDevice::SetupMenu(void)
  */
 bool cPluginSoftHdDevice::SetupParse(const char *name, const char *value)
 {
-	return m_pConfig->SetupParse(name, value, m_pDevice, m_pAudio);
+	return m_pConfig->SetupParse(name, value);
 }
 
 /**

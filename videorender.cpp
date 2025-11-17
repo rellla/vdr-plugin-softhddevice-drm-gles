@@ -78,8 +78,9 @@ extern "C" {
 cVideoRender::cVideoRender(cSoftHdDevice *device)
 {
 	m_pDevice = device;
+	m_pConfig = m_pDevice->Config();
 	m_pAudio = m_pDevice->Audio();
-	m_pDrmDevice = new cDrmDevice(this);
+	m_pDrmDevice = new cDrmDevice(this, m_pConfig->ConfigDisplayResolution);
 
 	m_disableOglOsd = false;
 	m_startgrab = false;
@@ -97,6 +98,8 @@ cVideoRender::cVideoRender(cSoftHdDevice *device)
 	m_timebase = av_make_q(1, 90000);
 
 	m_pBufOsd = nullptr;
+
+	m_userDisabledDeinterlacer = m_pConfig->ConfigDisableDeint;
 #ifdef USE_GLES
 	m_bo = nullptr;
 #endif
@@ -135,22 +138,6 @@ void cVideoRender::Prepare(void)
 void cVideoRender::CreateDecodingThread(void)
 {
 	m_pDecodingThread = new cDecodingThread(m_pDevice);
-}
-
-/**
- * Set the display resolution and refresh rate based on a user given string
- *
- * @param resolution       string formatted like "1920x1080@50"
- */
-void cVideoRender::SetDisplayResolution(const char* resolution)
-{
-	int userReqDisplayWidth;
-	int userReqDisplayHeight;
-	int userReqDisplayRefreshRate;
-
-	sscanf(resolution, "%dx%d@%d", &userReqDisplayWidth, &userReqDisplayHeight, &userReqDisplayRefreshRate);
-
-	m_pDrmDevice->SetUserReqDisplayParams(userReqDisplayWidth, userReqDisplayHeight, userReqDisplayRefreshRate);
 }
 
 /**

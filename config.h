@@ -32,7 +32,9 @@ public:
 	cSoftHdConfig(void) = default;
 	virtual ~cSoftHdConfig(void);
 
-	bool SetupParse(const char *, const char *, cSoftHdDevice *, cSoftHdAudio *);
+	bool SetupParse(const char *, const char *);
+
+	// setup conf parameters
 #ifdef USE_GLES
 #ifdef WRITE_PNG
 	bool ConfigWritePngs = false;               ///< config write pngs from OSD
@@ -41,8 +43,8 @@ public:
 	int ConfigDisableOglOsd = 0;                ///< config disable ogl osd
 #endif
 	int ConfigVideoAudioDelay = 0;              ///< config audio delay
-	int ConfigAudioPassthrough = 0;             ///< config audio pass-through mask
-	bool AudioPassthroughState = false;         ///< flag audio-passthrough on/off
+	int ConfigAudioPassthroughMask = 0;         ///< config audio pass-through mask
+	bool ConfigAudioPassthroughState = false;   ///< flag audio-passthrough on/off
 	bool ConfigAudioDownmix = false;            ///< config ffmpeg audio downmix
 	bool ConfigAudioSoftvol = false;            ///< config use software volume
 	bool ConfigAudioNormalize = false;          ///< config use normalize volume
@@ -53,20 +55,22 @@ public:
 	int ConfigAudioBufferTime = 0;              ///< config size ms of audio buffer
 	int ConfigAudioAutoAES = 0;                 ///< config automatic AES handling
 	int ConfigAudioEq = 0;                      ///< config equalizer filter
-	int SetupAudioEqBand[18] =
+	int ConfigAudioEqBand[18] =
 		{ 0, 0, 0, 0, 0, 0, 0, 0, 0,
 		  0, 0, 0, 0, 0, 0, 0, 0, 0 };      ///< config equalizer filter bands
-
 	bool ConfigMakePrimary = false;             ///< config primary wanted
 	bool ConfigHideMainMenuEntry = false;       ///< config hide main menu entry
-	bool LogState = true;                       ///< flag logging on/off
-	int ConfigLog = 0;                          ///< loglevel config
-
+	bool ConfigLogState = true;                 ///< flag logging on/off
+	int ConfigLogLevels = 0;                    ///< loglevel config
 	bool ConfigDisableDeint = false;            ///< disable deinterlacer
+
+	// command line parameters
+	const char *ConfigAudioPCMDevice = nullptr;         ///< audio PCM device
+	const char *ConfigAudioPassthroughDevice = nullptr; ///< audio passthrough device
+	const char *ConfigAudioMixerChannel = nullptr;      ///< audio mixer channel name
+	const char *ConfigDisplayResolution = nullptr;      ///< display resolution (syntax: "1920x1080@50")
+
 	void PrintLogLevel(int);
-private:
-	void SetLogState(void);
-	void SetPassthrough(cSoftHdDevice *);
 };
 
 #endif

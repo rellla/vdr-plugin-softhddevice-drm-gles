@@ -311,21 +311,21 @@ cMenuSetupSoft::cMenuSetupSoft(cSoftHdDevice *device)
 	// Logging
 	//
 	m_cLogging = 0;
-	m_cLogDefault   = m_pConfig->LogState;
-	m_cLogDebug_    = m_pConfig->ConfigLog & L_DEBUG;
-	m_cLogAVSync    = m_pConfig->ConfigLog & L_AV_SYNC;
-	m_cLogSound     = m_pConfig->ConfigLog & L_SOUND;
-	m_cLogOSD       = m_pConfig->ConfigLog & L_OSD;
-	m_cLogDRM       = m_pConfig->ConfigLog & L_DRM;
-	m_cLogCodec     = m_pConfig->ConfigLog & L_CODEC;
-	m_cLogStill     = m_pConfig->ConfigLog & L_STILL;
-	m_cLogTrick     = m_pConfig->ConfigLog & L_TRICK;
-	m_cLogMedia     = m_pConfig->ConfigLog & L_MEDIA;
-	m_cLogGL        = m_pConfig->ConfigLog & L_OPENGL;
-	m_cLogGLTime    = m_pConfig->ConfigLog & L_OPENGL_TIME;
-	m_cLogGLTimeAll = m_pConfig->ConfigLog & L_OPENGL_TIME_ALL;
-	m_cLogPacket    = m_pConfig->ConfigLog & L_PACKET;
-	m_cLogGrab      = m_pConfig->ConfigLog & L_GRAB;
+	m_cLogDefault   = m_pConfig->ConfigLogState;
+	m_cLogDebug_    = m_pConfig->ConfigLogLevels & L_DEBUG;
+	m_cLogAVSync    = m_pConfig->ConfigLogLevels & L_AV_SYNC;
+	m_cLogSound     = m_pConfig->ConfigLogLevels & L_SOUND;
+	m_cLogOSD       = m_pConfig->ConfigLogLevels & L_OSD;
+	m_cLogDRM       = m_pConfig->ConfigLogLevels & L_DRM;
+	m_cLogCodec     = m_pConfig->ConfigLogLevels & L_CODEC;
+	m_cLogStill     = m_pConfig->ConfigLogLevels & L_STILL;
+	m_cLogTrick     = m_pConfig->ConfigLogLevels & L_TRICK;
+	m_cLogMedia     = m_pConfig->ConfigLogLevels & L_MEDIA;
+	m_cLogGL        = m_pConfig->ConfigLogLevels & L_OPENGL;
+	m_cLogGLTime    = m_pConfig->ConfigLogLevels & L_OPENGL_TIME;
+	m_cLogGLTimeAll = m_pConfig->ConfigLogLevels & L_OPENGL_TIME_ALL;
+	m_cLogPacket    = m_pConfig->ConfigLogLevels & L_PACKET;
+	m_cLogGrab      = m_pConfig->ConfigLogLevels & L_GRAB;
 
 	//
 	// Video
@@ -346,11 +346,11 @@ cMenuSetupSoft::cMenuSetupSoft(cSoftHdDevice *device)
 	m_cAudioMaxCompression     = m_pConfig->ConfigAudioMaxCompression;
 	m_cAudioStereoDescent      = m_pConfig->ConfigAudioStereoDescent;
 	m_cAudioDownmix            = m_pConfig->ConfigAudioDownmix;
-	m_cAudioPassthroughDefault = m_pConfig->AudioPassthroughState;
-	m_cAudioPassthroughPCM     = m_pConfig->ConfigAudioPassthrough & CODEC_PCM;
-	m_cAudioPassthroughAC3     = m_pConfig->ConfigAudioPassthrough & CODEC_AC3;
-	m_cAudioPassthroughEAC3    = m_pConfig->ConfigAudioPassthrough & CODEC_EAC3;
-	m_cAudioPassthroughDTS     = m_pConfig->ConfigAudioPassthrough & CODEC_DTS;
+	m_cAudioPassthroughDefault = m_pConfig->ConfigAudioPassthroughState;
+	m_cAudioPassthroughPCM     = m_pConfig->ConfigAudioPassthroughMask & CODEC_PCM;
+	m_cAudioPassthroughAC3     = m_pConfig->ConfigAudioPassthroughMask & CODEC_AC3;
+	m_cAudioPassthroughEAC3    = m_pConfig->ConfigAudioPassthroughMask & CODEC_EAC3;
+	m_cAudioPassthroughDTS     = m_pConfig->ConfigAudioPassthroughMask & CODEC_DTS;
 	m_cAudioAutoAES            = m_pConfig->ConfigAudioAutoAES;
 
 	//
@@ -359,7 +359,7 @@ cMenuSetupSoft::cMenuSetupSoft(cSoftHdDevice *device)
 	m_cAudioEq = m_pConfig->ConfigAudioEq;
 	m_cAudioFilter = 0;
 	for (int i = 0; i < 18; i++) {
-		m_cAudioEqBand[i] = m_pConfig->SetupAudioEqBand[i];
+		m_cAudioEqBand[i] = m_pConfig->ConfigAudioEqBand[i];
 	}
 
 	Create();
@@ -392,7 +392,7 @@ void cMenuSetupSoft::Store(void)
 	//
 	// Logging
 	//
-	m_pConfig->ConfigLog =
+	m_pConfig->ConfigLogLevels =
 		(m_cLogDebug_    ? L_DEBUG : 0) |
 		(m_cLogAVSync    ? L_AV_SYNC : 0) |
 		(m_cLogSound     ? L_SOUND : 0) |
@@ -407,14 +407,14 @@ void cMenuSetupSoft::Store(void)
 		(m_cLogGLTimeAll ? L_OPENGL_TIME_ALL : 0) |
 		(m_cLogPacket    ? L_PACKET : 0) |
 		(m_cLogGrab      ? L_GRAB : 0);
-	m_pConfig->LogState = m_cLogDefault;
-	if (m_pConfig->LogState) {
-		SetupStore("LogLevel", m_pConfig->ConfigLog);
-		m_pConfig->PrintLogLevel(m_pConfig->ConfigLog);
-		cSoftHdLogger::GetLogger()->SetLogLevel(m_pConfig->ConfigLog);
+	m_pConfig->ConfigLogState = m_cLogDefault;
+
+	if (m_pConfig->ConfigLogState) {
+		SetupStore("LogLevel", m_pConfig->ConfigLogLevels);
+		m_pConfig->PrintLogLevel(m_pConfig->ConfigLogLevels);
+		cSoftHdLogger::GetLogger()->SetLogLevel(m_pConfig->ConfigLogLevels);
 	} else {
-		SetupStore("LogLevel", -m_pConfig->ConfigLog);
-		m_pConfig->PrintLogLevel(0);
+		SetupStore("LogLevel", -m_pConfig->ConfigLogLevels);
 		cSoftHdLogger::GetLogger()->SetLogLevel(0);
 	}
 
@@ -451,16 +451,16 @@ void cMenuSetupSoft::Store(void)
 	if (m_pConfig->ConfigAudioDownmix != m_cAudioDownmix) {
 		m_pDevice->ResetChannelId();
 	}
-	m_pConfig->ConfigAudioPassthrough = (m_cAudioPassthroughPCM ? CODEC_PCM : 0)
-	                                  | (m_cAudioPassthroughAC3 ? CODEC_AC3 : 0)
-	                                  | (m_cAudioPassthroughEAC3 ? CODEC_EAC3 : 0)
-	                                  | (m_cAudioPassthroughDTS ? CODEC_DTS : 0);
-	m_pConfig->AudioPassthroughState = m_cAudioPassthroughDefault;
-	if (m_pConfig->AudioPassthroughState) {
-		SetupStore("AudioPassthrough", m_pConfig->ConfigAudioPassthrough);
-		m_pDevice->SetPassthrough(m_pConfig->ConfigAudioPassthrough);
+	m_pConfig->ConfigAudioPassthroughMask = (m_cAudioPassthroughPCM ? CODEC_PCM : 0)
+	                                      | (m_cAudioPassthroughAC3 ? CODEC_AC3 : 0)
+	                                      | (m_cAudioPassthroughEAC3 ? CODEC_EAC3 : 0)
+	                                      | (m_cAudioPassthroughDTS ? CODEC_DTS : 0);
+	m_pConfig->ConfigAudioPassthroughState = m_cAudioPassthroughDefault;
+	if (m_pConfig->ConfigAudioPassthroughState) {
+		SetupStore("AudioPassthrough", m_pConfig->ConfigAudioPassthroughMask);
+		m_pDevice->SetPassthrough(m_pConfig->ConfigAudioPassthroughMask);
 	} else {
-		SetupStore("AudioPassthrough", -m_pConfig->ConfigAudioPassthrough);
+		SetupStore("AudioPassthrough", -m_pConfig->ConfigAudioPassthroughMask);
 		m_pDevice->SetPassthrough(0);
 	}
 	SetupStore("AudioAutoAES", m_pConfig->ConfigAudioAutoAES = m_cAudioAutoAES);
@@ -470,23 +470,23 @@ void cMenuSetupSoft::Store(void)
 	// Audio filter
 	//
 	SetupStore("AudioEq", m_pConfig->ConfigAudioEq = m_cAudioEq);
-	SetupStore("AudioEqBand01b", m_pConfig->SetupAudioEqBand[0]  = m_cAudioEqBand[0]);
-	SetupStore("AudioEqBand02b", m_pConfig->SetupAudioEqBand[1]  = m_cAudioEqBand[1]);
-	SetupStore("AudioEqBand03b", m_pConfig->SetupAudioEqBand[2]  = m_cAudioEqBand[2]);
-	SetupStore("AudioEqBand04b", m_pConfig->SetupAudioEqBand[3]  = m_cAudioEqBand[3]);
-	SetupStore("AudioEqBand05b", m_pConfig->SetupAudioEqBand[4]  = m_cAudioEqBand[4]);
-	SetupStore("AudioEqBand06b", m_pConfig->SetupAudioEqBand[5]  = m_cAudioEqBand[5]);
-	SetupStore("AudioEqBand07b", m_pConfig->SetupAudioEqBand[6]  = m_cAudioEqBand[6]);
-	SetupStore("AudioEqBand08b", m_pConfig->SetupAudioEqBand[7]  = m_cAudioEqBand[7]);
-	SetupStore("AudioEqBand09b", m_pConfig->SetupAudioEqBand[8]  = m_cAudioEqBand[8]);
-	SetupStore("AudioEqBand10b", m_pConfig->SetupAudioEqBand[9]  = m_cAudioEqBand[9]);
-	SetupStore("AudioEqBand11b", m_pConfig->SetupAudioEqBand[10] = m_cAudioEqBand[10]);
-	SetupStore("AudioEqBand12b", m_pConfig->SetupAudioEqBand[11] = m_cAudioEqBand[11]);
-	SetupStore("AudioEqBand13b", m_pConfig->SetupAudioEqBand[12] = m_cAudioEqBand[12]);
-	SetupStore("AudioEqBand14b", m_pConfig->SetupAudioEqBand[13] = m_cAudioEqBand[13]);
-	SetupStore("AudioEqBand15b", m_pConfig->SetupAudioEqBand[14] = m_cAudioEqBand[14]);
-	SetupStore("AudioEqBand16b", m_pConfig->SetupAudioEqBand[15] = m_cAudioEqBand[15]);
-	SetupStore("AudioEqBand17b", m_pConfig->SetupAudioEqBand[16] = m_cAudioEqBand[16]);
-	SetupStore("AudioEqBand18b", m_pConfig->SetupAudioEqBand[17] = m_cAudioEqBand[17]);
-	m_pAudioDevice->SetEq(m_pConfig->SetupAudioEqBand, m_pConfig->ConfigAudioEq);
+	SetupStore("AudioEqBand01b", m_pConfig->ConfigAudioEqBand[0]  = m_cAudioEqBand[0]);
+	SetupStore("AudioEqBand02b", m_pConfig->ConfigAudioEqBand[1]  = m_cAudioEqBand[1]);
+	SetupStore("AudioEqBand03b", m_pConfig->ConfigAudioEqBand[2]  = m_cAudioEqBand[2]);
+	SetupStore("AudioEqBand04b", m_pConfig->ConfigAudioEqBand[3]  = m_cAudioEqBand[3]);
+	SetupStore("AudioEqBand05b", m_pConfig->ConfigAudioEqBand[4]  = m_cAudioEqBand[4]);
+	SetupStore("AudioEqBand06b", m_pConfig->ConfigAudioEqBand[5]  = m_cAudioEqBand[5]);
+	SetupStore("AudioEqBand07b", m_pConfig->ConfigAudioEqBand[6]  = m_cAudioEqBand[6]);
+	SetupStore("AudioEqBand08b", m_pConfig->ConfigAudioEqBand[7]  = m_cAudioEqBand[7]);
+	SetupStore("AudioEqBand09b", m_pConfig->ConfigAudioEqBand[8]  = m_cAudioEqBand[8]);
+	SetupStore("AudioEqBand10b", m_pConfig->ConfigAudioEqBand[9]  = m_cAudioEqBand[9]);
+	SetupStore("AudioEqBand11b", m_pConfig->ConfigAudioEqBand[10] = m_cAudioEqBand[10]);
+	SetupStore("AudioEqBand12b", m_pConfig->ConfigAudioEqBand[11] = m_cAudioEqBand[11]);
+	SetupStore("AudioEqBand13b", m_pConfig->ConfigAudioEqBand[12] = m_cAudioEqBand[12]);
+	SetupStore("AudioEqBand14b", m_pConfig->ConfigAudioEqBand[13] = m_cAudioEqBand[13]);
+	SetupStore("AudioEqBand15b", m_pConfig->ConfigAudioEqBand[14] = m_cAudioEqBand[14]);
+	SetupStore("AudioEqBand16b", m_pConfig->ConfigAudioEqBand[15] = m_cAudioEqBand[15]);
+	SetupStore("AudioEqBand17b", m_pConfig->ConfigAudioEqBand[16] = m_cAudioEqBand[16]);
+	SetupStore("AudioEqBand18b", m_pConfig->ConfigAudioEqBand[17] = m_cAudioEqBand[17]);
+	m_pAudioDevice->SetEq(m_pConfig->ConfigAudioEqBand, m_pConfig->ConfigAudioEq);
 }

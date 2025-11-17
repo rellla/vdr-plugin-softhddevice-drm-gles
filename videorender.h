@@ -56,7 +56,7 @@ extern "C" {
 #include "threads.h"
 #include "grab.h"
 #include "drmplane.h"
-#include "drmdevice.h"
+#include "config.h"
 
 #define RENDERBUFFERS 36                 ///< number of render video buffers
 
@@ -70,6 +70,7 @@ extern "C" {
 #define QUIRK_CODEC_DISABLE_H264_HW     1 << 5     ///< set, if disable h264 hardware decoder
 
 class cDrmDevice;
+class cSoftHdConfig;
 
 /**
  * cVideoRender - Video render class
@@ -87,7 +88,6 @@ public:
 	void DisableOglOsd(void) { m_disableOglOsd = true; };
 	bool OglOsdDisabled(void) { return m_disableOglOsd; };
 
-	void SetDisplayResolution(const char *);
 	void SetVideoOutputPosition(const cRect &);
 	void GetScreenSize(int *, int *, double *);
 	int64_t GetVideoClock(void);
@@ -164,7 +164,8 @@ public:
 
 private:
 	cSoftHdDevice *m_pDevice;           ///< pointer to cSoftHdDevice
-	cSoftHdAudio *m_pAudio;	            ///< pointer to cSoftHdAudio
+	cSoftHdAudio *m_pAudio;             ///< pointer to cSoftHdAudio
+	cSoftHdConfig *m_pConfig;           ///< pointer to cSoftHdConfig
 	cDecodingThread *m_pDecodingThread; ///< pointer to decoding thread
 	cDisplayThread *m_pDisplayThread;   ///< pointer to display thread
 	cFilterThread *m_pFilterThread;     ///< pointer to deinterlace filter thread

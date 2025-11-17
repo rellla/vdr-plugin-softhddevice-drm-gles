@@ -60,7 +60,6 @@ public:
 	virtual cString SVDRPCommand(const char *, const char *, int &);
 private:
 	cSoftHdDevice *m_pDevice;          ///< pointer to cSoftHdDevice object
-	cSoftHdAudio *m_pAudio;            ///< pointer to cSoftHdAudio object
 	cSoftHdConfig *m_pConfig;          ///< pointer to cSoftHdConfig object
 	int m_doMakePrimary;               ///< switch primary device to this
 };

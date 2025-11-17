@@ -44,7 +44,7 @@ cSoftHdConfig::~cSoftHdConfig(void)
  *
  * @returns         true if the parameter is supported, false otherwise
  */
-bool cSoftHdConfig::SetupParse(const char *name, const char *value, cSoftHdDevice *device, cSoftHdAudio *audio)
+bool cSoftHdConfig::SetupParse(const char *name, const char *value)
 {
 	//LOGDEBUG("config: %s: '%s' = '%s'", __FUNCTION__, name, value);
 
@@ -55,53 +55,41 @@ bool cSoftHdConfig::SetupParse(const char *name, const char *value, cSoftHdDevic
 #endif
 #endif
 	} else if (!strcasecmp(name, "HideMainMenuEntry"))     { ConfigHideMainMenuEntry = atoi(value);
-	} else if (!strcasecmp(name, "LogLevel"))              { ConfigLog = abs(atoi(value));
-		                                                     LogState = atoi(value) > 0;
-		                                                     	SetLogState();
+	} else if (!strcasecmp(name, "LogLevel"))              { ConfigLogLevels = abs(atoi(value));
+	                                                         ConfigLogState = atoi(value) > 0;
+                                                                 PrintLogLevel(ConfigLogState ? ConfigLogLevels : 0);
+	                                                         cSoftHdLogger::GetLogger()->SetLogLevel(ConfigLogState ? ConfigLogLevels : 0);
 	} else if (!strcasecmp(name, "DisableDeint"))          { ConfigDisableDeint = atoi(value);
-		                                                     	device->SetDisableDeint();
 	} else if (!strcasecmp(name, "AudioDelay"))            { ConfigVideoAudioDelay = atoi(value);
-		                                                     	device->SetVideoAudioDelay(ConfigVideoAudioDelay);
-	} else if (!strcasecmp(name, "AudioPassthrough"))      { AudioPassthroughState = atoi(value) > 0;
-		                                                     ConfigAudioPassthrough = abs(atoi(value));
-		                                                     	SetPassthrough(device);
+	} else if (!strcasecmp(name, "AudioPassthrough"))      { ConfigAudioPassthroughMask = abs(atoi(value)); ConfigAudioPassthroughState = atoi(value) > 0;
 	} else if (!strcasecmp(name, "AudioDownmix"))          { ConfigAudioDownmix = atoi(value);
-		                                                     	audio->SetDownmix(ConfigAudioDownmix);
-	} else if (!strcasecmp(name, "AudioSoftvol"))          { ConfigAudioSoftvol = atoi(value),
-		                                                     	audio->SetSoftvol(ConfigAudioSoftvol);
+	} else if (!strcasecmp(name, "AudioSoftvol"))          { ConfigAudioSoftvol = atoi(value);
 	} else if (!strcasecmp(name, "AudioNormalize"))        { ConfigAudioNormalize = atoi(value);
-		                                                     	audio->SetNormalize(ConfigAudioNormalize, ConfigAudioMaxNormalize);
 	} else if (!strcasecmp(name, "AudioMaxNormalize"))     { ConfigAudioMaxNormalize = atoi(value);
-		                                                     	audio->SetNormalize(ConfigAudioNormalize, ConfigAudioMaxNormalize);
 	} else if (!strcasecmp(name, "AudioCompression"))      { ConfigAudioCompression = atoi(value);
-		                                                     	audio->SetCompression(ConfigAudioCompression, ConfigAudioMaxCompression);
 	} else if (!strcasecmp(name, "AudioMaxCompression"))   { ConfigAudioMaxCompression = atoi(value);
-		                                                     	audio->SetCompression(ConfigAudioCompression, ConfigAudioMaxCompression);
 	} else if (!strcasecmp(name, "AudioStereoDescent"))    { ConfigAudioStereoDescent = atoi(value);
-		                                                     	audio->SetStereoDescent(ConfigAudioStereoDescent);
 	} else if (!strcasecmp(name, "AudioBufferTime"))       { ConfigAudioBufferTime = atoi(value);
 	} else if (!strcasecmp(name, "AudioAutoAES"))          { ConfigAudioAutoAES = atoi(value);
-		                                                     	audio->SetAutoAES(ConfigAudioAutoAES);
 	} else if (!strcasecmp(name, "AudioEq"))               { ConfigAudioEq = atoi(value);
-	} else if (!strcasecmp(name, "AudioEqBand01b"))        { SetupAudioEqBand[0] = atoi(value);
-	} else if (!strcasecmp(name, "AudioEqBand02b"))        { SetupAudioEqBand[1] = atoi(value);
-	} else if (!strcasecmp(name, "AudioEqBand03b"))        { SetupAudioEqBand[2] = atoi(value);
-	} else if (!strcasecmp(name, "AudioEqBand04b"))        { SetupAudioEqBand[3] = atoi(value);
-	} else if (!strcasecmp(name, "AudioEqBand05b"))        { SetupAudioEqBand[4] = atoi(value);
-	} else if (!strcasecmp(name, "AudioEqBand06b"))        { SetupAudioEqBand[5] = atoi(value);
-	} else if (!strcasecmp(name, "AudioEqBand07b"))        { SetupAudioEqBand[6] = atoi(value);
-	} else if (!strcasecmp(name, "AudioEqBand08b"))        { SetupAudioEqBand[7] = atoi(value);
-	} else if (!strcasecmp(name, "AudioEqBand09b"))        { SetupAudioEqBand[8] = atoi(value);
-	} else if (!strcasecmp(name, "AudioEqBand10b"))        { SetupAudioEqBand[9] = atoi(value);
-	} else if (!strcasecmp(name, "AudioEqBand11b"))        { SetupAudioEqBand[10] = atoi(value);
-	} else if (!strcasecmp(name, "AudioEqBand12b"))        { SetupAudioEqBand[11] = atoi(value);
-	} else if (!strcasecmp(name, "AudioEqBand13b"))        { SetupAudioEqBand[12] = atoi(value);
-	} else if (!strcasecmp(name, "AudioEqBand14b"))        { SetupAudioEqBand[13] = atoi(value);
-	} else if (!strcasecmp(name, "AudioEqBand15b"))        { SetupAudioEqBand[14] = atoi(value);
-	} else if (!strcasecmp(name, "AudioEqBand16b"))        { SetupAudioEqBand[15] = atoi(value);
-	} else if (!strcasecmp(name, "AudioEqBand17b"))        { SetupAudioEqBand[16] = atoi(value);
-	} else if (!strcasecmp(name, "AudioEqBand18b"))        { SetupAudioEqBand[17] = atoi(value);
-		                                                     	audio->SetEq(SetupAudioEqBand, ConfigAudioEq);
+	} else if (!strcasecmp(name, "AudioEqBand01b"))        { ConfigAudioEqBand[0] = atoi(value);
+	} else if (!strcasecmp(name, "AudioEqBand02b"))        { ConfigAudioEqBand[1] = atoi(value);
+	} else if (!strcasecmp(name, "AudioEqBand03b"))        { ConfigAudioEqBand[2] = atoi(value);
+	} else if (!strcasecmp(name, "AudioEqBand04b"))        { ConfigAudioEqBand[3] = atoi(value);
+	} else if (!strcasecmp(name, "AudioEqBand05b"))        { ConfigAudioEqBand[4] = atoi(value);
+	} else if (!strcasecmp(name, "AudioEqBand06b"))        { ConfigAudioEqBand[5] = atoi(value);
+	} else if (!strcasecmp(name, "AudioEqBand07b"))        { ConfigAudioEqBand[6] = atoi(value);
+	} else if (!strcasecmp(name, "AudioEqBand08b"))        { ConfigAudioEqBand[7] = atoi(value);
+	} else if (!strcasecmp(name, "AudioEqBand09b"))        { ConfigAudioEqBand[8] = atoi(value);
+	} else if (!strcasecmp(name, "AudioEqBand10b"))        { ConfigAudioEqBand[9] = atoi(value);
+	} else if (!strcasecmp(name, "AudioEqBand11b"))        { ConfigAudioEqBand[10] = atoi(value);
+	} else if (!strcasecmp(name, "AudioEqBand12b"))        { ConfigAudioEqBand[11] = atoi(value);
+	} else if (!strcasecmp(name, "AudioEqBand13b"))        { ConfigAudioEqBand[12] = atoi(value);
+	} else if (!strcasecmp(name, "AudioEqBand14b"))        { ConfigAudioEqBand[13] = atoi(value);
+	} else if (!strcasecmp(name, "AudioEqBand15b"))        { ConfigAudioEqBand[14] = atoi(value);
+	} else if (!strcasecmp(name, "AudioEqBand16b"))        { ConfigAudioEqBand[15] = atoi(value);
+	} else if (!strcasecmp(name, "AudioEqBand17b"))        { ConfigAudioEqBand[16] = atoi(value);
+	} else if (!strcasecmp(name, "AudioEqBand18b"))        { ConfigAudioEqBand[17] = atoi(value);
 #ifdef USE_GLES
 	} else if (!strcasecmp(name, "MaxSizeGPUImageCache"))  { ConfigMaxSizeGPUImageCache = atoi(value);
 #endif
@@ -145,24 +133,4 @@ void cSoftHdConfig::PrintLogLevel(int loglevel)
 		strcat(prefix, " grabbing");
 
 	LOGINFO("%s", prefix);
-}
-
-void cSoftHdConfig::SetLogState(void)
-{
-	if (LogState) {
-		PrintLogLevel(ConfigLog);
-		cSoftHdLogger::GetLogger()->SetLogLevel(ConfigLog);
-	} else {
-		PrintLogLevel(0);
-		cSoftHdLogger::GetLogger()->SetLogLevel(0);
-	}
-}
-
-void cSoftHdConfig::SetPassthrough(cSoftHdDevice *device)
-{
-	if (AudioPassthroughState) {
-		device->SetPassthrough(ConfigAudioPassthrough);
-	} else {
-		device->SetPassthrough(0);
-	}
 }

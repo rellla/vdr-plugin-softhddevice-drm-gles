@@ -34,6 +34,7 @@ extern "C"
 #define NORMALIZE_MAX_INDEX 128		///< number of average values
 
 class cSoftHdDevice;
+class cSoftHdConfig;
 
 /**
  * cSoftHdAudio - Audio class
@@ -74,10 +75,7 @@ public:
 	void SetNormalize(bool, int);
 	void SetCompression(bool, int);
 	void SetStereoDescent(int);
-	void SetDevice(const char *);
-	void SetPassthroughDevice(const char *);
 	void SetPassthrough(int);
-	void SetChannel(const char *);
 	void SetAutoAES(bool appendAes) { m_appendAES = appendAes; }
 	void SetTimebase(AVRational *timebase) { m_pTimebase = timebase; };
 
@@ -89,6 +87,7 @@ public:
 
 private:
 	cSoftHdDevice *m_pDevice;               ///< pointer to device
+	cSoftHdConfig *m_pConfig;               ///< pointer to config
 
 	// thread
 	cAudioThread *m_pAudioThread;           ///< pointer to audio thread

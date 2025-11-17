@@ -75,7 +75,7 @@ extern "C" {
 class cDrmDevice
 {
 public:
-	cDrmDevice(cVideoRender *);
+	cDrmDevice(cVideoRender *, const char *);
 	virtual ~cDrmDevice(void);
 
 	int Init(void);
@@ -84,7 +84,6 @@ public:
 	void Close(void);
 
 	// setters and getters
-	void SetUserReqDisplayParams(int, int, int);
 	uint32_t ConnectorId(void) { return m_connectorId; };
 
 	uint64_t DisplayWidth(void) { return m_drmModeInfo.hdisplay; };

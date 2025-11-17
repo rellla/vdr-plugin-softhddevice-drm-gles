@@ -64,21 +64,33 @@ extern "C"
 cSoftHdAudio::cSoftHdAudio(cSoftHdDevice *device)
 {
 	m_pDevice = device;
+	m_pConfig = m_pDevice->Config();
 
-	m_pPassthroughDevice = nullptr;
-	m_pPCMDevice = nullptr;
+	m_pPassthroughDevice = m_pConfig->ConfigAudioPassthroughDevice;
+	m_pPCMDevice = m_pConfig->ConfigAudioPCMDevice;
 
 	m_pFilterGraph = nullptr;
 
 	m_pAlsaMixer = nullptr;
 	m_pMixerDevice = nullptr;
-	m_pMixerChannel = nullptr;
+	m_pMixerChannel = m_pConfig->ConfigAudioMixerChannel;
 	m_pAlsaMixerElem = nullptr;
 
 	m_compressionFactor = 0;
 	m_hwSampleRate = 0;
 	m_hwNumChannels = 0;
-	m_downmix = false;
+
+	m_downmix = m_pConfig->ConfigAudioDownmix;
+	m_softVolume = m_pConfig->ConfigAudioSoftvol;
+	SetNormalize(m_pConfig->ConfigAudioNormalize, m_pConfig->ConfigAudioMaxNormalize);
+	SetCompression(m_pConfig->ConfigAudioCompression, m_pConfig->ConfigAudioMaxCompression);
+	SetStereoDescent(m_pConfig->ConfigAudioStereoDescent);
+	m_appendAES = m_pConfig->ConfigAudioAutoAES;
+	SetEq(m_pConfig->ConfigAudioEqBand, m_pConfig->ConfigAudioEq);
+	m_passthrough = 0;
+	if (m_pConfig->ConfigAudioPassthroughState)
+		m_passthrough = m_pConfig->ConfigAudioPassthroughMask;
+
 	m_paused = false;
 	m_muted = false;
 	m_running = false;
@@ -1250,26 +1262,6 @@ void cSoftHdAudio::SetStereoDescent(int delta)
 }
 
 /**
- * Set pcm audio device.
- *
- * @param device    name of pcm device
- */
-void cSoftHdAudio::SetDevice(const char *device)
-{
-	m_pPCMDevice = device;
-}
-
-/**
- * Set pass-through audio device
- *
- * @param device    name of pass-through device
- */
-void cSoftHdAudio::SetPassthroughDevice(const char *device)
-{
-	m_pPassthroughDevice = device;
-}
-
-/**
  * Set audio passthrough mask
  *
  * @param mask    passthrough mask (as a bitmask)
@@ -1277,16 +1269,6 @@ void cSoftHdAudio::SetPassthroughDevice(const char *device)
 void cSoftHdAudio::SetPassthrough(int mask)
 {
 	m_passthrough = mask;
-}
-
-/**
- * Set pcm audio mixer channel
- *
- * @param channel    name of the mixer channel (e.g. PCM or Master)
- */
-void cSoftHdAudio::SetChannel(const char *channel)
-{
-	m_pMixerChannel = channel;
 }
 
 /**

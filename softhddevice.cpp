@@ -152,6 +152,8 @@ cSoftHdDevice::cSoftHdDevice(cSoftHdConfig *config)
 	m_pVideoStream = new cVideoStream(this);
 
 	m_pAudioDecoder = nullptr;
+
+	m_videoAudioDelay = m_pConfig->ConfigVideoAudioDelay;
 }
 
 /**
@@ -1169,16 +1171,16 @@ int cSoftHdDevice::ProcessArgs(int argc, char *argv[])
 		switch (getopt(argc, argv, "-a:c:p:d:")) {
 #endif
 		case 'a':           // audio device for pcm
-			m_pAudio->SetDevice(optarg);
+			m_pConfig->ConfigAudioPCMDevice = optarg;
 			continue;
 		case 'c':           // channel of audio mixer
-			m_pAudio->SetChannel(optarg);
+			m_pConfig->ConfigAudioMixerChannel = optarg;
 			continue;
 		case 'p':           // pass-through audio device
-			m_pAudio->SetPassthroughDevice(optarg);
+			m_pConfig->ConfigAudioPassthroughDevice = optarg;
 			continue;
 		case 'd':           // set display output
-			m_pRender->SetDisplayResolution(optarg);
+			m_pConfig->ConfigDisplayResolution = optarg;
 			continue;
 #ifdef USE_GLES
 		case 'w':           // workarounds
