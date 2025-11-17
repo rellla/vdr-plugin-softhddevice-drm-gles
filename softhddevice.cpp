@@ -134,113 +134,102 @@ uint8_t *CreateJpeg(uint8_t * image, int raw_size, int *size, int quality,
 /**
  * cSoftHdDevice constructor
  *
- * creates
- *     audio device
- *     render device
- *     video stream device
+ * Initializes some member variables
  *
  * @param config       pointer to cSoftHdConfig class
  */
 cSoftHdDevice::cSoftHdDevice(cSoftHdConfig *config)
 {
-	LOGDEBUG("device: %s:", __FUNCTION__);
-	m_pSpuDecoder = NULL;
+//	LOGDEBUG("device: %s:", __FUNCTION__);
 
+	m_pSpuDecoder = new cDvbSpuDecoder();
 	m_pConfig = config;
-	m_pAudio = new cSoftHdAudio(this);
-	m_pRender = new cVideoRender(this);
-	m_pVideoStream = new cVideoStream(this);
-
 	m_pAudioDecoder = nullptr;
-
 	m_videoAudioDelay = m_pConfig->ConfigVideoAudioDelay;
+	m_audioChannelID = -1;
+
+	m_started = false;
 }
 
 /**
  * cSoftHdDevice destructor
  *
- * deletes
- *    audio device
- *    render device
- *    video stream device
+ * only deletes spu decoder, which was created in constructor
  */
 cSoftHdDevice::~cSoftHdDevice(void)
 {
 	LOGDEBUG("device: %s:", __FUNCTION__);
-	Exit();
-
-	delete m_pVideoStream;
-	delete m_pAudio;
-	delete m_pRender;
-
 	delete m_pSpuDecoder;
-	LOGDEBUG("device: %s: deleted", __FUNCTION__);
 }
 
 /**
  * Device init
  *
- * prepares the renderer
+ * .. currently does nothing
  */
-void cSoftHdDevice::Init()
+void cSoftHdDevice::Init(void)
 {
-	LOGDEBUG("device: %s:", __FUNCTION__);
-	m_pRender->Prepare();
+	LOGDEBUG("device: %s: (do nothing)", __FUNCTION__);
 }
 
 /**
- * Device exit
- */
-void cSoftHdDevice::Exit(void)
-{
-	LOGDEBUG("device: %s:", __FUNCTION__);
-	m_pAudio->Exit();
-	if (m_pAudioDecoder) {
-		m_pAudioDecoder->Close();
-		delete m_pAudioDecoder;
-	}
-	m_pRender->Exit();
-	m_pVideoStream->Exit();
-
-	LOGDEBUG("device: %s: exited", __FUNCTION__);
-}
-
-/**
- * Device prepare
+ * Start plugin
  *
- * If we don't have the audio decoder created,
- * init the audio, audio decoder and renderer
+ * creates
+ *     audio device
+ *     render device
+ *     video stream device
+ *     audio decoder
+ *
+ * inits
+ *     renderer
+ *
+ * starts
+ *     display thread (filter thread starts on demand)
+ *     decoding thread
+ *
+ * No need to init audio and start audio thread, because this is done lazily.
  */
 void cSoftHdDevice::Start(void)
 {
 	LOGDEBUG("device: %s:", __FUNCTION__);
-	if (!m_pAudioDecoder) {
 
-		// audio
-		m_pAudio->SetBufferTimeInMs(m_pConfig->ConfigAudioBufferTime);
+	if (m_started)
+		return;
 
-		m_pAudioDecoder = new cAudioDecoder(m_pAudio);
-		m_audioChannelID = -1;
+	m_pAudio = new cSoftHdAudio(this);
+	m_pRender = new cVideoRender(this);
+	m_pVideoStream = new cVideoStream(this);
+	m_pAudioDecoder = new cAudioDecoder(m_pAudio);
+	m_pRender->Init(); // starts display thread
+	m_pVideoStream->StartDecoder(new cVideoDecoder(m_pRender)); // start decoding thread
+	// Audio is init lazily (includes starting thread)
 
-#ifdef USE_GLES
-		if (m_pConfig->ConfigDisableOglOsd)
-			m_pRender->DisableOglOsd();
-#endif
-		m_pRender->DisableDeint(m_pConfig->ConfigDisableDeint);
-		m_pRender->Init();
-
-		m_pVideoStream->StartDecoder(new cVideoDecoder(m_pRender));
-	}
+	m_started = true;
 }
 
 /**
- * Stop plugin.
+ * Stop plugin
  *
- * @note stop everything, but don't cleanup, module is still called.
+ * Stop and delete everything except the config and device itself
+ *
  */
 void cSoftHdDevice::Stop(void)
 {
-	LOGDEBUG("device: %s: nothing to do", __FUNCTION__);
+	LOGDEBUG("device: %s:", __FUNCTION__);
+	if (!m_started)
+		return;
+
+	m_pAudio->Exit();
+	m_pRender->Exit(); // render must be stopped before videostream!
+	m_pVideoStream->Exit();
+
+	delete m_pAudioDecoder; // includes a Close()
+	delete m_pVideoStream;
+	delete m_pRender;
+	delete m_pAudio;
+
+	m_started = false;
 }
 
 /**
@@ -263,7 +252,7 @@ void cSoftHdDevice::MakePrimaryDevice(bool on)
 {
 	LOGDEBUG("device: %s: %d", __FUNCTION__, on);
 	if (!on)
-		Exit();
+		Stop();
 	else
 		Start();
 
@@ -281,8 +270,8 @@ void cSoftHdDevice::MakePrimaryDevice(bool on)
 cSpuDecoder *cSoftHdDevice::GetSpuDecoder(void)
 {
 	LOGDEBUG("device: %s:", __FUNCTION__);
-	if (!m_pSpuDecoder && IsPrimaryDevice())
-		m_pSpuDecoder = new cDvbSpuDecoder();
+	if (!IsPrimaryDevice())
+		return NULL;
 
 	return m_pSpuDecoder;
 }
@@ -326,6 +315,12 @@ void cSoftHdDevice::HandlePause(void)
  * @param event     The event to process (variant type containing specific event data)
  */
 void cSoftHdDevice::OnEventReceived(const Event& event) {
+
+	// don't do state changes if the plugin isn't started
+	// VDR sends SetPlayMode(0) after stopping the plugin
+	if (!m_started)
+		return;
+
 	LOGDEBUG("device: received %s", EventToString(event));
 
 	m_pRender->DisplayThreadHalt(); // the display thread needs to be halted first, otherwise a deadlock can occur in WaitForAudioClock()

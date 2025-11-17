@@ -90,6 +90,7 @@ cSoftHdAudio::cSoftHdAudio(cSoftHdDevice *device)
 	m_passthrough = 0;
 	if (m_pConfig->ConfigAudioPassthroughState)
 		m_passthrough = m_pConfig->ConfigAudioPassthroughMask;
+	m_bufferTimeInMs = MIN_AUDIO_BUFFER + m_pConfig->ConfigAudioBufferTime;
 
 	m_paused = false;
 	m_muted = false;

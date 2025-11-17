@@ -156,6 +156,7 @@ public:
 	//
 	// wrapped by cPluginSoftHdDevice
 	//
+	void Init(void);                    // wrapped by cPluginSoftHdDevice::Initialize()
 	void Start(void);                   // wrapped by cPluginSoftHdDevice::Start()
 	void Stop(void);                    // wrapped by cPluginSoftHdDevice::Stop()
 	const char *CommandLineHelp(void);  // wrapped by cPluginSoftHdDevice::CommandLineHelp()
@@ -164,7 +165,6 @@ public:
 	//
 	// cSoftHdDevice public methods
 	//
-	void Init(void);
 	cSoftHdConfig *Config(void) { return m_pConfig; };
 	cVideoStream *VideoStream(void) { return m_pVideoStream; };
 	cVideoRender *Render(void) { return m_pRender; };
@@ -204,6 +204,8 @@ public:
 	void OnLeavingState(enum State);
 
 private:
+	bool m_started;                  ///< plugin was started and initialized (should this be done with the state machine?)
+
 	enum State m_state = STOP;       ///< current plugin state
 	cDvbSpuDecoder *m_pSpuDecoder;   ///< pointer to spu decoder
 	cSoftHdConfig *m_pConfig;        ///< pointer to cSoftHdConfig object

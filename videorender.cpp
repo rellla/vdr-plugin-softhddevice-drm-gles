@@ -82,7 +82,9 @@ cVideoRender::cVideoRender(cSoftHdDevice *device)
 	m_pAudio = m_pDevice->Audio();
 	m_pDrmDevice = new cDrmDevice(this, m_pConfig->ConfigDisplayResolution);
 
-	m_disableOglOsd = false;
+#ifdef USE_GLES
+	m_disableOglOsd = m_pConfig->ConfigDisableOglOsd;
+#endif
 	m_startgrab = false;
 	m_startCounter = 0;
 	m_videoIsScaled = false;
@@ -116,18 +118,6 @@ cVideoRender::~cVideoRender(void)
 	if (m_pDisplayThread)
 		delete m_pDisplayThread;
 	LOGDEBUG2(L_DRM, "videorender: %s", __FUNCTION__);
-}
-
-/**
- * Prepare the threads and process variables
- */
-void cVideoRender::Prepare(void)
-{
-	m_pDisplayThread = new cDisplayThread(this);
-	m_pFilterThread = new cFilterThread(this);
-
-	atomic_set(&m_framesFilled, 0);
-	m_enqueueBufferIdx = 0;
 }
 
 /**
@@ -1495,6 +1485,12 @@ static int ReadHWPlatform(void)
  */
 void cVideoRender::Init(void)
 {
+	m_pDisplayThread = new cDisplayThread(this);
+	m_pFilterThread = new cFilterThread(this);
+
+	atomic_set(&m_framesFilled, 0);
+	m_enqueueBufferIdx = 0;
+
 	if (m_pDrmDevice->Init())
 		LOGFATAL("videorender: %s: failed", __FUNCTION__);
 

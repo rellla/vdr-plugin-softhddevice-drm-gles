@@ -66,6 +66,8 @@ cAudioDecoder::cAudioDecoder(cSoftHdAudio *audio)
  */
 cAudioDecoder::~cAudioDecoder(void)
 {
+	Close();
+
 	av_frame_free(&m_pFrame);
 }
 

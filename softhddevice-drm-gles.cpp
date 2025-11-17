@@ -78,6 +78,10 @@ static const char *const MAINMENUENTRY = trNOOP("SHD Media Player");
  *
  * @note DON'T DO ANYTHING ELSE THAT MAY HAVE SIDE EFFECTS, REQUIRE GLOBAL
  * VDR OBJECTS TO EXIST OR PRODUCE ANY OUTPUT!
+ *
+ * We only create the config and the device itself, because Plugin->SetupParse
+ * is done next and that one needs config to be available.
+ * SetupParse must not access any other objects!
  */
 cPluginSoftHdDevice::cPluginSoftHdDevice(void)
 {

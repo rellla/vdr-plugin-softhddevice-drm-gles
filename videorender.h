@@ -85,8 +85,6 @@ public:
 	void Exit(void);
 	int HardwareQuirks(void) { return m_hardwareQuirks; };
 	void DisableDeint(bool disable) { m_userDisabledDeinterlacer = disable; };
-	void DisableOglOsd(void) { m_disableOglOsd = true; };
-	bool OglOsdDisabled(void) { return m_disableOglOsd; };
 
 	void SetVideoOutputPosition(const cRect &);
 	void GetScreenSize(int *, int *, double *);
@@ -117,9 +115,7 @@ public:
 	cSoftHdGrab *GetGrab(int *, int *, int *, int *, int *, int);
 
 	// Threads
-	void Prepare(void);
 	void ExitDisplayThread(void);
-
 	void DisplayThreadHalt(void) { m_pDisplayThread->Halt(); };
 	void DisplayThreadResume(void) { m_pDisplayThread->Resume(); };
 
@@ -151,6 +147,8 @@ public:
 
 #ifdef USE_GLES
 	// GLES
+	void DisableOglOsd(void) { m_disableOglOsd = true; };
+	bool OglOsdDisabled(void) { return m_disableOglOsd; };
 	EGLSurface EglSurface(void) { return m_pDrmDevice->EglSurface(); };
 	EGLDisplay EglDisplay(void) { return m_pDrmDevice->EglDisplay(); };
 	EGLContext EglContext(void) { return m_pDrmDevice->EglContext(); };
@@ -187,8 +185,6 @@ private:
 	bool m_deinterlacerDeactivated = false; ///< set, if the deinterlacer shall be deactivated temporarily (used for trick speed and still picture)
 	bool m_checkFilterThreadNeeded;     ///< set, if we have to check, if filter thread is needed at start of playback
 
-	bool m_disableOglOsd;               ///< set, if ogl osd is disabled
-
 	bool m_startgrab;                   ///< internal flag to trigger grabbing
 	cCondVar m_grabCond;                ///< condition gets signalled, if renederer finished to clone the grabbed buffers
 	cSoftHdGrab m_grabOsd;              ///< keeps the current grabbed osd
@@ -218,6 +214,7 @@ private:
 	bool m_playbackPaused = false;		///< set, if playback is frozen (used for pause)
 
 #ifdef USE_GLES
+	bool m_disableOglOsd;               ///< set, if ogl osd is disabled
 	struct gbm_bo *m_bo;                ///< pointer to current gbm buffer object
 	struct gbm_bo *m_pOldBo;            ///< pointer to old gbm buffer object (for later free)
 	struct gbm_bo *m_pNextBo;           ///< pointer to next gbm buffer object (for later free)
