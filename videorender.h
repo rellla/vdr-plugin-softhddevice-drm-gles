@@ -118,13 +118,8 @@ public:
 
 	// Threads
 	void Prepare(void);
-	void CreateDecodingThread(void);
-	bool DecodingThreadIsActive(void);
-	void ExitDecodingThread(void);
 	void ExitDisplayThread(void);
 
-	void DecodingThreadHalt(void) { m_pDecodingThread->Halt(); };
-	void DecodingThreadResume(void) { m_pDecodingThread->Resume(); };
 	void DisplayThreadHalt(void) { m_pDisplayThread->Halt(); };
 	void DisplayThreadResume(void) { m_pDisplayThread->Resume(); };
 
@@ -166,7 +161,6 @@ private:
 	cSoftHdDevice *m_pDevice;           ///< pointer to cSoftHdDevice
 	cSoftHdAudio *m_pAudio;             ///< pointer to cSoftHdAudio
 	cSoftHdConfig *m_pConfig;           ///< pointer to cSoftHdConfig
-	cDecodingThread *m_pDecodingThread; ///< pointer to decoding thread
 	cDisplayThread *m_pDisplayThread;   ///< pointer to display thread
 	cFilterThread *m_pFilterThread;     ///< pointer to deinterlace filter thread
 	cMutex m_waitCleanMutex;            ///< mutex used while display cleanup

@@ -115,8 +115,6 @@ cVideoRender::~cVideoRender(void)
 		delete m_pFilterThread;
 	if (m_pDisplayThread)
 		delete m_pDisplayThread;
-	if (m_pDecodingThread)
-		delete m_pDecodingThread;
 	LOGDEBUG2(L_DRM, "videorender: %s", __FUNCTION__);
 }
 
@@ -130,14 +128,6 @@ void cVideoRender::Prepare(void)
 
 	atomic_set(&m_framesFilled, 0);
 	m_enqueueBufferIdx = 0;
-}
-
-/**
- * Create and start the decoding thread
- */
-void cVideoRender::CreateDecodingThread(void)
-{
-	m_pDecodingThread = new cDecodingThread(m_pDevice);
 }
 
 /**
@@ -891,17 +881,6 @@ void cVideoRender::OsdDrawARGB(int xi, int yi,
  ****************************************************************************/
 
 /**
- * Stop decoding thread
- */
-void cVideoRender::ExitDecodingThread(void)
-{
-	LOGDEBUG("videorender: %s", __FUNCTION__);
-
-	if (m_pDecodingThread->Active())
-		m_pDecodingThread->Stop();
-}
-
-/**
  * Stop display thread
  */
 void cVideoRender::ExitDisplayThread(void)
@@ -1628,7 +1607,6 @@ void cVideoRender::Exit(void)
 	cDrmPlane *videoPlane = m_pDrmDevice->VideoPlane();
 	cDrmPlane *osdPlane = m_pDrmDevice->OsdPlane();
 
-	ExitDecodingThread();
 	ExitDisplayThread();
 
 	// restore saved CRTC configuration
@@ -1677,13 +1655,3 @@ void cVideoRender::SetVideoOutputPosition(const cRect &rect)
 
 	LOGDEBUG("videorender: %s: %d %d %d %d%s", __FUNCTION__, rect.X(), rect.Y(), rect.Width(), rect.Height(), m_videoIsScaled ? ", video is scaled" : "");
 }
-
-/**
- * Check the decoding thread status
- *
- * @retval     1 if active
- *             0 if stopped
- */
-bool cVideoRender::DecodingThreadIsActive(void) {
-	return m_pDecodingThread->Active();
-};

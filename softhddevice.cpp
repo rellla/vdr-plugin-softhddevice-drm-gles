@@ -329,7 +329,7 @@ void cSoftHdDevice::OnEventReceived(const Event& event) {
 	LOGDEBUG("device: received %s", EventToString(event));
 
 	m_pRender->DisplayThreadHalt(); // the display thread needs to be halted first, otherwise a deadlock can occur in WaitForAudioClock()
-	m_pRender->DecodingThreadHalt();
+	m_pVideoStream->DecodingThreadHalt();
 
 	auto invalid = [this, &event]() {
 		LOGWARNING("device: Invalid event '%s' in state '%s' received", EventToString(event), StateToString(m_state));
@@ -412,7 +412,7 @@ void cSoftHdDevice::OnEventReceived(const Event& event) {
 			break;
 	}
 
-	m_pRender->DecodingThreadResume();
+	m_pVideoStream->DecodingThreadResume();
 	m_pRender->DisplayThreadResume();
 }
 
@@ -586,7 +586,7 @@ void cSoftHdDevice::Clear(void)
 	cDevice::Clear();
 
 	m_pRender->DisplayThreadHalt(); // the display thread needs to be halted first, otherwise a deadlock can occur in WaitForAudioClock()
-	m_pRender->DecodingThreadHalt();
+	m_pVideoStream->DecodingThreadHalt();
 
 	m_pRender->CancelFilterThread();
 
@@ -603,7 +603,7 @@ void cSoftHdDevice::Clear(void)
 	ClearAudio();
 
 	m_pRender->DisplayThreadResume();
-	m_pRender->DecodingThreadResume();
+	m_pVideoStream->DecodingThreadResume();
 }
 
 /**

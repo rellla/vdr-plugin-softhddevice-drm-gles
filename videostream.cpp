@@ -117,6 +117,8 @@ void cVideoStream::Exit(void)
 {
 	LOGDEBUG("videostream %s:", __FUNCTION__);
 
+	ExitDecodingThread();
+
 	if (m_pDecoder) {
 		m_pDecoder->Close();
 		delete(m_pDecoder);
@@ -147,9 +149,8 @@ void cVideoStream::StartDecoder(cVideoDecoder *decoder)
 	LOGDEBUG2(L_CODEC, "videostream %s", __FUNCTION__);
 
 	m_pDecoder = decoder;
-	m_pRender->CreateDecodingThread();
+	CreateDecodingThread();
 }
-
 
 /**
  * Close the decoder
@@ -272,4 +273,30 @@ void cVideoStream::Open(AVCodecID codecId, AVCodecParameters *par, AVRational ti
 	m_timebase = timebase;
 	m_codecId = codecId;
 	m_pPar = par;
+}
+
+/*****************************************************************************
+ * Thread
+ ****************************************************************************/
+
+/**
+ * Create and start the decoding thread
+ */
+void cVideoStream::CreateDecodingThread(void)
+{
+	m_pDecodingThread = new cDecodingThread(this);
+}
+
+/**
+ * Stop decoding thread
+ */
+void cVideoStream::ExitDecodingThread(void)
+{
+	LOGDEBUG("videostream: %s", __FUNCTION__);
+
+	if (m_pDecodingThread->Active())
+		m_pDecodingThread->Stop();
+
+	if (m_pDecodingThread)
+		delete m_pDecodingThread;
 }

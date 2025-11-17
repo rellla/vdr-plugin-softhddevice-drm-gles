@@ -37,15 +37,16 @@ extern "C" {
 #include "threads.h"
 #include "videorender.h"
 #include "audio.h"
+#include "videostream.h"
 
 /*****************************************************************************
  * cDecodingThread class
  *
  * This thread decodes the video data
  ****************************************************************************/
-cDecodingThread::cDecodingThread(cSoftHdDevice *device) : cThread("softhd decoding")
+cDecodingThread::cDecodingThread(cVideoStream *stream) : cThread("softhd decoding")
 {
-	m_pDevice = device;
+	m_pStream = stream;
 	Start();
 }
 
@@ -59,7 +60,7 @@ void cDecodingThread::Action(void)
 	while(Running()) {
 		m_mutex.lock();
 
-		m_pDevice->VideoStream()->DecodeInput();
+		m_pStream->DecodeInput();
 
 		m_mutex.unlock();
 

@@ -28,6 +28,7 @@
 #define VIDEO_SURFACES_MAX 3
 
 class cSoftHdDevice;
+class cVideoStream;
 
 /**
  * Decoding thread class
@@ -35,7 +36,7 @@ class cSoftHdDevice;
 class cDecodingThread : public cThread
 {
 public:
-	cDecodingThread(cSoftHdDevice *);
+	cDecodingThread(cVideoStream *);
 	virtual ~cDecodingThread(void);
 	void Stop(void);
 	void Halt(void) { m_mutex.lock(); };
@@ -43,7 +44,7 @@ public:
 
 private:
 	std::mutex m_mutex;
-	cSoftHdDevice *m_pDevice;
+	cVideoStream *m_pStream;
 
 protected:
 	virtual void Action(void);

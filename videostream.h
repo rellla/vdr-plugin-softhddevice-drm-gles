@@ -64,9 +64,16 @@ public:
 	enum AVCodecID GetCodecId(void) { return m_codecId; };
 	void ResetTrickSpeedFramesSentCounter(void) { m_sentTrickPkts = 0; };
 
+	// decoding thread
+	void CreateDecodingThread(void);
+	void ExitDecodingThread(void);
+	void DecodingThreadHalt(void) { m_pDecodingThread->Halt(); };
+	void DecodingThreadResume(void) { m_pDecodingThread->Resume(); };
+
 private:
 	cVideoDecoder *m_pDecoder;             ///< video decoder
 	cVideoRender *m_pRender;               ///< video renderer
+	cDecodingThread *m_pDecodingThread;    ///< pointer to decoding thread
 
 	cQueue<AVPacket> m_packets{VIDEO_PACKET_MAX}; ///< AVPackets queue
 	std::vector<uint8_t> m_currentCodecPacket;    ///< fragmentation buffer
