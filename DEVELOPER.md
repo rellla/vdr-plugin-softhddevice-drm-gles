@@ -94,25 +94,32 @@ This is the model of the state machine implemented in softhddevice.cpp.
 
 ```mermaid
 stateDiagram-v2
-    [*] --> Stop: Initialize
+    [*] --> Detached: Initialize
+
+    Detached --> Stop: AttachEvent
 
     Stop --> Play: PlayEvent
+    Stop --> Detached: DetachEvent
 
     Play --> TrickSpeed: TrickSpeedEvent
     Play --> Stop: StopEvent
     Play --> Play: PauseEvent/StillPictureEvent
+    Play --> Detached: DetachEvent
 
     TrickSpeed --> Play: PlayEvent
     TrickSpeed --> Stop: StopEvent
     TrickSpeed --> TrickSpeed: PauseEvent/StillPictureEvent
+    TrickSpeed --> Detached: DetachEvent
 
     classDef stopState fill:#e57373,stroke:#d32f2f,stroke-width:2px,color:#000
     classDef playState fill:#81c784,stroke:#388e3c,stroke-width:2px,color:#000
     classDef trickspeedState fill:#64b5f6,stroke:#1976d2,stroke-width:2px,color:#000
+    classDef detachState fill:#fd00fd,stroke:#ca00ca,stroke-width:2px,color:#000
 
     class Stop stopState
     class Play playState
     class TrickSpeed trickspeedState
+    class Detached detachState
 ```
 
 ## Video Data Flow Call Graph

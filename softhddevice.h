@@ -47,7 +47,8 @@ enum State {
 	STOP,
 	PLAY,
 	TRICK_SPEED,
-	STILL_PICTURE
+	STILL_PICTURE,
+	DETACHED
 };
 
 struct PlayEvent {};
@@ -61,8 +62,10 @@ struct StillPictureEvent {
 	const uchar *data;
 	int size;
 };
+struct DetachEvent {};
+struct AttachEvent {};
 
-using Event = std::variant<PlayEvent, PauseEvent, StopEvent, TrickSpeedEvent, StillPictureEvent>;
+using Event = std::variant<PlayEvent, PauseEvent, StopEvent, TrickSpeedEvent, StillPictureEvent, DetachEvent, AttachEvent>;
 
 template<class... Ts>
 struct overload : Ts... { using Ts::operator()...; };
@@ -75,6 +78,8 @@ inline const char* EventToString(const Event& e) {
         [](const StopEvent&) -> const char* { return "StopEvent"; },
         [](const TrickSpeedEvent&) -> const char* { return "TrickSpeedEvent"; },
         [](const StillPictureEvent&) -> const char* { return "StillPictureEvent"; },
+        [](const DetachEvent&) -> const char* { return "DetachEvent"; },
+        [](const AttachEvent&) -> const char* { return "AttachEvent"; },
     }, e);
 }
 
@@ -83,7 +88,8 @@ inline const char* StateToString(State s) {
         case State::STOP: return "STOP";
         case State::PLAY: return "PLAY";
         case State::TRICK_SPEED: return "TRICK_SPEED";
-		case State::STILL_PICTURE: return "STILL_PICTURE";
+        case State::STILL_PICTURE: return "STILL_PICTURE";
+        case State::DETACHED: return "DETACHED";
     }
     return "Unknown";
 }
@@ -204,9 +210,7 @@ public:
 	void OnLeavingState(enum State);
 
 private:
-	bool m_started;                  ///< plugin was started and initialized (should this be done with the state machine?)
-
-	enum State m_state = STOP;       ///< current plugin state
+	enum State m_state = DETACHED;   ///< current plugin state, normal plugin start sets detached state
 	cDvbSpuDecoder *m_pSpuDecoder;   ///< pointer to spu decoder
 	cSoftHdConfig *m_pConfig;        ///< pointer to cSoftHdConfig object
 	cVideoRender *m_pRender;         ///< pointer to cVideoRender object

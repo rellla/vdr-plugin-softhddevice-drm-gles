@@ -147,8 +147,6 @@ cSoftHdDevice::cSoftHdDevice(cSoftHdConfig *config)
 	m_pAudioDecoder = nullptr;
 	m_videoAudioDelay = m_pConfig->ConfigVideoAudioDelay;
 	m_audioChannelID = -1;
-
-	m_started = false;
 }
 
 /**
@@ -194,18 +192,7 @@ void cSoftHdDevice::Start(void)
 {
 	LOGDEBUG("device: %s:", __FUNCTION__);
 
-	if (m_started)
-		return;
-
-	m_pAudio = new cSoftHdAudio(this);
-	m_pRender = new cVideoRender(this);
-	m_pVideoStream = new cVideoStream(this);
-	m_pAudioDecoder = new cAudioDecoder(m_pAudio);
-	m_pRender->Init(); // starts display thread
-	m_pVideoStream->StartDecoder(new cVideoDecoder(m_pRender->HardwareQuirks())); // starts decoding thread
-	// Audio is init lazily (includes starting thread)
-
-	m_started = true;
+	OnEventReceived(AttachEvent{});
 }
 
 /**
@@ -217,19 +204,8 @@ void cSoftHdDevice::Start(void)
 void cSoftHdDevice::Stop(void)
 {
 	LOGDEBUG("device: %s:", __FUNCTION__);
-	if (!m_started)
-		return;
 
-	m_pAudio->Exit();
-	m_pRender->Exit(); // render must be stopped before videostream!
-	m_pVideoStream->Exit();
-
-	delete m_pAudioDecoder; // includes a Close()
-	delete m_pVideoStream;
-	delete m_pRender;
-	delete m_pAudio;
-
-	m_started = false;
+	OnEventReceived(DetachEvent{});
 }
 
 /**
@@ -314,23 +290,36 @@ void cSoftHdDevice::HandlePause(void)
  *
  * @param event     The event to process (variant type containing specific event data)
  */
-void cSoftHdDevice::OnEventReceived(const Event& event) {
-
-	// don't do state changes if the plugin isn't started
-	// VDR sends SetPlayMode(0) after stopping the plugin
-	if (!m_started)
-		return;
-
+void cSoftHdDevice::OnEventReceived(const Event& event)
+{
 	LOGDEBUG("device: received %s", EventToString(event));
 
-	m_pRender->DisplayThreadHalt(); // the display thread needs to be halted first, otherwise a deadlock can occur in WaitForAudioClock()
-	m_pVideoStream->DecodingThreadHalt();
+	if (m_state != DETACHED) {
+		m_pRender->DisplayThreadHalt(); // the display thread needs to be halted first, otherwise a deadlock can occur in WaitForAudioClock()
+		m_pVideoStream->DecodingThreadHalt();
+	}
+
+	bool needsResume = true;
 
 	auto invalid = [this, &event]() {
 		LOGWARNING("device: Invalid event '%s' in state '%s' received", EventToString(event), StateToString(m_state));
 	};
 
 	switch (m_state) {
+		case State::DETACHED:
+			std::visit(overload{
+				[&invalid](const PlayEvent&) { invalid(); },
+				[&invalid](const PauseEvent&) { invalid(); },
+				[&invalid](const StopEvent&) { invalid(); },
+				[&invalid](const TrickSpeedEvent&) { invalid(); },
+				[&invalid](const StillPictureEvent&) { invalid(); },
+				[&invalid](const DetachEvent&) { invalid(); },
+				[this](const AttachEvent&) {
+					SetState(STOP);
+				},
+			}, event);
+			needsResume = false;
+			break;
 		case State::STOP:
 			std::visit(overload{
 				[this](const PlayEvent&) {
@@ -342,6 +331,11 @@ void cSoftHdDevice::OnEventReceived(const Event& event) {
 				[&invalid](const StopEvent&) { invalid(); },
 				[&invalid](const TrickSpeedEvent&) { invalid(); },
 				[&invalid](const StillPictureEvent&) { invalid(); },
+				[this, &needsResume](const DetachEvent&) {
+					SetState(DETACHED);
+					needsResume = false;
+				},
+				[&invalid](const AttachEvent&) { invalid(); },
 			}, event);
 			break;
 		case State::PLAY:
@@ -364,6 +358,11 @@ void cSoftHdDevice::OnEventReceived(const Event& event) {
 				[this](const StillPictureEvent& s) {
 					HandleStillPicture(s.data, s.size);
 				 },
+				[this, &needsResume](const DetachEvent&) {
+					SetState(DETACHED);
+					needsResume = false;
+				},
+				[&invalid](const AttachEvent&) { invalid(); },
 			}, event);
 			break;
 		case State::TRICK_SPEED:
@@ -385,6 +384,11 @@ void cSoftHdDevice::OnEventReceived(const Event& event) {
 				[this](const StillPictureEvent& s) {
 					HandleStillPicture(s.data, s.size);
 				 },
+				[this, &needsResume](const DetachEvent&) {
+					SetState(DETACHED);
+					needsResume = false;
+				},
+				[&invalid](const AttachEvent&) { invalid(); },
 			}, event);
 			break;
 		case State::STILL_PICTURE:
@@ -403,12 +407,19 @@ void cSoftHdDevice::OnEventReceived(const Event& event) {
 				[this](const StillPictureEvent& s) {
 					HandleStillPicture(s.data, s.size);
 				 },
+				[this, &needsResume](const DetachEvent&) {
+					SetState(DETACHED);
+					needsResume = false;
+				},
+				[&invalid](const AttachEvent&) { invalid(); },
 			}, event);
 			break;
 	}
 
-	m_pVideoStream->DecodingThreadResume();
-	m_pRender->DisplayThreadResume();
+	if (needsResume) {
+		m_pVideoStream->DecodingThreadResume();
+		m_pRender->DisplayThreadResume();
+	}
 }
 
 /**
@@ -450,6 +461,35 @@ void cSoftHdDevice::OnEnteringState(enum State state) {
 		case STILL_PICTURE:
 			m_pRender->SetDeinterlacerDeactivated(true);
 			break;
+		case DETACHED:
+			// do the same cleanup as in STOP first except audio resume and flushing
+			m_pRender->CancelFilterThread();
+
+			m_pRender->Reset();
+			m_pRender->DestroyFrameBuffers();
+			m_pRender->ScheduleDisplayBlackFrame();
+
+			m_videoReassemblyBuffer.Reset();
+			m_pVideoStream->ClearVdrCoreToDecoderQueue();
+			m_pRender->ClearDecoderToDisplayQueue();
+			m_pVideoStream->CloseDecoder();
+
+			m_audioReassemblyBuffer.Reset();
+
+			// resume the previously stopped threads
+			m_pVideoStream->DecodingThreadResume();
+			m_pRender->DisplayThreadResume();
+
+			// now do the detach
+			m_pAudio->Exit();
+			m_pRender->Exit(); // render must be stopped before videostream!
+			m_pVideoStream->Exit();
+
+			delete m_pAudioDecoder; // includes a Close()
+			delete m_pVideoStream;
+			delete m_pRender;
+			delete m_pAudio;
+			break;
 	}
 }
 
@@ -484,6 +524,20 @@ void cSoftHdDevice::OnLeavingState(enum State state) {
 			break;
 		case STILL_PICTURE:
 			m_pRender->SetDeinterlacerDeactivated(false);
+			break;
+		case DETACHED:
+#ifdef USE_GLES
+			SetEnableOglOsd();
+#endif
+			m_pAudio = new cSoftHdAudio(this);
+			m_pAudio->LazyInit();
+			m_pRender = new cVideoRender(this);
+			m_pVideoStream = new cVideoStream(this);
+			m_pAudioDecoder = new cAudioDecoder(m_pAudio);
+			m_pRender->Init(); // starts display thread
+			m_pVideoStream->StartDecoder(new cVideoDecoder(m_pRender->HardwareQuirks())); // starts decoding thread
+			// Audio is init lazily (includes starting thread)
+			m_skipstream = false;
 			break;
 	}
 }
