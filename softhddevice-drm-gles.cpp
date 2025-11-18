@@ -251,6 +251,8 @@ bool cPluginSoftHdDevice::Service(const char *id, void *data)
  */
 static const char *SVDRPHelpText[] = {
 	"PLAY Url\n" "    Play the media from the given url.\n",
+	"DETA\n" "        Detach the plugin.\n",
+	"ATTA\n" "        Attach the plugin.\n",
 	NULL
 };
 
@@ -280,6 +282,22 @@ cString cPluginSoftHdDevice::SVDRPCommand(const char *command,
 		LOGDEBUG2(L_MEDIA, "plugin: %s: SVDRPCommand: %s %s", __FUNCTION__, command, option);
 		cControl::Launch(new cSoftHdControl(option, m_pDevice));
 		return "PLAY url";
+	}
+	if (!strcasecmp(command, "DETA")) {
+		LOGDEBUG("plugin: %s: SVDRPCommand: %s %s", __FUNCTION__, command, option);
+		if (m_pDevice->IsDetached())
+			return "SoftHdDevice is already detached";
+
+		m_pDevice->Detach();
+		return "Detached SoftHdDevice";
+	}
+	if (!strcasecmp(command, "ATTA")) {
+		LOGDEBUG("plugin: %s: SVDRPCommand: %s %s", __FUNCTION__, command, option);
+		if (!m_pDevice->IsDetached())
+			return "SoftHdDevice is not detached";
+
+		m_pDevice->Attach();
+		return "Attached SoftHdDevice";
 	}
 
 	return NULL;

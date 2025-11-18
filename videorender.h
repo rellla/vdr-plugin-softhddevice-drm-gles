@@ -147,6 +147,7 @@ public:
 #ifdef USE_GLES
 	// GLES
 	void DisableOglOsd(void) { m_disableOglOsd = true; };
+	void EnableOglOsd(void) { m_disableOglOsd = false; };
 	bool OglOsdDisabled(void) { return m_disableOglOsd; };
 	EGLSurface EglSurface(void) { return m_pDrmDevice->EglSurface(); };
 	EGLDisplay EglDisplay(void) { return m_pDrmDevice->EglDisplay(); };

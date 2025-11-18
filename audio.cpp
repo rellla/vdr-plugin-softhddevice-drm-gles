@@ -1306,6 +1306,7 @@ void cSoftHdAudio::Exit(void)
 		m_running = false;
 		m_paused = false;
 	}
+	m_initialized = false;
 }
 
 /******************************************************************************

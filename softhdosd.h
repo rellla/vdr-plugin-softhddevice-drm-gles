@@ -29,6 +29,7 @@
 #include "softhddevice.h"
 
 class cSoftHdDevice;
+class cOglThread;
 
 /*****************************************************************************
  * OSD (software)

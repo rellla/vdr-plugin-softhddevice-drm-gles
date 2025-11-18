@@ -21,6 +21,7 @@
 #ifndef __SOFTHDDEVICE_H
 #define __SOFTHDDEVICE_H
 
+#include <mutex>
 #include <variant>
 
 #include <vdr/dvbspu.h>
@@ -35,6 +36,7 @@ extern "C"
 #include "videostream.h"
 #include "audio.h"
 #include "videorender.h"
+#include "softhdosd.h"
 
 #if __cplusplus < 201703L
 #error "C++17 or higher is required"
@@ -184,6 +186,7 @@ public:
 	int MaxSizeGPUImageCache(void);
 	int OglOsdIsDisabled(void);
 	void SetDisableOglOsd(void);
+	void SetEnableOglOsd(void);
 #endif
 	void SetDisableDeint(void);
 	void OsdClose(void);
@@ -209,6 +212,11 @@ public:
 	void OnEnteringState(enum State);
 	void OnLeavingState(enum State);
 
+	// detach/ attach
+	void Detach(void);
+	void Attach(void);
+	bool IsDetached(void);
+
 private:
 	enum State m_state = DETACHED;   ///< current plugin state, normal plugin start sets detached state
 	cDvbSpuDecoder *m_pSpuDecoder;   ///< pointer to spu decoder
@@ -217,6 +225,7 @@ private:
 	cVideoStream *m_pVideoStream;    ///< pointer to cVideoStream object
 	cSoftHdAudio *m_pAudio;          ///< pointer to cSoftHdAudio object
 	cAudioDecoder *m_pAudioDecoder;  ///< pointer to cAudioDecoder object
+	cSoftOsdProvider *m_pOsdProvider; ///< pointer to cSoftOsdProvider object
 	cReassemblyBufferVideo m_videoReassemblyBuffer; ///< video pes reassembly buffer
 	cReassemblyBufferAudio m_audioReassemblyBuffer; ///< audio pes reassembly buffer
 
@@ -224,6 +233,8 @@ private:
 	int m_videoAudioDelay;           ///< audio/video delay set via setup menu
 	bool m_grabActive;               ///< simple lock variable
 	                                 ///< skips a new grab request if the last one is still active
+	bool m_skipstream;               ///< skips audio and video data (in detached state)
+	std::mutex m_mutex;              ///< mutex to lock the state machine
 
 	void ClearAudio(void);
 	void Exit(void);

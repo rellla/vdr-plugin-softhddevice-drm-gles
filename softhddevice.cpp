@@ -27,6 +27,7 @@
 #define __USE_GNU
 #endif
 
+#include <mutex>
 #include <variant>
 
 #include <assert.h>
@@ -147,6 +148,8 @@ cSoftHdDevice::cSoftHdDevice(cSoftHdConfig *config)
 	m_pAudioDecoder = nullptr;
 	m_videoAudioDelay = m_pConfig->ConfigVideoAudioDelay;
 	m_audioChannelID = -1;
+	m_pOsdProvider = nullptr;
+	m_skipstream = false;
 }
 
 /**
@@ -234,7 +237,7 @@ void cSoftHdDevice::MakePrimaryDevice(bool on)
 
 	cDevice::MakePrimaryDevice(on);
 	if (on)
-		new cSoftOsdProvider(this);
+		m_pOsdProvider = new cSoftOsdProvider(this); // no need to delete it, VDR does it
 }
 
 /**
@@ -292,6 +295,8 @@ void cSoftHdDevice::HandlePause(void)
  */
 void cSoftHdDevice::OnEventReceived(const Event& event)
 {
+	m_mutex.lock();
+
 	LOGDEBUG("device: received %s", EventToString(event));
 
 	if (m_state != DETACHED) {
@@ -420,6 +425,8 @@ void cSoftHdDevice::OnEventReceived(const Event& event)
 		m_pVideoStream->DecodingThreadResume();
 		m_pRender->DisplayThreadResume();
 	}
+
+	m_mutex.unlock();
 }
 
 /**
@@ -462,6 +469,7 @@ void cSoftHdDevice::OnEnteringState(enum State state) {
 			m_pRender->SetDeinterlacerDeactivated(true);
 			break;
 		case DETACHED:
+			m_skipstream = true;
 			// do the same cleanup as in STOP first except audio resume and flushing
 			m_pRender->CancelFilterThread();
 
@@ -484,7 +492,10 @@ void cSoftHdDevice::OnEnteringState(enum State state) {
 			m_pAudio->Exit();
 			m_pRender->Exit(); // render must be stopped before videostream!
 			m_pVideoStream->Exit();
-
+#ifdef USE_GLES
+			m_pOsdProvider->StopOpenGlThread();
+			SetDisableOglOsd();
+#endif
 			delete m_pAudioDecoder; // includes a Close()
 			delete m_pVideoStream;
 			delete m_pRender;
@@ -895,6 +906,9 @@ int cSoftHdDevice::PlayAudio(const uchar *data, int size, uchar id)
 {
 //	LOGDEBUG("device: %s: %p %p %d %d", __FUNCTION__, this, data, size, id);
 
+	if (m_skipstream)
+		return size;
+
 	// hard limit buffer full: don't overrun audio buffers on replay
 	if (m_pAudio->GetFreeBytes() < AUDIO_MIN_BUFFER_FREE) {
 //		LOGDEBUG("device: %s: Buffer is Full (%d|%d)!", __FUNCTION__, m_pAudio->GetFreeBytes(), AUDIO_MIN_BUFFER_FREE);
@@ -980,6 +994,9 @@ void cSoftHdDevice::SetVolumeDevice(int volume)
 int cSoftHdDevice::PlayVideo(const uchar *data, int size)
 {
 	// LOGDEBUG("device: %s: %p %d", __FUNCTION__, data, size);
+
+	if (m_skipstream)
+		return size;
 
 	if (m_pVideoStream->GetAvPacketsFilled() >= VIDEO_PACKET_MAX - 10)
 		return 0;
@@ -1325,6 +1342,17 @@ void cSoftHdDevice::SetDisableOglOsd(void)
 	if (m_pRender)
 		m_pRender->DisableOglOsd();
 }
+
+/**
+ * Enables OpenGL/ES Osd
+ */
+void cSoftHdDevice::SetEnableOglOsd(void)
+{
+	m_pConfig->ConfigDisableOglOsd = 0;
+	if (m_pRender)
+		m_pRender->EnableOglOsd();
+}
+
 #endif
 
 /**
@@ -1439,4 +1467,39 @@ int cSoftHdDevice::PlayVideoPkts(AVPacket * pkt)
 	m_pVideoStream->PushAvPacket(pkt);
 
 	return 1;
+}
+
+/**
+ * Detach the device
+ *
+ * Clears audio and video, stops all threads and releases drm/alsa.
+ * A detached state can only be exited (restarted) with an AttachEvent.
+ */
+void cSoftHdDevice::Detach(void)
+{
+	OnEventReceived(DetachEvent{});
+}
+
+/**
+ * Attach the device again
+ *
+ * Kind of a plugin restart. Inits and starts all necessary resources.
+ * Only valid after a detach.
+ */
+void cSoftHdDevice::Attach(void)
+{
+	OnEventReceived(AttachEvent{});
+}
+
+/**
+ * Returns true, id the device detached or suspended
+ *
+ * Use m_skipstream here instead of State::DETACHED or State::SUSPENDED,
+ * because that one is set right before entering and after leaving DETACHED/SUSPENDED.
+ * The state change is done somewhere in between and we can't rely on that.
+ */
+bool cSoftHdDevice::IsDetached(void)
+{
+	std::lock_guard<std::mutex> lock(m_mutex);
+	return m_skipstream;
 }

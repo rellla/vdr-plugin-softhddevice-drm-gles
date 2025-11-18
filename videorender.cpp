@@ -82,9 +82,6 @@ cVideoRender::cVideoRender(cSoftHdDevice *device)
 	m_pAudio = m_pDevice->Audio();
 	m_pDrmDevice = new cDrmDevice(this, m_pConfig->ConfigDisplayResolution);
 
-#ifdef USE_GLES
-	m_disableOglOsd = m_pConfig->ConfigDisableOglOsd;
-#endif
 	m_startgrab = false;
 	m_startCounter = 0;
 	m_videoIsScaled = false;
@@ -103,7 +100,10 @@ cVideoRender::cVideoRender(cSoftHdDevice *device)
 
 	m_userDisabledDeinterlacer = m_pConfig->ConfigDisableDeint;
 #ifdef USE_GLES
+	m_disableOglOsd = m_pConfig->ConfigDisableOglOsd;
 	m_bo = nullptr;
+	m_pNextBo = nullptr;
+	m_pOldBo = nullptr;
 #endif
 }
 
@@ -117,7 +117,8 @@ cVideoRender::~cVideoRender(void)
 		delete m_pFilterThread;
 	if (m_pDisplayThread)
 		delete m_pDisplayThread;
-	LOGDEBUG2(L_DRM, "videorender: %s", __FUNCTION__);
+
+	delete m_pDrmDevice;
 }
 
 /**
@@ -1616,7 +1617,6 @@ void cVideoRender::Exit(void)
 #endif
 
 	m_pDrmDevice->Close();
-	delete m_pDrmDevice;
 }
 
 /**

@@ -79,6 +79,7 @@ cDrmDevice::cDrmDevice(cVideoRender *render, const char* resolution)
 	m_pRender = render;
 	m_useZpos = false;
 	m_userReqDisplayWidth = 0;
+	m_fdDrm = -1;
 
 	if (resolution)
 		sscanf(resolution, "%dx%d@%d", &m_userReqDisplayWidth, &m_userReqDisplayHeight, &m_userReqDisplayRefreshRate);
@@ -89,6 +90,7 @@ cDrmDevice::cDrmDevice(cVideoRender *render, const char* resolution)
  */
 cDrmDevice::~cDrmDevice(void)
 {
+	LOGDEBUG2(L_DRM, "drmdevice: %s", __FUNCTION__);
 }
 
 static int get_resources(int fd, drmModeRes **resources)
@@ -142,7 +144,7 @@ static int FindDrmDevice(drmModeRes **resources)
 	drmDevicePtr devices[MAX_DRM_DEVICES] = { NULL };
 	int num_devices, fd = -1;
 
-	num_devices = drmGetDevices2(0, devices,MAX_DRM_DEVICES);
+	num_devices = drmGetDevices2(0, devices, MAX_DRM_DEVICES);
 	if (num_devices < 0) {
 		LOGERROR("drmdevice: %s: drmGetDevices2 failed: %s", __FUNCTION__, strerror(-num_devices));
 		return fd;
@@ -271,8 +273,8 @@ int cDrmDevice::Init(void)
 		return -1;
 	}
 
-	LOGDEBUG2(L_DRM, "drmdevice: %s: DRM have %i connectors, %i crtcs, %i encoders", __FUNCTION__,
-		resources->count_connectors, resources->count_crtcs,
+	LOGDEBUG2(L_DRM, "drmdevice: %s: fd: %d DRM have %i connectors, %i crtcs, %i encoders", __FUNCTION__,
+		m_fdDrm, resources->count_connectors, resources->count_crtcs,
 		resources->count_encoders);
 
 	// find a connector
@@ -533,6 +535,18 @@ int cDrmDevice::Init(void)
 		}
 		LOGDEBUG2(L_DRM, "%s", str_zpos);
 	}
+
+	if (drmSetMaster(m_fdDrm) < 0) {
+		LOGDEBUG2(L_DRM, "drmdevice: Failed to set drm master, try authorize instead: {}", strerror(errno));
+
+		drm_magic_t magic;
+		if (drmGetMagic(m_fdDrm, &magic) < 0)
+			LOGFATAL("drmdevice: Failed to get drm magic: {}", strerror(errno));
+
+		if (drmAuthMagic(m_fdDrm, magic) < 0)
+			LOGFATAL("drmdevice: Failed to authorize drm magic: {}", strerror(errno));
+	}
+
 	drmModeFreePlaneResources(planeRes);
 	drmModeFreeEncoder(encoder);
 	drmModeFreeResources(resources);
@@ -897,7 +911,11 @@ int32_t cDrmDevice::FindCrtcForConnector(const drmModeRes *resources, const drmM
  */
 void cDrmDevice::Close(void)
 {
+	LOGDEBUG2(L_DRM, "drmdevice: %s: closing fd %d", __FUNCTION__, m_fdDrm);
+	drmDropMaster(m_fdDrm);
+
 	close(m_fdDrm);
+	m_fdDrm = -1;
 }
 
 /**

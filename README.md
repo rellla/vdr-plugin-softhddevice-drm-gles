@@ -64,7 +64,6 @@ In general, any device that provides a DRM/KMS output and is supported by FFmpeg
 
 Known Bugs/ TODO:
 -----------------
-- attach/detach isn't implemented
 - amlogic trickspeed is broken
 - rpi avcodec_flush_buffers is broken in ffmpeg, use a workaround for now
 - see https://github.com/rellla/vdr-plugin-softhddevice-drm-gles/issues
@@ -275,6 +274,11 @@ SVDRP:
 
 	Play a media file from web:
 		svdrpsend plug softhddevice-drm-gles PLAY http://www.media-server/path_to_file/media_file.mp4
+
+	DETA         Detach the plugin.
+		An "ATTA" is needed in order to exit a detached state and to continue playback.
+
+	ATTA         Attach the plugin again.
 
 
 Copyright:
