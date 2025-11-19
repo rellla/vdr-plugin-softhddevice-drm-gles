@@ -215,7 +215,7 @@ public:
 	// detach/ attach
 	void Detach(void);
 	void Attach(void);
-	bool IsDetached(void);
+	bool IsDetached(void) const;
 
 private:
 	enum State m_state = DETACHED;   ///< current plugin state, normal plugin start sets detached state
@@ -233,8 +233,7 @@ private:
 	int m_videoAudioDelay;           ///< audio/video delay set via setup menu
 	bool m_grabActive;               ///< simple lock variable
 	                                 ///< skips a new grab request if the last one is still active
-	bool m_skipstream;               ///< skips audio and video data (in detached state)
-	std::mutex m_mutex;              ///< mutex to lock the state machine
+	mutable std::mutex m_mutex;      ///< mutex to lock the state machine
 
 	void ClearAudio(void);
 	void Exit(void);

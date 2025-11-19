@@ -149,7 +149,6 @@ cSoftHdDevice::cSoftHdDevice(cSoftHdConfig *config)
 	m_videoAudioDelay = m_pConfig->ConfigVideoAudioDelay;
 	m_audioChannelID = -1;
 	m_pOsdProvider = nullptr;
-	m_skipstream = false;
 }
 
 /**
@@ -260,7 +259,11 @@ cSpuDecoder *cSoftHdDevice::GetSpuDecoder(void)
  */
 bool cSoftHdDevice::HasDecoder(void) const
 {
-	return true;
+	bool hasDecoder = !IsDetached();
+
+//	LOGDEBUG("device: %s: %d", __FUNCTION__, hasDecoder);
+
+	return hasDecoder;
 }
 
 /**
@@ -268,8 +271,11 @@ bool cSoftHdDevice::HasDecoder(void) const
  */
 bool cSoftHdDevice::CanReplay(void) const
 {
-	LOGDEBUG("device: %s:", __FUNCTION__);
-	return true;
+	bool canReplay = !IsDetached();
+
+	LOGDEBUG("device: %s: %d", __FUNCTION__, canReplay);
+
+	return canReplay;
 }
 
 /**
@@ -295,7 +301,7 @@ void cSoftHdDevice::HandlePause(void)
  */
 void cSoftHdDevice::OnEventReceived(const Event& event)
 {
-	m_mutex.lock();
+	std::lock_guard<std::mutex> lock(m_mutex);
 
 	LOGDEBUG("device: received %s", EventToString(event));
 
@@ -425,8 +431,6 @@ void cSoftHdDevice::OnEventReceived(const Event& event)
 		m_pVideoStream->DecodingThreadResume();
 		m_pRender->DisplayThreadResume();
 	}
-
-	m_mutex.unlock();
 }
 
 /**
@@ -469,7 +473,6 @@ void cSoftHdDevice::OnEnteringState(enum State state) {
 			m_pRender->SetDeinterlacerDeactivated(true);
 			break;
 		case DETACHED:
-			m_skipstream = true;
 			// do the same cleanup as in STOP first except audio resume and flushing
 			m_pRender->CancelFilterThread();
 
@@ -548,7 +551,6 @@ void cSoftHdDevice::OnLeavingState(enum State state) {
 			m_pRender->Init(); // starts display thread
 			m_pVideoStream->StartDecoder(new cVideoDecoder(m_pRender->HardwareQuirks())); // starts decoding thread
 			// Audio is init lazily (includes starting thread)
-			m_skipstream = false;
 			break;
 	}
 }
@@ -608,6 +610,9 @@ bool cSoftHdDevice::SetPlayMode(ePlayMode play_mode)
 int64_t cSoftHdDevice::GetSTC(void)
 {
 //    LOGDEBUG("%s:", __FUNCTION__);
+	if (IsDetached())
+		return AV_NOPTS_VALUE;
+
 	if (m_pRender)
 		return m_pRender->GetVideoClock();
 
@@ -644,6 +649,9 @@ void cSoftHdDevice::Clear(void)
 {
 	LOGDEBUG("device: %s:", __FUNCTION__);
 	cDevice::Clear();
+
+	if (IsDetached())
+		return;
 
 	m_pRender->DisplayThreadHalt(); // the display thread needs to be halted first, otherwise a deadlock can occur in WaitForAudioClock()
 	m_pVideoStream->DecodingThreadHalt();
@@ -755,6 +763,9 @@ bool cSoftHdDevice::Poll(__attribute__ ((unused)) cPoller & poller, int timeout)
 {
 //	LOGDEBUG("device: %s: timeout %d", __FUNCTION__, timeout_ms);
 
+	if (IsDetached())
+		return true;
+
 	for (;;) {
 		int full;
 		int t;
@@ -782,6 +793,8 @@ bool cSoftHdDevice::Poll(__attribute__ ((unused)) cPoller & poller, int timeout)
 		usleep(t * 1000);		// let display thread work
 		timeout -= t;
 	}
+
+	return true;
 }
 
 /**
@@ -791,6 +804,9 @@ bool cSoftHdDevice::Poll(__attribute__ ((unused)) cPoller & poller, int timeout)
  */
 bool cSoftHdDevice::Flush(int timeout)
 {
+	if (IsDetached())
+		return true;
+
 	LOGDEBUG("device: %s: timeout %d ms", __FUNCTION__, timeout);
 	if (m_pVideoStream->GetAvPacketsFilled()) {
 		if (timeout) {			// let display thread work
@@ -799,7 +815,7 @@ bool cSoftHdDevice::Flush(int timeout)
 		return !m_pVideoStream->GetAvPacketsFilled();
 	}
 
-	return 1;
+	return true;
 }
 
 /**
@@ -844,6 +860,8 @@ void cSoftHdDevice::SetVideoFormat(bool videoFormat16_9)
 void cSoftHdDevice::GetVideoSize(int &width, int &height, double &aspectRatio)
 {
 //	LOGDEBUG("device: %s: %d x %d @ %f", __FUNCTION__, *width, *height, *aspectRatio);
+	if (IsDetached())
+		return;
 
 	m_pVideoStream->Decoder()->GetVideoSize(&width, &height, &aspectRatio);
 }
@@ -855,6 +873,9 @@ void cSoftHdDevice::GetVideoSize(int &width, int &height, double &aspectRatio)
  */
 void cSoftHdDevice::GetOsdSize(int &width, int &height, double &aspectRatio)
 {
+	if (IsDetached())
+		return;
+
 	m_pRender->GetScreenSize(&width, &height, &aspectRatio);
 }
 
@@ -905,8 +926,7 @@ static void PrintStreamData(const uchar *payload)
 int cSoftHdDevice::PlayAudio(const uchar *data, int size, uchar id)
 {
 //	LOGDEBUG("device: %s: %p %p %d %d", __FUNCTION__, this, data, size, id);
-
-	if (m_skipstream)
+	if (IsDetached())
 		return size;
 
 	// hard limit buffer full: don't overrun audio buffers on replay
@@ -981,6 +1001,9 @@ int cSoftHdDevice::GetAudioChannelDevice(void)
  */
 void cSoftHdDevice::SetVolumeDevice(int volume)
 {
+	if (IsDetached())
+		return;
+
 	LOGDEBUG("device: %s: %d", __FUNCTION__, volume);
 	m_pAudio->SetVolume((volume * 1000) / 255);
 }
@@ -994,8 +1017,7 @@ void cSoftHdDevice::SetVolumeDevice(int volume)
 int cSoftHdDevice::PlayVideo(const uchar *data, int size)
 {
 	// LOGDEBUG("device: %s: %p %d", __FUNCTION__, data, size);
-
-	if (m_skipstream)
+	if (IsDetached())
 		return size;
 
 	if (m_pVideoStream->GetAvPacketsFilled() >= VIDEO_PACKET_MAX - 10)
@@ -1058,6 +1080,9 @@ int cSoftHdDevice::PlayVideo(const uchar *data, int size)
  */
 uchar *cSoftHdDevice::GrabImage(int &size, bool jpeg, int quality, int width, int height)
 {
+	if (IsDetached())
+		return NULL;
+
 	if (m_grabActive) {
 		LOGWARNING("device: %s: wait for the last grab to be finished - skip!", __FUNCTION__);
 		return NULL;
@@ -1195,6 +1220,9 @@ cRect cSoftHdDevice::CanScaleVideo(const cRect & rect, __attribute__ ((unused)) 
  */
 void cSoftHdDevice::ScaleVideo(const cRect & rect)
 {
+	if (IsDetached())
+		return;
+
 	LOGDEBUG2(L_OSD, "device: %s: %dx%d%+d%+d",
 		__FUNCTION__, rect.Width(), rect.Height(), rect.X(), rect.Y());
 
@@ -1286,6 +1314,9 @@ int cSoftHdDevice::ProcessArgs(int argc, char *argv[])
  */
 void cSoftHdDevice::OsdClose(void)
 {
+	if (IsDetached())
+		return;
+
 	m_pRender->OsdClear();
 }
 
@@ -1304,6 +1335,9 @@ void cSoftHdDevice::OsdClose(void)
 void cSoftHdDevice::OsdDrawARGB(int xi, int yi, int height, int width, int pitch,
 	const uint8_t * argb, int x, int y)
 {
+	if (IsDetached())
+		return;
+
 	m_pRender->OsdDrawARGB(xi, yi, height, width, pitch, argb, x, y);
 }
 
@@ -1492,14 +1526,10 @@ void cSoftHdDevice::Attach(void)
 }
 
 /**
- * Returns true, id the device detached or suspended
- *
- * Use m_skipstream here instead of State::DETACHED or State::SUSPENDED,
- * because that one is set right before entering and after leaving DETACHED/SUSPENDED.
- * The state change is done somewhere in between and we can't rely on that.
+ * Returns true, if the device is detached
  */
-bool cSoftHdDevice::IsDetached(void)
+bool cSoftHdDevice::IsDetached(void) const
 {
 	std::lock_guard<std::mutex> lock(m_mutex);
-	return m_skipstream;
+	return m_state == State::DETACHED;
 }
