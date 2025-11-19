@@ -183,10 +183,11 @@ static const AVCodec *FindDecoder(enum AVCodecID codecId, int forceSoftwareDecod
  *
  * @param hardwareQuirks     hardware specific quirks for decoder
  */
-cVideoDecoder::cVideoDecoder(int hardwareQuirks)
+cVideoDecoder::cVideoDecoder(cVideoStream *stream, int hardwareQuirks)
 {
-	m_pVideoCtx = nullptr;
+	m_pVideoStream = stream;
 	m_hardwareQuirks = hardwareQuirks;
+	m_pVideoCtx = nullptr;
 
 	av_log_set_callback(CodecLogCallback);
 
@@ -564,6 +565,8 @@ int cVideoDecoder::ReceiveFrame(AVFrame **frame)
 		return AVERROR(EAGAIN);
 	}
 
+	m_pVideoStream->SetVideoSize(m_pVideoCtx->coded_width, m_pVideoCtx->coded_height);
+
 	*frame = pFrame;
 
 	m_cntFramesReceived++;
@@ -617,29 +620,6 @@ void cVideoDecoder::FlushBuffers(void)
 		avcodec_flush_buffers(m_pVideoCtx);
 	m_cntPacketsSent = m_cntFramesReceived = 0;
 	m_mutex.Unlock();
-}
-
-/**
- * Get video size and aspect ratio
- *
- * @param[out] width            video stream width
- * @param[out] height           video stream height
- * @param[out] aspect_ratio     video stream aspect ratio (is currently width/ height)
- */
-void cVideoDecoder::GetVideoSize(int *width, int *height, double *aspect_ratio)
-{
-	*width = 0;
-	*height = 0;
-	*aspect_ratio = 1.0f;
-
-	if (m_pVideoCtx == nullptr)
-		return;
-
-	*width = m_pVideoCtx->coded_width;
-	*height = m_pVideoCtx->coded_height;
-	// TODO: use correct aspect ratio
-	if (m_pVideoCtx->coded_height > 0)
-		*aspect_ratio = (double)(m_pVideoCtx->coded_width) / (double)(m_pVideoCtx->coded_height);
 }
 
 /**

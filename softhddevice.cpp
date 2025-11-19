@@ -545,7 +545,7 @@ void cSoftHdDevice::OnLeavingState(enum State state) {
 			m_pVideoStream = new cVideoStream(this);
 			m_pAudioDecoder = new cAudioDecoder(m_pAudio);
 			m_pRender->Init(); // starts display thread
-			m_pVideoStream->StartDecoder(new cVideoDecoder(m_pRender->HardwareQuirks())); // starts decoding thread
+			m_pVideoStream->StartDecoder(new cVideoDecoder(m_pVideoStream, m_pRender->HardwareQuirks())); // starts decoding thread
 			// Audio is init lazily (includes starting thread)
 			break;
 	}
@@ -859,7 +859,7 @@ void cSoftHdDevice::GetVideoSize(int &width, int &height, double &aspectRatio)
 	if (IsDetached())
 		return;
 
-	m_pVideoStream->Decoder()->GetVideoSize(&width, &height, &aspectRatio);
+	m_pVideoStream->GetVideoSize(&width, &height, &aspectRatio);
 }
 
 /**

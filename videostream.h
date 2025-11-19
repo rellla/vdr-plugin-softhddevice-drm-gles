@@ -63,6 +63,8 @@ public:
 	size_t GetAvPacketsFilled(void) { return m_packets.Size(); };
 	enum AVCodecID GetCodecId(void) { return m_codecId; };
 	void ResetTrickSpeedFramesSentCounter(void) { m_sentTrickPkts = 0; };
+	void SetVideoSize(int, int);
+	void GetVideoSize(int *, int *, double *);
 
 	// decoding thread
 	void CreateDecodingThread(void);
@@ -85,8 +87,12 @@ private:
 	int m_trickpkts;                       ///< how many avpkt does the decoder need in trickspeed mode?
 	int m_sentTrickPkts = 0;               ///< how many avpkt have been sent to the decoder in trickspeed mode?
 
+	int m_videoWidth;                      ///< current video width (set by decoder)
+	int m_videoHeight;                     ///< current video height (set by decoder)
+
 	volatile bool m_newStream;             ///< flag for new stream
 	bool m_interlaced;                     ///< flag for interlaced stream
+	std::mutex m_mutex;                    ///< mutex to lock video size (which is accessed by different threads)
 };
 
 #endif

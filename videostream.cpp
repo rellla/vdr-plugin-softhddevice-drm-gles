@@ -74,6 +74,9 @@ cVideoStream::cVideoStream(cSoftHdDevice *device)
 
 	m_interlaced = 0;
 	m_trickpkts = 1;
+
+	m_videoWidth = 0;
+	m_videoHeight = 0;
 }
 
 /**
@@ -258,6 +261,40 @@ void cVideoStream::SetInterlaced(bool interlaced)
 {
 //	LOGDEBUG("videostream %s: %d", __FUNCTION__, m_interlaced);
 	m_interlaced = interlaced;
+}
+
+/**
+ * Set video size and aspect
+ *
+ * @param width            video stream width
+ * @param height           video stream height
+ */
+void cVideoStream::SetVideoSize(int width, int height)
+{
+	std::lock_guard<std::mutex> lock(m_mutex);
+	m_videoWidth = width;
+	m_videoHeight = height;
+}
+
+/**
+ * Get video size and aspect ratio
+ *
+ * @param[out] width            video stream width
+ * @param[out] height           video stream height
+ * @param[out] aspect_ratio     video stream aspect ratio (is currently width/ height)
+ */
+void cVideoStream::GetVideoSize(int *width, int *height, double *aspect_ratio)
+{
+	std::lock_guard<std::mutex> lock(m_mutex);
+	*width = 0;
+	*height = 0;
+	*aspect_ratio = 1.0f;
+
+	if (m_videoWidth && m_videoHeight) {
+		*width = m_videoWidth;
+		*height = m_videoHeight;
+		*aspect_ratio = (double)(m_videoWidth) / (double)(m_videoHeight);
+	}
 }
 
 /**
