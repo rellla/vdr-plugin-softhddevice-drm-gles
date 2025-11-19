@@ -305,7 +305,7 @@ void cSoftHdDevice::OnEventReceived(const Event& event)
 
 	LOGDEBUG("device: received %s", EventToString(event));
 
-	if (m_state != DETACHED) {
+	if ((m_state != DETACHED) && (m_state != SUSPENDED)) {
 		m_pRender->DisplayThreadHalt(); // the display thread needs to be halted first, otherwise a deadlock can occur in WaitForAudioClock()
 		m_pVideoStream->DecodingThreadHalt();
 	}
@@ -328,6 +328,28 @@ void cSoftHdDevice::OnEventReceived(const Event& event)
 				[this](const AttachEvent&) {
 					SetState(STOP);
 				},
+				[&invalid](const SuspendEvent&) { invalid(); },
+			}, event);
+			needsResume = false;
+			break;
+		case State::SUSPENDED:
+			std::visit(overload{
+				[this](const PlayEvent&) {
+					m_pAudio->LazyInit();
+					SetState(PLAY);
+					m_pRender->ResetFrameCounter();
+				},
+				[&invalid](const PauseEvent&) { invalid(); },
+				[this](const StopEvent&) {
+					SetState(STOP);
+				},
+				[&invalid](const TrickSpeedEvent&) { invalid(); },
+				[&invalid](const StillPictureEvent&) { invalid(); },
+				[&invalid](const DetachEvent&) { invalid(); },
+				[this](const AttachEvent&) {
+					SetState(STOP);
+				},
+				[&invalid](const SuspendEvent&) { invalid(); },
 			}, event);
 			needsResume = false;
 			break;
@@ -347,6 +369,10 @@ void cSoftHdDevice::OnEventReceived(const Event& event)
 					needsResume = false;
 				},
 				[&invalid](const AttachEvent&) { invalid(); },
+				[this, &needsResume](const SuspendEvent&) {
+					SetState(SUSPENDED);
+					needsResume = false;
+				},
 			}, event);
 			break;
 		case State::PLAY:
@@ -374,6 +400,10 @@ void cSoftHdDevice::OnEventReceived(const Event& event)
 					needsResume = false;
 				},
 				[&invalid](const AttachEvent&) { invalid(); },
+				[this, &needsResume](const SuspendEvent&) {
+					SetState(SUSPENDED);
+					needsResume = false;
+				},
 			}, event);
 			break;
 		case State::TRICK_SPEED:
@@ -400,6 +430,10 @@ void cSoftHdDevice::OnEventReceived(const Event& event)
 					needsResume = false;
 				},
 				[&invalid](const AttachEvent&) { invalid(); },
+				[this, &needsResume](const SuspendEvent&) {
+					SetState(SUSPENDED);
+					needsResume = false;
+				},
 			}, event);
 			break;
 		case State::STILL_PICTURE:
@@ -423,6 +457,10 @@ void cSoftHdDevice::OnEventReceived(const Event& event)
 					needsResume = false;
 				},
 				[&invalid](const AttachEvent&) { invalid(); },
+				[this, &needsResume](const SuspendEvent&) {
+					SetState(SUSPENDED);
+					needsResume = false;
+				},
 			}, event);
 			break;
 	}
@@ -472,6 +510,7 @@ void cSoftHdDevice::OnEnteringState(enum State state) {
 		case STILL_PICTURE:
 			m_pRender->SetDeinterlacerDeactivated(true);
 			break;
+		case SUSPENDED:
 		case DETACHED:
 			// do the same cleanup as in STOP first except audio resume and flushing
 			m_pRender->CancelFilterThread();
@@ -538,6 +577,7 @@ void cSoftHdDevice::OnLeavingState(enum State state) {
 		case STILL_PICTURE:
 			m_pRender->SetDeinterlacerDeactivated(false);
 			break;
+		case SUSPENDED:
 		case DETACHED:
 			m_pAudio = new cSoftHdAudio(this);
 			m_pAudio->LazyInit();
@@ -1527,6 +1567,17 @@ int cSoftHdDevice::PlayVideoPkts(AVPacket * pkt)
 void cSoftHdDevice::Detach(void)
 {
 	OnEventReceived(DetachEvent{});
+}
+
+/**
+ * Detach the device
+ *
+ * Clears audio and video, stops all threads and releases drm/alsa.
+ * A detached state can only be exited (restarted) with an AttachEvent.
+ */
+void cSoftHdDevice::Suspend(void)
+{
+	OnEventReceived(SuspendEvent{});
 }
 
 /**

@@ -278,6 +278,9 @@ SVDRP:
 	DETA         Detach the plugin.
 		An "ATTA" is needed in order to exit a detached state and to continue playback.
 
+	SUSP         Suspend the plugin.
+		Suspend is the same as detach, but in suspend the wakeup can also be done with a new play command.
+
 	ATTA         Attach the plugin again.
 
 

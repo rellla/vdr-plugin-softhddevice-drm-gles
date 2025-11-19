@@ -50,7 +50,8 @@ enum State {
 	PLAY,
 	TRICK_SPEED,
 	STILL_PICTURE,
-	DETACHED
+	DETACHED,
+	SUSPENDED
 };
 
 struct PlayEvent {};
@@ -66,8 +67,9 @@ struct StillPictureEvent {
 };
 struct DetachEvent {};
 struct AttachEvent {};
+struct SuspendEvent {};
 
-using Event = std::variant<PlayEvent, PauseEvent, StopEvent, TrickSpeedEvent, StillPictureEvent, DetachEvent, AttachEvent>;
+using Event = std::variant<PlayEvent, PauseEvent, StopEvent, TrickSpeedEvent, StillPictureEvent, DetachEvent, AttachEvent, SuspendEvent>;
 
 template<class... Ts>
 struct overload : Ts... { using Ts::operator()...; };
@@ -82,6 +84,7 @@ inline const char* EventToString(const Event& e) {
         [](const StillPictureEvent&) -> const char* { return "StillPictureEvent"; },
         [](const DetachEvent&) -> const char* { return "DetachEvent"; },
         [](const AttachEvent&) -> const char* { return "AttachEvent"; },
+        [](const SuspendEvent&) -> const char* { return "SuspendEvent"; },
     }, e);
 }
 
@@ -92,6 +95,7 @@ inline const char* StateToString(State s) {
         case State::TRICK_SPEED: return "TRICK_SPEED";
         case State::STILL_PICTURE: return "STILL_PICTURE";
         case State::DETACHED: return "DETACHED";
+        case State::SUSPENDED: return "SUSPENDED";
     }
     return "Unknown";
 }
@@ -215,6 +219,7 @@ public:
 
 	// detach/ attach
 	void Detach(void);
+	void Suspend(void);
 	void Attach(void);
 	bool IsDetached(void) const;
 

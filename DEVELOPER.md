@@ -98,18 +98,25 @@ stateDiagram-v2
 
     Detached --> Stop: AttachEvent
 
+    Suspended --> Stop: StopEvent
+    Suspended --> Play: PlayEvent
+    Suspended --> Stop: AttachEvent
+
     Stop --> Play: PlayEvent
     Stop --> Detached: DetachEvent
+    Stop --> Suspended: SuspendEvent
 
     Play --> TrickSpeed: TrickSpeedEvent
     Play --> Stop: StopEvent
     Play --> Play: PauseEvent/StillPictureEvent
     Play --> Detached: DetachEvent
+    Play --> Suspended: SuspendEvent
 
     TrickSpeed --> Play: PlayEvent
     TrickSpeed --> Stop: StopEvent
     TrickSpeed --> TrickSpeed: PauseEvent/StillPictureEvent
     TrickSpeed --> Detached: DetachEvent
+    TrickSpeed --> Suspended: SuspendEvent
 
     classDef stopState fill:#e57373,stroke:#d32f2f,stroke-width:2px,color:#000
     classDef playState fill:#81c784,stroke:#388e3c,stroke-width:2px,color:#000
@@ -120,6 +127,7 @@ stateDiagram-v2
     class Play playState
     class TrickSpeed trickspeedState
     class Detached detachState
+    class Suspended detachState
 ```
 
 ## Video Data Flow Call Graph

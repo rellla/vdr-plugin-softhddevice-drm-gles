@@ -252,6 +252,7 @@ bool cPluginSoftHdDevice::Service(const char *id, void *data)
 static const char *SVDRPHelpText[] = {
 	"PLAY Url\n" "    Play the media from the given url.\n",
 	"DETA\n" "        Detach the plugin.\n",
+	"SUSP\n" "        Suspend the plugin.\n",
 	"ATTA\n" "        Attach the plugin.\n",
 	NULL
 };
@@ -295,6 +296,19 @@ cString cPluginSoftHdDevice::SVDRPCommand(const char *command,
 
 		m_pDevice->Detach();
 		return "Detached SoftHdDevice";
+	}
+	if (!strcasecmp(command, "SUSP")) {
+		LOGDEBUG("plugin: %s: SVDRPCommand: %s %s", __FUNCTION__, command, option);
+		if (m_pDevice->IsDetached())
+			return "SoftHdDevice is already suspended";
+
+		if (m_pDevice->Replaying()) {
+			LOGDEBUG("plugin: %s: Device is replaying, stop replay first", __FUNCTION__);
+			m_pDevice->StopReplay();
+		}
+
+		m_pDevice->Suspend();
+		return "Suspended SoftHdDevice";
 	}
 	if (!strcasecmp(command, "ATTA")) {
 		LOGDEBUG("plugin: %s: SVDRPCommand: %s %s", __FUNCTION__, command, option);
