@@ -7,16 +7,16 @@ A software and GPU emulated HD output device for VDR
 
 Why do we need another softhddevice version?
 --------------------------------------------
-This is basically a fork of https://github.com/zillevdr/vdr-plugin-softhddevice-drm.git
-and is aimed to merge all upstream commits back again - if possible.
+This was basically a fork of https://github.com/zillevdr/vdr-plugin-softhddevice-drm.git
+but has received major rewrites across most of the code.
 
 The target of this version are embedded devices, see supported hardware.
 
-The difference to the original fork is, that it adds some additional features like
-resized video, hardware accelerated OSD rendering, support for Rpi4/5 and Amlogic
-devices and a few more things. Read the commit history for detailed info.
-There are a bunch of changes in the code, especially the drm handling was re-written and has
-changed a bit to fully respect the atomic modesetting API now. Though everything should work
+The difference in function to the original fork is, that it adds some additional features
+like resized video, hardware accelerated OSD rendering, support for Rpi4/5 and Amlogic
+devices, detach/attach functionalizy  and a few more things. Read the commit history for detailed
+info. There are a bunch of changes in the code, especially the drm handling was re-written and has
+changed to fully respect the atomic modesetting API now. Though everything should work
 like it does with the original code, it's not guaranteed, that some bugs crept in.
 
 As a principle, this softhddevice version is only dealing with mainline versions and standards,
@@ -24,7 +24,7 @@ which means you can (and have to) use mainline (or to be mainlined) kernel, ffmp
 This code does not work with vendor provided software or even closed source binaries.
 
 www.LibreELEC.tv is good source to look for what is possible with mainlined media related software.
-In the LibreELEC project you can find at least patches all the software, even if some piece of code
+In the LibreELEC project you can find at least patches for all the software, even if some piece of code
 isn't able to be mainlined or simply not already there. Because LibreELEC is a distribution to run
 kodi on, you'll find everything you need.
 
