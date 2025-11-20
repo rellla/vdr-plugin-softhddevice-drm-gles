@@ -288,6 +288,11 @@ cString cPluginSoftHdDevice::SVDRPCommand(const char *command,
 		if (m_pDevice->IsDetached())
 			return "SoftHdDevice is already detached";
 
+		if (m_pDevice->Replaying()) {
+			LOGDEBUG("plugin: %s: Device is replaying, stop replay first", __FUNCTION__);
+			m_pDevice->StopReplay();
+		}
+
 		m_pDevice->Detach();
 		return "Detached SoftHdDevice";
 	}
