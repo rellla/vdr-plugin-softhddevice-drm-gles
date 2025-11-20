@@ -497,7 +497,6 @@ void cSoftHdDevice::OnEnteringState(enum State state) {
 			m_pVideoStream->Exit();
 #ifdef USE_GLES
 			m_pOsdProvider->StopOpenGlThread();
-			SetDisableOglOsd();
 #endif
 			delete m_pAudioDecoder; // includes a Close()
 			delete m_pVideoStream;
@@ -540,9 +539,6 @@ void cSoftHdDevice::OnLeavingState(enum State state) {
 			m_pRender->SetDeinterlacerDeactivated(false);
 			break;
 		case DETACHED:
-#ifdef USE_GLES
-			SetEnableOglOsd();
-#endif
 			m_pAudio = new cSoftHdAudio(this);
 			m_pAudio->LazyInit();
 			m_pRender = new cVideoRender(this);

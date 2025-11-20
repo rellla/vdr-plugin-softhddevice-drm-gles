@@ -29,6 +29,7 @@
 #endif
 #include "softhddevice.h"
 #include "softhdosd.h"
+#include "dummyosd.h"
 
 /*****************************************************************************
  * OSD (software)
@@ -348,6 +349,11 @@ cSoftOsdProvider::~cSoftOsdProvider()
 cOsd *cSoftOsdProvider::CreateOsd(int left, int top, uint level)
 {
 #ifdef USE_GLES
+	if (m_pDevice->IsDetached()) {
+		LOGDEBUG("osdprovider: %s: %d, %d, %d, device detached, using dummy osd", __FUNCTION__, left, top, level);
+		return m_pOsd = new cDummyOsd(left, top, level);
+	}
+
 	if (m_pDevice->OglOsdIsDisabled()) {
 		LOGDEBUG("osdprovider: %s: %d, %d, %d, OpenGL disabled, using software rendering", __FUNCTION__, left, top, level);
 		return m_pOsd = new cSoftOsd(left, top, level, m_pDevice);
@@ -362,6 +368,11 @@ cOsd *cSoftOsdProvider::CreateOsd(int left, int top, uint level)
 	m_pDevice->SetDisableOglOsd();
 	return m_pOsd = new cSoftOsd(left, top, 999, m_pDevice);
 #else
+	if (m_pDevice->IsDetached()) {
+		LOGDEBUG("osdprovider: %s: %d, %d, %d, device detached, using dummy osd", __FUNCTION__, left, top, level);
+		return m_pOsd = new cDummyOsd(left, top, level);
+	}
+
 	LOGDEBUG2(L_OSD, "osdprovider: %s: %d, %d, %d", __FUNCTION__, left, top, level);
 	return m_pOsd = new cSoftOsd(left, top, level, m_pDevice);
 #endif
