@@ -1507,7 +1507,7 @@ int cSoftHdDevice::PlayVideoPkts(AVPacket * pkt)
  */
 void cSoftHdDevice::Detach(void)
 {
-	OnEventReceived(DetachEvent{});
+	MakePrimaryDevice(false);
 }
 
 /**
@@ -1518,7 +1518,7 @@ void cSoftHdDevice::Detach(void)
  */
 void cSoftHdDevice::Attach(void)
 {
-	OnEventReceived(AttachEvent{});
+	MakePrimaryDevice(true);
 }
 
 /**
