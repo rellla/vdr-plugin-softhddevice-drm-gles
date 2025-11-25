@@ -936,12 +936,14 @@ static void PrintStreamData(const uchar *payload)
  * @param data   data of exactly one complete PES packet
  * @param size   size of PES packet
  * @param id     PES packet type
+ *
+ * The caller must ensure, that PlayAudio() is not called in detached state.
+ * (CanReplay() and HasDecoder() return false in this state and we are not
+ * the primary device.)
  */
 int cSoftHdDevice::PlayAudio(const uchar *data, int size, uchar id)
 {
 //	LOGDEBUG("device: %s: %p %p %d %d", __FUNCTION__, this, data, size, id);
-	if (IsDetached())
-		return size;
 
 	// hard limit buffer full: don't overrun audio buffers on replay
 	if (m_pAudio->GetFreeBytes() < AUDIO_MIN_BUFFER_FREE) {
@@ -1027,12 +1029,14 @@ void cSoftHdDevice::SetVolumeDevice(int volume)
  *
  * @param data    A complete PES packet with optionally fragmented payload
  * @param size    the length of the PES packet including header
+ *
+ * The caller must ensure, that PlayVideo() is not called in detached state.
+ * (CanReplay() and HasDecoder() return false in this state and we are not
+ * the primary device.)
  */
 int cSoftHdDevice::PlayVideo(const uchar *data, int size)
 {
 	// LOGDEBUG("device: %s: %p %d", __FUNCTION__, data, size);
-	if (IsDetached())
-		return size;
 
 	if (m_pVideoStream->GetAvPacketsFilled() >= VIDEO_PACKET_MAX - 10)
 		return 0;
