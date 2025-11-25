@@ -39,7 +39,12 @@ protected:
 
 private:
 	cSoftHdDevice *m_pDevice;
+	cTsToPes m_pTsToPesVideo;
+	uint64_t m_lastErrorReport;
+	int m_numLostPackets;
 
+	int ParseTs(const uchar *, int);
+	int PlayTs(const uchar *, int);
 };
 
 #endif
