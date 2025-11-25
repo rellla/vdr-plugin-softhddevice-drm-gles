@@ -95,6 +95,7 @@ public:
 
 	cDrmPlane *OsdPlane(void) { return &m_osdPlane; };
 	cDrmPlane *VideoPlane(void) { return &m_videoPlane; };
+	cDrmPlane *PipPlane(void) { return &m_pipPlane; };
 
 #ifdef USE_GLES
 	EGLSurface EglSurface(void) { return m_eglSurface; };
@@ -132,6 +133,8 @@ private:
 	uint64_t m_zposPrimary;                ///< zpos of primary plane
 	cDrmPlane m_videoPlane;                ///< the video drm plane
 	cDrmPlane m_osdPlane;                  ///< the osd drm plane
+	uint64_t m_zposPip;                    ///< zpos of pip plane
+	cDrmPlane m_pipPlane;                  ///< the pip drm plane
 
 	int32_t FindCrtcForConnector(const drmModeRes *, const drmModeConnector *);
 #ifdef USE_GLES

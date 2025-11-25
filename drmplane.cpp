@@ -176,6 +176,16 @@ void cDrmPlane::SetPlane(drmModeAtomicReqPtr ModeReq)
 }
 
 /**
+ * Clear plane from drm
+ *
+ * @param ModeReq        pointer to the atomic mode request
+ */
+void cDrmPlane::ClearPlane(drmModeAtomicReqPtr ModeReq)
+{
+	SetPropertyRequest(ModeReq, "FB_ID",   0);
+}
+
+/**
  * Check, if the plane is able to set the zpos property
  *
  * @param fdDrm     drm file descriptor

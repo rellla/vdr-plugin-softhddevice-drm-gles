@@ -378,10 +378,14 @@ int cDrmDevice::Init(void)
 	}
 
 	// test and list the local planes
-	cDrmPlane best_primary_video_plane; // is the NV12 capable primary plane with the lowest plane_id
-	cDrmPlane best_overlay_video_plane; // is the NV12 capable overlay plane with the lowest plane_id
-	cDrmPlane best_primary_osd_plane;   // is the AR24 capable primary plane with the highest plane_id
-	cDrmPlane best_overlay_osd_plane;   // is the AR24 capable overlay plane with the highest plane_id
+	cDrmPlane best_primary_video_plane; // NV12 capable primary plane with the lowest plane_id
+	cDrmPlane best_overlay_video_plane; // NV12 capable overlay plane with the lowest plane_id
+	cDrmPlane best_primary_osd_plane;   // AR24 capable primary plane with the highest plane_id
+	cDrmPlane best_overlay_osd_plane;   // AR24 capable overlay plane with the highest plane_id
+
+	// collect candidates for pip (NV12 overlay plane). The best one is chosen after we decided which
+	// planes are used for video and osd
+	std::vector<cDrmPlane> overlayNV12Candidates;
 
 	for (j = 0; j < planeRes->count_planes; j++) {
 		plane = drmModeGetPlane(m_fdDrm, planeRes->planes[j]);
@@ -434,6 +438,14 @@ int cDrmDevice::Init(void)
 								best_overlay_video_plane.SetZpos(zpos);
 								strcat(pixelformats, "!  ");
 							}
+							// store overlay NV12 plane as a candidate for pip
+							if (type == DRM_PLANE_TYPE_OVERLAY) {
+								cDrmPlane cand;
+								cand.SetId(plane->plane_id);
+								cand.SetType(type);
+								cand.SetZpos(zpos);
+								overlayNV12Candidates.push_back(cand);
+							}
 							break;
 						case DRM_FORMAT_ARGB8888:
 							snprintf(tmp, sizeof(tmp), " %4.4s", (char *)&plane->formats[k]);
@@ -461,25 +473,7 @@ int cDrmDevice::Init(void)
 		drmModeFreePlane(plane);
 	}
 
-	// debug output
-	if (best_primary_video_plane.GetId()) {
-		LOGDEBUG2(L_DRM, "drmdevice: %s: best_primary_video_plane: plane_id %d, type %s, zpos %" PRIu64 "", __FUNCTION__,
-			best_primary_video_plane.GetId(), best_primary_video_plane.GetType() == DRM_PLANE_TYPE_PRIMARY ? "PRIMARY" : "OVERLAY", best_primary_video_plane.GetZpos());
-	}
-	if (best_overlay_video_plane.GetId()) {
-		LOGDEBUG2(L_DRM, "drmdevice: %s: best_overlay_video_plane: plane_id %d, type %s, zpos %" PRIu64 "", __FUNCTION__,
-			best_overlay_video_plane.GetId(), best_overlay_video_plane.GetType() == DRM_PLANE_TYPE_PRIMARY ? "PRIMARY" : "OVERLAY", best_overlay_video_plane.GetZpos());
-	}
-	if (best_primary_osd_plane.GetId()) {
-		LOGDEBUG2(L_DRM, "drmdevice: %s: best_primary_osd_plane: plane_id %d, type %s, zpos %" PRIu64 "", __FUNCTION__,
-			best_primary_osd_plane.GetId(), best_primary_osd_plane.GetType() == DRM_PLANE_TYPE_PRIMARY ? "PRIMARY" : "OVERLAY", best_primary_osd_plane.GetZpos());
-	}
-	if (best_overlay_osd_plane.GetId()) {
-		LOGDEBUG2(L_DRM, "drmdevice: %s: best_overlay_osd_plane: plane_id %d, type %s, zpos %" PRIu64 "", __FUNCTION__,
-			best_overlay_osd_plane.GetId(), best_overlay_osd_plane.GetType() == DRM_PLANE_TYPE_PRIMARY ? "PRIMARY" : "OVERLAY", best_overlay_osd_plane.GetZpos());
-	}
-
-	// See which planes we should use
+	// See which planes we should use for video and osd
 	if (best_primary_video_plane.GetId() && best_overlay_osd_plane.GetId()) {
 		m_videoPlane.SetId(best_primary_video_plane.GetId());
 		m_videoPlane.SetType(best_primary_video_plane.GetType());
@@ -504,15 +498,62 @@ int cDrmDevice::Init(void)
 		return -1;
 	}
 
+	// now pick the best pip plane from the NV12 overlay candidates we collected above
+	cDrmPlane best_overlay_pip_plane;
+	for (cDrmPlane &cand : overlayNV12Candidates) {
+		uint32_t pid = cand.GetId();
+		if (pid == m_videoPlane.GetId() || pid == m_osdPlane.GetId())
+			continue;
+		if (!best_overlay_pip_plane.GetId() || pid > best_overlay_pip_plane.GetId()) {
+			best_overlay_pip_plane = cand;
+		}
+	}
+
+	if (best_overlay_pip_plane.GetId()) {
+		m_pipPlane.SetId(best_overlay_pip_plane.GetId());
+		m_pipPlane.SetType(best_overlay_pip_plane.GetType());
+		m_zposPip = best_overlay_pip_plane.GetZpos();
+		m_pipPlane.SetZpos(m_zposPip);
+	} else {
+		LOGERROR("drmdevice: %s: no suitable pip planes found", __FUNCTION__);
+		return -1;
+	}
+
+	// debug output
+	if (best_primary_video_plane.GetId()) {
+		LOGDEBUG2(L_DRM, "drmdevice: %s: best_primary_video_plane: plane_id %d, type %s, zpos %" PRIu64 "", __FUNCTION__,
+			best_primary_video_plane.GetId(), best_primary_video_plane.GetType() == DRM_PLANE_TYPE_PRIMARY ? "PRIMARY" : "OVERLAY", best_primary_video_plane.GetZpos());
+	}
+	if (best_overlay_video_plane.GetId()) {
+		LOGDEBUG2(L_DRM, "drmdevice: %s: best_overlay_video_plane: plane_id %d, type %s, zpos %" PRIu64 "", __FUNCTION__,
+			best_overlay_video_plane.GetId(), best_overlay_video_plane.GetType() == DRM_PLANE_TYPE_PRIMARY ? "PRIMARY" : "OVERLAY", best_overlay_video_plane.GetZpos());
+	}
+	if (best_primary_osd_plane.GetId()) {
+		LOGDEBUG2(L_DRM, "drmdevice: %s: best_primary_osd_plane: plane_id %d, type %s, zpos %" PRIu64 "", __FUNCTION__,
+			best_primary_osd_plane.GetId(), best_primary_osd_plane.GetType() == DRM_PLANE_TYPE_PRIMARY ? "PRIMARY" : "OVERLAY", best_primary_osd_plane.GetZpos());
+	}
+	if (best_overlay_osd_plane.GetId()) {
+		LOGDEBUG2(L_DRM, "drmdevice: %s: best_overlay_osd_plane: plane_id %d, type %s, zpos %" PRIu64 "", __FUNCTION__,
+			best_overlay_osd_plane.GetId(), best_overlay_osd_plane.GetType() == DRM_PLANE_TYPE_PRIMARY ? "PRIMARY" : "OVERLAY", best_overlay_osd_plane.GetZpos());
+	}
+	if (best_overlay_pip_plane.GetId()) {
+		LOGDEBUG2(L_DRM, "drmdevice: %s: best_overlay_pip_plane: plane_id %d, type %s, zpos %" PRIu64 "", __FUNCTION__,
+			best_overlay_pip_plane.GetId(), best_overlay_pip_plane.GetType() == DRM_PLANE_TYPE_PRIMARY ? "PRIMARY" : "OVERLAY", best_overlay_pip_plane.GetZpos());
+	}
+
 	// fill the plane's properties to speed up SetPropertyRequest later
 	m_videoPlane.FillProperties(m_fdDrm);
 	m_osdPlane.FillProperties(m_fdDrm);
+	m_pipPlane.FillProperties(m_fdDrm);
 
 	// Check, if we can set z-order (meson and rpi have fixed z-order, which cannot be changed)
 	if (m_useZpos && !m_videoPlane.HasZpos(m_fdDrm)) {
 		m_useZpos = false;
 	}
 	if (m_useZpos && !m_osdPlane.HasZpos(m_fdDrm)) {
+		m_useZpos = false;
+	}
+	if (m_useZpos && !m_pipPlane.HasZpos(m_fdDrm)) {
 		m_useZpos = false;
 	}
 
@@ -553,7 +594,7 @@ int cDrmDevice::Init(void)
 	drmModeFreeEncoder(encoder);
 	drmModeFreeResources(resources);
 
-	LOGINFO("DRM setup - CRTC: %i video_plane: %i (%s %" PRIu64 ") osd_plane: %i (%s %" PRIu64 ") m_useZpos: %d",
+	LOGINFO("DRM setup - CRTC: %i video_plane: %i (%s %" PRIu64 ") osd_plane: %i (%s %" PRIu64 ") pip_plane: %i (%s %" PRIu64 ") m_useZpos: %d",
 		m_crtcId,
 		m_videoPlane.GetId(),
 		m_videoPlane.GetType() == DRM_PLANE_TYPE_PRIMARY ? "PRIMARY" : "OVERLAY",
@@ -561,6 +602,9 @@ int cDrmDevice::Init(void)
 		m_osdPlane.GetId(),
 		m_osdPlane.GetType() == DRM_PLANE_TYPE_PRIMARY ? "PRIMARY" : "OVERLAY",
 		m_osdPlane.GetZpos(),
+		m_pipPlane.GetId(),
+		m_pipPlane.GetType() == DRM_PLANE_TYPE_PRIMARY ? "PRIMARY" : "OVERLAY",
+		m_pipPlane.GetZpos(),
 		m_useZpos);
 
 #ifdef USE_GLES

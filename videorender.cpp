@@ -1555,7 +1555,7 @@ void cVideoRender::Init(void)
 #endif
 	}
 
-	// Black Buffer for video plane
+	// Black buffer for video plane
 	videoPlane->SetParams(m_pDrmDevice->CrtcId(), m_bufBlack.Id(),
 		0, 0, m_pDrmDevice->DisplayWidth(), m_pDrmDevice->DisplayHeight(),
 		0, 0, m_bufBlack.Width(), m_bufBlack.Height());

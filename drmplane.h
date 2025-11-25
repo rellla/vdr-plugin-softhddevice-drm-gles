@@ -39,6 +39,7 @@ public:
 	void FreeProperties(void);
 	void SetPlaneZpos(drmModeAtomicReqPtr);
 	void SetPlane(drmModeAtomicReqPtr);
+	void ClearPlane(drmModeAtomicReqPtr);
 	int HasZpos(int);
 
 	// getters and setters
