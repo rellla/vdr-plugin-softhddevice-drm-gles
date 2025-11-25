@@ -388,8 +388,12 @@ int cVideoRender::CommitBuffer(cDrmBuffer *buf, int osdOnly)
 	}
 
 	// handle the pip plane
-	SetPipBuffer(buf);
-	pipPlane->SetPlane(modeReq);
+	if (m_pDevice->PipIsRunning()) {
+		SetPipBuffer(buf);
+		pipPlane->SetPlane(modeReq);
+	} else {
+		pipPlane->ClearPlane(modeReq);
+	}
 
 	// handle the osd plane
 	if (!SetOsdBuffer(modeReq)) {

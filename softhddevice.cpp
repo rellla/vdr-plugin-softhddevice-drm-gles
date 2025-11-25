@@ -149,6 +149,7 @@ cSoftHdDevice::cSoftHdDevice(cSoftHdConfig *config)
 	m_videoAudioDelay = m_pConfig->ConfigVideoAudioDelay;
 	m_audioChannelID = -1;
 	m_pOsdProvider = nullptr;
+	m_pipActive = false;
 }
 
 /**
@@ -329,6 +330,8 @@ void cSoftHdDevice::OnEventReceived(const Event& event)
 				[this](const AttachEvent&) {
 					SetState(STOP);
 				},
+				[&invalid](const PipStartEvent&) { invalid(); },
+				[&invalid](const PipStopEvent&) { invalid(); },
 			}, event);
 			needsResume = false;
 			break;
@@ -348,6 +351,12 @@ void cSoftHdDevice::OnEventReceived(const Event& event)
 					needsResume = false;
 				},
 				[&invalid](const AttachEvent&) { invalid(); },
+				[this](const PipStartEvent&) {
+					m_pipActive = true;
+				},
+				[this](const PipStopEvent&) {
+					m_pipActive = false;
+				},
 			}, event);
 			break;
 		case State::PLAY:
@@ -375,6 +384,12 @@ void cSoftHdDevice::OnEventReceived(const Event& event)
 					needsResume = false;
 				},
 				[&invalid](const AttachEvent&) { invalid(); },
+				[this](const PipStartEvent&) {
+					m_pipActive = true;
+				},
+				[this](const PipStopEvent&) {
+					m_pipActive = false;
+				},
 			}, event);
 			break;
 		case State::TRICK_SPEED:
@@ -401,6 +416,12 @@ void cSoftHdDevice::OnEventReceived(const Event& event)
 					needsResume = false;
 				},
 				[&invalid](const AttachEvent&) { invalid(); },
+				[this](const PipStartEvent&) {
+					m_pipActive = true;
+				},
+				[this](const PipStopEvent&) {
+					m_pipActive = false;
+				},
 			}, event);
 			break;
 		case State::STILL_PICTURE:
@@ -424,6 +445,12 @@ void cSoftHdDevice::OnEventReceived(const Event& event)
 					needsResume = false;
 				},
 				[&invalid](const AttachEvent&) { invalid(); },
+				[this](const PipStartEvent&) {
+					m_pipActive = true;
+				},
+				[this](const PipStopEvent&) {
+					m_pipActive = false;
+				},
 			}, event);
 			break;
 	}
@@ -1555,4 +1582,29 @@ bool cSoftHdDevice::IsDetached(void) const
 {
 	std::lock_guard<std::mutex> lock(m_mutex);
 	return m_state == State::DETACHED;
+}
+
+/**
+ * Start picture-in-picture
+ */
+void cSoftHdDevice::PipStart(void)
+{
+	OnEventReceived(PipStartEvent{});
+}
+
+/**
+ * Stop picture-in-picture
+ */
+void cSoftHdDevice::PipStop(void)
+{
+	OnEventReceived(PipStopEvent{});
+}
+
+/**
+ * Returns true, if picture-in-picture is running
+ */
+bool cSoftHdDevice::PipIsRunning(void)
+{
+	std::lock_guard<std::mutex> lock(m_mutex);
+	return m_pipActive;
 }

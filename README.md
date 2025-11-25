@@ -284,6 +284,10 @@ SVDRP:
 		910 -> ATTACHED
 		911 -> DETACHED
 
+	PION         Enable picture-in-picture.
+
+	PIOF         Disable picture-in-picture.
+
 
 Copyright:
 ----------

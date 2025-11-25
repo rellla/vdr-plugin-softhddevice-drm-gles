@@ -66,8 +66,10 @@ struct StillPictureEvent {
 };
 struct DetachEvent {};
 struct AttachEvent {};
+struct PipStartEvent {};
+struct PipStopEvent {};
 
-using Event = std::variant<PlayEvent, PauseEvent, StopEvent, TrickSpeedEvent, StillPictureEvent, DetachEvent, AttachEvent>;
+using Event = std::variant<PlayEvent, PauseEvent, StopEvent, TrickSpeedEvent, StillPictureEvent, DetachEvent, AttachEvent, PipStartEvent, PipStopEvent>;
 
 template<class... Ts>
 struct overload : Ts... { using Ts::operator()...; };
@@ -82,6 +84,8 @@ inline const char* EventToString(const Event& e) {
         [](const StillPictureEvent&) -> const char* { return "StillPictureEvent"; },
         [](const DetachEvent&) -> const char* { return "DetachEvent"; },
         [](const AttachEvent&) -> const char* { return "AttachEvent"; },
+        [](const PipStartEvent&) -> const char* { return "PipStartEvent"; },
+        [](const PipStopEvent&) -> const char* { return "PipStopEvent"; },
     }, e);
 }
 
@@ -218,6 +222,11 @@ public:
 	void Attach(void);
 	bool IsDetached(void) const;
 
+	// pip
+	void PipStart(void);
+	void PipStop(void);
+	bool PipIsRunning(void);
+
 private:
 	enum State m_state = DETACHED;   ///< current plugin state, normal plugin start sets detached state
 	cDvbSpuDecoder *m_pSpuDecoder;   ///< pointer to spu decoder
@@ -234,6 +243,8 @@ private:
 	int m_videoAudioDelay;           ///< audio/video delay set via setup menu
 	bool m_grabActive;               ///< simple lock variable
 	                                 ///< skips a new grab request if the last one is still active
+
+	bool m_pipActive;                ///< true, if pip is active
 	mutable std::mutex m_mutex;      ///< mutex to lock the state machine
 	std::mutex m_sizeMutex;          ///< mutex to lock screen size (which is accessed by different threads)
 

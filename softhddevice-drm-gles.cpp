@@ -259,6 +259,8 @@ static const char *SVDRPHelpText[] = {
 	"STAT\n" "        Get attached/detached status.\n"
 	"    ATTACHED -> 910\n"
 	"    DETACHED -> 911\n",
+	"PION\n" "        Enable picture-in-picture.\n",
+	"PIOF\n" "        Disable picture-in-picture.\n",
 	NULL
 };
 
@@ -282,11 +284,14 @@ const char **cPluginSoftHdDevice::SVDRPHelpPages(void)
  */
 cString cPluginSoftHdDevice::SVDRPCommand(const char *command, const char *option, int &reply_code)
 {
+	// mediaplayer
 	if (!strcasecmp(command, "PLAY")) {
 		LOGDEBUG2(L_MEDIA, "plugin: %s: SVDRPCommand: %s %s", __FUNCTION__, command, option);
 		cControl::Launch(new cSoftHdControl(option, m_pDevice));
 		return "PLAY url";
 	}
+
+	// attach/detach
 	if (!strcasecmp(command, "DETA")) {
 		LOGDEBUG("plugin: %s: SVDRPCommand: %s %s", __FUNCTION__, command, option);
 		if (m_pDevice->IsDetached())
@@ -317,6 +322,24 @@ cString cPluginSoftHdDevice::SVDRPCommand(const char *command, const char *optio
 			reply_code = 911;
 			return "SoftHdDevice is detached";
 		}
+	}
+
+	// pip
+	if (!strcasecmp(command, "PION")) {
+		LOGDEBUG("plugin: %s: SVDRPCommand: %s %s", __FUNCTION__, command, option);
+		if (m_pDevice->PipIsRunning())
+			return "Pip is already running";
+
+		m_pDevice->PipStart();
+		return "Pip is started";
+	}
+	if (!strcasecmp(command, "PIOF")) {
+		LOGDEBUG("plugin: %s: SVDRPCommand: %s %s", __FUNCTION__, command, option);
+		if (!m_pDevice->PipIsRunning())
+			return "Pip isn't running";
+
+		m_pDevice->PipStop();
+		return "Pip is stopped";
 	}
 
 	return NULL;
