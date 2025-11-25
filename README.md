@@ -280,6 +280,10 @@ SVDRP:
 
 	ATTA         Attach the plugin again.
 
+	STAT         Get attached/detached status.
+		910 -> ATTACHED
+		911 -> DETACHED
+
 
 Copyright:
 ----------

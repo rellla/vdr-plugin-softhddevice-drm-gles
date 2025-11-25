@@ -253,6 +253,9 @@ static const char *SVDRPHelpText[] = {
 	"PLAY Url\n" "    Play the media from the given url.\n",
 	"DETA\n" "        Detach the plugin.\n",
 	"ATTA\n" "        Attach the plugin.\n",
+	"STAT\n" "        Get attached/detached status.\n"
+	"    ATTACHED -> 910\n"
+	"    DETACHED -> 911\n",
 	NULL
 };
 
@@ -274,9 +277,7 @@ const char **cPluginSoftHdDevice::SVDRPHelpPages(void)
  * @param option        all command arguments
  * @param reply_code    reply code
  */
-cString cPluginSoftHdDevice::SVDRPCommand(const char *command,
-		__attribute__ ((unused)) const char *option,
-		__attribute__ ((unused)) int &reply_code)
+cString cPluginSoftHdDevice::SVDRPCommand(const char *command, const char *option, int &reply_code)
 {
 	if (!strcasecmp(command, "PLAY")) {
 		LOGDEBUG2(L_MEDIA, "plugin: %s: SVDRPCommand: %s %s", __FUNCTION__, command, option);
@@ -303,6 +304,16 @@ cString cPluginSoftHdDevice::SVDRPCommand(const char *command,
 
 		m_pDevice->Attach();
 		return "Attached SoftHdDevice";
+	}
+	if (!strcasecmp(command, "STAT")) {
+		LOGDEBUG("plugin: %s: SVDRPCommand: %s %s", __FUNCTION__, command, option);
+		if (!m_pDevice->IsDetached()) {
+			reply_code = 910;
+			return "SoftHdDevice is attached";
+		} else {
+			reply_code = 911;
+			return "SoftHdDevice is detached";
+		}
 	}
 
 	return NULL;
