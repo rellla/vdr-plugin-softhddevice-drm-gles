@@ -155,6 +155,10 @@ public:
 	int GlInitiated(void) { return m_pDrmDevice->GlInitiated(); };
 #endif
 
+	// pip
+	void TogglePip(bool on);
+	bool IsPipActive(void);
+
 private:
 	cSoftHdDevice *m_pDevice;           ///< pointer to cSoftHdDevice
 	cSoftHdAudio *m_pAudio;             ///< pointer to cSoftHdAudio
@@ -191,6 +195,8 @@ private:
 	cSoftHdGrab m_grabVideo;            ///< keeps the current grabbed video
 	cRect m_lastVideoGrab;              ///< crtc rect of the last shown video frame
 	cRect m_lastPipGrab;                ///< crtc rect of the last shown pip frame
+	bool m_pipActive;                   ///< true, if pip should be displayed
+	std::mutex m_pipMutex;              ///< mutex to lock pip on/off
 
 	int m_startCounter;                 ///< counter for displayed frames, indicates a video start
 	int m_framesDuped = 0;              ///< number of frames duplicated
@@ -212,7 +218,7 @@ private:
 	bool m_osdShown;                    ///< set, if osd is shown currently
 	bool m_displayBlackFrame = false;   ///< set, if a black frame shall be displayed
 	bool m_destroyCurrentlyDisplayed = false; ///< set, if the currently displayed buffer shall be destroyed in the display thread
-	bool m_playbackPaused = false;		///< set, if playback is frozen (used for pause)
+	bool m_playbackPaused = false;      ///< set, if playback is frozen (used for pause)
 
 #ifdef USE_GLES
 	bool m_disableOglOsd;               ///< set, if ogl osd is disabled

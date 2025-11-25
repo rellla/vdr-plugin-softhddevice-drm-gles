@@ -327,19 +327,21 @@ cString cPluginSoftHdDevice::SVDRPCommand(const char *command, const char *optio
 	// pip
 	if (!strcasecmp(command, "PION")) {
 		LOGDEBUG("plugin: %s: SVDRPCommand: %s %s", __FUNCTION__, command, option);
-		if (m_pDevice->PipIsRunning())
-			return "Pip is already running";
+		// early exit - PipEnable() also tests this
+		if (m_pDevice->PipIsEnabled())
+			return "Pip is already enabled";
 
-		m_pDevice->PipStart();
-		return "Pip is started";
+		m_pDevice->PipEnable();
+		return "Pip is enabled";
 	}
 	if (!strcasecmp(command, "PIOF")) {
 		LOGDEBUG("plugin: %s: SVDRPCommand: %s %s", __FUNCTION__, command, option);
-		if (!m_pDevice->PipIsRunning())
-			return "Pip isn't running";
+		// early exit - PipDisable() also tests this
+		if (!m_pDevice->PipIsEnabled())
+			return "Pip isn't enabled";
 
-		m_pDevice->PipStop();
-		return "Pip is stopped";
+		m_pDevice->PipDisable();
+		return "Pip is disabled";
 	}
 
 	return NULL;

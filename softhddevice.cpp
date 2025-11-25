@@ -61,6 +61,7 @@ extern "C" {
 #include "codec_video.h"
 #include "pes.h"
 #include "misc.h"
+#include "pipreceiver.h"
 
 #define _(str) gettext(str)                    ///< gettext shortcut
 #define _N(str) str                            ///< gettext_noop shortcut
@@ -352,10 +353,10 @@ void cSoftHdDevice::OnEventReceived(const Event& event)
 				},
 				[&invalid](const AttachEvent&) { invalid(); },
 				[this](const PipStartEvent&) {
-					m_pipActive = true;
+					TogglePip(true);
 				},
 				[this](const PipStopEvent&) {
-					m_pipActive = false;
+					TogglePip(false);
 				},
 			}, event);
 			break;
@@ -385,10 +386,10 @@ void cSoftHdDevice::OnEventReceived(const Event& event)
 				},
 				[&invalid](const AttachEvent&) { invalid(); },
 				[this](const PipStartEvent&) {
-					m_pipActive = true;
+					TogglePip(true);
 				},
 				[this](const PipStopEvent&) {
-					m_pipActive = false;
+					TogglePip(false);
 				},
 			}, event);
 			break;
@@ -417,10 +418,10 @@ void cSoftHdDevice::OnEventReceived(const Event& event)
 				},
 				[&invalid](const AttachEvent&) { invalid(); },
 				[this](const PipStartEvent&) {
-					m_pipActive = true;
+					TogglePip(true);
 				},
 				[this](const PipStopEvent&) {
-					m_pipActive = false;
+					TogglePip(false);
 				},
 			}, event);
 			break;
@@ -446,10 +447,10 @@ void cSoftHdDevice::OnEventReceived(const Event& event)
 				},
 				[&invalid](const AttachEvent&) { invalid(); },
 				[this](const PipStartEvent&) {
-					m_pipActive = true;
+					TogglePip(true);
 				},
 				[this](const PipStopEvent&) {
-					m_pipActive = false;
+					TogglePip(false);
 				},
 			}, event);
 			break;
@@ -1587,7 +1588,7 @@ bool cSoftHdDevice::IsDetached(void) const
 /**
  * Start picture-in-picture
  */
-void cSoftHdDevice::PipStart(void)
+void cSoftHdDevice::PipEnable(void)
 {
 	OnEventReceived(PipStartEvent{});
 }
@@ -1595,7 +1596,7 @@ void cSoftHdDevice::PipStart(void)
 /**
  * Stop picture-in-picture
  */
-void cSoftHdDevice::PipStop(void)
+void cSoftHdDevice::PipDisable(void)
 {
 	OnEventReceived(PipStopEvent{});
 }
@@ -1603,8 +1604,70 @@ void cSoftHdDevice::PipStop(void)
 /**
  * Returns true, if picture-in-picture is running
  */
-bool cSoftHdDevice::PipIsRunning(void)
+bool cSoftHdDevice::PipIsEnabled(void)
 {
 	std::lock_guard<std::mutex> lock(m_mutex);
 	return m_pipActive;
+}
+
+/**
+ * Toggle picture-in-picture on/off
+ *
+ * @param on       true, if pip should be enabled
+ */
+void cSoftHdDevice::TogglePip(bool on)
+{
+	if (m_pipActive && on) {
+		LOGDEBUG("device: %s: pip is already enabled", __FUNCTION__);
+		return;
+	}
+
+	if (!m_pipActive && !on) {
+		LOGDEBUG("device: %s: pip is already disabled", __FUNCTION__);
+		return;
+	}
+
+	if (!m_pipActive) {
+		LOGDEBUG("device: %s: enabling pip", __FUNCTION__);
+		NewPip(m_pipChannelNum);
+		m_pRender->TogglePip(true);
+	} else {
+		LOGDEBUG("device: %s: disabling pip", __FUNCTION__);
+		m_pRender->TogglePip(false);
+		DelPip();
+	}
+
+	m_pipActive = on;
+}
+
+void cSoftHdDevice::DelPip(void)
+{
+	if (!m_pPipReceiver)
+		return;
+
+	delete m_pPipReceiver;
+	m_pPipReceiver = nullptr;
+	m_pPipChannel = nullptr;
+}
+
+void cSoftHdDevice::NewPip(int channelNum)
+{
+	if (!channelNum)
+		channelNum = CurrentChannel();
+
+	LOCK_CHANNELS_READ;
+	const cChannel *channel;
+	cDevice *device;
+	cPipReceiver *receiver;
+
+	if (channelNum && (channel = Channels->GetByNumber(channelNum)) &&
+	   (device = GetDevice(channel, 0, false, false))) {
+		DelPip();
+		device->SwitchChannel(channel, false);
+		receiver = new cPipReceiver(channel, this);
+		device->AttachReceiver(receiver);
+		m_pPipReceiver = receiver;
+		m_pPipChannel = channel;
+		m_pipChannelNum = channelNum;
+	}
 }

@@ -388,7 +388,7 @@ int cVideoRender::CommitBuffer(cDrmBuffer *buf, int osdOnly)
 	}
 
 	// handle the pip plane
-	if (m_pDevice->PipIsRunning()) {
+	if (IsPipActive()) {
 		SetPipBuffer(buf);
 		pipPlane->SetPlane(modeReq);
 	} else {
@@ -1710,4 +1710,24 @@ void cVideoRender::SetVideoOutputPosition(const cRect &rect)
 		m_videoIsScaled = true;
 
 	LOGDEBUG("videorender: %s: %d %d %d %d%s", __FUNCTION__, rect.X(), rect.Y(), rect.Width(), rect.Height(), m_videoIsScaled ? ", video is scaled" : "");
+}
+
+/**
+ * Enable displaying pip on screen
+ *
+ * @param on         true, if pip should be displayed
+ */
+void cVideoRender::TogglePip(bool on)
+{
+	std::lock_guard<std::mutex> lock(m_pipMutex);
+	m_pipActive = on;
+}
+
+/**
+ * Returns true, if pip is currently displayed
+ */
+bool cVideoRender::IsPipActive(void)
+{
+	std::lock_guard<std::mutex> lock(m_pipMutex);
+	return m_pipActive;
 }

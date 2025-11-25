@@ -37,6 +37,7 @@ extern "C"
 #include "audio.h"
 #include "videorender.h"
 #include "softhdosd.h"
+#include "pipreceiver.h"
 
 #if __cplusplus < 201703L
 #error "C++17 or higher is required"
@@ -100,17 +101,16 @@ inline const char* StateToString(State s) {
     return "Unknown";
 }
 
-class cAudioDecoder;
-
-
 /*****************************************************************************
  * cSoftHdDevice - cDevice class
  ****************************************************************************/
 
+class cAudioDecoder;
 class cVideoStream;
 class cVideoRender;
 class cSoftHdAudio;
 class cSoftHdConfig;
+class cPipReceiver;
 
 class cSoftHdDevice:public cDevice
 {
@@ -223,9 +223,9 @@ public:
 	bool IsDetached(void) const;
 
 	// pip
-	void PipStart(void);
-	void PipStop(void);
-	bool PipIsRunning(void);
+	void PipEnable(void);
+	void PipDisable(void);
+	bool PipIsEnabled(void);
 
 private:
 	enum State m_state = DETACHED;   ///< current plugin state, normal plugin start sets detached state
@@ -245,6 +245,9 @@ private:
 	                                 ///< skips a new grab request if the last one is still active
 
 	bool m_pipActive;                ///< true, if pip is active
+	int m_pipChannelNum;
+	const cChannel *m_pPipChannel;
+	cPipReceiver *m_pPipReceiver;
 	mutable std::mutex m_mutex;      ///< mutex to lock the state machine
 	std::mutex m_sizeMutex;          ///< mutex to lock screen size (which is accessed by different threads)
 
@@ -257,6 +260,10 @@ private:
 	void OnEventReceived(const Event&);
 	void HandlePause(void);
 	void HandleStillPicture(const uchar *data, int size);
+
+	void TogglePip(bool);
+	void DelPip(void);
+	void NewPip(int);
 };
 
 #endif
