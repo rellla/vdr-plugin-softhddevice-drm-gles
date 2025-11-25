@@ -190,6 +190,7 @@ private:
 	cSoftHdGrab m_grabOsd;              ///< keeps the current grabbed osd
 	cSoftHdGrab m_grabVideo;            ///< keeps the current grabbed video
 	cRect m_lastVideoGrab;              ///< crtc rect of the last shown video frame
+	cRect m_lastPipGrab;                ///< crtc rect of the last shown pip frame
 
 	int m_startCounter;                 ///< counter for displayed frames, indicates a video start
 	int m_framesDuped = 0;              ///< number of frames duplicated
@@ -233,6 +234,7 @@ private:
 	cDrmBuffer *GetBuffer(AVFrame *);
 	int SetOsdBuffer(drmModeAtomicReqPtr);
 	void SetVideoBuffer(cDrmBuffer *);
+	void SetPipBuffer(cDrmBuffer *);
 	int CommitBuffer(cDrmBuffer *, int);
 	void Grab(cDrmBuffer *);
 };

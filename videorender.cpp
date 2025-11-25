@@ -252,6 +252,73 @@ int cVideoRender::SetOsdBuffer(drmModeAtomicReqPtr modeReq)
 }
 
 /**
+ * Modesetting for pip
+ *
+ * @param[in] buf    drm video buffer to display
+ */
+void cVideoRender::SetPipBuffer(cDrmBuffer *buf)
+{
+	AVFrame *frame = NULL;
+
+	uint64_t dispWidth = m_pDrmDevice->DisplayWidth();
+	uint64_t dispHeight = m_pDrmDevice->DisplayHeight();
+	uint64_t dispX = 0;
+	uint64_t dispY = 0;
+	uint64_t picWidth = 0;
+	uint64_t picHeight = 0;
+
+	cDrmPlane *pipPlane = m_pDrmDevice->PipPlane();
+
+	if (buf)
+		frame = buf->Frame();
+
+	// Get video size and position and set crtc rect
+	if (m_videoIsScaled) {
+		dispWidth = (uint64_t)m_videoRect.Width();
+		dispHeight = (uint64_t)m_videoRect.Height();
+		dispX = (uint64_t)m_videoRect.X();
+		dispY = (uint64_t)m_videoRect.Y();
+	}
+
+	picWidth = dispWidth;
+	picHeight = dispHeight;
+
+	// resize frame to fit into video area/ screen and keep the aspect ratio
+	if (frame) {
+		// use frame->sample_aspect_ratio of 1.0f if undefined (0.0f), otherwise we have division by 0
+		double frame_sar = av_q2d(frame->sample_aspect_ratio) ? av_q2d(frame->sample_aspect_ratio) : 1.0f;
+
+		// frame b*h < display b*h, e.g. fit a 4:3 frame into 16:9 display or area
+		if (1000 * dispWidth / dispHeight > 1000 * frame->width / frame->height * frame_sar) {
+			picWidth = dispHeight * frame->width / frame->height * frame_sar;
+			if (picWidth <= 0 || picWidth > dispWidth) {
+				picWidth = dispWidth;
+			}
+		// frame b*h >= display b*h, e.g. fit a 16:9 frame into 4:3 display or area
+		} else {
+			picHeight = dispWidth * frame->height / frame->width / frame_sar;
+			if (picHeight <= 0 || picHeight > dispHeight) {
+				picHeight = dispHeight;
+			}
+		}
+	}
+
+	// TODO: make configureable
+	uint64_t divider = 4;
+	uint64_t crtcX = dispX + (dispWidth - picWidth) / 2;
+	uint64_t crtcY = dispY + (dispHeight - picHeight) / 2;
+	uint64_t crtcW = picWidth / divider;
+	uint64_t crtcH = picHeight / divider;
+
+	pipPlane->SetParams(m_pDrmDevice->CrtcId(), buf->Id(),
+		crtcX, crtcY, crtcW, crtcH,
+		0, 0, buf->Width(), buf->Height());
+
+	// set dimensions for grab early, because we might skip this at the next frame
+	m_lastPipGrab.Set(crtcX, crtcY, crtcW, crtcH);
+}
+
+/**
  * Grab video and osd
  *
  * @param buf       video drm buffer
@@ -296,6 +363,7 @@ int cVideoRender::CommitBuffer(cDrmBuffer *buf, int osdOnly)
 	int fdDrm = m_pDrmDevice->Fd();
 	cDrmPlane *videoPlane = m_pDrmDevice->VideoPlane();
 	cDrmPlane *osdPlane = m_pDrmDevice->OsdPlane();
+	cDrmPlane *pipPlane = m_pDrmDevice->PipPlane();
 	drmModeAtomicReqPtr modeReq;
 	uint32_t flags = DRM_MODE_PAGE_FLIP_EVENT;
 
@@ -318,6 +386,10 @@ int cVideoRender::CommitBuffer(cDrmBuffer *buf, int osdOnly)
 		videoPlane->SetPlane(modeReq);
 		dirty += 2;
 	}
+
+	// handle the pip plane
+	SetPipBuffer(buf);
+	pipPlane->SetPlane(modeReq);
 
 	// handle the osd plane
 	if (!SetOsdBuffer(modeReq)) {
