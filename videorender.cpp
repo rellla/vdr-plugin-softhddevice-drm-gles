@@ -27,6 +27,7 @@
 #endif
 
 #include <algorithm>
+#include <atomic>
 
 #include <stdbool.h>
 #include <unistd.h>
@@ -94,6 +95,10 @@ cVideoRender::cVideoRender(cSoftHdDevice *device)
 	m_framesRead = 0;
 	m_numFramesToFilter = 0;
 
+	m_pipFramesFilled = 0;
+	m_pipFramesWrite = 0;
+	m_pipFramesRead = 0;
+
 	m_timebase = av_make_q(1, 90000);
 
 	m_pBufOsd = nullptr;
@@ -115,6 +120,8 @@ cVideoRender::~cVideoRender(void)
 	LOGDEBUG2(L_DRM, "videorender: %s", __FUNCTION__);
 	if (m_pFilterThread)
 		delete m_pFilterThread;
+	if (m_pPipFilterThread)
+		delete m_pPipFilterThread;
 	if (m_pDisplayThread)
 		delete m_pDisplayThread;
 
@@ -137,6 +144,19 @@ void cVideoRender::ClearDecoderToDisplayQueue(void)
 }
 
 /**
+ * Clear (empty) the decoder to display queue
+ */
+void cVideoRender::ClearPipDecoderToDisplayQueue(void)
+{
+	PipFramesRbLock();
+	while (atomic_read(&m_pipFramesFilled)) {
+		AVFrame *frame = PipRbGetFrame();
+		av_frame_free(&frame);
+	}
+	PipFramesRbUnlock();
+}
+
+/**
  * Destroy all frame buffers, except the currently displayed one.
  */
 void cVideoRender::DestroyFrameBuffers(void)
@@ -153,6 +173,23 @@ void cVideoRender::DestroyFrameBuffers(void)
 
 	if (m_pCurrentlyDisplayed)
 		m_destroyCurrentlyDisplayed = true;
+}
+
+/**
+ * Destroy all frame buffers, except the currently displayed one.
+ */
+void cVideoRender::DestroyPipFrameBuffers(void)
+{
+	for (int i = 0; i < RENDERBUFFERS; ++i) {
+		if (!m_pipBuffer[i].IsDirty())
+			continue;
+
+		m_pipBuffer[i].Destroy();
+	}
+
+	m_numPipBuffers = 0;
+	m_enqueuePipBufferIdx = 0;
+	m_pCurrentlyPipDisplayed = nullptr;
 }
 
 /**
@@ -351,15 +388,19 @@ void cVideoRender::Grab(cDrmBuffer *buf)
  *
  * @param buf        video drm buffer
  * @param osdOnly    commit only osd
- * @retval 2         VIDEO and OSD modesetting and commit was done, need to process outstanding DRM events
- * @retval 1         VIDEO only modesetting and commit was done, need to process outstanding DRM events
- * @retval 0         OSD only modesetting and commit was done, need to process outstanding DRM events
+ *
+ * @retval 0         modesetting and commit was done, need to process outstanding DRM events
  * @retval -1        no modesetting and commit was done
- * @retval -2        something went wrong, no modesetting was done
  */
-int cVideoRender::CommitBuffer(cDrmBuffer *buf, int osdOnly)
+int cVideoRender::CommitBuffer(cDrmBuffer *buf, cDrmBuffer *pip, int osdOnly)
 {
-	int dirty = 0; // 0: no commit, 1: osd only, 2: video only, 3: both
+	enum modeSetLevel {
+		MODESET_OSD   = (1 << 0),
+		MODESET_VIDEO = (1 << 1),
+		MODESET_PIP   = (1 << 2)
+	};
+
+	int modeSet = 0;
 	int fdDrm = m_pDrmDevice->Fd();
 	cDrmPlane *videoPlane = m_pDrmDevice->VideoPlane();
 	cDrmPlane *osdPlane = m_pDrmDevice->OsdPlane();
@@ -369,14 +410,14 @@ int cVideoRender::CommitBuffer(cDrmBuffer *buf, int osdOnly)
 
 	if (!(modeReq = drmModeAtomicAlloc())) {
 		LOGERROR("videorender: %s: cannot allocate atomic request (%d): %m", __FUNCTION__, errno);
-		return -2;
+		return -1;
 	}
 
 	// handle the video plane
 	if (!osdOnly) {
 		SetVideoBuffer(buf);
 		videoPlane->SetPlane(modeReq);
-		dirty += 2;
+		modeSet |= MODESET_VIDEO;
 //		LOGDEBUG2(L_DRM, "videorender: %s: SetPlane Video (fb = %" PRIu64 ")", __FUNCTION__, videoPlane->GetFbId());
 	} else if (m_pCurrentlyDisplayed) {
 		// If no new video is available, set the old buffer again, if available.
@@ -384,21 +425,27 @@ int cVideoRender::CommitBuffer(cDrmBuffer *buf, int osdOnly)
 		// Though this is not expensive, maybe we should only call that, if size really changed.
 		SetVideoBuffer(m_pCurrentlyDisplayed);
 		videoPlane->SetPlane(modeReq);
-		dirty += 2;
+		modeSet |= MODESET_VIDEO;
 	}
 
 	// handle the pip plane
-	if (IsPipActive()) {
-		SetPipBuffer(buf);
+	if (IsPipActive() && pip) {
+		SetPipBuffer(pip);
 		pipPlane->SetPlane(modeReq);
+		modeSet |= MODESET_PIP;
+	} else if (IsPipActive() && m_pCurrentlyPipDisplayed) {
+		SetPipBuffer(m_pCurrentlyPipDisplayed);
+		pipPlane->SetPlane(modeReq);
+		modeSet |= MODESET_PIP;
 	} else {
 		pipPlane->ClearPlane(modeReq);
+		modeSet |= MODESET_PIP;
 	}
 
 	// handle the osd plane
 	if (!SetOsdBuffer(modeReq)) {
 		osdPlane->SetPlane(modeReq);
-		dirty += 1;
+		modeSet |= MODESET_OSD;
 		LOGDEBUG2(L_DRM, "videorender: %s: SetPlane OSD %d (fb = %" PRIu64 ")", __FUNCTION__, m_osdShown, osdPlane->GetFbId());
 	}
 
@@ -407,25 +454,28 @@ int cVideoRender::CommitBuffer(cDrmBuffer *buf, int osdOnly)
 		Grab(buf);
 
 	// return without an atomic commit (no video frame and osd activity)
-	if (!dirty) {
+	if (!modeSet) {
 		drmModeAtomicFree(modeReq);
 		return -1;
 	}
 
 	// do the atomic commit
 	if (drmModeAtomicCommit(fdDrm, modeReq, flags, NULL) != 0) {
-		osdPlane->DumpParameters();
-		if (dirty > 1)
+		if (modeSet & MODESET_OSD)
+			osdPlane->DumpParameters();
+		if (modeSet & MODESET_VIDEO)
 			videoPlane->DumpParameters();
+		if (modeSet & MODESET_PIP)
+			pipPlane->DumpParameters();
 
 		drmModeAtomicFree(modeReq);
 		LOGERROR("videorender: %s: page flip failed (%d): %m", __FUNCTION__, errno);
-		return -2;
+		return -1;
 	}
 
 	drmModeAtomicFree(modeReq);
 
-	return dirty - 1;
+	return 0;
 }
 
 /**
@@ -633,6 +683,61 @@ cDrmBuffer *cVideoRender::GetBuffer(AVFrame *frame)
 }
 
 /**
+ * Get suitable framebuffer for frame
+ *
+ * First, search for an already created buffer. If there is no such buffer, create one.
+ *
+ * @param frame  AVFrame which should be associated to the buffer
+ *
+ * @retval 0     got a buffer
+ * @retval 1     sth went wrong
+ */
+cDrmBuffer *cVideoRender::GetPipBuffer(AVFrame *frame)
+{
+	cDrmBuffer *buf = nullptr;
+	int i;
+
+	AVDRMFrameDescriptor *primedata = (AVDRMFrameDescriptor *)frame->data[0];
+
+	// search for a made fd / FB combination
+	for (i = 0; i < RENDERBUFFERS; i++) {
+		if (!m_pipBuffer[i].IsDirty())
+			continue;
+
+		if (m_pipBuffer[i].FdPrime(0) == primedata->objects[0].fd) {
+			buf = &m_pipBuffer[i];
+			break;
+		}
+	}
+
+	// search for a "free" buffer
+	if (buf == nullptr) {
+		for (i = 0; i < RENDERBUFFERS; i++) {
+			if (!m_pipBuffer[i].IsDirty())
+				break;
+		}
+		if (i == RENDERBUFFERS) {
+			LOGDEBUG("videorender: %s: SHOULD NOT HAPPEN! no free buffer available!", __FUNCTION__);
+			return nullptr;
+		}
+
+		buf = &m_pipBuffer[i];
+		if (buf->Setup(m_pDrmDevice->Fd(), (uint32_t)frame->width, (uint32_t)frame->height,
+		               0, primedata))
+			return nullptr;
+
+		m_pipBuffer[i].MarkAsHwBuffer();
+	}
+
+	if (buf == nullptr) {
+		LOGDEBUG("videorender: %s: SHOULD NOT HAPPEN! failed, no buffer found!", __FUNCTION__);
+		return nullptr;
+	}
+
+	return buf;
+}
+
+/**
  * Check if we should wait for audio to come up with video
  *
  * @retval 0     wait for video to sync with audio
@@ -661,12 +766,14 @@ bool cVideoRender::ShouldWaitForAudio(void) {
  * @param frame     AVFrame
  * @param buf       drm buffer
  */
-void cVideoRender::PageFlip(AVFrame *frame, cDrmBuffer *buf, int osdOnly)
+void cVideoRender::PageFlip(AVFrame *frame, cDrmBuffer *buf, AVFrame *pipFrame, cDrmBuffer *pipBuf, int osdOnly)
 {
-	if (CommitBuffer(buf, osdOnly) < 0) {
+	if (CommitBuffer(buf, pipBuf, osdOnly) < 0) {
 		// no modesetting was done
 		if (frame)
 			av_frame_free(&frame);
+		if (pipFrame)
+			av_frame_free(&pipFrame);
 	} else {
 		if (m_pDrmDevice->HandleEvent() != 0)
 			LOGERROR("threads: display thread: drmHandleEvent failed!");
@@ -684,17 +791,17 @@ void cVideoRender::PageFlip(AVFrame *frame, cDrmBuffer *buf, int osdOnly)
  * Do the pageflip and set a black buffer for the video
  *
  */
-void cVideoRender::PageFlipBlack(void)
+void cVideoRender::PageFlipBlack(cDrmBuffer *pipBuf, AVFrame *pipFrame)
 {
-	PageFlip(NULL, &m_bufBlack, 0);
+	PageFlip(NULL, &m_bufBlack, pipFrame, pipBuf, 0);
 }
 
 /**
  * Do the pageflip for osd and skip the video
  */
-void cVideoRender::PageFlipOsd(void)
+void cVideoRender::PageFlipOsd(cDrmBuffer *pipBuf, AVFrame *pipFrame)
 {
-	PageFlip(NULL, NULL, 1);
+	PageFlip(NULL, NULL, pipFrame, pipBuf, 1);
 }
 
 /**
@@ -703,20 +810,31 @@ void cVideoRender::PageFlipOsd(void)
  * @param frame     AVFrame
  * @param buf       drm buffer
  */
-void cVideoRender::PageFlipVideo(AVFrame *frame, cDrmBuffer *buf)
+void cVideoRender::PageFlipVideo(AVFrame *frame, cDrmBuffer *buf, cDrmBuffer *pipBuf, AVFrame *pipFrame)
 {
-	PageFlip(frame, buf, 0);
+	PageFlip(frame, buf, pipFrame , pipBuf, 0);
 }
 
 /**
  * Display the frame (video and/or osd)
  */
-void cVideoRender::DisplayFrame(AVFrame *frame)
+void cVideoRender::DisplayFrame(AVFrame *frame, AVFrame *pipFrame)
 {
+	cDrmBuffer *pipBuf = nullptr;
+	if (pipFrame) {
+		pipBuf = GetPipBuffer(pipFrame);
+		if (!pipBuf) {
+			av_frame_free(&pipFrame);
+			LOGERROR("videorender: %s: getting buffer for pip frame failed", __FUNCTION__);
+		} else {
+			pipBuf->SetFrame(pipFrame);
+		}
+	}
+
 	if (m_displayBlackFrame) {
 		LOGDEBUG2(L_DRM, "videorender: %s: closing, set a black FB", __FUNCTION__);
 
-		PageFlipBlack();
+		PageFlipBlack(pipBuf, pipFrame);
 
 		if (m_pCurrentlyDisplayed) {
 			m_pCurrentlyDisplayed->Destroy();
@@ -764,13 +882,12 @@ void cVideoRender::DisplayFrame(AVFrame *frame)
 		cDrmBuffer *buf = GetBuffer(frame);
 		if (!buf) {
 			av_frame_free(&frame);
-
 			return;
 		}
 
 		buf->SetFrame(frame);
 
-		PageFlipVideo(frame, buf);
+		PageFlipVideo(frame, buf, pipBuf, pipFrame);
 
 		if (m_pCurrentlyDisplayed && m_pCurrentlyDisplayed != buf) { // do not destroy the frame, if it is displayed again
 			if (GetTrickSpeed() || m_destroyCurrentlyDisplayed) {
@@ -786,9 +903,20 @@ void cVideoRender::DisplayFrame(AVFrame *frame)
 		m_pCurrentlyDisplayed = buf;
 	} else if (GetTrickSpeed() && !m_playbackPaused && m_pCurrentlyDisplayed) {
 		// display the current frame again in trickspeed mode when no OSD update is pending
-		PageFlipVideo(m_pCurrentlyDisplayed->Frame(), m_pCurrentlyDisplayed);
+		PageFlipVideo(m_pCurrentlyDisplayed->Frame(), m_pCurrentlyDisplayed, pipBuf, pipFrame);
 	} else if ((m_pBufOsd && m_pBufOsd->IsDirty()) || m_startgrab) {
-		PageFlipOsd();
+		PageFlipOsd(pipBuf, pipFrame);
+	} else if (pipBuf) {
+		PageFlipBlack(pipBuf, pipFrame);
+	}
+
+	if (pipFrame) {
+		if (m_pCurrentlyPipDisplayed && m_pCurrentlyPipDisplayed != pipBuf) { // do not destroy the frame, if it is displayed again
+			AVFrame *frame = m_pCurrentlyPipDisplayed->Frame();
+			av_frame_free(&frame);
+		}
+
+		m_pCurrentlyPipDisplayed = pipBuf;
 	}
 
 	m_framePresentationCounter--;
@@ -942,6 +1070,7 @@ void cVideoRender::ExitDisplayThread(void)
 	if (m_pDisplayThread->Active())
 		m_pDisplayThread->Stop();
 }
+
 /**
  * Stop filter thread
  */
@@ -950,6 +1079,16 @@ void cVideoRender::CancelFilterThread(void) {
 		m_pFilterThread->Stop();
 
 	m_checkFilterThreadNeeded = true;
+}
+
+/**
+ * Stop pip filter thread
+ */
+void cVideoRender::CancelPipFilterThread(void) {
+	if (m_pPipFilterThread->Active())
+		m_pPipFilterThread->Stop();
+
+	m_checkPipFilterThreadNeeded = true;
 }
 
 /**
@@ -1061,6 +1200,79 @@ void cVideoRender::EnqueueFB(AVFrame *inframe)
 }
 
 /**
+ * Enqueue a software decoded frame in the render ringbuffer
+ *
+ * Get a buffer for the frame or prepare it before.
+ *
+ * @param inframe         the AVFrame to enqueue
+ */
+void cVideoRender::PipEnqueueFB(AVFrame *inframe)
+{
+	// inframe->format is always NV12!
+	cDrmBuffer *buf = nullptr;
+	int fdDrm = m_pDrmDevice->Fd();
+
+	AVDRMFrameDescriptor * primedata;
+	AVFrame *frame;
+	int i;
+
+	// create some buffers up to VIDEO_SURFACES_MAX + 2
+	buf = &m_pipBuffer[m_enqueuePipBufferIdx];
+	if (m_numPipBuffers < VIDEO_SURFACES_MAX + 2) {
+		while (buf->IsDirty()) {
+			m_enqueuePipBufferIdx = (m_enqueuePipBufferIdx + 1) % (VIDEO_SURFACES_MAX + 2);
+			buf = &m_pipBuffer[m_enqueuePipBufferIdx];
+		}
+
+		if (buf->Setup(fdDrm, (uint32_t)inframe->width, (uint32_t)inframe->height,
+		               DRM_FORMAT_NV12, NULL)) {
+			LOGERROR("videorender: %s: SetupFB FB %i x %i failed", __FUNCTION__, buf->Width(), buf->Height());
+		}
+
+		m_numPipBuffers++;
+
+		int primefd;
+		if (drmPrimeHandleToFD(fdDrm, buf->Handle(0), DRM_CLOEXEC | DRM_RDWR, &primefd))
+			LOGERROR("videorender: %s: Failed to retrieve the Prime FD (%d): %m", __FUNCTION__, errno);
+		buf->SetFdPrime(0, primefd);
+	}
+
+	// mark this buffer as a software decoded buffer
+	buf->MarkAsSwBuffer();
+
+	for (i = 0; i < inframe->height; ++i) {
+		memcpy(buf->Plane(0) + i * buf->Pitch(0),
+			inframe->data[0] + i * inframe->linesize[0], inframe->linesize[0]);
+	}
+	for (i = 0; i < inframe->height / 2; ++i) {
+		memcpy(buf->Plane(1) + i * buf->Pitch(1),
+			inframe->data[1] + i * inframe->linesize[1], inframe->linesize[1]);
+	}
+
+	frame = av_frame_alloc();
+	frame->pts = inframe->pts;
+	frame->width = inframe->width;
+	frame->height = inframe->height;
+	frame->format = AV_PIX_FMT_DRM_PRIME;
+	frame->sample_aspect_ratio.num = inframe->sample_aspect_ratio.num;
+	frame->sample_aspect_ratio.den = inframe->sample_aspect_ratio.den;
+
+	primedata = (AVDRMFrameDescriptor *)av_mallocz(sizeof(AVDRMFrameDescriptor));
+	primedata->objects[0].fd = buf->FdPrime(0);
+	frame->data[0] = (uint8_t *)primedata;
+	frame->buf[0] = av_buffer_create((uint8_t *)primedata, sizeof(*primedata),
+				ReleaseFrame, NULL, AV_BUFFER_FLAG_READONLY);
+
+	PipFramesRbLock();
+	PipRbPushFrame(frame);
+	PipFramesRbUnlock();
+
+	m_enqueuePipBufferIdx = (m_enqueuePipBufferIdx + 1) % (VIDEO_SURFACES_MAX + 2);
+
+	av_frame_free(&inframe);
+}
+
+/**
  * Render a frame
  *
  * Frames either
@@ -1163,51 +1375,41 @@ bool cVideoRender::IsBufferFull(void)
  */
 void cVideoRender::RenderPipFrame(AVCodecContext * videoCtx, AVFrame * frame)
 {
-	LOGWARNING("videorender: %s:", __FUNCTION__);
-	av_frame_free(&frame);
-	return;
-
-/* TODO
 	if (frame->decode_error_flags || frame->flags & AV_FRAME_FLAG_CORRUPT)
 		LOGWARNING("videorender: %s: error_flag or FRAME_FLAG_CORRUPT", __FUNCTION__);
 
-	if (m_checkFilterThreadNeeded) {
-		m_timebaseMutex.Lock();
-		m_timebase = videoCtx->pkt_timebase;
-		m_timebaseMutex.Unlock();
-
+	if (m_checkPipFilterThreadNeeded) {
 		// Use the filter thread if:
 		// - AV_PIX_FMT_YUV420P, progressive -> scale filter to get NV12 frames
 		if (frame->format == AV_PIX_FMT_YUV420P)
-			m_pFilterThread->InitAndStart(videoCtx, frame, false);
+			m_pPipFilterThread->InitAndStart(videoCtx, frame, false);
 
-		m_checkFilterThreadNeeded = false;
+		m_checkPipFilterThreadNeeded = false;
 	}
 
-	if (m_pFilterThread->Active()) {
-		if (!m_pFilterThread->PushFrame(frame))
+	if (m_pPipFilterThread->Active()) {
+		if (!m_pPipFilterThread->PushFrame(frame))
 			LOGFATAL("Filter buffer full. This is a bug.");
 	} else {
 		if (frame->format == AV_PIX_FMT_DRM_PRIME) {
-			// AV_PIX_FMT_DRM_PRIME, interlaced, hw deinterlacer not available
+			// AV_PIX_FMT_DRM_PRIME, interlaced, hw deinterlacer not set
 			// AV_PIX_FMT_DRM_PRIME, progressive
 			// -> put the frame directly in render Rb
-			FramesRbLock();
-			if (atomic_read(&m_framesFilled) < VIDEO_SURFACES_MAX && !m_numFramesToFilter) {
-				RbPushFrame(frame);
-				FramesRbUnlock();
+			PipFramesRbLock();
+			if (atomic_read(&m_pipFramesFilled) < VIDEO_SURFACES_MAX) {
+				PipRbPushFrame(frame);
+				PipFramesRbUnlock();
 			} else {
-				FramesRbUnlock();
+				PipFramesRbUnlock();
 				return;
 			}
 		} else
 			LOGFATAL("videorender: %s: unsupported pixel format %d", __FUNCTION__, frame->format);
 	}
-*/
 }
 
 /**
- * Check, if the render output buffer is full.
+ * Check, if the render output buffer for pip frames is full.
  * If a filter is used, the render output buffer is the input buffer of the filter thread.
  * Otherwise, it is its own output buffer.
  *
@@ -1215,8 +1417,7 @@ void cVideoRender::RenderPipFrame(AVCodecContext * videoCtx, AVFrame * frame)
   */
 bool cVideoRender::IsPipBufferFull(void)
 {
-	return false;
-//	return m_pFilterThread->GetBufferFrameCount() >= VIDEO_SURFACES_MAX || atomic_read(&m_framesFilled) >= VIDEO_SURFACES_MAX;
+	return m_pPipFilterThread->GetBufferFrameCount() >= VIDEO_SURFACES_MAX || atomic_read(&m_pipFramesFilled) >= VIDEO_SURFACES_MAX;
 }
 
 /**
@@ -1253,6 +1454,44 @@ AVFrame *cVideoRender::RbGetFrame(void) {
 	AVFrame *frame = m_framesRb[m_framesRead];
 	m_framesRead = (m_framesRead + 1) % VIDEO_SURFACES_MAX;
 	atomic_dec(&m_framesFilled);
+
+	return frame;
+}
+
+/**
+ * Wrapper to lock the render ringbuffer
+ */
+void cVideoRender::PipFramesRbLock(void) {
+	m_pipDisplayQueue.Lock();
+}
+
+/**
+ * Wrapper to unlock the render ringbuffer
+ */
+void cVideoRender::PipFramesRbUnlock(void) {
+	m_pipDisplayQueue.Unlock();
+}
+
+/**
+ * Push the frame into the render ringbuffer
+ *
+ * @param frame     AVFrame which should go to the ringbuffer
+ */
+void cVideoRender::PipRbPushFrame(AVFrame *frame) {
+	m_pipFramesRb[m_pipFramesWrite] = frame;
+	m_pipFramesWrite = (m_pipFramesWrite + 1) % VIDEO_SURFACES_MAX;
+	atomic_inc(&m_pipFramesFilled);
+}
+
+/**
+ * Get a frame from the render ringbuffer
+ *
+ * @returns        next AVFrame from the ringbuffer
+ */
+AVFrame *cVideoRender::PipRbGetFrame(void) {
+	AVFrame *frame = m_pipFramesRb[m_pipFramesRead];
+	m_pipFramesRead = (m_pipFramesRead + 1) % VIDEO_SURFACES_MAX;
+	atomic_dec(&m_pipFramesFilled);
 
 	return frame;
 }
@@ -1616,6 +1855,7 @@ void cVideoRender::Init(void)
 {
 	m_pDisplayThread = new cDisplayThread(this);
 	m_pFilterThread = new cFilterThread(this);
+	m_pPipFilterThread = new cPipFilterThread(this);
 
 	atomic_set(&m_framesFilled, 0);
 	m_enqueueBufferIdx = 0;
@@ -1778,24 +2018,4 @@ void cVideoRender::SetVideoOutputPosition(const cRect &rect)
 		m_videoIsScaled = true;
 
 	LOGDEBUG("videorender: %s: %d %d %d %d%s", __FUNCTION__, rect.X(), rect.Y(), rect.Width(), rect.Height(), m_videoIsScaled ? ", video is scaled" : "");
-}
-
-/**
- * Enable displaying pip on screen
- *
- * @param on         true, if pip should be displayed
- */
-void cVideoRender::TogglePip(bool on)
-{
-	std::lock_guard<std::mutex> lock(m_pipMutex);
-	m_pipActive = on;
-}
-
-/**
- * Returns true, if pip is currently displayed
- */
-bool cVideoRender::IsPipActive(void)
-{
-	std::lock_guard<std::mutex> lock(m_pipMutex);
-	return m_pipActive;
 }

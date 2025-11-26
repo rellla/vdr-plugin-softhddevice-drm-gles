@@ -144,12 +144,12 @@ void cVideoStream::ClearVdrCoreToDecoderQueue(void)
 /**
  * Start the decoder
  */
-void cVideoStream::StartDecoder(cVideoDecoder *decoder)
+void cVideoStream::StartDecoder(cVideoDecoder *decoder, const char *name)
 {
 	LOGDEBUG2(L_CODEC, "videostream %s", __FUNCTION__);
 
 	m_pDecoder = decoder;
-	CreateDecodingThread();
+	CreateDecodingThread(name);
 }
 
 /**
@@ -274,9 +274,9 @@ void cVideoStream::Open(AVCodecID codecId, AVCodecParameters *par, AVRational ti
 /**
  * Create and start the decoding thread
  */
-void cVideoStream::CreateDecodingThread(void)
+void cVideoStream::CreateDecodingThread(const char *name)
 {
-	m_pDecodingThread = new cDecodingThread(this);
+	m_pDecodingThread = new cDecodingThread(this, name);
 }
 
 /**

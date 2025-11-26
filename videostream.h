@@ -59,14 +59,14 @@ public:
 
 	// getters and setters
 	cVideoDecoder *Decoder(void) { return m_pDecoder; };
-	void StartDecoder(cVideoDecoder *decoder);
+	void StartDecoder(cVideoDecoder *decoder, const char *);
 	size_t GetAvPacketsFilled(void) { return m_packets.Size(); };
 	enum AVCodecID GetCodecId(void) { return m_codecId; };
 	void SetVideoSize(int, int);
 	void GetVideoSize(int *, int *, double *);
 
 	// decoding thread
-	void CreateDecodingThread(void);
+	void CreateDecodingThread(const char *);
 	void ExitDecodingThread(void);
 	void DecodingThreadHalt(void) { m_pDecodingThread->Halt(); };
 	void DecodingThreadResume(void) { m_pDecodingThread->Resume(); };

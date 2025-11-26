@@ -348,15 +348,16 @@ void cSoftHdDevice::OnEventReceived(const Event& event)
 				[&invalid](const TrickSpeedEvent&) { invalid(); },
 				[&invalid](const StillPictureEvent&) { invalid(); },
 				[this, &needsResume](const DetachEvent&) {
+					SetEnablePip(false);
 					SetState(DETACHED);
 					needsResume = false;
 				},
 				[&invalid](const AttachEvent&) { invalid(); },
 				[this](const PipStartEvent&) {
-					TogglePip(true);
+					SetEnablePip(true);
 				},
 				[this](const PipStopEvent&) {
-					TogglePip(false);
+					SetEnablePip(false);
 				},
 			}, event);
 			break;
@@ -381,15 +382,16 @@ void cSoftHdDevice::OnEventReceived(const Event& event)
 					HandleStillPicture(s.data, s.size);
 				 },
 				[this, &needsResume](const DetachEvent&) {
+					SetEnablePip(false);
 					SetState(DETACHED);
 					needsResume = false;
 				},
 				[&invalid](const AttachEvent&) { invalid(); },
 				[this](const PipStartEvent&) {
-					TogglePip(true);
+					SetEnablePip(true);
 				},
 				[this](const PipStopEvent&) {
-					TogglePip(false);
+					SetEnablePip(false);
 				},
 			}, event);
 			break;
@@ -413,15 +415,16 @@ void cSoftHdDevice::OnEventReceived(const Event& event)
 					HandleStillPicture(s.data, s.size);
 				 },
 				[this, &needsResume](const DetachEvent&) {
+					SetEnablePip(false);
 					SetState(DETACHED);
 					needsResume = false;
 				},
 				[&invalid](const AttachEvent&) { invalid(); },
 				[this](const PipStartEvent&) {
-					TogglePip(true);
+					SetEnablePip(true);
 				},
 				[this](const PipStopEvent&) {
-					TogglePip(false);
+					SetEnablePip(false);
 				},
 			}, event);
 			break;
@@ -442,15 +445,16 @@ void cSoftHdDevice::OnEventReceived(const Event& event)
 					HandleStillPicture(s.data, s.size);
 				 },
 				[this, &needsResume](const DetachEvent&) {
+					SetEnablePip(false);
 					SetState(DETACHED);
 					needsResume = false;
 				},
 				[&invalid](const AttachEvent&) { invalid(); },
 				[this](const PipStartEvent&) {
-					TogglePip(true);
+					SetEnablePip(true);
 				},
 				[this](const PipStopEvent&) {
-					TogglePip(false);
+					SetEnablePip(false);
 				},
 			}, event);
 			break;
@@ -492,7 +496,6 @@ void cSoftHdDevice::OnEnteringState(enum State state) {
 			m_pRender->Reset();
 			m_pRender->DestroyFrameBuffers();
 			m_pRender->ScheduleDisplayBlackFrame();
-
 			m_videoReassemblyBuffer.Reset();
 			m_pVideoStream->ClearVdrCoreToDecoderQueue();
 			m_pRender->ClearDecoderToDisplayQueue();
@@ -524,6 +527,9 @@ void cSoftHdDevice::OnEnteringState(enum State state) {
 			m_pRender->DisplayThreadResume();
 
 			// now do the detach
+			m_pPipStream->Exit();
+			delete m_pPipStream;
+
 			m_pAudio->Exit();
 			m_pRender->Exit(); // render must be stopped before videostream!
 			m_pVideoStream->Exit();
@@ -531,7 +537,6 @@ void cSoftHdDevice::OnEnteringState(enum State state) {
 			m_pOsdProvider->StopOpenGlThread();
 #endif
 			delete m_pAudioDecoder; // includes a Close()
-			delete m_pPipStream;
 			delete m_pVideoStream;
 			delete m_pRender;
 			delete m_pAudio;
@@ -576,12 +581,11 @@ void cSoftHdDevice::OnLeavingState(enum State state) {
 			m_pAudio->LazyInit();
 			m_pRender = new cVideoRender(this);
 			m_pVideoStream = new cMainVideoStream(this);
-			m_pPipStream = new cPipVideoStream(this);
 			m_pAudioDecoder = new cAudioDecoder(m_pAudio);
 			m_pRender->Init(); // starts display thread
-
-			m_pVideoStream->StartDecoder(new cVideoDecoder(m_pRender->HardwareQuirks())); // starts decoding thread
-			m_pPipStream->StartDecoder(new cVideoDecoder(m_pRender->HardwareQuirks())); // starts decoding thread
+			m_pVideoStream->StartDecoder(new cVideoDecoder(m_pRender->HardwareQuirks()), "shd vid decode"); // starts decoding thread
+			m_pPipStream = new cPipVideoStream(this);
+			m_pPipStream->StartDecoder(new cVideoDecoder(m_pRender->HardwareQuirks()), "shd pip decode"); // starts decoding thread
 			// Audio is init lazily (includes starting thread)
 			break;
 	}
@@ -1091,8 +1095,7 @@ int cSoftHdDevice::PlayVideo(const uchar *data, int size)
 int cSoftHdDevice::PlayPipVideo(const uchar *data, int size)
 {
 //	LOGDEBUG("device: %s: %p %d", __FUNCTION__, data, size);
-	return size;
-//	return PlayVideoInternal(m_pPipStream, &m_pipReassemblyBuffer, data, size);
+	return PlayVideoInternal(m_pPipStream, &m_pipReassemblyBuffer, data, size);
 }
 
 /**
@@ -1646,11 +1649,11 @@ bool cSoftHdDevice::PipIsEnabled(void)
 }
 
 /**
- * Toggle picture-in-picture on/off
+ * Enable/ disable picture-in-picture
  *
  * @param on       true, if pip should be enabled
  */
-void cSoftHdDevice::TogglePip(bool on)
+void cSoftHdDevice::SetEnablePip(bool on)
 {
 	if (m_pipActive && on) {
 		LOGDEBUG("device: %s: pip is already enabled", __FUNCTION__);
@@ -1665,10 +1668,10 @@ void cSoftHdDevice::TogglePip(bool on)
 	if (!m_pipActive) {
 		LOGDEBUG("device: %s: enabling pip", __FUNCTION__);
 		NewPip(m_pipChannelNum);
-		m_pRender->TogglePip(true);
+		m_pRender->SetPipActive(true);
 	} else {
 		LOGDEBUG("device: %s: disabling pip", __FUNCTION__);
-		m_pRender->TogglePip(false);
+		m_pRender->SetPipActive(false);
 		DelPip();
 	}
 
@@ -1680,9 +1683,20 @@ void cSoftHdDevice::DelPip(void)
 	if (!m_pPipReceiver)
 		return;
 
+	LOGDEBUG("pip: %s: deleting receiver for channel (%d) %s", __FUNCTION__, m_pPipChannel->Number(), m_pPipChannel->Name());
+
 	delete m_pPipReceiver;
 	m_pPipReceiver = nullptr;
 	m_pPipChannel = nullptr;
+
+	m_pPipStream->DecodingThreadHalt();
+	m_pRender->CancelPipFilterThread();
+	m_pRender->DestroyPipFrameBuffers();
+	m_pipReassemblyBuffer.Reset();
+	m_pPipStream->ClearVdrCoreToDecoderQueue();
+	m_pRender->ClearPipDecoderToDisplayQueue();
+	m_pPipStream->CloseDecoder();
+	m_pPipStream->DecodingThreadResume();
 }
 
 void cSoftHdDevice::NewPip(int channelNum)
@@ -1704,5 +1718,7 @@ void cSoftHdDevice::NewPip(int channelNum)
 		m_pPipReceiver = receiver;
 		m_pPipChannel = channel;
 		m_pipChannelNum = channelNum;
+
+		LOGDEBUG("pip: %s: New receiver for channel (%d) %s", __FUNCTION__, channel->Number(), channel->Name());
 	}
 }

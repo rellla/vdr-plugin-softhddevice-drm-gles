@@ -266,7 +266,7 @@ private:
 	void HandlePause(void);
 	void HandleStillPicture(const uchar *data, int size);
 
-	void TogglePip(bool);
+	void SetEnablePip(bool);
 	void DelPip(void);
 	void NewPip(int);
 };

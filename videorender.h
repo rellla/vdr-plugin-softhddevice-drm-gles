@@ -47,6 +47,8 @@ extern "C" {
 #undef CurrentTime
 #endif
 
+#include <atomic>
+
 #include "logger.h"
 #include "iatomic.h"
 #include "softhddevice.h"
@@ -126,7 +128,7 @@ public:
 
 	// Frame and buffer
 	void RenderFrame(AVCodecContext *, AVFrame *);
-	void DisplayFrame(AVFrame *);
+	void DisplayFrame(AVFrame *, AVFrame *);
 	void EnqueueFB(AVFrame *);
 	int GetFramesFilled(void) { return atomic_read(&m_framesFilled); };
 	void RbPushFrame(AVFrame *);
@@ -156,10 +158,20 @@ public:
 #endif
 
 	// pip
-	void TogglePip(bool on);
-	bool IsPipActive(void);
+	void PipRbPushFrame(AVFrame *);
+	AVFrame *PipRbGetFrame(void);
+	void PipFramesRbLock(void);
+	void PipFramesRbUnlock(void);
+	int GetPipFramesFilled(void) { return atomic_read(&m_pipFramesFilled); };
+	void PipEnqueueFB(AVFrame *);
+
+	void SetPipActive(bool on) { m_pipActive = on; };
+	bool IsPipActive(void) { return m_pipActive; };
 	void RenderPipFrame(AVCodecContext *, AVFrame *);
 	bool IsPipBufferFull(void);
+	void CancelPipFilterThread(void);
+	void DestroyPipFrameBuffers(void);
+	void ClearPipDecoderToDisplayQueue(void);
 
 private:
 	cSoftHdDevice *m_pDevice;           ///< pointer to cSoftHdDevice
@@ -167,6 +179,7 @@ private:
 	cSoftHdConfig *m_pConfig;           ///< pointer to cSoftHdConfig
 	cDisplayThread *m_pDisplayThread;   ///< pointer to display thread
 	cFilterThread *m_pFilterThread;     ///< pointer to deinterlace filter thread
+
 	cMutex m_waitCleanMutex;            ///< mutex used while display cleanup
 	cMutex m_trickspeedMutex;           ///< mutex used while accessing trickspeed parameters
 	cMutex m_playbackMutex;             ///< mutex used around m_videoIsPaused
@@ -196,9 +209,6 @@ private:
 	cSoftHdGrab m_grabOsd;              ///< keeps the current grabbed osd
 	cSoftHdGrab m_grabVideo;            ///< keeps the current grabbed video
 	cRect m_lastVideoGrab;              ///< crtc rect of the last shown video frame
-	cRect m_lastPipGrab;                ///< crtc rect of the last shown pip frame
-	bool m_pipActive;                   ///< true, if pip should be displayed
-	std::mutex m_pipMutex;              ///< mutex to lock pip on/off
 
 	int m_startCounter;                 ///< counter for displayed frames, indicates a video start
 	int m_framesDuped = 0;              ///< number of frames duplicated
@@ -228,6 +238,24 @@ private:
 	struct gbm_bo *m_pOldBo;            ///< pointer to old gbm buffer object (for later free)
 	struct gbm_bo *m_pNextBo;           ///< pointer to next gbm buffer object (for later free)
 #endif
+
+	AVFrame *m_pipFramesRb[VIDEO_SURFACES_MAX];  ///< ringbuffer for frames to be displayed (VIDEO_SURFACES_MAX is defined in thread.h)
+	int m_pipFramesWrite;                  ///< m_framesRb write pointer
+	int m_pipFramesRead;                   ///< m_framesRb read pointer
+	atomic_t m_pipFramesFilled;            ///< how many of m_framesRb is used
+	cMutex m_pipDisplayQueue;              ///< mutex used while accessing the render ringbuffer
+
+	cDrmBuffer *m_pCurrentlyPipDisplayed = nullptr; ///< pointer to currently displayed DRM buffer
+
+	cDrmBuffer m_pipBuffer[RENDERBUFFERS]; ///< array of video drm buffer objects
+	int m_numPipBuffers = 0;               ///< number of framebuffers currently set up
+	int m_enqueuePipBufferIdx;             ///< index of the current (sw) framebuffer in the array
+
+	cRect m_lastPipGrab;                ///< crtc rect of the last shown pip frame
+	std::atomic<bool> m_pipActive;         ///< true, if pip should be displayed
+	cPipFilterThread *m_pPipFilterThread;  ///< pointer to pip scale filter thread
+	bool m_checkPipFilterThreadNeeded = true;     ///< set, if we have to check, if pip filter thread is needed at start of playback
+
 	int GetFrameFlags(AVFrame *);
 	void SetFrameFlags(AVFrame *, int);
 	void SetVideoClock(int64_t);
@@ -235,15 +263,16 @@ private:
 	void WaitForAudioReady(int64_t, int64_t);
 	void WaitForAudioClock(int64_t *);
 	int HandleDropDup(int64_t, int64_t);
-	void PageFlip(AVFrame *, cDrmBuffer *, int);
-	void PageFlipBlack(void);
-	void PageFlipOsd(void);
-	void PageFlipVideo(AVFrame *, cDrmBuffer *);
+	void PageFlip(AVFrame *, cDrmBuffer *, AVFrame *, cDrmBuffer *, int);
+	void PageFlipBlack(cDrmBuffer *, AVFrame *);
+	void PageFlipOsd(cDrmBuffer *, AVFrame *);
+	void PageFlipVideo(AVFrame *, cDrmBuffer *, cDrmBuffer *, AVFrame *);
 	cDrmBuffer *GetBuffer(AVFrame *);
 	int SetOsdBuffer(drmModeAtomicReqPtr);
 	void SetVideoBuffer(cDrmBuffer *);
+	cDrmBuffer *GetPipBuffer(AVFrame *);
 	void SetPipBuffer(cDrmBuffer *);
-	int CommitBuffer(cDrmBuffer *, int);
+	int CommitBuffer(cDrmBuffer *, cDrmBuffer *, int);
 	void Grab(cDrmBuffer *);
 };
 

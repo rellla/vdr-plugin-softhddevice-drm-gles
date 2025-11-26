@@ -36,7 +36,7 @@ class cVideoStream;
 class cDecodingThread : public cThread
 {
 public:
-	cDecodingThread(cVideoStream *);
+	cDecodingThread(cVideoStream *, const char *);
 	virtual ~cDecodingThread(void);
 	void Stop(void);
 	void Halt(void) { m_mutex.lock(); };
@@ -109,7 +109,7 @@ public:
 	int GetBufferFrameCount(void);
 	bool PushFrame(AVFrame *);
 
-private:
+protected:
 	cVideoRender *m_pRender;
 
 	AVFilterGraph *m_pFilterGraph;
@@ -119,6 +119,17 @@ private:
 	bool m_filterBug;                             ///< flag for a ffmpeg bug
 
 	cQueue<AVFrame> m_frames{VIDEO_SURFACES_MAX}; ///< queue for frames to be filtered
+	virtual void Action(void);
+};
+
+/**
+ * Pip filter thread class
+ */
+class cPipFilterThread : public cFilterThread
+{
+public:
+	cPipFilterThread(cVideoRender *);
+	virtual ~cPipFilterThread(void);
 
 protected:
 	virtual void Action(void);
