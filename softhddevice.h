@@ -226,13 +226,14 @@ public:
 	void PipEnable(void);
 	void PipDisable(void);
 	bool PipIsEnabled(void);
+	int PlayPipVideo(const uchar *, int);
 
 private:
 	enum State m_state = DETACHED;   ///< current plugin state, normal plugin start sets detached state
 	cDvbSpuDecoder *m_pSpuDecoder;   ///< pointer to spu decoder
 	cSoftHdConfig *m_pConfig;        ///< pointer to cSoftHdConfig object
 	cVideoRender *m_pRender;         ///< pointer to cVideoRender object
-	cVideoStream *m_pVideoStream;    ///< pointer to cVideoStream object
+	cVideoStream *m_pVideoStream;    ///< pointer to main video stream
 	cSoftHdAudio *m_pAudio;          ///< pointer to cSoftHdAudio object
 	cAudioDecoder *m_pAudioDecoder;  ///< pointer to cAudioDecoder object
 	cSoftOsdProvider *m_pOsdProvider; ///< pointer to cSoftOsdProvider object
@@ -245,9 +246,11 @@ private:
 	                                 ///< skips a new grab request if the last one is still active
 
 	bool m_pipActive;                ///< true, if pip is active
-	int m_pipChannelNum;
-	const cChannel *m_pPipChannel;
-	cPipReceiver *m_pPipReceiver;
+	int m_pipChannelNum;             ///< current pip channel number
+	const cChannel *m_pPipChannel;   ///< current pip channel
+	cPipReceiver *m_pPipReceiver;    ///< cReceiver for pip stream
+	cVideoStream *m_pPipStream;      ///< pointer to pip video stream
+	cReassemblyBufferVideo m_pipReassemblyBuffer; ///< pip pes reassembly buffer
 	mutable std::mutex m_mutex;      ///< mutex to lock the state machine
 	std::mutex m_sizeMutex;          ///< mutex to lock screen size (which is accessed by different threads)
 
@@ -255,6 +258,7 @@ private:
 	int m_screenHeight;
 	uint32_t m_screenRefreshRate;
 
+	int PlayVideoInternal(cVideoStream *, cReassemblyBufferVideo *, const uchar *, int);
 	void ClearAudio(void);
 	void Exit(void);
 	void OnEventReceived(const Event&);

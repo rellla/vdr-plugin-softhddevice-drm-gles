@@ -135,14 +135,11 @@ int cPipReceiver::PlayTs(const uchar *data, int size)
 	if (TsPayloadStart(data)) {
 		int length;
 		while (const uchar *pes = m_pTsToPesVideo.GetPes(length)) {
-			LOGDEBUG("pipreceiver: %s %p %d", __FUNCTION__, pes, length);
-/*
 			int w = m_pDevice->PlayPipVideo(pes, length);
 			if (w <= 0) {
 				m_pTsToPesVideo.SetRepeatLast();
 				return w;
 			}
-*/
 		}
 		m_pTsToPesVideo.Reset();
 	}

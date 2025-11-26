@@ -531,6 +531,7 @@ void cSoftHdDevice::OnEnteringState(enum State state) {
 			m_pOsdProvider->StopOpenGlThread();
 #endif
 			delete m_pAudioDecoder; // includes a Close()
+			delete m_pPipStream;
 			delete m_pVideoStream;
 			delete m_pRender;
 			delete m_pAudio;
@@ -575,6 +576,7 @@ void cSoftHdDevice::OnLeavingState(enum State state) {
 			m_pAudio->LazyInit();
 			m_pRender = new cVideoRender(this);
 			m_pVideoStream = new cVideoStream(this);
+			m_pPipStream = new cVideoStream(this);
 			m_pAudioDecoder = new cAudioDecoder(m_pAudio);
 			m_pRender->Init(); // starts display thread
 			m_pVideoStream->StartDecoder(new cVideoDecoder(m_pVideoStream, m_pRender->HardwareQuirks())); // starts decoding thread
@@ -760,7 +762,7 @@ void cSoftHdDevice::HandleStillPicture(const uchar *data, int size)
 		cPesVideo pesPacket((const uint8_t*)currentPacketStart, size - (currentPacketStart - data));
 
 		if (pesPacket.IsValid())
-			PlayVideo(currentPacketStart, pesPacket.GetPacketLength());
+			PlayVideoInternal(m_pVideoStream, &m_videoReassemblyBuffer, currentPacketStart, pesPacket.GetPacketLength());
 		else {
 			LOGWARNING("device: %s: invalid PES packet", __FUNCTION__);
 			break;
@@ -1057,10 +1059,12 @@ void cSoftHdDevice::SetVolumeDevice(int volume)
 }
 
 /**
- * Play a video packet
+ * Play a video packet of the main videostream
  *
  * @param data    A complete PES packet with optionally fragmented payload
  * @param size    the length of the PES packet including header
+ *
+ * This is called directly from VDR
  *
  * The caller must ensure, that PlayVideo() is not called in detached state.
  * (CanReplay() and HasDecoder() return false in this state and we are not
@@ -1068,42 +1072,71 @@ void cSoftHdDevice::SetVolumeDevice(int volume)
  */
 int cSoftHdDevice::PlayVideo(const uchar *data, int size)
 {
+//	LOGDEBUG("device: %s: %p %d", __FUNCTION__, data, size);
+	return PlayVideoInternal(m_pVideoStream, &m_videoReassemblyBuffer, data, size);
+}
+
+/**
+ * Play a video packet of the pip videostream
+ *
+ * @param data    A complete PES packet with optionally fragmented payload
+ * @param size    the length of the PES packet including header
+ *
+ * The caller must ensure, that PlayPipVideo() is not called in detached state.
+ * (CanReplay() and HasDecoder() return false in this state and we are not
+ * the primary device.)
+ */
+int cSoftHdDevice::PlayPipVideo(const uchar *data, int size)
+{
+//	LOGDEBUG("device: %s: %p %d", __FUNCTION__, data, size);
+	return size;
+//	return PlayVideoInternal(m_pPipStream, &m_pipReassemblyBuffer, data, size);
+}
+
+/**
+ * Play a video packet
+ *
+ * @param data    A complete PES packet with optionally fragmented payload
+ * @param size    the length of the PES packet including header
+ */
+int cSoftHdDevice::PlayVideoInternal(cVideoStream *stream, cReassemblyBufferVideo *buffer, const uchar *data, int size)
+{
 	// LOGDEBUG("device: %s: %p %d", __FUNCTION__, data, size);
 
-	if (m_pVideoStream->GetAvPacketsFilled() >= VIDEO_PACKET_MAX - 10)
+	if (stream->GetAvPacketsFilled() >= VIDEO_PACKET_MAX - 10)
 		return 0;
 
 	cPesVideo pesPacket((const uint8_t*)data, size);
 
 	if (!pesPacket.IsValid()) {
-		m_videoReassemblyBuffer.Reset();
+		buffer->Reset();
 
 		return size;
 	}
 
-	if (m_pVideoStream->GetCodecId() == AV_CODEC_ID_NONE) {
+	if (stream->GetCodecId() == AV_CODEC_ID_NONE) {
 		// The playback has just started
-		if (!pesPacket.HasPts() || !m_videoReassemblyBuffer.ParseCodecHeader(pesPacket.GetPayload(), pesPacket.GetPayloadSize())) {
+		if (!pesPacket.HasPts() || !buffer->ParseCodecHeader(pesPacket.GetPayload(), pesPacket.GetPayloadSize())) {
 			// received the middle of fragmented data, wait for the next PES packets with the start of a new frame
 			return size;
 		}
 
 		PrintStreamData(data);
-		m_videoReassemblyBuffer.Push(pesPacket.GetPayload(), pesPacket.GetPayloadSize(), pesPacket.GetPts());
+		buffer->Push(pesPacket.GetPayload(), pesPacket.GetPayloadSize(), pesPacket.GetPts());
 
-		m_pVideoStream->Open(m_videoReassemblyBuffer.GetCodec());
+		stream->Open(buffer->GetCodec());
 	} else {
 		int payloadOffset = 0;
-		if (pesPacket.HasPts() && !m_videoReassemblyBuffer.IsEmpty()) {
+		if (pesPacket.HasPts() && !buffer->IsEmpty()) {
 			// received the first fragment of a new frame, finish the current reassembly buffer into an AVPacket
-			m_pVideoStream->PushAvPacket(m_videoReassemblyBuffer.PopAvPacket());
+			stream->PushAvPacket(buffer->PopAvPacket());
 
 			// populate the cleared buffer with the next frame
-			if (m_videoReassemblyBuffer.HasLeadingZero(pesPacket.GetPayload(), pesPacket.GetPayloadSize()))
+			if (buffer->HasLeadingZero(pesPacket.GetPayload(), pesPacket.GetPayloadSize()))
 				payloadOffset = 1; // H.264/HEVC streams may have a leading zero byte before the start code
 		}
 
-		m_videoReassemblyBuffer.Push(pesPacket.GetPayload() + payloadOffset, pesPacket.GetPayloadSize() - payloadOffset, pesPacket.GetPts());
+		buffer->Push(pesPacket.GetPayload() + payloadOffset, pesPacket.GetPayloadSize() - payloadOffset, pesPacket.GetPts());
 	}
 
 	return size;
