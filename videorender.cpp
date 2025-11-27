@@ -1138,7 +1138,6 @@ void cVideoRender::RenderFrame(AVCodecContext * videoCtx, AVFrame * frame)
 	}
 }
 
-
 /**
  * Check, if the render output buffer is full.
  * If a filter is used, the render output buffer is the input buffer of the filter thread.
@@ -1149,6 +1148,75 @@ void cVideoRender::RenderFrame(AVCodecContext * videoCtx, AVFrame * frame)
 bool cVideoRender::IsBufferFull(void)
 {
 	return m_pFilterThread->GetBufferFrameCount() >= VIDEO_SURFACES_MAX || atomic_read(&m_framesFilled) >= VIDEO_SURFACES_MAX;
+}
+
+/**
+ * Render a pip frame
+ *
+ * Frames either
+ * - go via the deinterlacer or
+ * - are pushed directly in the render ringbuffer or
+ * - go via EnqueueFB to the render ringbuffer if the buffer has to be prepared before.
+ *
+ * @param videoCtx      ffmpeg video codec context
+ * @param frame         frame to render
+ */
+void cVideoRender::RenderPipFrame(AVCodecContext * videoCtx, AVFrame * frame)
+{
+	LOGWARNING("videorender: %s:", __FUNCTION__);
+	av_frame_free(&frame);
+	return;
+
+/* TODO
+	if (frame->decode_error_flags || frame->flags & AV_FRAME_FLAG_CORRUPT)
+		LOGWARNING("videorender: %s: error_flag or FRAME_FLAG_CORRUPT", __FUNCTION__);
+
+	if (m_checkFilterThreadNeeded) {
+		m_timebaseMutex.Lock();
+		m_timebase = videoCtx->pkt_timebase;
+		m_timebaseMutex.Unlock();
+
+		// Use the filter thread if:
+		// - AV_PIX_FMT_YUV420P, progressive -> scale filter to get NV12 frames
+		if (frame->format == AV_PIX_FMT_YUV420P)
+			m_pFilterThread->InitAndStart(videoCtx, frame, false);
+
+		m_checkFilterThreadNeeded = false;
+	}
+
+	if (m_pFilterThread->Active()) {
+		if (!m_pFilterThread->PushFrame(frame))
+			LOGFATAL("Filter buffer full. This is a bug.");
+	} else {
+		if (frame->format == AV_PIX_FMT_DRM_PRIME) {
+			// AV_PIX_FMT_DRM_PRIME, interlaced, hw deinterlacer not available
+			// AV_PIX_FMT_DRM_PRIME, progressive
+			// -> put the frame directly in render Rb
+			FramesRbLock();
+			if (atomic_read(&m_framesFilled) < VIDEO_SURFACES_MAX && !m_numFramesToFilter) {
+				RbPushFrame(frame);
+				FramesRbUnlock();
+			} else {
+				FramesRbUnlock();
+				return;
+			}
+		} else
+			LOGFATAL("videorender: %s: unsupported pixel format %d", __FUNCTION__, frame->format);
+	}
+*/
+}
+
+/**
+ * Check, if the render output buffer is full.
+ * If a filter is used, the render output buffer is the input buffer of the filter thread.
+ * Otherwise, it is its own output buffer.
+ *
+ * @retval true     render output buffer is full
+  */
+bool cVideoRender::IsPipBufferFull(void)
+{
+	return false;
+//	return m_pFilterThread->GetBufferFrameCount() >= VIDEO_SURFACES_MAX || atomic_read(&m_framesFilled) >= VIDEO_SURFACES_MAX;
 }
 
 /**

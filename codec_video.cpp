@@ -183,9 +183,8 @@ static const AVCodec *FindDecoder(enum AVCodecID codecId, int forceSoftwareDecod
  *
  * @param hardwareQuirks     hardware specific quirks for decoder
  */
-cVideoDecoder::cVideoDecoder(cVideoStream *stream, int hardwareQuirks)
+cVideoDecoder::cVideoDecoder(int hardwareQuirks)
 {
-	m_pVideoStream = stream;
 	m_hardwareQuirks = hardwareQuirks;
 	m_pVideoCtx = nullptr;
 
@@ -510,6 +509,8 @@ int cVideoDecoder::SendPacket(const AVPacket *avpkt)
  * Receive a decoded a video frame
  *
  * @param[out] frame            decoded AVFrame
+ * @param[out] width            coded_width
+ * @param[out] height           coded_height
  *
  * @returns 0                   received frame
  * @returns AVERROR(EAGAIN)     get no frame, send avpkt again
@@ -517,7 +518,7 @@ int cVideoDecoder::SendPacket(const AVPacket *avpkt)
  * @returns AVERROR(EINVAL)     get no frame, something went wrong
  * @returns ret                 return other ffmpeg error
  */
-int cVideoDecoder::ReceiveFrame(AVFrame **frame)
+int cVideoDecoder::ReceiveFrame(AVFrame **frame, int &width, int &height)
 {
 	int ret;
 	AVFrame *pFrame;
@@ -565,7 +566,8 @@ int cVideoDecoder::ReceiveFrame(AVFrame **frame)
 		return AVERROR(EAGAIN);
 	}
 
-	m_pVideoStream->SetVideoSize(m_pVideoCtx->coded_width, m_pVideoCtx->coded_height);
+	width = m_pVideoCtx->coded_width;
+	height = m_pVideoCtx->coded_height;
 
 	*frame = pFrame;
 

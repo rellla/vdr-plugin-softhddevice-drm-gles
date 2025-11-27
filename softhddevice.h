@@ -106,11 +106,12 @@ inline const char* StateToString(State s) {
  ****************************************************************************/
 
 class cAudioDecoder;
-class cVideoStream;
+class cMainVideoStream;
 class cVideoRender;
 class cSoftHdAudio;
 class cSoftHdConfig;
 class cPipReceiver;
+class cPipVideoStream;
 
 class cSoftHdDevice:public cDevice
 {
@@ -178,7 +179,7 @@ public:
 	// cSoftHdDevice public methods
 	//
 	cSoftHdConfig *Config(void) { return m_pConfig; };
-	cVideoStream *VideoStream(void) { return m_pVideoStream; };
+	cMainVideoStream *VideoStream(void) { return m_pVideoStream; };
 	cVideoRender *Render(void) { return m_pRender; };
 	cSoftHdAudio *Audio(void) { return m_pAudio; };
 
@@ -233,7 +234,7 @@ private:
 	cDvbSpuDecoder *m_pSpuDecoder;   ///< pointer to spu decoder
 	cSoftHdConfig *m_pConfig;        ///< pointer to cSoftHdConfig object
 	cVideoRender *m_pRender;         ///< pointer to cVideoRender object
-	cVideoStream *m_pVideoStream;    ///< pointer to main video stream
+	cMainVideoStream *m_pVideoStream; ///< pointer to main video stream
 	cSoftHdAudio *m_pAudio;          ///< pointer to cSoftHdAudio object
 	cAudioDecoder *m_pAudioDecoder;  ///< pointer to cAudioDecoder object
 	cSoftOsdProvider *m_pOsdProvider; ///< pointer to cSoftOsdProvider object
@@ -249,7 +250,7 @@ private:
 	int m_pipChannelNum;             ///< current pip channel number
 	const cChannel *m_pPipChannel;   ///< current pip channel
 	cPipReceiver *m_pPipReceiver;    ///< cReceiver for pip stream
-	cVideoStream *m_pPipStream;      ///< pointer to pip video stream
+	cPipVideoStream *m_pPipStream;   ///< pointer to pip video stream
 	cReassemblyBufferVideo m_pipReassemblyBuffer; ///< pip pes reassembly buffer
 	mutable std::mutex m_mutex;      ///< mutex to lock the state machine
 	std::mutex m_sizeMutex;          ///< mutex to lock screen size (which is accessed by different threads)

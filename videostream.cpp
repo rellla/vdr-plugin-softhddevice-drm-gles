@@ -72,9 +72,6 @@ cVideoStream::cVideoStream(cSoftHdDevice *device)
 	m_newStream = false;
 	m_pPar = nullptr;
 
-	m_interlaced = 0;
-	m_trickpkts = 1;
-
 	m_videoWidth = 0;
 	m_videoHeight = 0;
 }
@@ -156,6 +153,42 @@ void cVideoStream::StartDecoder(cVideoDecoder *decoder)
 }
 
 /**
+ * Init the decoder
+ */
+void cVideoStream::TryInitDecoder(void)
+{
+	if (!m_newStream)
+		return;
+
+	int width = 0;
+	int height = 0;
+
+	// amlogic h264 decoder needs width an height for correct decoder open
+	if ((m_codecId == AV_CODEC_ID_H264) && (m_pRender->HardwareQuirks() & QUIRK_CODEC_NEEDS_EXT_INIT)) {
+		cH264Parser h264Parser(m_packets.Peek());
+		h264Parser.GetDimensions(&width, &height);
+
+		LOGDEBUG2(L_CODEC, "videostream %s: Parsed width %d height %d", __FUNCTION__, width, height);
+	}
+
+	if (m_pDecoder->Open(m_codecId, m_pPar, &m_timebase, 0, width, height))
+		LOGFATAL("videostream %s: Could not open the decoder!", __FUNCTION__);
+
+	m_newStream = false;
+}
+
+/**
+ * Returns true if we are able to decode
+ */
+bool cVideoStream::CanDecodePacket(void)
+{
+	if (m_codecId == AV_CODEC_ID_NONE || m_packets.Empty())
+		return false;
+
+	return true;
+}
+
+/**
  * Close the decoder
  */
 void cVideoStream::CloseDecoder(void)
@@ -185,83 +218,6 @@ void cVideoStream::FlushDecoder(void)
 	}
 }
 
-/**
- * Decodes a reassembled codec packet.
- */
-void cVideoStream::DecodeInput(void)
-{
-	AVFrame *frame = nullptr;
-	int ret = 0;
-
-	if (m_codecId == AV_CODEC_ID_NONE || m_packets.Empty() || m_pRender->IsBufferFull())
-		return;
-
-	if (m_newStream) {
-		int width = 0;
-		int height = 0;
-
-		// amlogic h264 decoder needs width an height for correct decoder open
-		if ((m_codecId == AV_CODEC_ID_H264) && (m_pRender->HardwareQuirks() & QUIRK_CODEC_NEEDS_EXT_INIT)) {
-			cH264Parser h264Parser(m_packets.Peek());
-			h264Parser.GetDimensions(&width, &height);
-
-			LOGDEBUG2(L_CODEC, "videostream %s: Parsed width %d height %d", __FUNCTION__, width, height);
-		}
-
-		if (m_pDecoder->Open(m_codecId, m_pPar, &m_timebase, 0, width, height))
-			LOGFATAL("videostream %s: Could not open the decoder!", __FUNCTION__);
-		m_newStream = false;
-	}
-
-	// wait for m_trickpkts packets
-	//
-	// m_trickpkts is the number of packets we need to have in the buffer
-	// while in interlaced trickspeed mode, needed to get a frame.
-	// This guarantees, that we don't drain the decoder too early, but exactly after
-	// m_trickpkts sent packets
-	int minPkts = (m_pRender->GetTrickSpeed() && m_interlaced) ? m_trickpkts : 1;
-
-	// send packet to decoder
-	AVPacket *avpkt = m_packets.Peek();
-
-	ret = m_pDecoder->SendPacket(avpkt);
-
-	if (ret != AVERROR(EAGAIN)) {
-		avpkt = m_packets.Pop();
-		av_packet_free(&avpkt);
-	}
-
-	// in backward trickspeed force the decoder to decode the frame, if minPkts are sent
-	if (ret == 0 && m_pRender->GetTrickSpeed() && !m_pRender->GetTrickForward()) {
-		m_sentTrickPkts++;
-		if (m_sentTrickPkts >= minPkts) {
-			m_pDecoder->SendPacket(NULL);
-			m_sentTrickPkts = 0;
-		}
-	}
-
-	// receive frame from decoder
-	if (!m_newStream) { // this is for mediaplayer?
-		if (m_pDecoder->ReceiveFrame(&frame) == 0)
-			m_pRender->RenderFrame(m_pDecoder->GetContext(), frame);
-	}
-
-	if (m_pRender->GetTrickSpeed() && ret == AVERROR_EOF) { // needs flush / reopen
-		FlushDecoder();
-		m_sentTrickPkts = 0;
-	}
-}
-
-/**
- * Set the interlaced flag for the stream
- *
- * @param interlaced        true, if interlaced
- */
-void cVideoStream::SetInterlaced(bool interlaced)
-{
-//	LOGDEBUG("videostream %s: %d", __FUNCTION__, m_interlaced);
-	m_interlaced = interlaced;
-}
 
 /**
  * Set video size and aspect
@@ -306,7 +262,6 @@ void cVideoStream::GetVideoSize(int *width, int *height, double *aspect_ratio)
  */
 void cVideoStream::Open(AVCodecID codecId, AVCodecParameters *par, AVRational timebase) {
 	m_newStream = true;
-	m_trickpkts = codecId == AV_CODEC_ID_MPEG2VIDEO ? 1 : 2;
 	m_timebase = timebase;
 	m_codecId = codecId;
 	m_pPar = par;
@@ -336,4 +291,140 @@ void cVideoStream::ExitDecodingThread(void)
 
 	if (m_pDecodingThread)
 		delete m_pDecodingThread;
+}
+
+/*****************************************************************************
+ * cMainVideoStream class
+ ****************************************************************************/
+
+/**
+ * cMainVideoStream constructor
+ */
+cMainVideoStream::cMainVideoStream(cSoftHdDevice *device) : cVideoStream(device)
+{
+	m_isPipStream = false;
+	m_trickpkts = 1;
+	m_interlaced = 0;
+}
+
+/**
+ * cMainVideoStream destructor
+ */
+cMainVideoStream::~cMainVideoStream(void)
+{
+}
+
+/**
+ * Set the interlaced flag for the stream
+ *
+ * @param interlaced        true, if interlaced
+ */
+void cMainVideoStream::SetInterlaced(bool interlaced)
+{
+//	LOGDEBUG("videostream %s: %d", __FUNCTION__, m_interlaced);
+	m_interlaced = interlaced;
+	// H264 and HEVC need 2 interlaced packets to be sent to the decoder
+	// in trickspeed mode in order to get a decoded frame out
+	m_trickpkts = m_interlaced ? (m_codecId != AV_CODEC_ID_MPEG2VIDEO ? 2 : 1) : 1;
+}
+
+/**
+ * Decodes a reassembled codec packet.
+ */
+void cMainVideoStream::DecodeInput(void)
+{
+	AVFrame *frame = nullptr;
+	int ret = 0;
+
+	if (!CanDecodePacket() || m_pRender->IsBufferFull())
+		return;
+
+	TryInitDecoder();
+
+	// send packet to decoder
+	AVPacket *avpkt = m_packets.Peek();
+
+	ret = m_pDecoder->SendPacket(avpkt);
+
+	if (ret != AVERROR(EAGAIN)) {
+		avpkt = m_packets.Pop();
+		av_packet_free(&avpkt);
+	}
+
+	// In backward trickspeed force the decoder to decode the frame, if m_trickpkts are sent
+	// m_trickpkts is the number of packets we need to have in the buffer
+	// while in interlaced trickspeed mode, needed to get a frame.
+	// This guarantees, that we don't drain the decoder too early, but exactly after
+	// m_trickpkts sent packets
+	if (ret == 0 && m_pRender->GetTrickSpeed() && !m_pRender->GetTrickForward()) {
+		m_sentTrickPkts++;
+		if (m_sentTrickPkts >= m_trickpkts) {
+			m_pDecoder->SendPacket(NULL);
+			m_sentTrickPkts = 0;
+		}
+	}
+
+	// receive frame from decoder
+	int width = 0;
+	int height = 0;
+	if (m_pDecoder->ReceiveFrame(&frame, width, height) == 0) {
+		SetVideoSize(width, height);
+		m_pRender->RenderFrame(m_pDecoder->GetContext(), frame);
+	}
+
+	if (m_pRender->GetTrickSpeed() && ret == AVERROR_EOF) { // needs flush / reopen
+		FlushDecoder();
+		m_sentTrickPkts = 0;
+	}
+}
+
+/*****************************************************************************
+ * cPipVideoStream class
+ ****************************************************************************/
+
+/**
+ * cPipVideoStream constructor
+ */
+cPipVideoStream::cPipVideoStream(cSoftHdDevice *device) : cVideoStream(device)
+{
+	m_isPipStream = true;
+}
+
+/**
+ * cPipVideoStream destructor
+ */
+cPipVideoStream::~cPipVideoStream(void)
+{
+}
+
+/**
+ * Decodes a reassembled codec packet.
+ */
+void cPipVideoStream::DecodeInput(void)
+{
+	AVFrame *frame = nullptr;
+	int ret = 0;
+
+	if (!CanDecodePacket() || m_pRender->IsPipBufferFull())
+		return;
+
+	TryInitDecoder();
+
+	// send packet to decoder
+	AVPacket *avpkt = m_packets.Peek();
+
+	ret = m_pDecoder->SendPacket(avpkt);
+
+	if (ret != AVERROR(EAGAIN)) {
+		avpkt = m_packets.Pop();
+		av_packet_free(&avpkt);
+	}
+
+	// receive frame from decoder
+	int width = 0;
+	int height = 0;
+	if (m_pDecoder->ReceiveFrame(&frame, width, height) == 0) {
+		SetVideoSize(width, height);
+		m_pRender->RenderPipFrame(m_pDecoder->GetContext(), frame);
+	}
 }

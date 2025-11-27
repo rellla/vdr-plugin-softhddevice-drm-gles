@@ -28,25 +28,22 @@ extern "C" {
 #include <libavcodec/avcodec.h>
 }
 
-class cVideoStream;
-
 /**
  * cVideoDecoder - VideoDecoder class
  */
 class cVideoDecoder {
 public:
-	cVideoDecoder(cVideoStream *, int);
+	cVideoDecoder(int);
 	virtual ~cVideoDecoder(void);
 	int Open(enum AVCodecID, AVCodecParameters *, AVRational *, int, int, int);
 	void Close(void);
 	int SendPacket(const AVPacket *);
-	int ReceiveFrame(AVFrame **);
+	int ReceiveFrame(AVFrame **, int &, int &);
 	void FlushBuffers(void);
 	int ReopenCodec(enum AVCodecID, AVCodecParameters *, AVRational *, int);
 	AVCodecContext *GetContext(void) { return m_pVideoCtx; };
 
 private:
-	cVideoStream *m_pVideoStream;           ///< video stream, the decoder belongs to
 	AVCodecContext *m_pVideoCtx = nullptr;  ///< video codec context
 	cMutex m_mutex;                         ///< mutex to lock codec context (TODO: is this needed?)
 	int m_cntPacketsSent;                   ///< number of packets sent to decoder

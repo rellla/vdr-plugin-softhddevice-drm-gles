@@ -158,6 +158,8 @@ public:
 	// pip
 	void TogglePip(bool on);
 	bool IsPipActive(void);
+	void RenderPipFrame(AVCodecContext *, AVFrame *);
+	bool IsPipBufferFull(void);
 
 private:
 	cSoftHdDevice *m_pDevice;           ///< pointer to cSoftHdDevice
