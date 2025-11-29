@@ -302,8 +302,8 @@ int cDrmBuffer::Setup(int fdDrm, uint32_t width, uint32_t height, uint32_t pixFm
 		m_numPlanes = layer->nb_planes;
 		m_numObjects = primedata->nb_objects;
 
-		LOGDEBUG2(L_DRM, "drmbuffer: %s: PRIMEDATA %d x %d, pix_fmt %4.4s nb_planes %d nb_objects %d", __FUNCTION__,
-			m_width, m_height, (char *)&m_pixFmt, m_numPlanes, m_numObjects);
+//		LOGDEBUG2(L_DRM, "drmbuffer: %s: PRIMEDATA %d x %d, pix_fmt %4.4s nb_planes %d nb_objects %d", __FUNCTION__,
+//			m_width, m_height, (char *)&m_pixFmt, m_numPlanes, m_numObjects);
 
 		// create handles for PrimeFDs
 		for (int object = 0; object < primedata->nb_objects; object++) {
@@ -317,9 +317,9 @@ int cDrmBuffer::Setup(int fdDrm, uint32_t width, uint32_t height, uint32_t pixFm
 			}
 			m_fdPrime[object] = primedata->objects[object].fd;
 			m_size[object] = primedata->objects[object].size;
-			LOGDEBUG2(L_DRM, "drmbuffer: %s: PRIMEDATA create handle for PrimeFD (%d|%i): PrimeFD %i ToHandle %i size %zu modifier %" PRIx64 "",
-				__FUNCTION__, object, primedata->nb_objects, primedata->objects[object].fd, m_primehandle[object],
-				primedata->objects[object].size, primedata->objects[object].format_modifier);
+//			LOGDEBUG2(L_DRM, "drmbuffer: %s: PRIMEDATA create handle for PrimeFD (%d|%i): PrimeFD %i ToHandle %i size %zu modifier %" PRIx64 "",
+//				__FUNCTION__, object, primedata->nb_objects, primedata->objects[object].fd, m_primehandle[object],
+//				primedata->objects[object].size, primedata->objects[object].format_modifier);
 		}
 
 		// fill the planes
@@ -334,8 +334,8 @@ int cDrmBuffer::Setup(int fdDrm, uint32_t width, uint32_t height, uint32_t pixFm
 				if (primedata->objects[object].format_modifier)
 					modifier[plane] = primedata->objects[object].format_modifier;
 
-				LOGDEBUG2(L_DRM, "drmbuffer: %s: PRIMEDATA fill plane %d: handle %d object_index %i pitch %d offset %d size %d modifier %" PRIx64 " (plane not mapped!)",
-					__FUNCTION__, plane, m_handle[plane], m_objIdx[plane], m_pitch[plane], m_offset[plane], m_size[plane], modifier[plane]);
+//				LOGDEBUG2(L_DRM, "drmbuffer: %s: PRIMEDATA fill plane %d: handle %d object_index %i pitch %d offset %d size %d modifier %" PRIx64 " (plane not mapped!)",
+//					__FUNCTION__, plane, m_handle[plane], m_objIdx[plane], m_pitch[plane], m_offset[plane], m_size[plane], modifier[plane]);
 			}
 		}
 		if (modifier[0] && modifier[0] != DRM_FORMAT_MOD_INVALID)
@@ -349,8 +349,8 @@ int cDrmBuffer::Setup(int fdDrm, uint32_t width, uint32_t height, uint32_t pixFm
 
 		m_numPlanes = format_info->num_planes;
 
-		LOGDEBUG2(L_DRM, "drmbuffer: %s:  %d x %d, pix_fmt %4.4s nb_planes %d", __FUNCTION__,
-			m_width, m_height, (char *)&m_pixFmt, m_numPlanes);
+//		LOGDEBUG2(L_DRM, "drmbuffer: %s:  %d x %d, pix_fmt %4.4s nb_planes %d", __FUNCTION__,
+//			m_width, m_height, (char *)&m_pixFmt, m_numPlanes);
 
 		for (int plane = 0; plane < format_info->num_planes; plane++) {
 			const struct format_plane_info *plane_info = &format_info->planes[plane];
@@ -392,8 +392,8 @@ int cDrmBuffer::Setup(int fdDrm, uint32_t width, uint32_t height, uint32_t pixFm
 
 			memset(m_pPlane[plane], 0, m_size[plane]);
 
-			LOGDEBUG2(L_DRM, "drmbuffer: %s: fill plane %d: handle %d pitch %d offset %d size %d address %p", __FUNCTION__,
-				plane, m_handle[plane], m_pitch[plane], m_offset[plane], m_size[plane], m_pPlane[plane]);
+//			LOGDEBUG2(L_DRM, "drmbuffer: %s: fill plane %d: handle %d pitch %d offset %d size %d address %p", __FUNCTION__,
+//				plane, m_handle[plane], m_pitch[plane], m_offset[plane], m_size[plane], m_pPlane[plane]);
 		}
 	}
 
