@@ -36,6 +36,7 @@ using std::ifstream;
 
 #include "softhddevice-drm-gles.h"
 #include "softhddevice.h"
+#include "softhdmenu.h"
 #include "mediaplayer.h"
 
 #ifdef USE_GLES
@@ -66,6 +67,8 @@ static const char *const DESCRIPTION = trNOOP("A software and GPU emulated HD de
 
 static const char *const MAINMENUENTRY = trNOOP("SHD Media Player");
                                                ///< what is displayed in the main menu entry
+
+cSoftHdMenu *cSoftHdMenu::pSoftHdMenu = NULL;
 
 /*****************************************************************************
  * cPluginSoftHdDevice

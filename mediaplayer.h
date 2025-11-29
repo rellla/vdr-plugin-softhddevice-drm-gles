@@ -18,6 +18,9 @@
  * GNU Affero General Public License for more details.}
  */
 
+#ifndef __MEDIAPLAYER_H
+#define __MEDIAPLAYER_H
+
 #include "softhddevice.h"
 
 struct PLEntry {
@@ -87,30 +90,4 @@ public:
 	bool Close;
 };
 
-/*****************************************************************************
- * cSoftHdMenu (cOsdMenu mediaplayer)
- *
- * plugin menu class for mediaplayer mode.
- ****************************************************************************/
-class cSoftHdMenu : public cOsdMenu
-{
-private:
-	void MainMenu(void);
-	void SelectPL(void);
-	void FindFile(string, FILE *);
-	void MakePlayList(const char *, const char *);
-	int TestMedia(const char *);
-	void PlayMedia(const char *);
-
-	string Path;
-	string LastItem;
-	string Playlist;
-	cSoftHdDevice *m_pDevice;
-public:
-	cSoftHdMenu(const char *, cSoftHdDevice *, int = 0, int = 0, int = 0, int = 0, int = 0);
-	virtual ~cSoftHdMenu();
-	void PlayListMenu(void);
-	virtual eOSState ProcessKey(eKeys);
-	static cSoftHdMenu *pSoftHdMenu;
-	static cSoftHdMenu *Menu() { return pSoftHdMenu; }
-};
+#endif
