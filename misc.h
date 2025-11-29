@@ -62,7 +62,7 @@ static inline const char* av_err2string(int errnum)
  */
 static inline const char *Timestamp2String(int64_t ts, uint8_t divisor)
 {
-	static char buf[3][16];
+	static char buf[3][20];
 	static int idx = 0;
 
 	if (ts == (int64_t) AV_NOPTS_VALUE) {

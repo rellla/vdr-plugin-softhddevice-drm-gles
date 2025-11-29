@@ -30,7 +30,7 @@ extern "C"
 #include "ringbuffer.h"
 #include "threads.h"
 
-#define MIN_AUDIO_BUFFER    450		///< minimal output buffer in ms
+#define MIN_AUDIO_BUFFER_MS 450		///< minimal output buffer in ms
 #define NORMALIZE_MAX_INDEX 128		///< number of average values
 
 class cSoftHdDevice;
@@ -55,12 +55,12 @@ public:
 	void Filter(AVFrame *, AVCodecContext *);
 	void EnqueueRawData(uint16_t *, int, AVFrame *);
 	bool VideoReady(int64_t);
-	int Skip(int64_t, int);
+	int Skip(int64_t, bool);
 
 	void FlushBuffers(void);
 	int GetUsedBytes(void);
 	int GetFreeBytes(void);
-	int64_t GetClock();
+	int64_t GetHardwareOutputPtsMs();
 	int GetPassthrough(void) const { return m_passthrough; }
 
 	void ResetNormalizer(void);
@@ -69,7 +69,7 @@ public:
 	void SetVolume(int);
 	void Mute(void);
 	void Unmute(void);
-	void SetBufferTimeInMs(int);
+	void SetBufferTimeMs(int);
 	void SetDownmix(int downMix) { m_downmix = downMix; };
 	void SetSoftvol(bool softVolume) { m_softVolume = softVolume; };
 	void SetNormalize(bool, int);
@@ -103,8 +103,8 @@ private:
 
 	int m_downmix;                          ///< set stereo downmix
 
-	int64_t m_pts;                          ///< pts clock (last pts in ringbuffer)
-	int m_skip;                             ///< skip m_skip audio to sync to video
+	int64_t m_inputPts;                     ///< pts clock (last pts in ringbuffer)
+	int m_skipBytes;                        ///< skip bytes audio to sync to video
 	volatile bool m_videoIsReady;           ///< video audio and video can by synched
 	volatile bool m_paused;                 ///< audio is paused
 
@@ -113,8 +113,8 @@ private:
 	const char *m_pPCMDevice;               ///< PCM device name
 	const char *m_pPassthroughDevice;       ///< passthrough device name
 	bool m_appendAES;                       ///< flag ato utomatic append AES
-	unsigned m_startThreshold;              ///< start play, if m_startThreshold is filled
-	int m_bufferTimeInMs;                   ///< audio buffer time in ms
+	unsigned m_startThresholdBytes;         ///< start play, if byte count is filled
+	int m_bufferTimeMs;                     ///< audio buffer time in ms
 
 	// Normalizer
 	bool m_normalize;                       ///< flag to use volume normalize
@@ -189,6 +189,11 @@ private:
 	void AlsaSetVolume(int);
 	void AlsaInit(void);
 	void AlsaExit(void);
+	int64_t SamplesToPts(int, int);
+	int BytesToMs(int);
+	int MsToBytes(int);
+	int PtsToMs(int64_t);
+	int64_t GetOutputPtsMs(void);
 };
 
 #endif

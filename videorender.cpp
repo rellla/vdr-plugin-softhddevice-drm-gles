@@ -545,14 +545,14 @@ void cVideoRender::WaitForAudioReady(int64_t videoPts, int64_t framePts)
  */
 void cVideoRender::WaitForAudioClock(int64_t *audioPts)
 {
-	*audioPts = m_pAudio->GetClock();
+	*audioPts = m_pAudio->GetHardwareOutputPtsMs();
 
 	// check for close/flush request or pause
 	while (*audioPts == (int64_t)AV_NOPTS_VALUE) {
 		if (m_pDisplayThread->ShouldHalt())
 			return;
 		usleep(20000);
-		*audioPts = m_pAudio->GetClock();
+		*audioPts = m_pAudio->GetHardwareOutputPtsMs();
 	};
 }
 
@@ -567,13 +567,13 @@ void cVideoRender::WaitForAudioClock(int64_t *audioPts)
  */
 int cVideoRender::HandleDropDup(int64_t videoPts, int64_t audioPts)
 {
-	int diff = videoPts - audioPts - m_pDevice->GetVideoAudioDelay();
+	int diff = videoPts - audioPts - m_pDevice->GetVideoAudioDelayMs();
 
 	if (abs(diff) > 5000) {	// more than 5s
 		LOGDEBUG2(L_AV_SYNC, "More then 5s Pkts %d deint %d, Frames %d UsedBytes %d audio %s video %s Delay %dms diff %dms",
 			m_pDevice->VideoStream()->GetAvPacketsFilled(), m_pFilterThread->GetBufferFrameCount(),
 			atomic_read(&m_framesFilled), m_pAudio->GetUsedBytes(), Timestamp2String(audioPts, 1),
-			Timestamp2String(videoPts, 1), m_pDevice->GetVideoAudioDelay(), diff);
+			Timestamp2String(videoPts, 1), m_pDevice->GetVideoAudioDelayMs(), diff);
 	}
 
 	if (diff < -5) {	// video is more than 5ms behind audio, drop video frame
@@ -582,7 +582,7 @@ int cVideoRender::HandleDropDup(int64_t videoPts, int64_t audioPts)
 			m_framesDropped, m_framesDuped,
 			m_pDevice->VideoStream()->GetAvPacketsFilled(), m_pFilterThread->GetBufferFrameCount(),
 			atomic_read(&m_framesFilled), m_pAudio->GetUsedBytes(), Timestamp2String(audioPts, 1),
-			Timestamp2String(videoPts, 1), m_pDevice->GetVideoAudioDelay(), diff);
+			Timestamp2String(videoPts, 1), m_pDevice->GetVideoAudioDelayMs(), diff);
 
 		if (!m_startCounter)
 			m_startCounter++;
@@ -596,7 +596,7 @@ int cVideoRender::HandleDropDup(int64_t videoPts, int64_t audioPts)
 			m_framesDropped, m_framesDuped,
 			m_pDevice->VideoStream()->GetAvPacketsFilled(), m_pFilterThread->GetBufferFrameCount(),
 			atomic_read(&m_framesFilled), m_pAudio->GetUsedBytes(), Timestamp2String(audioPts, 1),
-			Timestamp2String(videoPts, 1), m_pDevice->GetVideoAudioDelay(), diff);
+			Timestamp2String(videoPts, 1), m_pDevice->GetVideoAudioDelayMs(), diff);
 
 		usleep(20000);
 		return 0;
@@ -737,14 +737,14 @@ cDrmBuffer *cVideoRender::GetPipBuffer(AVFrame *frame)
  * @retval 1     wait for audio to sync with video
  */
 bool cVideoRender::ShouldWaitForAudio(void) {
-	int64_t audioPts = m_pAudio->GetClock();
+	int64_t audioPts = m_pAudio->GetHardwareOutputPtsMs();
 	m_timebaseMutex.Lock();
 	int64_t videoPts = GetVideoClock() * 1000 * av_q2d(m_timebase);
 	m_timebaseMutex.Unlock();
 	if (videoPts == AV_NOPTS_VALUE || audioPts == AV_NOPTS_VALUE)
 		return true;
 
-	int diff = videoPts - audioPts - m_pDevice->GetVideoAudioDelay();
+	int diff = videoPts - audioPts - m_pDevice->GetVideoAudioDelayMs();
 	// audio is behind video, wait for audio
 	if (diff > 0)
 		return true;

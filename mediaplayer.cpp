@@ -126,7 +126,7 @@ void cSoftHdPlayer::Action(void)
 		Player(m_pSource);
 	}
 
-	while(m_pAudio->GetClock() != AV_NOPTS_VALUE)
+	while(m_pAudio->GetHardwareOutputPtsMs() != AV_NOPTS_VALUE)
 		usleep(5000);
 
 	cSoftHdControl::Control()->Close = true;
@@ -263,7 +263,7 @@ void cSoftHdPlayer::Player(const char *url)
 				usleep(packet->duration * AV_TIME_BASE *
 					av_q2d(format->streams[audio_stream_index]->time_base));
 			} else {
-				CurrentTime = m_pAudio->GetClock() / 1000 - start_time;
+				CurrentTime = m_pAudio->GetHardwareOutputPtsMs() / 1000 - start_time;
 				av_packet_free(&packet);
 				packet = nullptr;
 			}

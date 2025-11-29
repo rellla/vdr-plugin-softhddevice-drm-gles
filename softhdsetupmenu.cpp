@@ -336,7 +336,7 @@ cMenuSetupSoft::cMenuSetupSoft(cSoftHdDevice *device)
 	// Audio
 	//
 	m_cAudio = 0;
-	m_cAudioDelay              = m_pConfig->ConfigVideoAudioDelay;
+	m_cAudioDelay              = m_pConfig->ConfigVideoAudioDelayMs;
 	m_cAudioSoftvol            = m_pConfig->ConfigAudioSoftvol;
 	m_cAudioBufferTime         = m_pConfig->ConfigAudioBufferTime;
 	m_cAudioNormalize          = m_pConfig->ConfigAudioNormalize;
@@ -438,12 +438,12 @@ void cMenuSetupSoft::Store(void)
 	//
 	// Audio
 	//
-	SetupStore("AudioDelay", m_pConfig->ConfigVideoAudioDelay = m_cAudioDelay);
-	m_pDevice->SetVideoAudioDelay(m_pConfig->ConfigVideoAudioDelay);
+	SetupStore("AudioDelay", m_pConfig->ConfigVideoAudioDelayMs = m_cAudioDelay);
+	m_pDevice->SetVideoAudioDelayMs(m_pConfig->ConfigVideoAudioDelayMs);
 	SetupStore("AudioSoftvol", m_pConfig->ConfigAudioSoftvol = m_cAudioSoftvol);
 	m_pAudioDevice->SetSoftvol(m_pConfig->ConfigAudioSoftvol);
 	SetupStore("AudioBufferTime", m_pConfig->ConfigAudioBufferTime = m_cAudioBufferTime);
-	m_pAudioDevice->SetBufferTimeInMs(m_pConfig->ConfigAudioBufferTime);
+	m_pAudioDevice->SetBufferTimeMs(m_pConfig->ConfigAudioBufferTime);
 	SetupStore("AudioNormalize", m_pConfig->ConfigAudioNormalize = m_cAudioNormalize);
 	SetupStore("AudioMaxNormalize", m_pConfig->ConfigAudioMaxNormalize = m_cAudioMaxNormalize);
 	m_pAudioDevice->SetNormalize(m_pConfig->ConfigAudioNormalize, m_pConfig->ConfigAudioMaxNormalize);

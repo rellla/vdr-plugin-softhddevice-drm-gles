@@ -210,8 +210,8 @@ public:
 	void SetScreenSize(int, int, uint32_t);
 
 	// audio
-	void SetVideoAudioDelay(int delay) { m_videoAudioDelay = delay; };
-	int GetVideoAudioDelay(void) { return m_videoAudioDelay; };
+	void SetVideoAudioDelayMs(int delayMs) { m_videoAudioDelayMs = delayMs; };
+	int GetVideoAudioDelayMs(void) { return m_videoAudioDelayMs; };
 	void SetPassthrough(int);
 	void ResetChannelId(void);
 
@@ -258,7 +258,7 @@ private:
 	cReassemblyBufferAudio m_audioReassemblyBuffer; ///< audio pes reassembly buffer
 
 	int m_audioChannelID;            ///< current audio channel ID
-	int m_videoAudioDelay;           ///< audio/video delay set via setup menu
+	int m_videoAudioDelayMs;         ///< audio/video delayMs set via setup menu
 	bool m_grabActive;               ///< simple lock variable
 	                                 ///< skips a new grab request if the last one is still active
 

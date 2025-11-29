@@ -42,7 +42,7 @@ public:
 	int ConfigMaxSizeGPUImageCache = 128;       ///< config max gpu image cache size
 	int ConfigDisableOglOsd = 0;                ///< config disable ogl osd
 #endif
-	int ConfigVideoAudioDelay = 0;              ///< config audio delay
+	int ConfigVideoAudioDelayMs = 0;            ///< config audio delay
 	int ConfigAudioPassthroughMask = 0;         ///< config audio pass-through mask
 	bool ConfigAudioPassthroughState = false;   ///< flag audio-passthrough on/off
 	bool ConfigAudioDownmix = false;            ///< config ffmpeg audio downmix

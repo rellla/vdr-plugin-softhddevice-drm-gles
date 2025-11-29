@@ -147,7 +147,7 @@ cSoftHdDevice::cSoftHdDevice(cSoftHdConfig *config)
 	m_pSpuDecoder = new cDvbSpuDecoder();
 	m_pConfig = config;
 	m_pAudioDecoder = nullptr;
-	m_videoAudioDelay = m_pConfig->ConfigVideoAudioDelay;
+	m_videoAudioDelayMs = m_pConfig->ConfigVideoAudioDelayMs;
 	m_audioChannelID = -1;
 	m_pOsdProvider = nullptr;
 	m_pipActive = false;

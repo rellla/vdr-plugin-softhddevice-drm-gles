@@ -59,7 +59,7 @@ bool cSoftHdConfig::SetupParse(const char *name, const char *value)
                                                                  PrintLogLevel(ConfigLogState ? ConfigLogLevels : 0);
 	                                                         cSoftHdLogger::GetLogger()->SetLogLevel(ConfigLogState ? ConfigLogLevels : 0);
 	} else if (!strcasecmp(name, "DisableDeint"))          { ConfigDisableDeint = atoi(value);
-	} else if (!strcasecmp(name, "AudioDelay"))            { ConfigVideoAudioDelay = atoi(value);
+	} else if (!strcasecmp(name, "AudioDelay"))            { ConfigVideoAudioDelayMs = atoi(value);
 	} else if (!strcasecmp(name, "AudioPassthrough"))      { ConfigAudioPassthroughMask = abs(atoi(value)); ConfigAudioPassthroughState = atoi(value) > 0;
 	} else if (!strcasecmp(name, "AudioDownmix"))          { ConfigAudioDownmix = atoi(value);
 	} else if (!strcasecmp(name, "AudioSoftvol"))          { ConfigAudioSoftvol = atoi(value);
