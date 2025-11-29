@@ -1,5 +1,5 @@
 /**
- * @file softhdmenu.cpp
+ * @file softhdsetupmenu.cpp
  * Setup menu class
  *
  * This file defines cMenuSetupSoft which describes the
@@ -26,7 +26,7 @@
 
 #include "logger.h"
 #include "softhddevice.h"
-#include "softhdmenu.h"
+#include "softhdsetupmenu.h"
 
 /*****************************************************************************
  * cMenuSetupSoft - Setup menu

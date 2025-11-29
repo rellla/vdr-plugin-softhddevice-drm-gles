@@ -1,5 +1,5 @@
 /**
- * @file softhdmenu.h
+ * @file softhdsetupmenu.h
  * Setup menu class header file
  *
  * @copyright (c) 2011, 2014 by Johns.  All Rights Reserved.
@@ -19,11 +19,10 @@
  * GNU Affero General Public License for more details.}
  */
 
-#ifndef __SOFTHDMENU_H
-#define __SOFTHDMENU_H
+#ifndef __SOFTHDSETUPMENU_H
+#define __SOFTHDSETUPMENU_H
 
 #include "softhddevice.h"
-#include "softhdmenu.h"
 
 class cSoftHdDevice;
 
