@@ -301,6 +301,7 @@ void cSoftHdDevice::HandlePause(void)
  */
 void cSoftHdDevice::OnEventReceived(const Event& event)
 {
+	uint64_t startStateChange = cTimeMs::Now();
 	std::lock_guard<std::mutex> lock(m_mutex);
 
 	LOGDEBUG("device: received %s", EventToString(event));
@@ -431,6 +432,9 @@ void cSoftHdDevice::OnEventReceived(const Event& event)
 		m_pVideoStream->DecodingThreadResume();
 		m_pRender->DisplayThreadResume();
 	}
+
+	uint64_t stopStateChange = cTimeMs::Now();
+	LOGDEBUG("device: state change done in %d ms", (int)(stopStateChange - startStateChange));
 }
 
 /**
