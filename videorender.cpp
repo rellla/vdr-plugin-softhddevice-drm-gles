@@ -878,8 +878,9 @@ void cVideoRender::DisplayFrame(AVFrame *frame, AVFrame *pipFrame)
 			int dropNeeded = HandleDropDup(videoPts, audioPts); // blocks if the frame should be duped
 
 			if (dropNeeded < 0) {	// skip the pageflip
+				if (pipFrame)
+					av_frame_free(&pipFrame);
 				av_frame_free(&frame);
-
 				return;
 			}
 			m_startCounter++;
