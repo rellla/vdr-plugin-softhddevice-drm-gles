@@ -362,7 +362,7 @@ void cVideoRender::SetPipBuffer(cDrmBuffer *buf)
  *                  if buf was (currently) set, it is used for the grab,
  *                  otherwise the last displayed buffer is used (pause mode)
  */
-void cVideoRender::Grab(cDrmBuffer *buf)
+void cVideoRender::Grab(cDrmBuffer *buf, cDrmBuffer *pip)
 {
 	if (m_pBufOsd && m_osdShown) {
 		LOGDEBUG2(L_GRAB, "videorender: %s: Trigger osd grab arrived", __FUNCTION__);
@@ -380,6 +380,16 @@ void cVideoRender::Grab(cDrmBuffer *buf)
 		m_grabVideo.SetRect(m_lastVideoGrab.X(), m_lastVideoGrab.Y(), m_lastVideoGrab.Width(), m_lastVideoGrab.Height());
 		m_grabVideo.SetBuf(videoBuf);
 	}
+
+	cDrmBuffer *pipBuf = pip ? pip : (m_pCurrentlyPipDisplayed ? m_pCurrentlyPipDisplayed : NULL);
+	if (pipBuf) {
+		LOGDEBUG2(L_GRAB, "videorender: %s: Trigger pip grab arrived", __FUNCTION__);
+		cDrmBuffer *pipVideoBuf = new cDrmBuffer(pipBuf);
+		// use dimensions which have been set earlier
+		m_grabPip.SetRect(m_lastPipGrab.X(), m_lastPipGrab.Y(), m_lastPipGrab.Width(), m_lastPipGrab.Height());
+		m_grabPip.SetBuf(pipVideoBuf);
+	}
+
 	m_grabCond.Broadcast();
 }
 
@@ -451,7 +461,7 @@ int cVideoRender::CommitBuffer(cDrmBuffer *buf, cDrmBuffer *pip, int osdOnly)
 
 	// grab, if requested
 	if (m_startgrab)
-		Grab(buf);
+		Grab(buf, pip);
 
 	// return without an atomic commit (no video frame and osd activity)
 	if (!modeSet) {
@@ -904,9 +914,9 @@ void cVideoRender::DisplayFrame(AVFrame *frame, AVFrame *pipFrame)
 	} else if (GetTrickSpeed() && !m_playbackPaused && m_pCurrentlyDisplayed) {
 		// display the current frame again in trickspeed mode when no OSD update is pending
 		PageFlipVideo(m_pCurrentlyDisplayed->Frame(), m_pCurrentlyDisplayed, pipBuf, pipFrame);
-	} else if ((m_pBufOsd && m_pBufOsd->IsDirty()) || m_startgrab) {
+	} else if ((m_pBufOsd && m_pBufOsd->IsDirty())) {
 		PageFlipOsd(pipBuf, pipFrame);
-	} else if (pipBuf) {
+	} else if (pipBuf || m_startgrab) {
 		PageFlipBlack(pipBuf, pipFrame);
 	}
 
@@ -1613,7 +1623,7 @@ int cVideoRender::TriggerGrab(void)
 }
 
 /**
- * Convert a the video drm buffer to an rgb image
+ * Convert the video drm buffer to an rgb image
 */
 void cVideoRender::ConvertVideoBufToRgb(void)
 {
@@ -1642,7 +1652,37 @@ void cVideoRender::ConvertVideoBufToRgb(void)
 }
 
 /**
- * Convert a the osd drm buffer to an rgb image
+ * Convert the pip drm buffer to an rgb image
+*/
+void cVideoRender::ConvertPipBufToRgb(void)
+{
+	int size = 0;
+	cSoftHdGrab *grab = &m_grabPip;
+	cDrmBuffer *buf = grab->GetBuf();
+
+	// early return if buf = NULL
+	if (!buf) {
+		grab->SetData(NULL);
+		grab->SetSize(0);
+		return;
+	}
+
+	for (int plane = 0; plane < buf->NumPlanes(); plane++) {
+		LOGDEBUG2(L_GRAB, "videorender: %s: PIP plane %d address %p pitch %d offset %d handle %d size %d", __FUNCTION__,
+			   plane, buf->Plane(plane), buf->Pitch(plane), buf->Offset(plane), buf->Handle(plane), buf->Size(plane));
+	}
+	// result's width and height are original dimensions how buffer is presented on the screen
+	uint8_t * result = BufToRgb(buf, &size, grab->GetWidth(), grab->GetHeight(), AV_PIX_FMT_RGB24);
+	grab->SetData(result);
+	grab->SetSize(size);
+	grab->FreeBuf();
+
+	return;
+}
+
+
+/**
+ * Convert the osd drm buffer to an rgb image
 */
 void cVideoRender::ConvertOsdBufToRgb(void)
 {
@@ -1679,6 +1719,8 @@ void cVideoRender::ClearGrab(void)
 		m_grabOsd.FreeBuf();
 	if (m_grabVideo.GetBuf())
 		m_grabVideo.FreeBuf();
+	if (m_grabPip.GetBuf())
+		m_grabPip.FreeBuf();
 }
 
 /**
@@ -1687,19 +1729,30 @@ void cVideoRender::ClearGrab(void)
  * @param[out] size       returns output size (memory)
  * @param[out] width      returns output width
  * @param[out] height     returns output height
- * @param[in] isOsd      set, if is this an osd grab, otherwise it's a video grab
+ * @param[in] type        0: video, 1: osd, 2: pip
  *
  * @returns the pointer to the cSoftHdGrab object
  */
-cSoftHdGrab *cVideoRender::GetGrab(int *size, int *width, int *height, int *x, int *y, int isOsd)
+cSoftHdGrab *cVideoRender::GetGrab(int *size, int *width, int *height, int *x, int *y, int type)
 {
 	cSoftHdGrab *grab;
-	if (isOsd)
-		grab = &m_grabOsd;
-	else
+	switch (type) {
+	case 0:
 		grab = &m_grabVideo;
+		break;
+	case 1:
+		grab = &m_grabOsd;
+		break;
+	case 2:
+		grab = &m_grabPip;
+		break;
+	default:
+		LOGERROR("videorender: %s: unknown grab requested", __FUNCTION__);
+		return NULL;
+	}
 
-	LOGDEBUG2(L_GRAB, "videorender: %s: %s size %d %dx%d at %d|%d %p", isOsd ? "OSD" : "VIDEO", __FUNCTION__, grab->GetSize(), grab->GetWidth(), grab->GetHeight(), grab->GetX(), grab->GetY(), grab->GetData());
+	LOGDEBUG2(L_GRAB, "videorender: %s: %s size %d %dx%d at %d|%d %p", __FUNCTION__, type == 0 ? "VIDEO" : (type == 1 ? "OSD" : "PIP"),
+		grab->GetSize(), grab->GetWidth(), grab->GetHeight(), grab->GetX(), grab->GetY(), grab->GetData());
 
 	if (size)
 		*size = grab->GetSize();

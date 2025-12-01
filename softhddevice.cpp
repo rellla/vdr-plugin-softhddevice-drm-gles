@@ -1200,36 +1200,51 @@ uchar *cSoftHdDevice::GrabImage(int &size, bool jpeg, int quality, int width, in
 	// 2. Convert the buffers to rgb and free the cloned buffers afterwards
 	m_pRender->ConvertOsdBufToRgb();
 	m_pRender->ConvertVideoBufToRgb();
+	m_pRender->ConvertPipBufToRgb();
 
 	// 3. get screen dimensions
-	int screenwidth = 0;
-	int screenheight = 0;
+	int screenWidth = 0;
+	int screenHeight = 0;
 	double aspectRatio = 0.0f;
-	GetOsdSize(screenwidth, screenheight, aspectRatio);
+	GetOsdSize(screenWidth, screenHeight, aspectRatio);
 
-	int screensize = screenwidth * screenheight * 3; // we want a RGB24
+	int screenSize = screenWidth * screenHeight * 3; // we want a RGB24
 
 	// 4. set grab dimensions
-	int grabwidth = width > 0 ? width : screenwidth;
-	int grabheight = height > 0 ? height : screenheight;
+	int grabWidth = width > 0 ? width : screenWidth;
+	int grabHeight = height > 0 ? height : screenHeight;
 
-	int video_size = 0;                // data size of the grabbed video
-	int video_width = screenwidth;     // width of the grabbed video
-	int video_height = screenheight;   // height of the grabbed video
-	int video_x = 0, video_y = 0;      // x, y of the grabbed video
+	int videoSize = 0;                // data size of the grabbed video
+	int videoWidth = screenWidth;     // width of the grabbed video
+	int videoHeight = screenHeight;   // height of the grabbed video
+	int videoX = 0, videoY = 0;      // x, y of the grabbed video
 
 	// 5. fetch video data
 	// Video comes as RGB, width and height is original screen dimension (video is maybe scaled)
-	cSoftHdGrab *videoGrab = m_pRender->GetGrab(&video_size, &video_width, &video_height, &video_x, &video_y, 0);
+	cSoftHdGrab *videoGrab = m_pRender->GetGrab(&videoSize, &videoWidth, &videoHeight, &videoX, &videoY, 0);
 	uint8_t *video = NULL;
 	if (videoGrab->GetSize())
 		video = videoGrab->GetData();
 	if (!video) {
 		LOGDEBUG2(L_GRAB, "device: %s: video is NULL, create black screen!", __FUNCTION__);
-		video = (uint8_t *)calloc(1, screensize);
+		video = (uint8_t *)calloc(1, screenSize);
 	}
 
-	// 6. fetch osd data
+	int pipSize = 0;                // data size of the grabbed pip video
+	int pipWidth = screenWidth;     // width of the grabbed pip video
+	int pipHeight = screenHeight;   // height of the grabbed pip video
+	int pipX = 0, pipY = 0;        // x, y of the grabbed pip video
+
+	// 6. fetch pip data
+	// Pip video comes as RGB, width and height is original screen dimension (video is maybe scaled)
+	cSoftHdGrab *pipGrab = m_pRender->GetGrab(&pipSize, &pipWidth, &pipHeight, &pipX, &pipY, 2);
+	uint8_t *pip = NULL;
+	if (pipGrab->GetSize())
+		pip = pipGrab->GetData();
+	if (!pip)
+		LOGDEBUG2(L_GRAB, "device: %s: pip is NULL, skip it", __FUNCTION__);
+
+	// 7. fetch osd data
 	// OSD comes as ARGB, width and height is original screen dimension (osd is always fullscreen)
 	cSoftHdGrab *osdGrab = m_pRender->GetGrab(NULL, NULL, NULL, NULL, NULL, 1);
 	uint8_t *osd = NULL;
@@ -1238,53 +1253,71 @@ uchar *cSoftHdDevice::GrabImage(int &size, bool jpeg, int quality, int width, in
 	if (!osd)
 		LOGDEBUG2(L_GRAB, "device: %s: osd is NULL, skip it", __FUNCTION__);
 
-	// 7. blit the video into a full black screen if scaled
-	uint8_t *scaledvideo;
-	if (video_width != screenwidth || video_height != screenheight || video_x != 0 || video_y != 0) {
-		scaledvideo = BlitVideo(video, screenwidth, screenheight, video_x, video_y, video_width, video_height);
+	int ret;
+	uint8_t *videoResult = NULL;
+	// 8. blit the video into a full black screen if scaled
+	if (videoWidth != screenWidth || videoHeight != screenHeight || videoX != 0 || videoY != 0) {
+		videoResult = (uint8_t *)calloc(1, screenSize);
+		ret = BlitVideo(videoResult, video, screenWidth, screenHeight, videoX, videoY, videoWidth, videoHeight);
+		if (ret) {
+			free(videoResult);
+			free(video);
+			return NULL;
+		}
 		free(video);
 	} else {
-		scaledvideo = video;
+		videoResult = video;
 	}
 
-	// 8. alphablend fullscreen video with osd if available
+	// 9. blit the pip video into the main video if available
+	if (pip) {
+		ret = BlitVideo(videoResult, pip, screenWidth, screenHeight, pipX, pipY, pipWidth, pipHeight);
+		if (ret) {
+			free(videoResult);
+			free(pip);
+			return NULL;
+		}
+		free(pip);
+	}
+
+	// 10. alphablend fullscreen video with osd if available
 	uint8_t *result;
 	if (!osd) {
-		result = scaledvideo;
+		result = videoResult;
 	} else {
-		result = (uint8_t *)malloc(screensize);
-		AlphaBlend(result, osd, scaledvideo, screenwidth, screenheight);
-		free(scaledvideo);
+		result = (uint8_t *)malloc(screenSize);
+		AlphaBlend(result, osd, videoResult, screenWidth, screenHeight);
+		free(videoResult);
 		free(osd);
 	}
 
-	// 9. scale result to requested size width + height, if it differs from fullscreen
-	int scaledsize = screensize;
-	uint8_t *scaledresult;
-	if (screenwidth != grabwidth || screenheight != grabheight) {
-		scaledresult = ScaleRgb24(result, &scaledsize, screenwidth, screenheight, grabwidth, grabheight);
+	// 11. scale result to requested size width + height, if it differs from fullscreen
+	int scaledSize = screenSize;
+	uint8_t *scaledResult;
+	if (screenWidth != grabWidth || screenHeight != grabHeight) {
+		scaledResult = ScaleRgb24(result, &scaledSize, screenWidth, screenHeight, grabWidth, grabHeight);
 		free(result);
 	} else {
-		scaledresult = result;
+		scaledResult = result;
 	}
 
-	// 10. make jpeg or pnm
-	uint8_t *grabbedimage;
+	// 12. make jpeg or pnm
+	uint8_t *grabbedImage;
 	if (jpeg) {
-		grabbedimage = CreateJpeg(scaledresult, &size, quality, grabwidth, grabheight);
+		grabbedImage = CreateJpeg(scaledResult, &size, quality, grabWidth, grabHeight);
 	} else {  // add header to raw data
 		char buf[64];
-		int n = snprintf(buf, sizeof(buf), "P6\n%d\n%d\n255\n", grabwidth, grabheight);
-		grabbedimage = (uint8_t *)malloc(scaledsize + n);
-		memcpy(grabbedimage, buf, n);
-		memcpy(grabbedimage + n, scaledresult, scaledsize);
-		size = scaledsize + n;
+		int n = snprintf(buf, sizeof(buf), "P6\n%d\n%d\n255\n", grabWidth, grabHeight);
+		grabbedImage = (uint8_t *)malloc(scaledSize + n);
+		memcpy(grabbedImage, buf, n);
+		memcpy(grabbedImage + n, scaledResult, scaledSize);
+		size = scaledSize + n;
 	}
-	free(scaledresult);
-	LOGDEBUG2(L_GRAB, "device: %s: finished %s image (%dx%d, quality %d) at %p (size %d)", __FUNCTION__, jpeg ? "jpg" : "pnm", grabwidth, grabheight, jpeg ? quality : 0, grabbedimage, size);
+	free(scaledResult);
+	LOGDEBUG2(L_GRAB, "device: %s: finished %s image (%dx%d, quality %d) at %p (size %d)", __FUNCTION__, jpeg ? "jpg" : "pnm", grabWidth, grabHeight, jpeg ? quality : 0, grabbedImage, size);
 
 	m_grabActive = false;
-	return grabbedimage;
+	return grabbedImage;
 }
 
 /**

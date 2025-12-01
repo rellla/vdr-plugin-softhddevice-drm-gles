@@ -113,6 +113,7 @@ public:
 	int TriggerGrab(void);
 	void ConvertVideoBufToRgb(void);
 	void ConvertOsdBufToRgb(void);
+	void ConvertPipBufToRgb(void);
 	void ClearGrab(void);
 	cSoftHdGrab *GetGrab(int *, int *, int *, int *, int *, int);
 
@@ -208,7 +209,9 @@ private:
 	cCondVar m_grabCond;                ///< condition gets signalled, if renederer finished to clone the grabbed buffers
 	cSoftHdGrab m_grabOsd;              ///< keeps the current grabbed osd
 	cSoftHdGrab m_grabVideo;            ///< keeps the current grabbed video
+	cSoftHdGrab m_grabPip;              ///< keeps the current grabbed pip video
 	cRect m_lastVideoGrab;              ///< crtc rect of the last shown video frame
+	cRect m_lastPipGrab;                ///< crtc rect of the last shown pip frame
 
 	int m_startCounter;                 ///< counter for displayed frames, indicates a video start
 	int m_framesDuped = 0;              ///< number of frames duplicated
@@ -250,8 +253,6 @@ private:
 	cDrmBuffer m_pipBuffer[RENDERBUFFERS]; ///< array of video drm buffer objects
 	int m_numPipBuffers = 0;               ///< number of framebuffers currently set up
 	int m_enqueuePipBufferIdx;             ///< index of the current (sw) framebuffer in the array
-
-	cRect m_lastPipGrab;                ///< crtc rect of the last shown pip frame
 	std::atomic<bool> m_pipActive;         ///< true, if pip should be displayed
 	cPipFilterThread *m_pPipFilterThread;  ///< pointer to pip scale filter thread
 	bool m_checkPipFilterThreadNeeded = true;     ///< set, if we have to check, if pip filter thread is needed at start of playback
@@ -273,7 +274,7 @@ private:
 	cDrmBuffer *GetPipBuffer(AVFrame *);
 	void SetPipBuffer(cDrmBuffer *);
 	int CommitBuffer(cDrmBuffer *, cDrmBuffer *, int);
-	void Grab(cDrmBuffer *);
+	void Grab(cDrmBuffer *, cDrmBuffer *);
 };
 
 #endif

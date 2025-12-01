@@ -250,6 +250,7 @@ void AlphaBlend(uint8_t *result, uint8_t *front, uint8_t *back, const unsigned i
 /**
  * Blit the video on black background
  *
+ * @param[in] dst      pointer to the destination video
  * @param[in] src      pointer to the source video
  * @param[in] dstW     destination width of the image
  * @param[in] dstH     destination height of the image
@@ -258,22 +259,24 @@ void AlphaBlend(uint8_t *result, uint8_t *front, uint8_t *back, const unsigned i
  * @param[in] srcW     source video width
  * @param[in] srcH     source video height
  *
- * @returns            a pointer to the blitted image data
+ * @returns            0 on success, -1 on error
  */
-uint8_t *BlitVideo(uint8_t *src, int dstW, int dstH, int dstX, int dstY, int srcW, int srcH)
+int BlitVideo(uint8_t *dst, uint8_t *src, int dstW, int dstH, int dstX, int dstY, int srcW, int srcH)
 {
 	int srcStride = srcW * 3;
 	int dstStride = dstW * 3;
 
-	// create a black screen first
-	uint8_t *result = (uint8_t *)calloc(1, dstStride * dstH);
-
-	// blit the scaled image into the black one
-	for (int y = 0; y < srcH; y++) {
-		memcpy(&result[((dstY + y) * dstStride + dstX * 3)], &src[y * srcStride], srcStride);
+	if ((dstX + srcW > dstW) || (dstY + srcH > dstH)) {
+		LOGDEBUG2(L_GRAB, "grab: %s: wrong dimensions, cropping not supported!", __FUNCTION__);
+		return -1;
 	}
 
-	return result;
+	// blit the (scaled) image into dst
+	for (int y = 0; y < srcH; y++) {
+		memcpy(&dst[((dstY + y) * dstStride + dstX * 3)], &src[y * srcStride], srcStride);
+	}
+
+	return 0;
 }
 
 /**
