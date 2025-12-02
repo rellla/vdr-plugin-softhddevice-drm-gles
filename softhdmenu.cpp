@@ -82,6 +82,26 @@ cSoftHdMenu::~cSoftHdMenu()
 }
 
 /**
+ * Create a seperator item
+ *
+ * @param label       text inside separator
+ */
+static inline cOsdItem *SeparatorName(const char *label)
+{
+	return new cOsdItem(cString::sprintf("%s:", label), osUnknown, false);
+}
+
+/**
+ * Create a seperator item
+ *
+ * @param label       text inside separator
+ */
+static inline cOsdItem *SeparatorSpace(void)
+{
+	return new cOsdItem(" ", osUnknown, false);
+}
+
+/**
  * Create main menu
  */
 void cSoftHdMenu::MainMenu(void)
@@ -92,23 +112,48 @@ void cSoftHdMenu::MainMenu(void)
 	Clear();                           // clear the menu
 
 	// pip
-	Add(new cOsdItem(hk(tr(" Pip -> Toggle")), osUser1));
+	Add(SeparatorName("PIP"));
+	Add(new cOsdItem(hk(tr(" Toggle")), osUser1));
+	Add(new cOsdItem(hk(tr(" Channel +")), osUser2));
+	Add(new cOsdItem(hk(tr(" Channel -")), osUser3));
+	Add(new cOsdItem(hk(tr(" Swap Channel")), osUser4));
+	Add(new cOsdItem(hk(tr(" Swap Position")), osUser5));
 
+	Add(SeparatorSpace());
+
+	Add(SeparatorName("Mediaplayer"));
 	// mediaplayer
-	Add(new cOsdItem(hk(tr(" play file / make play list")), osUser2));
-	Add(new cOsdItem(hk(tr(" select play list")), osUser3));
+	Add(new cOsdItem(hk(tr(" play file / make play list")), osUser6));
+	Add(new cOsdItem(hk(tr(" select play list")), osUser7));
 
 	SetCurrent(Get(current));          // restore selected menu entry
 	Display();
 }
+
+enum PipHotkey {
+	PIPKEYBASE = 100,
+	PIPTOGGLEONOFF,
+	PIPCHANNELUP,
+	PIPCHANNELDOWN,
+	PIPCHANNELSWAP,
+	PIPPOSITIONSWAP
+};
 
 /**
  * Handle a key code which was compose by hotkey handling in ProcessKey()
  */
 void cSoftHdMenu::HandleHotKey(int code) {
 	switch (code) {
-		case 101:     // toggle pip
+		case PIPTOGGLEONOFF:
 			m_pDevice->PipToggle();
+			break;
+		case PIPCHANNELUP:
+			break;
+		case PIPCHANNELDOWN:
+			break;
+		case PIPCHANNELSWAP:
+			break;
+		case PIPPOSITIONSWAP:
 			break;
 		default:
 			break;
@@ -134,7 +179,7 @@ eOSState cSoftHdMenu::ProcessKey(eKeys key)
 			break;
 		case HotkeyState::Blue:
 			if (k0 <= key && key <= k9) {
-				int hotkeyCode = 100 + key - k0;
+				int hotkeyCode = PIPKEYBASE + key - k0;
 				m_hotkeyState = HotkeyState::Initial;
 				HandleHotKey(hotkeyCode);
 				return osEnd;
@@ -151,13 +196,21 @@ eOSState cSoftHdMenu::ProcessKey(eKeys key)
 		case osUser1:                   // toggle pip
 			m_pDevice->PipToggle();
 			return osEnd;
+		case osUser2:                   // pip channel +
+			return osEnd;
+		case osUser3:                   // pip channel -
+			return osEnd;
+		case osUser4:                   // pip channel swap
+			return osEnd;
+		case osUser5:                   // pip position swap
+			return osEnd;
 
 		// mediaplayer
-		case osUser2:                   // play file / make play list
+		case osUser6:                   // play file / make play list
 			m_path = cVideoDirectory::Name();
 			FindFile(m_path, NULL);
 			return osContinue;
-		case osUser3:                   // select play list
+		case osUser7:                   // select play list
 			m_path = cPlugin::ConfigDirectory("softhddevice-drm-gles");
 			SelectPL();
 			return osContinue;
