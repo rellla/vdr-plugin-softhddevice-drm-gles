@@ -99,6 +99,120 @@ void cSoftHdMenu::MainMenu(void)
 }
 
 /**
+ * Handle key event
+ *
+ * @param key       key event
+ */
+eOSState cSoftHdMenu::ProcessKey(eKeys key)
+{
+	eOSState state;
+	cOsdItem *item;
+
+	item = (cOsdItem *) Get(Current());
+	state = cOsdMenu::ProcessKey(key);
+
+	switch (state) {
+		// mediaplayer
+		case osUser1:                   // play file / make play list
+			m_path = cVideoDirectory::Name();
+			FindFile(m_path, NULL);
+			return osContinue;
+		case osUser2:                   // select play list
+			m_path = cPlugin::ConfigDirectory("softhddevice-drm-gles");
+			SelectPL();
+			return osContinue;
+		default:
+			break;
+	}
+
+	switch (key) {
+		case kOk:
+			if (strcasestr(item->Text(), "[..]")) {
+				string newPath = m_path.substr(0 ,m_path.find_last_of("/"));
+
+				if (!m_lastItem.empty())
+					m_lastItem.clear();
+				m_lastItem = m_path.substr(m_path.find_last_of("/") + 1);
+
+				m_path = newPath;
+				FindFile(m_path.c_str(), NULL);
+				break;
+			}
+			if (cSoftHdControl::Control() && cSoftHdControl::Control()->Player()->CurrentEntry) {
+				cSoftHdControl::Control()->Player()->SetEntry(Current());
+//				PlayListMenu();
+				break;
+			}
+			if (TestMedia(item->Text())) {
+				PlayMedia(item->Text());
+				return osEnd;
+			} else {
+				string newPath = m_path + "/" + item->Text();
+				struct stat sb;
+				if (stat(newPath.c_str(), &sb) == 0 && S_ISDIR(sb.st_mode)) {
+					m_path = newPath;
+					FindFile(newPath.c_str(), NULL);
+				}
+			}
+			break;
+		case kRed:
+			if (cSoftHdControl::Control() && cSoftHdControl::Control()->Player()->CurrentEntry) {
+				cSoftHdControl::Control()->Player()->Random ^= 1;
+				PlayListMenu();
+				break;
+			}
+			if (m_playlist.empty()) {
+				if (TestMedia(item->Text())) {
+					PlayMedia(item->Text());
+					return osEnd;
+				}
+			} else {
+				m_path = cPlugin::ConfigDirectory("softhddevice-drm-gles");
+				PlayMedia(m_playlist.c_str());
+				return osEnd;
+			}
+			break;
+		case kGreen:
+			if (cSoftHdControl::Control()) {
+				cSoftHdControl::Control()->Player()->Jump = -60;
+			} else {
+				MakePlayList(item->Text(), "w");
+				Interface->Confirm(tr("New Playlist"), 1, true);
+				if (!m_lastItem.empty())
+					m_lastItem.clear();
+				m_lastItem = item->Text();
+				FindFile(m_path.c_str(), NULL);
+			}
+			break;
+		case kYellow:
+			if (cSoftHdControl::Control()) {
+				cSoftHdControl::Control()->Player()->Jump = 60;
+			} else {
+				MakePlayList(item->Text(), "a");
+				Interface->Confirm(tr("Added to Playlist"), 1, true);
+			}
+			break;
+		case kBlue:
+			state = osStopReplay;
+			break;
+		case kPlay:
+			if (TestMedia(item->Text())) {
+				PlayMedia(item->Text());
+				return osEnd;
+			}
+			break;
+		case kNext:
+			if (cSoftHdControl::Control())
+				cSoftHdControl::Control()->Player()->StopPlay = 1;
+			break;
+		default:
+			break;
+	}
+
+	return state;
+}
+
+/**
  * Create playlist menu
  */
 void cSoftHdMenu::PlayListMenu(void)
@@ -236,120 +350,6 @@ void cSoftHdMenu::MakePlayList(const char * target, const char * mode)
 		}
 	fclose (playlist);
 	}
-}
-
-/**
- * Handle key event
- *
- * @param key       key event
- */
-eOSState cSoftHdMenu::ProcessKey(eKeys key)
-{
-	eOSState state;
-	cOsdItem *item;
-
-	item = (cOsdItem *) Get(Current());
-	state = cOsdMenu::ProcessKey(key);
-
-	switch (state) {
-		// mediaplayer
-		case osUser1:                   // play file / make play list
-			m_path = cVideoDirectory::Name();
-			FindFile(m_path, NULL);
-			return osContinue;
-		case osUser2:                   // select play list
-			m_path = cPlugin::ConfigDirectory("softhddevice-drm-gles");
-			SelectPL();
-			return osContinue;
-		default:
-			break;
-	}
-
-	switch (key) {
-		case kOk:
-			if (strcasestr(item->Text(), "[..]")) {
-				string newPath = m_path.substr(0 ,m_path.find_last_of("/"));
-
-				if (!m_lastItem.empty())
-					m_lastItem.clear();
-				m_lastItem = m_path.substr(m_path.find_last_of("/") + 1);
-
-				m_path = newPath;
-				FindFile(m_path.c_str(), NULL);
-				break;
-			}
-			if (cSoftHdControl::Control() && cSoftHdControl::Control()->Player()->CurrentEntry) {
-				cSoftHdControl::Control()->Player()->SetEntry(Current());
-//				PlayListMenu();
-				break;
-			}
-			if (TestMedia(item->Text())) {
-				PlayMedia(item->Text());
-				return osEnd;
-			} else {
-				string newPath = m_path + "/" + item->Text();
-				struct stat sb;
-				if (stat(newPath.c_str(), &sb) == 0 && S_ISDIR(sb.st_mode)) {
-					m_path = newPath;
-					FindFile(newPath.c_str(), NULL);
-				}
-			}
-			break;
-		case kRed:
-			if (cSoftHdControl::Control() && cSoftHdControl::Control()->Player()->CurrentEntry) {
-				cSoftHdControl::Control()->Player()->Random ^= 1;
-				PlayListMenu();
-				break;
-			}
-			if (m_playlist.empty()) {
-				if (TestMedia(item->Text())) {
-					PlayMedia(item->Text());
-					return osEnd;
-				}
-			} else {
-				m_path = cPlugin::ConfigDirectory("softhddevice-drm-gles");
-				PlayMedia(m_playlist.c_str());
-				return osEnd;
-			}
-			break;
-		case kGreen:
-			if (cSoftHdControl::Control()) {
-				cSoftHdControl::Control()->Player()->Jump = -60;
-			} else {
-				MakePlayList(item->Text(), "w");
-				Interface->Confirm(tr("New Playlist"), 1, true);
-				if (!m_lastItem.empty())
-					m_lastItem.clear();
-				m_lastItem = item->Text();
-				FindFile(m_path.c_str(), NULL);
-			}
-			break;
-		case kYellow:
-			if (cSoftHdControl::Control()) {
-				cSoftHdControl::Control()->Player()->Jump = 60;
-			} else {
-				MakePlayList(item->Text(), "a");
-				Interface->Confirm(tr("Added to Playlist"), 1, true);
-			}
-			break;
-		case kBlue:
-			state = osStopReplay;
-			break;
-		case kPlay:
-			if (TestMedia(item->Text())) {
-				PlayMedia(item->Text());
-				return osEnd;
-			}
-			break;
-		case kNext:
-			if (cSoftHdControl::Control())
-				cSoftHdControl::Control()->Player()->StopPlay = 1;
-			break;
-		default:
-			break;
-	}
-
-	return state;
 }
 
 /**
