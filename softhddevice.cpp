@@ -331,9 +331,7 @@ void cSoftHdDevice::OnEventReceived(const Event& event)
 				[this](const AttachEvent&) {
 					SetState(STOP);
 				},
-				[&invalid](const PipStartEvent&) { invalid(); },
-				[&invalid](const PipStopEvent&) { invalid(); },
-				[&invalid](const PipToggleEvent&) { invalid(); },
+				[&invalid](const PipEvent&) { invalid(); },
 			}, event);
 			needsResume = false;
 			break;
@@ -349,19 +347,13 @@ void cSoftHdDevice::OnEventReceived(const Event& event)
 				[&invalid](const TrickSpeedEvent&) { invalid(); },
 				[&invalid](const StillPictureEvent&) { invalid(); },
 				[this, &needsResume](const DetachEvent&) {
-					SetEnablePip(false);
+					HandlePip(PIPSTOP);
 					SetState(DETACHED);
 					needsResume = false;
 				},
 				[&invalid](const AttachEvent&) { invalid(); },
-				[this](const PipStartEvent&) {
-					SetEnablePip(true);
-				},
-				[this](const PipStopEvent&) {
-					SetEnablePip(false);
-				},
-				[this](const PipToggleEvent&) {
-					TogglePip();
+				[this](const PipEvent& p) {
+					HandlePip(p.state);
 				},
 			}, event);
 			break;
@@ -386,19 +378,13 @@ void cSoftHdDevice::OnEventReceived(const Event& event)
 					HandleStillPicture(s.data, s.size);
 				 },
 				[this, &needsResume](const DetachEvent&) {
-					SetEnablePip(false);
+					HandlePip(PIPSTOP);
 					SetState(DETACHED);
 					needsResume = false;
 				},
 				[&invalid](const AttachEvent&) { invalid(); },
-				[this](const PipStartEvent&) {
-					SetEnablePip(true);
-				},
-				[this](const PipStopEvent&) {
-					SetEnablePip(false);
-				},
-				[this](const PipToggleEvent&) {
-					TogglePip();
+				[this](const PipEvent& p) {
+					HandlePip(p.state);
 				},
 			}, event);
 			break;
@@ -422,19 +408,13 @@ void cSoftHdDevice::OnEventReceived(const Event& event)
 					HandleStillPicture(s.data, s.size);
 				 },
 				[this, &needsResume](const DetachEvent&) {
-					SetEnablePip(false);
+					HandlePip(PIPSTOP);
 					SetState(DETACHED);
 					needsResume = false;
 				},
 				[&invalid](const AttachEvent&) { invalid(); },
-				[this](const PipStartEvent&) {
-					SetEnablePip(true);
-				},
-				[this](const PipStopEvent&) {
-					SetEnablePip(false);
-				},
-				[this](const PipToggleEvent&) {
-					TogglePip();
+				[this](const PipEvent& p) {
+					HandlePip(p.state);
 				},
 			}, event);
 			break;
@@ -455,19 +435,13 @@ void cSoftHdDevice::OnEventReceived(const Event& event)
 					HandleStillPicture(s.data, s.size);
 				 },
 				[this, &needsResume](const DetachEvent&) {
-					SetEnablePip(false);
+					HandlePip(PIPSTOP);
 					SetState(DETACHED);
 					needsResume = false;
 				},
 				[&invalid](const AttachEvent&) { invalid(); },
-				[this](const PipStartEvent&) {
-					SetEnablePip(true);
-				},
-				[this](const PipStopEvent&) {
-					SetEnablePip(false);
-				},
-				[this](const PipToggleEvent&) {
-					TogglePip();
+				[this](const PipEvent& p) {
+					HandlePip(p.state);
 				},
 			}, event);
 			break;
@@ -1674,7 +1648,7 @@ bool cSoftHdDevice::IsDetached(void) const
  */
 void cSoftHdDevice::PipEnable(void)
 {
-	OnEventReceived(PipStartEvent{});
+	OnEventReceived(PipEvent{PIPSTART});
 }
 
 /**
@@ -1682,7 +1656,7 @@ void cSoftHdDevice::PipEnable(void)
  */
 void cSoftHdDevice::PipDisable(void)
 {
-	OnEventReceived(PipStopEvent{});
+	OnEventReceived(PipEvent{PIPSTOP});
 }
 
 /**
@@ -1690,7 +1664,7 @@ void cSoftHdDevice::PipDisable(void)
  */
 void cSoftHdDevice::PipToggle(void)
 {
-	OnEventReceived(PipToggleEvent{});
+	OnEventReceived(PipEvent{PIPTOGGLE});
 }
 
 /**
@@ -1782,5 +1756,22 @@ void cSoftHdDevice::NewPip(int channelNum)
 		m_pipChannelNum = channelNum;
 
 		LOGDEBUG("pip: %s: New receiver for channel (%d) %s", __FUNCTION__, channel->Number(), channel->Name());
+	}
+}
+
+void cSoftHdDevice::HandlePip(enum PipState state)
+{
+	switch (state) {
+		case PIPSTART:
+			SetEnablePip(true);
+			break;
+		case PIPSTOP:
+			SetEnablePip(false);
+			break;
+		case PIPTOGGLE:
+			TogglePip();
+			break;
+		default:
+			break;
 	}
 }

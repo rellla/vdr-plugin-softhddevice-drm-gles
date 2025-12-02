@@ -54,6 +54,7 @@ enum State {
 	DETACHED
 };
 
+
 struct PlayEvent {};
 struct PauseEvent {};
 struct StopEvent {};
@@ -67,11 +68,16 @@ struct StillPictureEvent {
 };
 struct DetachEvent {};
 struct AttachEvent {};
-struct PipStartEvent {};
-struct PipStopEvent {};
-struct PipToggleEvent {};
 
-using Event = std::variant<PlayEvent, PauseEvent, StopEvent, TrickSpeedEvent, StillPictureEvent, DetachEvent, AttachEvent, PipStartEvent, PipStopEvent, PipToggleEvent>;
+enum PipState {
+	PIPSTART,
+	PIPSTOP,
+	PIPTOGGLE
+};
+struct PipEvent {
+	enum PipState state;
+};
+using Event = std::variant<PlayEvent, PauseEvent, StopEvent, TrickSpeedEvent, StillPictureEvent, DetachEvent, AttachEvent, PipEvent>;
 
 template<class... Ts>
 struct overload : Ts... { using Ts::operator()...; };
@@ -86,9 +92,7 @@ inline const char* EventToString(const Event& e) {
         [](const StillPictureEvent&) -> const char* { return "StillPictureEvent"; },
         [](const DetachEvent&) -> const char* { return "DetachEvent"; },
         [](const AttachEvent&) -> const char* { return "AttachEvent"; },
-        [](const PipStartEvent&) -> const char* { return "PipStartEvent"; },
-        [](const PipStopEvent&) -> const char* { return "PipStopEvent"; },
-        [](const PipToggleEvent&) -> const char* { return "PipToggleEvent"; },
+        [](const PipEvent&) -> const char* { return "PipEvent"; },
     }, e);
 }
 
@@ -273,6 +277,7 @@ private:
 	void TogglePip(void);
 	void DelPip(void);
 	void NewPip(int);
+	void HandlePip(enum PipState);
 };
 
 #endif
