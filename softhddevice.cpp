@@ -1677,9 +1677,74 @@ bool cSoftHdDevice::PipIsEnabled(void)
 }
 
 /**
+ * Change the pip channel
+ *
+ * @param direction      1: channel up, -1: channel down
+ */
+void cSoftHdDevice::PipChannelChange(int direction)
+{
+	if (direction > 0)
+		OnEventReceived(PipEvent{PIPCHANUP});
+	else
+		OnEventReceived(PipEvent{PIPCHANDOWN});
+}
+
+/**
+ * Swap the pip channel with main live channel
+ *
+ * The channel switch of the main stream must be done out of OnEventReceived()
+ * because it triggers a SetPlayMode() which end in a deadlock otherwise.
+ */
+void cSoftHdDevice::PipChannelSwap(void)
+{
+	const cChannel *channel = m_pPipChannel;
+	if (!channel)
+		return;
+
+	OnEventReceived(PipEvent{PIPCHANSWAP}); // resets the pip channel to the current channel
+
+	if (channel) {
+		LOCK_CHANNELS_READ;
+		LOGDEBUG("pip: %s: switch main stream to %d", __FUNCTION__, channel->Number());
+		Channels->SwitchTo(channel->Number());
+	}
+}
+
+/**
+ * Handle the pip event
+ */
+void cSoftHdDevice::HandlePip(enum PipState event)
+{
+	switch (event) {
+		case PIPSTART:
+			SetEnablePip(true);
+			break;
+		case PIPSTOP:
+			SetEnablePip(false);
+			break;
+		case PIPTOGGLE:
+			TogglePip();
+			break;
+		case PIPCHANUP:
+			ChangePipChannel(1);
+			break;
+		case PIPCHANDOWN:
+			ChangePipChannel(-1);
+			break;
+		case PIPCHANSWAP:
+			ResetPipChannel();
+			break;
+		default:
+			break;
+	}
+}
+
+/**
  * Enable/ disable picture-in-picture
  *
  * @param on       true, if pip should be enabled
+ *
+ * @note This function is called from HandlePip() within the state change
  */
 void cSoftHdDevice::SetEnablePip(bool on)
 {
@@ -1694,7 +1759,7 @@ void cSoftHdDevice::SetEnablePip(bool on)
 	}
 
 	if (!m_pipActive) {
-		LOGDEBUG("device: %s: enabling pip", __FUNCTION__);
+		LOGDEBUG("device: %s: enabling pip (channel %d)", __FUNCTION__, m_pipChannelNum);
 		NewPip(m_pipChannelNum);
 		m_pRender->SetPipActive(true);
 	} else {
@@ -1708,22 +1773,85 @@ void cSoftHdDevice::SetEnablePip(bool on)
 
 /**
  * Toggle picture-in-picture
+ *
+ * @note This function is called from HandlePip() within the state change
  */
 void cSoftHdDevice::TogglePip(void)
 {
 	SetEnablePip(!m_pipActive);
 }
 
+/**
+ * Change the pip channel
+ *
+ * @param direction      1: channel up, -1: channel down
+ *
+ * @note This function is called from HandlePip() within the state change
+ */
+void cSoftHdDevice::ChangePipChannel(int direction)
+{
+	if (!m_pipActive)
+		return;
+
+	const cChannel *channel;
+	const cChannel *first;
+
+	channel = m_pPipChannel;
+	first = channel;
+
+	DelPip();
+
+	LOCK_CHANNELS_READ;
+	while (channel) {
+		bool ndr;
+		cDevice *device;
+
+		channel = direction > 0 ? Channels->Next(channel) : Channels->Prev(channel);
+		if (!channel && Setup.ChannelsWrap)
+			channel = direction > 0 ? Channels->First() : Channels->Last();
+
+		if (channel && !channel->GroupSep() && (device = cDevice::GetDevice(channel, 0, false, true)) &&
+			device->ProvidesChannel(channel, 0, &ndr) && !ndr) {
+				NewPip(channel->Number());
+				return;
+		}
+
+		if (channel == first) {
+			Skins.Message(mtError, tr("Channel not available!"));
+			break;
+		}
+	}
+}
+
+/**
+ * Resets the pip channel to the current live stream channel
+ *
+ * @note This function is called from HandlePip() within the state change
+ */
+void cSoftHdDevice::ResetPipChannel(void)
+{
+	if (!m_pipActive)
+		return;
+
+	DelPip();
+	NewPip(0);
+}
+
+/**
+ * Delete the pip receiver, clear decoder and display buffers
+ * and disable rendering the pip window.
+ *
+ * We do not need to halt main stream decoder and display thread for this,
+ * so only halt the pip decoding thread here - not in OnEventReceived().
+ *
+ * The last viewed pip channel is remembered and will be used when opening a new pip window.
+ */
 void cSoftHdDevice::DelPip(void)
 {
 	if (!m_pPipReceiver)
 		return;
 
 	LOGDEBUG("pip: %s: deleting receiver for channel (%d) %s", __FUNCTION__, m_pPipChannel->Number(), m_pPipChannel->Name());
-
-	delete m_pPipReceiver;
-	m_pPipReceiver = nullptr;
-	m_pPipChannel = nullptr;
 
 	m_pPipStream->DecodingThreadHalt();
 	m_pRender->CancelPipFilterThread();
@@ -1733,8 +1861,18 @@ void cSoftHdDevice::DelPip(void)
 	m_pRender->ClearPipDecoderToDisplayQueue();
 	m_pPipStream->CloseDecoder();
 	m_pPipStream->DecodingThreadResume();
+
+	delete m_pPipReceiver;
+	m_pPipReceiver = nullptr;
+	m_pPipChannel = nullptr;
 }
 
+/**
+ * Create a new pip receiver and render the pip stream
+ *
+ * @param channelNum    number of the channel to be switched to
+ *                      0 switches to the current main stream channel
+ */
 void cSoftHdDevice::NewPip(int channelNum)
 {
 	if (!channelNum)
@@ -1756,22 +1894,5 @@ void cSoftHdDevice::NewPip(int channelNum)
 		m_pipChannelNum = channelNum;
 
 		LOGDEBUG("pip: %s: New receiver for channel (%d) %s", __FUNCTION__, channel->Number(), channel->Name());
-	}
-}
-
-void cSoftHdDevice::HandlePip(enum PipState state)
-{
-	switch (state) {
-		case PIPSTART:
-			SetEnablePip(true);
-			break;
-		case PIPSTOP:
-			SetEnablePip(false);
-			break;
-		case PIPTOGGLE:
-			TogglePip();
-			break;
-		default:
-			break;
 	}
 }

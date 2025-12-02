@@ -148,10 +148,13 @@ void cSoftHdMenu::HandleHotKey(int code) {
 			m_pDevice->PipToggle();
 			break;
 		case PIPCHANNELUP:
+			m_pDevice->PipChannelChange(1);
 			break;
 		case PIPCHANNELDOWN:
+			m_pDevice->PipChannelChange(-1);
 			break;
 		case PIPCHANNELSWAP:
+			m_pDevice->PipChannelSwap();
 			break;
 		case PIPPOSITIONSWAP:
 			break;
@@ -197,10 +200,13 @@ eOSState cSoftHdMenu::ProcessKey(eKeys key)
 			m_pDevice->PipToggle();
 			return osEnd;
 		case osUser2:                   // pip channel +
+			m_pDevice->PipChannelChange(1);
 			return osEnd;
 		case osUser3:                   // pip channel -
+			m_pDevice->PipChannelChange(-1);
 			return osEnd;
 		case osUser4:                   // pip channel swap
+			m_pDevice->PipChannelSwap();
 			return osEnd;
 		case osUser5:                   // pip position swap
 			return osEnd;

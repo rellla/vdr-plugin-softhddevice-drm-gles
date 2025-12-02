@@ -72,7 +72,10 @@ struct AttachEvent {};
 enum PipState {
 	PIPSTART,
 	PIPSTOP,
-	PIPTOGGLE
+	PIPTOGGLE,
+	PIPCHANUP,
+	PIPCHANDOWN,
+	PIPCHANSWAP
 };
 struct PipEvent {
 	enum PipState state;
@@ -233,6 +236,8 @@ public:
 	void PipEnable(void);
 	void PipDisable(void);
 	void PipToggle(void);
+	void PipChannelChange(int);
+	void PipChannelSwap(void);
 	bool PipIsEnabled(void);
 	int PlayPipVideo(const uchar *, int);
 
@@ -275,6 +280,8 @@ private:
 
 	void SetEnablePip(bool);
 	void TogglePip(void);
+	void ChangePipChannel(int);
+	void ResetPipChannel(void);
 	void DelPip(void);
 	void NewPip(int);
 	void HandlePip(enum PipState);
