@@ -5,7 +5,6 @@
  * This file defines all classes used for the integrated mediaplayer
  *    - cSoftHdPlayer (cPlayer)
  *    - cSoftHdControl (cControl)
- *    - cSoftHdMenu (cOsdMenu)
  *
  * @copyright (c) 2020 zille.  All Rights Reserved.
  * @copyright (c) 2025 by Andreas Baierl. All Rights Reserved.

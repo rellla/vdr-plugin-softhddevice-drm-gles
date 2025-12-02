@@ -29,25 +29,29 @@
 
 class cSoftHdMenu : public cOsdMenu
 {
+public:
+	cSoftHdMenu(const char *, cSoftHdDevice *, int = 0, int = 0, int = 0, int = 0, int = 0);
+	virtual ~cSoftHdMenu();
+	static cSoftHdMenu *pSoftHdMenu;
+	static cSoftHdMenu *Menu() { return pSoftHdMenu; }
+
+	// mediaplayer
+	void PlayListMenu(void);
+	virtual eOSState ProcessKey(eKeys);
+
 private:
+	cSoftHdDevice *m_pDevice;
+
+	// mediaplayer
 	void MainMenu(void);
 	void SelectPL(void);
 	void FindFile(string, FILE *);
 	void MakePlayList(const char *, const char *);
 	int TestMedia(const char *);
 	void PlayMedia(const char *);
-
-	string Path;
-	string LastItem;
-	string Playlist;
-	cSoftHdDevice *m_pDevice;
-public:
-	cSoftHdMenu(const char *, cSoftHdDevice *, int = 0, int = 0, int = 0, int = 0, int = 0);
-	virtual ~cSoftHdMenu();
-	void PlayListMenu(void);
-	virtual eOSState ProcessKey(eKeys);
-	static cSoftHdMenu *pSoftHdMenu;
-	static cSoftHdMenu *Menu() { return pSoftHdMenu; }
+	string m_path;
+	string m_lastItem;
+	string m_playlist;
 };
 
 #endif
