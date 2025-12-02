@@ -27,6 +27,11 @@
  * cSoftHdMenu
  ****************************************************************************/
 
+typedef enum {
+	Initial,
+	Blue
+} HotkeyState;
+
 class cSoftHdMenu : public cOsdMenu
 {
 public:
@@ -41,6 +46,9 @@ public:
 
 private:
 	cSoftHdDevice *m_pDevice;
+
+	HotkeyState m_hotkeyState;
+	void HandleHotKey(int);
 
 	// mediaplayer
 	void MainMenu(void);

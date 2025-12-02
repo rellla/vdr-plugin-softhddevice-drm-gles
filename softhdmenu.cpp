@@ -63,6 +63,7 @@ cSoftHdMenu::cSoftHdMenu(const char *title, cSoftHdDevice *device,
 	pSoftHdMenu = this;
 	m_playlist.clear();
 	m_pDevice = device;
+	m_hotkeyState = HotkeyState::Initial;
 
 	if (cSoftHdControl::Control() && cSoftHdControl::Control()->Player()->FirstEntry) {
 		LOGDEBUG2(L_MEDIA, "mediaplayer: %s: pointer to cSoftHdControl exist.", __FUNCTION__);
@@ -90,12 +91,28 @@ void cSoftHdMenu::MainMenu(void)
 	current = Current();               // get current menu item index
 	Clear();                           // clear the menu
 
+	// pip
+	Add(new cOsdItem(hk(tr(" Pip -> Toggle")), osUser1));
+
 	// mediaplayer
-	Add(new cOsdItem(hk(tr(" play file / make play list")), osUser1));
-	Add(new cOsdItem(hk(tr(" select play list")), osUser2));
+	Add(new cOsdItem(hk(tr(" play file / make play list")), osUser2));
+	Add(new cOsdItem(hk(tr(" select play list")), osUser3));
 
 	SetCurrent(Get(current));          // restore selected menu entry
 	Display();
+}
+
+/**
+ * Handle a key code which was compose by hotkey handling in ProcessKey()
+ */
+void cSoftHdMenu::HandleHotKey(int code) {
+	switch (code) {
+		case 101:     // toggle pip
+			m_pDevice->PipToggle();
+			break;
+		default:
+			break;
+	}
 }
 
 /**
@@ -108,16 +125,39 @@ eOSState cSoftHdMenu::ProcessKey(eKeys key)
 	eOSState state;
 	cOsdItem *item;
 
+	switch (m_hotkeyState) {
+		case HotkeyState::Initial:
+			if (key == kBlue) {
+				m_hotkeyState = HotkeyState::Blue;
+				return osContinue;
+			}
+			break;
+		case HotkeyState::Blue:
+			if (k0 <= key && key <= k9) {
+				int hotkeyCode = 100 + key - k0;
+				m_hotkeyState = HotkeyState::Initial;
+				HandleHotKey(hotkeyCode);
+				return osEnd;
+			}
+			m_hotkeyState = HotkeyState::Initial;
+			break;
+	}
+
 	item = (cOsdItem *) Get(Current());
 	state = cOsdMenu::ProcessKey(key);
 
 	switch (state) {
+		// pip
+		case osUser1:                   // toggle pip
+			m_pDevice->PipToggle();
+			return osEnd;
+
 		// mediaplayer
-		case osUser1:                   // play file / make play list
+		case osUser2:                   // play file / make play list
 			m_path = cVideoDirectory::Name();
 			FindFile(m_path, NULL);
 			return osContinue;
-		case osUser2:                   // select play list
+		case osUser3:                   // select play list
 			m_path = cPlugin::ConfigDirectory("softhddevice-drm-gles");
 			SelectPL();
 			return osContinue;

@@ -69,8 +69,9 @@ struct DetachEvent {};
 struct AttachEvent {};
 struct PipStartEvent {};
 struct PipStopEvent {};
+struct PipToggleEvent {};
 
-using Event = std::variant<PlayEvent, PauseEvent, StopEvent, TrickSpeedEvent, StillPictureEvent, DetachEvent, AttachEvent, PipStartEvent, PipStopEvent>;
+using Event = std::variant<PlayEvent, PauseEvent, StopEvent, TrickSpeedEvent, StillPictureEvent, DetachEvent, AttachEvent, PipStartEvent, PipStopEvent, PipToggleEvent>;
 
 template<class... Ts>
 struct overload : Ts... { using Ts::operator()...; };
@@ -87,6 +88,7 @@ inline const char* EventToString(const Event& e) {
         [](const AttachEvent&) -> const char* { return "AttachEvent"; },
         [](const PipStartEvent&) -> const char* { return "PipStartEvent"; },
         [](const PipStopEvent&) -> const char* { return "PipStopEvent"; },
+        [](const PipToggleEvent&) -> const char* { return "PipToggleEvent"; },
     }, e);
 }
 
@@ -226,6 +228,7 @@ public:
 	// pip
 	void PipEnable(void);
 	void PipDisable(void);
+	void PipToggle(void);
 	bool PipIsEnabled(void);
 	int PlayPipVideo(const uchar *, int);
 
@@ -267,6 +270,7 @@ private:
 	void HandleStillPicture(const uchar *data, int size);
 
 	void SetEnablePip(bool);
+	void TogglePip(void);
 	void DelPip(void);
 	void NewPip(int);
 };

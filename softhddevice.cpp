@@ -333,6 +333,7 @@ void cSoftHdDevice::OnEventReceived(const Event& event)
 				},
 				[&invalid](const PipStartEvent&) { invalid(); },
 				[&invalid](const PipStopEvent&) { invalid(); },
+				[&invalid](const PipToggleEvent&) { invalid(); },
 			}, event);
 			needsResume = false;
 			break;
@@ -358,6 +359,9 @@ void cSoftHdDevice::OnEventReceived(const Event& event)
 				},
 				[this](const PipStopEvent&) {
 					SetEnablePip(false);
+				},
+				[this](const PipToggleEvent&) {
+					TogglePip();
 				},
 			}, event);
 			break;
@@ -393,6 +397,9 @@ void cSoftHdDevice::OnEventReceived(const Event& event)
 				[this](const PipStopEvent&) {
 					SetEnablePip(false);
 				},
+				[this](const PipToggleEvent&) {
+					TogglePip();
+				},
 			}, event);
 			break;
 		case State::TRICK_SPEED:
@@ -426,6 +433,9 @@ void cSoftHdDevice::OnEventReceived(const Event& event)
 				[this](const PipStopEvent&) {
 					SetEnablePip(false);
 				},
+				[this](const PipToggleEvent&) {
+					TogglePip();
+				},
 			}, event);
 			break;
 		case State::STILL_PICTURE:
@@ -455,6 +465,9 @@ void cSoftHdDevice::OnEventReceived(const Event& event)
 				},
 				[this](const PipStopEvent&) {
 					SetEnablePip(false);
+				},
+				[this](const PipToggleEvent&) {
+					TogglePip();
 				},
 			}, event);
 			break;
@@ -1673,6 +1686,14 @@ void cSoftHdDevice::PipDisable(void)
 }
 
 /**
+ * Toggle picture-in-picture
+ */
+void cSoftHdDevice::PipToggle(void)
+{
+	OnEventReceived(PipToggleEvent{});
+}
+
+/**
  * Returns true, if picture-in-picture is running
  */
 bool cSoftHdDevice::PipIsEnabled(void)
@@ -1709,6 +1730,14 @@ void cSoftHdDevice::SetEnablePip(bool on)
 	}
 
 	m_pipActive = on;
+}
+
+/**
+ * Toggle picture-in-picture
+ */
+void cSoftHdDevice::TogglePip(void)
+{
+	SetEnablePip(!m_pipActive);
 }
 
 void cSoftHdDevice::DelPip(void)
