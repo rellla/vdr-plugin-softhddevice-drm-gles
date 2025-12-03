@@ -300,6 +300,7 @@ Currently supported:
 	@softhddevice-drm-gles Blue 2      Pip channel +
 	@softhddevice-drm-gles Blue 3      Pip channel -
 	@softhddevice-drm-gles Blue 4      Swap pip and live stream
+	@softhddevice-drm-gles Blue 5      Swap pip position
 
 
 Copyright:

@@ -63,6 +63,17 @@ public:
 	int ConfigLogLevels = 0;                    ///< loglevel config
 	bool ConfigDisableDeint = false;            ///< disable deinterlacer
 
+	// pip - default position at right top, 25% scaled
+	int ConfigPipScalePercent = 25;             ///< scale factor of pip video
+	int ConfigPipLeftPercent = 100;             ///< 0 = aligned to left, 100 = aligned to right
+	int ConfigPipTopPercent = 0;                ///< 0 = aligned to top, 100 = aligned to bottom
+
+	int ConfigPipUseAlt = false;
+	// alternative position at left top, 25% scaled
+	int ConfigPipAltScalePercent = 25;          ///< alternative scale factor of pip video
+	int ConfigPipAltLeftPercent = 0;            ///< 0 = aligned to left, 100 = aligned to right
+	int ConfigPipAltTopPercent = 0;             ///< 0 = aligned to top, 100 = aligned to bottom
+
 	// command line parameters
 	const char *ConfigAudioPCMDevice = nullptr;         ///< audio PCM device
 	const char *ConfigAudioPassthroughDevice = nullptr; ///< audio passthrough device

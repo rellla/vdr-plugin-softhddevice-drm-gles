@@ -75,7 +75,9 @@ enum PipState {
 	PIPTOGGLE,
 	PIPCHANUP,
 	PIPCHANDOWN,
-	PIPCHANSWAP
+	PIPCHANSWAP,
+	PIPSIZECHANGE,
+	PIPSWAPPOSITION
 };
 struct PipEvent {
 	enum PipState state;
@@ -240,6 +242,8 @@ public:
 	void PipChannelSwap(void);
 	bool PipIsEnabled(void);
 	int PlayPipVideo(const uchar *, int);
+	void PipSetSize(void);
+	void PipSwapPosition(void);
 
 private:
 	enum State m_state = DETACHED;   ///< current plugin state, normal plugin start sets detached state
@@ -266,6 +270,7 @@ private:
 	cReassemblyBufferVideo m_pipReassemblyBuffer; ///< pip pes reassembly buffer
 	mutable std::mutex m_mutex;      ///< mutex to lock the state machine
 	std::mutex m_sizeMutex;          ///< mutex to lock screen size (which is accessed by different threads)
+	bool m_pipUseAlt;                ///< use alternative pip position
 
 	int m_screenWidth;
 	int m_screenHeight;
@@ -285,6 +290,8 @@ private:
 	void DelPip(void);
 	void NewPip(int);
 	void HandlePip(enum PipState);
+	void SetPipSize(void);
+	void SwapPipPosition(void);
 };
 
 #endif

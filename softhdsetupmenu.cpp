@@ -33,18 +33,13 @@
  ****************************************************************************/
 
 /**
- * Create a seperator item
+ * Create a seperator named item
  *
  * @param label       text inside separator
  */
-static inline cOsdItem *SeparatorItem(const char *label)
+static inline cOsdItem *SeparatorName(const char *label)
 {
-	cOsdItem *item;
-
-	item = new cOsdItem(cString::sprintf("* %s: ", label));
-	item->SetSelectable(false);
-
-	return item;
+	return new cOsdItem(cString::sprintf("%s:", label), osUnknown, false);
 }
 
 /**
@@ -148,6 +143,14 @@ void cMenuSetupSoft::Create(void)
 	Add(CollapsedItem(tr("Video"), m_cVideoMenu));
 	if (m_cVideoMenu) {
 		Add(new cMenuEditBoolItem(tr("Disable deinterlacer"), &m_cDisableDeint, trVDR("no"), trVDR("yes")));
+		Add(SeparatorName(tr("Picture-in-picture")));
+		Add(new cMenuEditIntItem(tr(" video scale rate (%)"), &m_cPipScalePercent, 10, 100));
+		Add(new cMenuEditIntItem(tr(" video left (%)"), &m_cPipLeftPercent, 0, 100));
+		Add(new cMenuEditIntItem(tr(" video top (%)"), &m_cPipTopPercent, 0, 100));
+		Add(new cMenuEditBoolItem(tr(" use alternative position as default"), &m_cPipUseAlt, trVDR("no"), trVDR("yes")));
+		Add(new cMenuEditIntItem(tr(" alternative video scale rate (%)"), &m_cPipAltScalePercent, 10, 100));
+		Add(new cMenuEditIntItem(tr(" alternative video left (%)"), &m_cPipAltLeftPercent, 0, 100));
+		Add(new cMenuEditIntItem(tr(" alternative video top (%)"), &m_cPipAltTopPercent, 0, 100));
 	}
 
 	//
@@ -321,6 +324,13 @@ cMenuSetupSoft::cMenuSetupSoft(cSoftHdDevice *device)
 	//
 	m_cVideoMenu = 0;
 	m_cDisableDeint = m_pConfig->ConfigDisableDeint;
+	m_cPipScalePercent = m_pConfig->ConfigPipScalePercent;
+	m_cPipLeftPercent = m_pConfig->ConfigPipLeftPercent;
+	m_cPipTopPercent = m_pConfig->ConfigPipTopPercent;
+	m_cPipUseAlt = m_pConfig->ConfigPipUseAlt;
+	m_cPipAltScalePercent = m_pConfig->ConfigPipAltScalePercent;
+	m_cPipAltLeftPercent = m_pConfig->ConfigPipAltLeftPercent;
+	m_cPipAltTopPercent = m_pConfig->ConfigPipAltTopPercent;
 
 	//
 	// Audio
@@ -414,6 +424,16 @@ void cMenuSetupSoft::Store(void)
 		LOGDEBUG("Disable deinterlacer!");
 	}
 	m_pDevice->SetDisableDeint();
+
+	// pip
+	SetupStore("PipScalePercent", m_pConfig->ConfigPipScalePercent = m_cPipScalePercent);
+	SetupStore("PipLeftPercent", m_pConfig->ConfigPipLeftPercent = m_cPipLeftPercent);
+	SetupStore("PipTopPercent", m_pConfig->ConfigPipTopPercent = m_cPipTopPercent);
+	SetupStore("PipUseAlt", m_pConfig->ConfigPipUseAlt = m_cPipUseAlt);
+	SetupStore("PipAltScalePercent", m_pConfig->ConfigPipAltScalePercent = m_cPipAltScalePercent);
+	SetupStore("PipAltLeftPercent", m_pConfig->ConfigPipAltLeftPercent = m_cPipAltLeftPercent);
+	SetupStore("PipAltTopPercent", m_pConfig->ConfigPipAltTopPercent = m_cPipAltTopPercent);
+	m_pDevice->PipSetSize();
 
 	//
 	// Audio

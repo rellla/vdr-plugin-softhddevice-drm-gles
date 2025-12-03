@@ -151,6 +151,7 @@ cSoftHdDevice::cSoftHdDevice(cSoftHdConfig *config)
 	m_audioChannelID = -1;
 	m_pOsdProvider = nullptr;
 	m_pipActive = false;
+	m_pipUseAlt = m_pConfig->ConfigPipUseAlt;
 }
 
 /**
@@ -1711,6 +1712,22 @@ void cSoftHdDevice::PipChannelSwap(void)
 }
 
 /**
+ * Set size and position for the pip window
+ */
+void cSoftHdDevice::PipSetSize(void)
+{
+	OnEventReceived(PipEvent{PIPSIZECHANGE});
+}
+
+/**
+ * Swap pip between normal and alternative position
+ */
+void cSoftHdDevice::PipSwapPosition(void)
+{
+	OnEventReceived(PipEvent{PIPSWAPPOSITION});
+}
+
+/**
  * Handle the pip event
  */
 void cSoftHdDevice::HandlePip(enum PipState event)
@@ -1733,6 +1750,12 @@ void cSoftHdDevice::HandlePip(enum PipState event)
 			break;
 		case PIPCHANSWAP:
 			ResetPipChannel();
+			break;
+		case PIPSIZECHANGE:
+			SetPipSize();
+			break;
+		case PIPSWAPPOSITION:
+			SwapPipPosition();
 			break;
 		default:
 			break;
@@ -1835,6 +1858,27 @@ void cSoftHdDevice::ResetPipChannel(void)
 
 	DelPip();
 	NewPip(0);
+}
+
+/**
+ * Set size and position for the pip window
+ *
+ * @note This function is called from HandlePip() within the state change
+ */
+void cSoftHdDevice::SetPipSize(void)
+{
+	m_pRender->SetPipSize(m_pipUseAlt);
+}
+
+/**
+ * Swap pip between normal and alternative position
+ *
+ * @note This function is called from HandlePip() within the state change
+ */
+void cSoftHdDevice::SwapPipPosition(void)
+{
+	m_pipUseAlt = !m_pipUseAlt;
+	m_pRender->SetPipSize(m_pipUseAlt);
 }
 
 /**

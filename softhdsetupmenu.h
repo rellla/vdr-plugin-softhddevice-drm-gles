@@ -103,6 +103,15 @@ protected:
 	int m_cAudioEq;
 	int m_cAudioEqBand[18];
 
+	// pip
+	int m_cPipScalePercent;
+	int m_cPipLeftPercent;
+	int m_cPipTopPercent;
+	int m_cPipUseAlt;
+	int m_cPipAltScalePercent;
+	int m_cPipAltLeftPercent;
+	int m_cPipAltTopPercent;
+
 private:
 	cSoftHdDevice *m_pDevice;
 	cSoftHdConfig *m_pConfig;

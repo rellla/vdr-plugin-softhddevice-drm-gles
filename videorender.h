@@ -173,6 +173,7 @@ public:
 	void CancelPipFilterThread(void);
 	void DestroyPipFrameBuffers(void);
 	void ClearPipDecoderToDisplayQueue(void);
+	void SetPipSize(bool);
 
 private:
 	cSoftHdDevice *m_pDevice;           ///< pointer to cSoftHdDevice
@@ -222,6 +223,9 @@ private:
 
 	cRect m_videoRect;                  ///< rect of the currently displayed video
 	bool m_videoIsScaled;               ///< true, if the currently displayed video is scaled
+	int m_pipScalePercent;              ///< scale factor for pip
+	int m_pipLeftPercent;               ///< left margin for pip
+	int m_pipTopPercent;                ///< top margin for pip
 
 	cDrmDevice *m_pDrmDevice;           ///< pointer cDrmDevice object
 	cDrmBuffer m_buffer[RENDERBUFFERS]; ///< array of video drm buffer objects

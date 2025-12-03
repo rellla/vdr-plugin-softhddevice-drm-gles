@@ -89,6 +89,13 @@ bool cSoftHdConfig::SetupParse(const char *name, const char *value)
 	} else if (!strcasecmp(name, "AudioEqBand16b"))        { ConfigAudioEqBand[15] = atoi(value);
 	} else if (!strcasecmp(name, "AudioEqBand17b"))        { ConfigAudioEqBand[16] = atoi(value);
 	} else if (!strcasecmp(name, "AudioEqBand18b"))        { ConfigAudioEqBand[17] = atoi(value);
+	} else if (!strcasecmp(name, "PipScalePercent"))       { ConfigPipScalePercent = atoi(value);
+	} else if (!strcasecmp(name, "PipLeftPercent"))        { ConfigPipLeftPercent = atoi(value);
+	} else if (!strcasecmp(name, "PipTopPercent"))         { ConfigPipTopPercent = atoi(value);
+	} else if (!strcasecmp(name, "PipUseAlt"))             { ConfigPipUseAlt = atoi(value);
+	} else if (!strcasecmp(name, "PipAltScalePercent"))    { ConfigPipAltScalePercent = atoi(value);
+	} else if (!strcasecmp(name, "PipAltLeftPercent"))     { ConfigPipAltLeftPercent = atoi(value);
+	} else if (!strcasecmp(name, "PipAltTopPercent"))      { ConfigPipAltTopPercent = atoi(value);
 #ifdef USE_GLES
 	} else if (!strcasecmp(name, "MaxSizeGPUImageCache"))  { ConfigMaxSizeGPUImageCache = atoi(value);
 #endif

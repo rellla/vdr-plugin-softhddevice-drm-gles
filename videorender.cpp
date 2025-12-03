@@ -110,6 +110,7 @@ cVideoRender::cVideoRender(cSoftHdDevice *device)
 	m_pNextBo = nullptr;
 	m_pOldBo = nullptr;
 #endif
+	SetPipSize(m_pConfig->ConfigPipUseAlt);
 }
 
 /**
@@ -340,12 +341,14 @@ void cVideoRender::SetPipBuffer(cDrmBuffer *buf)
 		}
 	}
 
-	// TODO: make configureable
-	uint64_t divider = 4;
-	uint64_t crtcX = dispX + (dispWidth - picWidth) / 2;
-	uint64_t crtcY = dispY + (dispHeight - picHeight) / 2;
-	uint64_t crtcW = picWidth / divider;
-	uint64_t crtcH = picHeight / divider;
+	uint64_t centerOffsetX = (dispWidth - picWidth) / 2;
+	uint64_t centerOffsetY = (dispHeight - picHeight) / 2;
+
+	// bounds checking should not be necessary
+	uint64_t crtcW = picWidth * (uint64_t)m_pipScalePercent / 100;
+	uint64_t crtcH = picHeight * (uint64_t)m_pipScalePercent / 100;
+	uint64_t crtcX = dispX + (dispWidth - crtcW - centerOffsetX) * (uint64_t)m_pipLeftPercent / 100 + centerOffsetX * (uint64_t)m_pipScalePercent / 100;
+	uint64_t crtcY = dispY + (dispHeight - crtcH - centerOffsetY) * (uint64_t)m_pipTopPercent / 100 + centerOffsetY * (uint64_t)m_pipScalePercent / 100;
 
 	pipPlane->SetParams(m_pDrmDevice->CrtcId(), buf->Id(),
 		crtcX, crtcY, crtcW, crtcH,
@@ -2072,4 +2075,17 @@ void cVideoRender::SetVideoOutputPosition(const cRect &rect)
 		m_videoIsScaled = true;
 
 	LOGDEBUG("videorender: %s: %d %d %d %d%s", __FUNCTION__, rect.X(), rect.Y(), rect.Width(), rect.Height(), m_videoIsScaled ? ", video is scaled" : "");
+}
+
+void cVideoRender::SetPipSize(bool useAlt)
+{
+	if (useAlt) {
+		m_pipScalePercent = m_pConfig->ConfigPipAltScalePercent;
+		m_pipLeftPercent = m_pConfig->ConfigPipAltLeftPercent;
+		m_pipTopPercent = m_pConfig->ConfigPipAltTopPercent;
+	} else {
+		m_pipScalePercent = m_pConfig->ConfigPipScalePercent;
+		m_pipLeftPercent = m_pConfig->ConfigPipLeftPercent;
+		m_pipTopPercent = m_pConfig->ConfigPipTopPercent;
+	}
 }

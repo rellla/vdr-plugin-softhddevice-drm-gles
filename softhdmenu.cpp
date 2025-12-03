@@ -157,6 +157,7 @@ void cSoftHdMenu::HandleHotKey(int code) {
 			m_pDevice->PipChannelSwap();
 			break;
 		case PIPPOSITIONSWAP:
+			m_pDevice->PipSwapPosition();
 			break;
 		default:
 			break;
@@ -209,6 +210,7 @@ eOSState cSoftHdMenu::ProcessKey(eKeys key)
 			m_pDevice->PipChannelSwap();
 			return osEnd;
 		case osUser5:                   // pip position swap
+			m_pDevice->PipSwapPosition();
 			return osEnd;
 
 		// mediaplayer
