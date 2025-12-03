@@ -288,6 +288,15 @@ SVDRP:
 
 	PIOF         Disable picture-in-picture.
 
+	PITO         Toggle picture-in-picture on/off.
+
+	PIPU         Switch one channel up in pip window.
+
+	PIPD         Switch one channel down in pip window.
+
+	PIPC         Swap pip with main stream.
+
+	PIPP         Swap pip position between normal and alternative.
 
 Keymacros:
 ----------

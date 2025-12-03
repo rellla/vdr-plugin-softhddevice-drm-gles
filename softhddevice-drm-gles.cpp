@@ -65,7 +65,7 @@ static const char *const VERSION = "1.2.1";    ///< vdr-plugin version number
 static const char *const DESCRIPTION = trNOOP("A software and GPU emulated HD device");
                                                ///< vdr-plugin description.
 
-static const char *const MAINMENUENTRY = trNOOP("SHD Media Player");
+static const char *const MAINMENUENTRY = trNOOP("Softhddevice");
                                                ///< what is displayed in the main menu entry
 
 cSoftHdMenu *cSoftHdMenu::pSoftHdMenu = NULL;
@@ -261,6 +261,11 @@ static const char *SVDRPHelpText[] = {
 	"    DETACHED -> 911\n",
 	"PION\n" "        Enable picture-in-picture.\n",
 	"PIOF\n" "        Disable picture-in-picture.\n",
+	"PITO\n" "        Toggle picture-in-picture.\n",
+	"PIPU\n" "        Pip channel up.\n",
+	"PIPD\n" "        Pip channel down.\n",
+	"PIPC\n" "        Pip swap channels.\n",
+	"PIIP\n" "        Pip swap positions.\n",
 	NULL
 };
 
@@ -327,21 +332,61 @@ cString cPluginSoftHdDevice::SVDRPCommand(const char *command, const char *optio
 	// pip
 	if (!strcasecmp(command, "PION")) {
 		LOGDEBUG("plugin: %s: SVDRPCommand: %s %s", __FUNCTION__, command, option);
-		// early exit - PipEnable() also tests this
 		if (m_pDevice->PipIsEnabled())
 			return "Pip is already enabled";
 
 		m_pDevice->PipEnable();
-		return "Pip is enabled";
+		return "Pip was enabled";
 	}
 	if (!strcasecmp(command, "PIOF")) {
 		LOGDEBUG("plugin: %s: SVDRPCommand: %s %s", __FUNCTION__, command, option);
-		// early exit - PipDisable() also tests this
 		if (!m_pDevice->PipIsEnabled())
 			return "Pip isn't enabled";
 
 		m_pDevice->PipDisable();
-		return "Pip is disabled";
+		return "Pip was disabled";
+	}
+	if (!strcasecmp(command, "PITO")) {
+		LOGDEBUG("plugin: %s: SVDRPCommand: %s %s", __FUNCTION__, command, option);
+		if (!m_pDevice->PipIsEnabled()) {
+			m_pDevice->PipEnable();
+			return "Pip was enabled";
+		} else {
+			m_pDevice->PipDisable();
+			return "Pip was disabled";
+		}
+	}
+	if (!strcasecmp(command, "PIPU")) {
+		LOGDEBUG("plugin: %s: SVDRPCommand: %s %s", __FUNCTION__, command, option);
+		if (!m_pDevice->PipIsEnabled())
+			return "Pip isn't enabled";
+
+		m_pDevice->PipChannelChange(1);
+		return "Pip channel up";
+	}
+	if (!strcasecmp(command, "PIPD")) {
+		LOGDEBUG("plugin: %s: SVDRPCommand: %s %s", __FUNCTION__, command, option);
+		if (!m_pDevice->PipIsEnabled())
+			return "Pip isn't enabled";
+
+		m_pDevice->PipChannelChange(-1);
+		return "Pip channel down";
+	}
+	if (!strcasecmp(command, "PIPC")) {
+		LOGDEBUG("plugin: %s: SVDRPCommand: %s %s", __FUNCTION__, command, option);
+		if (!m_pDevice->PipIsEnabled())
+			return "Pip isn't enabled";
+
+		m_pDevice->PipChannelSwap();
+		return "Pip swap channels";
+	}
+	if (!strcasecmp(command, "PIPP")) {
+		LOGDEBUG("plugin: %s: SVDRPCommand: %s %s", __FUNCTION__, command, option);
+		if (!m_pDevice->PipIsEnabled())
+			return "Pip isn't enabled";
+
+		m_pDevice->PipSwapPosition();
+		return "Pip swap position";
 	}
 
 	return NULL;
