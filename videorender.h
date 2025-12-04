@@ -272,6 +272,9 @@ private:
 	void PageFlipBlack(cDrmBuffer *, AVFrame *);
 	void PageFlipOsd(cDrmBuffer *, AVFrame *);
 	void PageFlipVideo(AVFrame *, cDrmBuffer *, cDrmBuffer *, AVFrame *);
+	void CopyNV12ToDrmBuffer(cDrmBuffer *, AVFrame *);
+	AVFrame *MakeDrmPrimeFrame(AVFrame *, cDrmBuffer *);
+	cDrmBuffer *AcquireSwDrmBuffer(cDrmBuffer *, int &, int &, int, int, int, int);
 	cDrmBuffer *GetBufferInternal(cDrmBuffer *, AVFrame *, bool);
 	cDrmBuffer *GetBuffer(AVFrame *);
 	cDrmBuffer *GetPipBuffer(AVFrame *);

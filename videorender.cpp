@@ -1096,92 +1096,128 @@ static void ReleaseFrame( __attribute__ ((unused)) void *opaque, uint8_t *data)
 }
 
 /**
- * Enqueue a software decoded frame in the render ringbuffer
+ * Copy a NV12 src to a cDrmBuffer
  *
- * Get a buffer for the frame or prepare it before.
- *
- * @param inframe         the AVFrame to enqueue
+ * @param buf        dst cDrmBuffer
+ * @param src        src AVFrame
  */
-void cVideoRender::EnqueueFB(AVFrame *inframe)
+void cVideoRender::CopyNV12ToDrmBuffer(cDrmBuffer *buf, AVFrame *src)
 {
-	// inframe->format is always NV12!
+	// copy Y plane
+	for (int i = 0; i < src->height; ++i) {
+		memcpy(buf->Plane(0) + i * buf->Pitch(0),
+			src->data[0] + i * src->linesize[0], src->linesize[0]);
+	}
+
+	// copy UV plane
+	for (int i = 0; i < src->height / 2; ++i) {
+		memcpy(buf->Plane(1) + i * buf->Pitch(1),
+			src->data[1] + i * src->linesize[1], src->linesize[1]);
+	}
+}
+
+/**
+ * Create an AV_PIX_FT_DRM_PRIME AVFrame whoch references a DRM buffer via
+ * a prime file descriptor
+ *
+ * @param src        input src frame to take parameters from
+ * @param buf        buffer with prime file descriptor
+ *
+ * @returns          AVFrame which represents the drm buffer
+ */
+AVFrame *cVideoRender::MakeDrmPrimeFrame(AVFrame *src, cDrmBuffer *buf)
+{
+	AVFrame *frame = av_frame_alloc();
+
+	frame->pts = src->pts;
+	frame->width = src->width;
+	frame->height = src->height;
+	frame->format = AV_PIX_FMT_DRM_PRIME;
+	frame->sample_aspect_ratio = src->sample_aspect_ratio;
+
+	AVDRMFrameDescriptor *primedata = (AVDRMFrameDescriptor *)av_mallocz(sizeof(AVDRMFrameDescriptor));
+	primedata->objects[0].fd = buf->FdPrime(0);
+	frame->data[0] = (uint8_t *)primedata;
+	frame->buf[0] = av_buffer_create((uint8_t *)primedata, sizeof(*primedata),
+				ReleaseFrame, NULL, AV_BUFFER_FLAG_READONLY);
+
+	return frame;
+}
+
+cDrmBuffer *cVideoRender::AcquireSwDrmBuffer(cDrmBuffer *buffer, int &numBuffers, int &enqueueIdx, int fdDrm,
+                                             int width, int height, int trickSpeedMode)
+{
+	const int maxBuffers = VIDEO_SURFACES_MAX + 2;
 	cDrmBuffer *buf = nullptr;
-	int fdDrm = m_pDrmDevice->Fd();
 
-	AVDRMFrameDescriptor * primedata;
-	AVFrame *frame;
-	int i;
 
-	if (GetTrickSpeed()) {	// if we have trickspeed, always use a free buffer, because its destroyed in DisplayFrame after rendering
-		for (i = 0; i < RENDERBUFFERS; i++) {
-			if (!m_buffer[i].IsDirty())
-				break;
+	// Main stream trickspeed:
+	// always use a free buffer, because its destroyed in DisplayFrame after rendering
+	if (trickSpeedMode) {
+		for (int i = 0; i < RENDERBUFFERS; i++) {
+			if (!buffer[i].IsDirty()) {
+				buf = &buffer[i];
+				if (buf->Setup(fdDrm, width, height, DRM_FORMAT_NV12, NULL))
+					LOGERROR("videorender: %s: SetupFB FB %i x %i failed", __FUNCTION__, buf->Width(), buf->Height());
+
+				int primefd;
+				if (drmPrimeHandleToFD(fdDrm, buf->Handle(0), DRM_CLOEXEC | DRM_RDWR, &primefd))
+					LOGERROR("videorender: %s: Failed to retrieve the Prime FD (%d): %m", __FUNCTION__, errno);
+
+				buf->SetFdPrime(0, primefd);
+				buf->MarkAsSwBuffer();
+				return buf;
+			}
 		}
-		if (i == RENDERBUFFERS)
-			LOGFATAL("videorender: %s: SHOULD NOT HAPPEN! no free buffer available!", __FUNCTION__);
 
-		buf = &m_buffer[i];
-		if (buf->Setup(fdDrm, (uint32_t)inframe->width, (uint32_t)inframe->height,
-		               DRM_FORMAT_NV12, NULL)) {
+		LOGFATAL("videorender: %s: SHOULD NOT HAPPEN! no free buffer available!", __FUNCTION__);
+	}
+
+	// Main stream normal playback or pip stream:
+	// create some buffers up to VIDEO_SURFACES_MAX + 2
+	buf = &buffer[m_enqueueBufferIdx];
+	if (numBuffers < maxBuffers) {
+		while (buf->IsDirty()) {
+			// try the next buffer, because it is either referenced by m_pCurrentlyDisplayed or is already setup
+			// this should be safe, because we only have 1 m_pCurrentlyDisplayed, which should be destroyed as soon as
+			// a new buffer arrives in DisplayFrame
+			// after that destroy, we should be able to setup 0, 1, 2, ..., VIDEO_SURFACES_MAX + 2 framebuffers
+			enqueueIdx = (enqueueIdx + 1) % (maxBuffers);
+			buf = &buffer[enqueueIdx];
+		}
+
+		if (buf->Setup(fdDrm, width, height, DRM_FORMAT_NV12, NULL))
 			LOGERROR("videorender: %s: SetupFB FB %i x %i failed", __FUNCTION__, buf->Width(), buf->Height());
-		}
+
+		numBuffers++;
 
 		int primefd;
 		if (drmPrimeHandleToFD(fdDrm, buf->Handle(0), DRM_CLOEXEC | DRM_RDWR, &primefd))
 			LOGERROR("videorender: %s: Failed to retrieve the Prime FD (%d): %m", __FUNCTION__, errno);
 		buf->SetFdPrime(0, primefd);
-	} else {
-		// create some buffers up to VIDEO_SURFACES_MAX + 2
-		buf = &m_buffer[m_enqueueBufferIdx];
-		if (m_numBuffers < VIDEO_SURFACES_MAX + 2) {
-			while (buf->IsDirty()) {
-				// try the next buffer, because it is either referenced by m_pCurrentlyDisplayed or is already setup
-				// this should be safe, because we only have 1 m_pCurrentlyDisplayed, which should be destroyed as soon as
-				// a new buffer arrives in DisplayFrame
-				// after that destroy, we should be able to setup 0, 1, 2, ..., VIDEO_SURFACES_MAX + 2 framebuffers
-				m_enqueueBufferIdx = (m_enqueueBufferIdx + 1) % (VIDEO_SURFACES_MAX + 2);
-				buf = &m_buffer[m_enqueueBufferIdx];
-			}
-
-			if (buf->Setup(fdDrm, (uint32_t)inframe->width, (uint32_t)inframe->height,
-			               DRM_FORMAT_NV12, NULL)) {
-				LOGERROR("videorender: %s: SetupFB FB %i x %i failed", __FUNCTION__, buf->Width(), buf->Height());
-			}
-
-			m_numBuffers++;
-
-			int primefd;
-			if (drmPrimeHandleToFD(fdDrm, buf->Handle(0), DRM_CLOEXEC | DRM_RDWR, &primefd))
-				LOGERROR("videorender: %s: Failed to retrieve the Prime FD (%d): %m", __FUNCTION__, errno);
-			buf->SetFdPrime(0, primefd);
-		}
 	}
 
-	// mark this buffer as a software decoded buffer
 	buf->MarkAsSwBuffer();
+	return buf;
+}
 
-	for (i = 0; i < inframe->height; ++i) {
-		memcpy(buf->Plane(0) + i * buf->Pitch(0),
-			inframe->data[0] + i * inframe->linesize[0], inframe->linesize[0]);
-	}
-	for (i = 0; i < inframe->height / 2; ++i) {
-		memcpy(buf->Plane(1) + i * buf->Pitch(1),
-			inframe->data[1] + i * inframe->linesize[1], inframe->linesize[1]);
-	}
+/**
+ * Enqueue a software decoded frame in the render ringbuffer
+ *
+ * Get a buffer for the frame or prepare it before.
+ *
+ * @param inframe         the AVFrame to enqueue (always NV12)
+ */
+void cVideoRender::EnqueueFB(AVFrame *inframe)
+{
+	int fdDrm = m_pDrmDevice->Fd();
 
-	frame = av_frame_alloc();
-	frame->pts = inframe->pts;
-	frame->width = inframe->width;
-	frame->height = inframe->height;
-	frame->format = AV_PIX_FMT_DRM_PRIME;
-	frame->sample_aspect_ratio.num = inframe->sample_aspect_ratio.num;
-	frame->sample_aspect_ratio.den = inframe->sample_aspect_ratio.den;
+	cDrmBuffer *buf = AcquireSwDrmBuffer(m_buffer, m_numBuffers, m_enqueueBufferIdx,
+	                                     fdDrm, inframe->width, inframe->height, GetTrickSpeed());
 
-	primedata = (AVDRMFrameDescriptor *)av_mallocz(sizeof(AVDRMFrameDescriptor));
-	primedata->objects[0].fd = buf->FdPrime(0);
-	frame->data[0] = (uint8_t *)primedata;
-	frame->buf[0] = av_buffer_create((uint8_t *)primedata, sizeof(*primedata),
-				ReleaseFrame, NULL, AV_BUFFER_FLAG_READONLY);
+	CopyNV12ToDrmBuffer(buf, inframe);
+
+	AVFrame *frame = MakeDrmPrimeFrame(inframe, buf);
 
 	FramesRbLock();
 	RbPushFrame(frame);
@@ -1198,64 +1234,18 @@ void cVideoRender::EnqueueFB(AVFrame *inframe)
  *
  * Get a buffer for the frame or prepare it before.
  *
- * @param inframe         the AVFrame to enqueue
+ * @param inframe         the AVFrame to enqueue (always NV12)
  */
 void cVideoRender::PipEnqueueFB(AVFrame *inframe)
 {
-	// inframe->format is always NV12!
-	cDrmBuffer *buf = nullptr;
 	int fdDrm = m_pDrmDevice->Fd();
 
-	AVDRMFrameDescriptor * primedata;
-	AVFrame *frame;
-	int i;
+	cDrmBuffer *buf = AcquireSwDrmBuffer(m_pipBuffer, m_numPipBuffers, m_enqueuePipBufferIdx,
+	                                     fdDrm, inframe->width, inframe->height, false);
 
-	// create some buffers up to VIDEO_SURFACES_MAX + 2
-	buf = &m_pipBuffer[m_enqueuePipBufferIdx];
-	if (m_numPipBuffers < VIDEO_SURFACES_MAX + 2) {
-		while (buf->IsDirty()) {
-			m_enqueuePipBufferIdx = (m_enqueuePipBufferIdx + 1) % (VIDEO_SURFACES_MAX + 2);
-			buf = &m_pipBuffer[m_enqueuePipBufferIdx];
-		}
+	CopyNV12ToDrmBuffer(buf, inframe);
 
-		if (buf->Setup(fdDrm, (uint32_t)inframe->width, (uint32_t)inframe->height,
-		               DRM_FORMAT_NV12, NULL)) {
-			LOGERROR("videorender: %s: SetupFB FB %i x %i failed", __FUNCTION__, buf->Width(), buf->Height());
-		}
-
-		m_numPipBuffers++;
-
-		int primefd;
-		if (drmPrimeHandleToFD(fdDrm, buf->Handle(0), DRM_CLOEXEC | DRM_RDWR, &primefd))
-			LOGERROR("videorender: %s: Failed to retrieve the Prime FD (%d): %m", __FUNCTION__, errno);
-		buf->SetFdPrime(0, primefd);
-	}
-
-	// mark this buffer as a software decoded buffer
-	buf->MarkAsSwBuffer();
-
-	for (i = 0; i < inframe->height; ++i) {
-		memcpy(buf->Plane(0) + i * buf->Pitch(0),
-			inframe->data[0] + i * inframe->linesize[0], inframe->linesize[0]);
-	}
-	for (i = 0; i < inframe->height / 2; ++i) {
-		memcpy(buf->Plane(1) + i * buf->Pitch(1),
-			inframe->data[1] + i * inframe->linesize[1], inframe->linesize[1]);
-	}
-
-	frame = av_frame_alloc();
-	frame->pts = inframe->pts;
-	frame->width = inframe->width;
-	frame->height = inframe->height;
-	frame->format = AV_PIX_FMT_DRM_PRIME;
-	frame->sample_aspect_ratio.num = inframe->sample_aspect_ratio.num;
-	frame->sample_aspect_ratio.den = inframe->sample_aspect_ratio.den;
-
-	primedata = (AVDRMFrameDescriptor *)av_mallocz(sizeof(AVDRMFrameDescriptor));
-	primedata->objects[0].fd = buf->FdPrime(0);
-	frame->data[0] = (uint8_t *)primedata;
-	frame->buf[0] = av_buffer_create((uint8_t *)primedata, sizeof(*primedata),
-				ReleaseFrame, NULL, AV_BUFFER_FLAG_READONLY);
+	AVFrame *frame = MakeDrmPrimeFrame(inframe, buf);
 
 	PipFramesRbLock();
 	PipRbPushFrame(frame);
