@@ -193,6 +193,62 @@ void cVideoRender::DestroyPipFrameBuffers(void)
 	m_pCurrentlyPipDisplayed = nullptr;
 }
 
+struct sRect {
+	uint64_t x;
+	uint64_t y;
+	uint64_t w;
+	uint64_t h;
+};
+
+/**
+ * Fits the video frame into a given area
+ *
+ * @param frame        AVFrame with frame dimensions and aspect ratio information
+ * @param dispX        x offset of video area
+ * @param dispY        y offset of video area
+ * @param dispWidth    width of video area
+ * @param dispHeight   height of video area
+ *
+ * @returns            the new computed video area or the given area if no frame was given
+ */
+static sRect ComputeFittedRect(AVFrame *frame, uint64_t dispX, uint64_t dispY, uint64_t dispWidth, uint64_t dispHeight)
+{
+	if (!frame || dispWidth == 0 || dispHeight == 0)
+		return { dispX, dispY, dispWidth, dispHeight };
+
+	double frameWidth = frame->width > 0 ? frame->width : 1.0;
+	double frameHeight = frame->height > 0 ? frame->height : 1.0;
+	double frameSar = av_q2d(frame->sample_aspect_ratio) ? av_q2d(frame->sample_aspect_ratio) : 1.0;
+	double dispAspect = static_cast<double>(dispWidth) / static_cast<double>(dispHeight);
+	double frameAspect = frameWidth / frameHeight * frameSar;
+
+	double picWidthD = dispWidth;
+	double picHeightD = dispHeight;
+
+	if (dispAspect > frameAspect) {
+		// letterbox horizontally (frame narrower than display)
+		picWidthD = dispHeight * frameAspect;
+		if (picWidthD <= 0 || picWidthD > dispWidth)
+			picWidthD = dispWidth;
+	} else {
+		// pillarbox vertically (frame wider than display)
+		picHeightD = dispWidth / frameAspect;
+		if (picHeightD <= 0 || picHeightD > dispHeight)
+			picHeightD = dispHeight;
+	}
+
+	// round to the nearest pixel
+	uint64_t picWidth = std::llround(std::max(0.0, picWidthD));
+	uint64_t picHeight = std::llround(std::max(0.0, picHeightD));
+
+	int64_t offsetX = static_cast<int64_t>(dispWidth) - static_cast<int64_t>(picWidth);
+	int64_t offsetY = static_cast<int64_t>(dispHeight) - static_cast<int64_t>(picHeight);
+	uint64_t posX = dispX + static_cast<uint64_t>(std::max<int64_t>(0, offsetX / 2));
+	uint64_t posY = dispY + static_cast<uint64_t>(std::max<int64_t>(0, offsetY / 2));
+
+	return { posX, posY, picWidth, picHeight };
+}
+
 /**
  * Modesetting for video
  *
@@ -200,58 +256,34 @@ void cVideoRender::DestroyPipFrameBuffers(void)
  */
 void cVideoRender::SetVideoBuffer(cDrmBuffer *buf)
 {
-	AVFrame *frame = NULL;
+	AVFrame *frame = buf ? buf->Frame() : nullptr;
 
+	// set display dimensions as default
 	uint64_t dispWidth = m_pDrmDevice->DisplayWidth();
 	uint64_t dispHeight = m_pDrmDevice->DisplayHeight();
 	uint64_t dispX = 0;
 	uint64_t dispY = 0;
-	uint64_t picWidth = 0;
-	uint64_t picHeight = 0;
 
 	cDrmPlane *videoPlane = m_pDrmDevice->VideoPlane();
 
-	if (buf)
-		frame = buf->Frame();
-
-	// Get video size and position and set crtc rect
+	// get video size and position
 	if (m_videoIsScaled) {
-		dispWidth = (uint64_t)m_videoRect.Width();
-		dispHeight = (uint64_t)m_videoRect.Height();
-		dispX = (uint64_t)m_videoRect.X();
-		dispY = (uint64_t)m_videoRect.Y();
+		dispWidth = m_videoRect.Width();
+		dispHeight = m_videoRect.Height();
+		dispX = m_videoRect.X();
+		dispY = m_videoRect.Y();
 	}
 
-	picWidth = dispWidth;
-	picHeight = dispHeight;
+	// fit frame into display
+	sRect fittedRect = ComputeFittedRect(frame, dispX, dispY, dispWidth, dispHeight);
 
-	// resize frame to fit into video area/ screen and keep the aspect ratio
-	if (frame) {
-		// use frame->sample_aspect_ratio of 1.0f if undefined (0.0f), otherwise we have division by 0
-		double frame_sar = av_q2d(frame->sample_aspect_ratio) ? av_q2d(frame->sample_aspect_ratio) : 1.0f;
-
-		// frame b*h < display b*h, e.g. fit a 4:3 frame into 16:9 display or area
-		if (1000 * dispWidth / dispHeight > 1000 * frame->width / frame->height * frame_sar) {
-			picWidth = dispHeight * frame->width / frame->height * frame_sar;
-			if (picWidth <= 0 || picWidth > dispWidth) {
-				picWidth = dispWidth;
-			}
-		// frame b*h >= display b*h, e.g. fit a 16:9 frame into 4:3 display or area
-		} else {
-			picHeight = dispWidth * frame->height / frame->width / frame_sar;
-			if (picHeight <= 0 || picHeight > dispHeight) {
-				picHeight = dispHeight;
-			}
-		}
-	}
+	// now set the plane parameters
 	videoPlane->SetParams(m_pDrmDevice->CrtcId(), buf->Id(),
-		dispX + (dispWidth - picWidth) / 2, dispY + (dispHeight - picHeight) / 2, picWidth, picHeight,
+		fittedRect.x, fittedRect.y, fittedRect.w, fittedRect.h,
 		0, 0, buf->Width(), buf->Height());
 
 	// set dimensions for grab early, because we might skip this at the next frame
-	m_lastVideoGrab.Set(dispX + (dispWidth - picWidth) / 2,
-		dispY + (dispHeight - picHeight) / 2,
-		picWidth, picHeight);
+	m_lastVideoGrab.Set(fittedRect.x, fittedRect.y, fittedRect.w, fittedRect.h);
 }
 
 /**
@@ -278,9 +310,13 @@ int cVideoRender::SetOsdBuffer(drmModeAtomicReqPtr modeReq)
 				osdPlane->GetId(), osdPlane->GetZpos());
 		}
 
+		uint64_t crtcW = m_osdShown ? m_pBufOsd->Width() : 0;
+		uint64_t crtcH = m_osdShown ? m_pBufOsd->Height() : 0;
+
+		// now set the plane parameters
 		osdPlane->SetParams(m_pDrmDevice->CrtcId(), m_pBufOsd->Id(),
-			0, 0, m_osdShown ? m_pBufOsd->Width() : 0, m_osdShown ? m_pBufOsd->Height() : 0,
-			0, 0, m_osdShown ? m_pBufOsd->Width() : 0, m_osdShown ? m_pBufOsd->Height() : 0);
+			0, 0, crtcW, crtcH,
+			0, 0, crtcW, crtcH);
 
 		m_pBufOsd->MarkClean();
 		return 0;
@@ -296,60 +332,45 @@ int cVideoRender::SetOsdBuffer(drmModeAtomicReqPtr modeReq)
  */
 void cVideoRender::SetPipBuffer(cDrmBuffer *buf)
 {
-	AVFrame *frame = NULL;
+	AVFrame *frame = buf ? buf->Frame() : nullptr;
 
+	// set display dimensions as default
 	uint64_t dispWidth = m_pDrmDevice->DisplayWidth();
 	uint64_t dispHeight = m_pDrmDevice->DisplayHeight();
 	uint64_t dispX = 0;
 	uint64_t dispY = 0;
-	uint64_t picWidth = 0;
-	uint64_t picHeight = 0;
 
 	cDrmPlane *pipPlane = m_pDrmDevice->PipPlane();
 
-	if (buf)
-		frame = buf->Frame();
-
-	// Get video size and position and set crtc rect
+	// Get video size and position
 	if (m_videoIsScaled) {
-		dispWidth = (uint64_t)m_videoRect.Width();
-		dispHeight = (uint64_t)m_videoRect.Height();
-		dispX = (uint64_t)m_videoRect.X();
-		dispY = (uint64_t)m_videoRect.Y();
+		dispWidth = m_videoRect.Width();
+		dispHeight = m_videoRect.Height();
+		dispX = m_videoRect.X();
+		dispY = m_videoRect.Y();
 	}
 
-	picWidth = dispWidth;
-	picHeight = dispHeight;
+	// fit frame into display
+	sRect fittedRect = ComputeFittedRect(frame, dispX, dispY, dispWidth, dispHeight);
 
-	// resize frame to fit into video area/ screen and keep the aspect ratio
-	if (frame) {
-		// use frame->sample_aspect_ratio of 1.0f if undefined (0.0f), otherwise we have division by 0
-		double frame_sar = av_q2d(frame->sample_aspect_ratio) ? av_q2d(frame->sample_aspect_ratio) : 1.0f;
+	// compute pip window with given scaling and positioning values from menu
+	int64_t centerOffsetX = static_cast<int64_t>(dispWidth) - static_cast<int64_t>(fittedRect.w);
+	int64_t centerOffsetY = static_cast<int64_t>(dispHeight) - static_cast<int64_t>(fittedRect.h);
+	centerOffsetX = std::max<int64_t>(0, centerOffsetX / 2);
+	centerOffsetY = std::max<int64_t>(0, centerOffsetY / 2);
 
-		// frame b*h < display b*h, e.g. fit a 4:3 frame into 16:9 display or area
-		if (1000 * dispWidth / dispHeight > 1000 * frame->width / frame->height * frame_sar) {
-			picWidth = dispHeight * frame->width / frame->height * frame_sar;
-			if (picWidth <= 0 || picWidth > dispWidth) {
-				picWidth = dispWidth;
-			}
-		// frame b*h >= display b*h, e.g. fit a 16:9 frame into 4:3 display or area
-		} else {
-			picHeight = dispWidth * frame->height / frame->width / frame_sar;
-			if (picHeight <= 0 || picHeight > dispHeight) {
-				picHeight = dispHeight;
-			}
-		}
-	}
+	double crtcWD = fittedRect.w * m_pipScalePercent / 100.0;
+	double crtcHD = fittedRect.h * m_pipScalePercent / 100.0;
+	uint64_t crtcW = std::llround(crtcWD);
+	uint64_t crtcH = std::llround(crtcHD);
 
-	uint64_t centerOffsetX = (dispWidth - picWidth) / 2;
-	uint64_t centerOffsetY = (dispHeight - picHeight) / 2;
+	double spaceW = dispWidth - crtcW - centerOffsetX;
+	double spaceH = dispHeight - crtcH - centerOffsetY;
 
-	// bounds checking should not be necessary
-	uint64_t crtcW = picWidth * (uint64_t)m_pipScalePercent / 100;
-	uint64_t crtcH = picHeight * (uint64_t)m_pipScalePercent / 100;
-	uint64_t crtcX = dispX + (dispWidth - crtcW - centerOffsetX) * (uint64_t)m_pipLeftPercent / 100 + centerOffsetX * (uint64_t)m_pipScalePercent / 100;
-	uint64_t crtcY = dispY + (dispHeight - crtcH - centerOffsetY) * (uint64_t)m_pipTopPercent / 100 + centerOffsetY * (uint64_t)m_pipScalePercent / 100;
+	uint64_t crtcX = dispX + std::llround(spaceW * m_pipLeftPercent / 100.0 + centerOffsetX * m_pipScalePercent / 100.0);
+	uint64_t crtcY = dispY + std::llround(spaceH * m_pipTopPercent / 100.0 + centerOffsetY * m_pipScalePercent / 100.0);
 
+	// now set the plane parameters
 	pipPlane->SetParams(m_pDrmDevice->CrtcId(), buf->Id(),
 		crtcX, crtcY, crtcW, crtcH,
 		0, 0, buf->Width(), buf->Height());
