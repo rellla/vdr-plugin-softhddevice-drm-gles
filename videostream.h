@@ -46,7 +46,7 @@ public:
 	cVideoStream(cSoftHdDevice *);
 	virtual ~cVideoStream(void);
 
-	virtual void DecodeInput(void) = 0;
+	void DecodeInput(void);
 	virtual bool IsInterlaced(void) { return false; };
 
 	void Open(AVCodecID, AVCodecParameters * = nullptr, AVRational = { .num = 1, .den = 90000 });
@@ -81,10 +81,15 @@ protected:
 	AVCodecParameters *m_pPar = nullptr;   ///< current codec parameters
 	struct AVRational m_timebase;          ///< current codec timebase
 	volatile bool m_newStream;             ///< flag for new stream
-	bool m_isPipStream = false;            ///< true if this is the pip stream
 
 	void TryInitDecoder(void);             ///< init/ open the decoder if necessary
 	bool CanDecodePacket(void);            ///< is the codec open and we have packets?
+
+	virtual bool IsBufferFull(void) const = 0;
+	virtual void RenderFrame(AVFrame *) = 0;
+
+	virtual void TrickspeedForceDecoderDrain(void) {}
+	virtual void TrickspeedFlushDecoderBuffers(void) {}
 
 private:
 	cDecodingThread *m_pDecodingThread;    ///< pointer to decoding thread
@@ -100,12 +105,16 @@ class cMainVideoStream : public cVideoStream
 {
 public:
 	cMainVideoStream(cSoftHdDevice *);
-	virtual ~cMainVideoStream(void);
 
-	void DecodeInput(void);
 	void SetInterlaced(bool);
 	bool IsInterlaced(void) { return m_interlaced; };
 	void ResetTrickSpeedFramesSentCounter(void) { m_sentTrickPkts = 0; };
+
+protected:
+	bool IsBufferFull(void) const override;
+	void RenderFrame(AVFrame *) override;
+	void TrickspeedForceDecoderDrain(void) override;
+	void TrickspeedFlushDecoderBuffers(void) override;
 
 private:
 	int m_sentTrickPkts = 0;               ///< how many avpkt have been sent to the decoder in trickspeed mode?
@@ -120,9 +129,10 @@ class cPipVideoStream : public cVideoStream
 {
 public:
 	cPipVideoStream(cSoftHdDevice *);
-	virtual ~cPipVideoStream(void);
 
-	void DecodeInput(void);
+protected:
+	bool IsBufferFull(void) const override;
+	void RenderFrame(AVFrame *) override;
 };
 
 #endif

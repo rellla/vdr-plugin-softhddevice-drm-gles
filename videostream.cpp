@@ -189,6 +189,44 @@ bool cVideoStream::CanDecodePacket(void)
 }
 
 /**
+ * Decodes a reassembled codec packet.
+ */
+void cVideoStream::DecodeInput(void)
+{
+	if (!CanDecodePacket() || IsBufferFull())
+		return;
+
+	TryInitDecoder();
+
+	// send packet to decoder
+	AVPacket *avpkt = m_packets.Peek();
+
+	int ret = m_pDecoder->SendPacket(avpkt);
+
+	if (ret != AVERROR(EAGAIN)) {
+		avpkt = m_packets.Pop();
+		av_packet_free(&avpkt);
+	}
+
+	// handle trickspeed
+	if (ret == 0)
+		TrickspeedForceDecoderDrain();
+
+	// receive frame from decoder
+	AVFrame *frame = nullptr;
+	int width = 0;
+	int height = 0;
+	if (m_pDecoder->ReceiveFrame(&frame, width, height) == 0) {
+		SetVideoSize(width, height);
+		RenderFrame(frame);
+	}
+
+	// flush if needed (in trickspeed)
+	if (ret == AVERROR_EOF)
+		TrickspeedFlushDecoderBuffers();
+}
+
+/**
  * Close the decoder
  */
 void cVideoStream::CloseDecoder(void)
@@ -217,7 +255,6 @@ void cVideoStream::FlushDecoder(void)
 		m_pDecoder->FlushBuffers();
 	}
 }
-
 
 /**
  * Set video size and aspect
@@ -302,16 +339,8 @@ void cVideoStream::ExitDecodingThread(void)
  */
 cMainVideoStream::cMainVideoStream(cSoftHdDevice *device) : cVideoStream(device)
 {
-	m_isPipStream = false;
 	m_trickpkts = 1;
 	m_interlaced = 0;
-}
-
-/**
- * cMainVideoStream destructor
- */
-cMainVideoStream::~cMainVideoStream(void)
-{
 }
 
 /**
@@ -329,50 +358,49 @@ void cMainVideoStream::SetInterlaced(bool interlaced)
 }
 
 /**
- * Decodes a reassembled codec packet.
+ * Returns true, if the render buffer for main video frames is full
  */
-void cMainVideoStream::DecodeInput(void)
+bool cMainVideoStream::IsBufferFull(void) const
 {
-	AVFrame *frame = nullptr;
-	int ret = 0;
+	return m_pRender->IsBufferFull();
+}
 
-	if (!CanDecodePacket() || m_pRender->IsBufferFull())
-		return;
+/**
+ * Send AVFrame to the renderer
+ */
+void cMainVideoStream::RenderFrame(AVFrame *frame)
+{
+	m_pRender->RenderFrame(m_pDecoder->GetContext(), frame);
+}
 
-	TryInitDecoder();
-
-	// send packet to decoder
-	AVPacket *avpkt = m_packets.Peek();
-
-	ret = m_pDecoder->SendPacket(avpkt);
-
-	if (ret != AVERROR(EAGAIN)) {
-		avpkt = m_packets.Pop();
-		av_packet_free(&avpkt);
-	}
-
-	// In backward trickspeed force the decoder to decode the frame, if m_trickpkts are sent
-	// m_trickpkts is the number of packets we need to have in the buffer
-	// while in interlaced trickspeed mode, needed to get a frame.
-	// This guarantees, that we don't drain the decoder too early, but exactly after
-	// m_trickpkts sent packets
-	if (ret == 0 && m_pRender->GetTrickSpeed() && !m_pRender->GetTrickForward()) {
+/**
+ * If in trickspeed, drain decoder if needed
+ *
+ * In backward trickspeed force the decoder to decode the frame, if m_trickpkts are sent
+ * m_trickpkts is the number of packets we need to have in the buffer
+ * while in interlaced trickspeed mode, needed to get a frame.
+ * This guarantees, that we don't drain the decoder too early, but exactly after
+ * m_trickpkts sent packets
+ *
+ * This needs a check for AVERROR_EOF after receiving the frame (TrickspeedFlushDecoderBuffers())
+ */
+void cMainVideoStream::TrickspeedForceDecoderDrain(void)
+{
+	if (m_pRender->GetTrickSpeed() && !m_pRender->GetTrickForward()) {
 		m_sentTrickPkts++;
 		if (m_sentTrickPkts >= m_trickpkts) {
 			m_pDecoder->SendPacket(NULL);
 			m_sentTrickPkts = 0;
 		}
 	}
+}
 
-	// receive frame from decoder
-	int width = 0;
-	int height = 0;
-	if (m_pDecoder->ReceiveFrame(&frame, width, height) == 0) {
-		SetVideoSize(width, height);
-		m_pRender->RenderFrame(m_pDecoder->GetContext(), frame);
-	}
-
-	if (m_pRender->GetTrickSpeed() && ret == AVERROR_EOF) { // needs flush / reopen
+/**
+ * Flush the decoder if needed
+ */
+void cMainVideoStream::TrickspeedFlushDecoderBuffers(void)
+{
+	if (m_pRender->GetTrickSpeed()) { // needs flush / reopen
 		FlushDecoder();
 		m_sentTrickPkts = 0;
 	}
@@ -387,44 +415,20 @@ void cMainVideoStream::DecodeInput(void)
  */
 cPipVideoStream::cPipVideoStream(cSoftHdDevice *device) : cVideoStream(device)
 {
-	m_isPipStream = true;
 }
 
 /**
- * cPipVideoStream destructor
+ * Returns true, if the render buffer for pip frames is full
  */
-cPipVideoStream::~cPipVideoStream(void)
+bool cPipVideoStream::IsBufferFull(void) const
 {
+	return m_pRender->IsPipBufferFull();
 }
 
 /**
- * Decodes a reassembled codec packet.
+ * Send AVFrame to the renderer
  */
-void cPipVideoStream::DecodeInput(void)
+void cPipVideoStream::RenderFrame(AVFrame *frame)
 {
-	AVFrame *frame = nullptr;
-	int ret = 0;
-
-	if (!CanDecodePacket() || m_pRender->IsPipBufferFull())
-		return;
-
-	TryInitDecoder();
-
-	// send packet to decoder
-	AVPacket *avpkt = m_packets.Peek();
-
-	ret = m_pDecoder->SendPacket(avpkt);
-
-	if (ret != AVERROR(EAGAIN)) {
-		avpkt = m_packets.Pop();
-		av_packet_free(&avpkt);
-	}
-
-	// receive frame from decoder
-	int width = 0;
-	int height = 0;
-	if (m_pDecoder->ReceiveFrame(&frame, width, height) == 0) {
-		SetVideoSize(width, height);
-		m_pRender->RenderPipFrame(m_pDecoder->GetContext(), frame);
-	}
+	m_pRender->RenderPipFrame(m_pDecoder->GetContext(), frame);
 }
