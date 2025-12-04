@@ -28,6 +28,7 @@
 
 #include <algorithm>
 #include <atomic>
+#include <functional>
 
 #include <stdbool.h>
 #include <unistd.h>
@@ -1266,6 +1267,35 @@ void cVideoRender::PipEnqueueFB(AVFrame *inframe)
 }
 
 /**
+ * Helper function to start the filter thread if needed
+ */
+inline void StartFilterThreadIfNeeded(bool &checkFilterThreadNeeded, cFilterThread *thread, AVCodecContext *videoCtx, AVFrame *frame, bool enableDeinterlacer, const std::function<bool()> &shouldStart)
+{
+	if (!checkFilterThreadNeeded)
+		return;
+
+	if (shouldStart())
+		thread->InitAndStart(videoCtx, frame, enableDeinterlacer);
+
+	checkFilterThreadNeeded = false;
+}
+
+/**
+ * Helper function to push the frame to the ringbuffer if possible and handle locking
+ */
+inline bool TryPushToRingbuffer(std::function<void()> lockFn, std::function<void()> unlockFn, int filled, const std::function<void()> &pushFn)
+{
+	lockFn();
+	if (filled < VIDEO_SURFACES_MAX) {
+		pushFn();
+		unlockFn();
+		return true;
+	}
+	unlockFn();
+	return false;
+}
+
+/**
  * Render a frame
  *
  * Frames either
@@ -1281,7 +1311,8 @@ void cVideoRender::RenderFrame(AVCodecContext * videoCtx, AVFrame * frame)
 	if (frame->decode_error_flags || frame->flags & AV_FRAME_FLAG_CORRUPT)
 		LOGWARNING("videorender: %s: error_flag or FRAME_FLAG_CORRUPT", __FUNCTION__);
 
-	if (m_checkFilterThreadNeeded) {
+	// Filter thread will only be started, if the lambda function returns true
+	StartFilterThreadIfNeeded(m_checkFilterThreadNeeded, m_pFilterThread, videoCtx, frame, true, [&]() {
 		m_timebaseMutex.Lock();
 		m_timebase = videoCtx->pkt_timebase;
 		m_timebaseMutex.Unlock();
@@ -1316,30 +1347,30 @@ void cVideoRender::RenderFrame(AVCodecContext * videoCtx, AVFrame * frame)
 		// - AV_PIX_FMT_YUV420P, interlaced -> software deinterlacer (bwdif filter)
 		// - AV_PIX_FMT_YUV420P, progressive -> scale filter to get NV12 frames
 		// - AV_PIX_FMT_DRM_PRIME, interlaced, hw deinterlacer available -> hw deinterlacer
-		if (frame->format == AV_PIX_FMT_YUV420P || (frame->format == AV_PIX_FMT_DRM_PRIME && useDeinterlacer))
-			m_pFilterThread->InitAndStart(videoCtx, frame, useDeinterlacer);
-
-		m_checkFilterThreadNeeded = false;
-	}
+		return frame->format == AV_PIX_FMT_YUV420P ||
+		      (frame->format == AV_PIX_FMT_DRM_PRIME && useDeinterlacer);
+	});
 
 	if (m_pFilterThread->Active()) {
 		if (!m_pFilterThread->PushFrame(frame))
 			LOGFATAL("Filter buffer full. This is a bug.");
+		return;
+	}
+
+	// Fallback for
+	// AV_PIX_FMT_DRM_PRIME, interlaced, hw deinterlacer not available
+	// AV_PIX_FMT_DRM_PRIME, progressive
+	// -> put the frame directly in render Rb
+	if (frame->format == AV_PIX_FMT_DRM_PRIME) {
+		if (!TryPushToRingbuffer(
+			[&]() { FramesRbLock(); },
+			[&]() { FramesRbUnlock(); },
+			atomic_read(&m_framesFilled),
+			[&]() { RbPushFrame(frame); }))
+
+			return;
 	} else {
-		if (frame->format == AV_PIX_FMT_DRM_PRIME) {
-			// AV_PIX_FMT_DRM_PRIME, interlaced, hw deinterlacer not available
-			// AV_PIX_FMT_DRM_PRIME, progressive
-			// -> put the frame directly in render Rb
-			FramesRbLock();
-			if (atomic_read(&m_framesFilled) < VIDEO_SURFACES_MAX && !m_numFramesToFilter) {
-				RbPushFrame(frame);
-				FramesRbUnlock();
-			} else {
-				FramesRbUnlock();
-				return;
-			}
-		} else
-			LOGFATAL("videorender: %s: unsupported pixel format %d", __FUNCTION__, frame->format);
+		LOGFATAL("videorender: %s: unsupported pixel format %d", __FUNCTION__, frame->format);
 	}
 }
 
@@ -1371,33 +1402,32 @@ void cVideoRender::RenderPipFrame(AVCodecContext * videoCtx, AVFrame * frame)
 	if (frame->decode_error_flags || frame->flags & AV_FRAME_FLAG_CORRUPT)
 		LOGWARNING("videorender: %s: error_flag or FRAME_FLAG_CORRUPT", __FUNCTION__);
 
-	if (m_checkPipFilterThreadNeeded) {
-		// Use the filter thread if:
-		// - AV_PIX_FMT_YUV420P, progressive -> scale filter to get NV12 frames
-		if (frame->format == AV_PIX_FMT_YUV420P)
-			m_pPipFilterThread->InitAndStart(videoCtx, frame, false);
-
-		m_checkPipFilterThreadNeeded = false;
-	}
+	// Filter thread will only be started, if the lambda function returns true
+	StartFilterThreadIfNeeded(m_checkPipFilterThreadNeeded, m_pPipFilterThread, videoCtx, frame, false, [&]() {
+		// AV_PIX_FMT_YUV420P, progressive -> scale filter to get NV12 frames
+		return frame->format == AV_PIX_FMT_YUV420P;
+	});
 
 	if (m_pPipFilterThread->Active()) {
 		if (!m_pPipFilterThread->PushFrame(frame))
 			LOGFATAL("Filter buffer full. This is a bug.");
+		return;
+	}
+
+	// Fallback for
+	// AV_PIX_FMT_DRM_PRIME, interlaced, hw deinterlacer not set
+	// AV_PIX_FMT_DRM_PRIME, progressive
+	// -> put the frame directly in render Rb
+	if (frame->format == AV_PIX_FMT_DRM_PRIME) {
+		if (TryPushToRingbuffer(
+			[&]() { PipFramesRbLock(); },
+			[&]() { PipFramesRbUnlock(); },
+			atomic_read(&m_pipFramesFilled),
+			[&]() { PipRbPushFrame(frame); }))
+
+			return;
 	} else {
-		if (frame->format == AV_PIX_FMT_DRM_PRIME) {
-			// AV_PIX_FMT_DRM_PRIME, interlaced, hw deinterlacer not set
-			// AV_PIX_FMT_DRM_PRIME, progressive
-			// -> put the frame directly in render Rb
-			PipFramesRbLock();
-			if (atomic_read(&m_pipFramesFilled) < VIDEO_SURFACES_MAX) {
-				PipRbPushFrame(frame);
-				PipFramesRbUnlock();
-			} else {
-				PipFramesRbUnlock();
-				return;
-			}
-		} else
-			LOGFATAL("videorender: %s: unsupported pixel format %d", __FUNCTION__, frame->format);
+		LOGFATAL("videorender: %s: unsupported pixel format %d", __FUNCTION__, frame->format);
 	}
 }
 
