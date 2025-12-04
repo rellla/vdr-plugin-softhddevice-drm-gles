@@ -120,6 +120,8 @@ protected:
 
 	cQueue<AVFrame> m_frames{VIDEO_SURFACES_MAX}; ///< queue for frames to be filtered
 	virtual void Action(void);
+	virtual void IncreaseFramesToFilter(AVFrame *);
+	virtual int RenderFrame(AVFrame *);
 };
 
 /**
@@ -129,10 +131,10 @@ class cPipFilterThread : public cFilterThread
 {
 public:
 	cPipFilterThread(cVideoRender *);
-	virtual ~cPipFilterThread(void);
 
 protected:
-	virtual void Action(void);
+	void IncreaseFramesToFilter([[maybe_unused]] AVFrame *frame) override {}
+	int RenderFrame(AVFrame *) override;
 };
 
 #endif

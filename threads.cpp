@@ -330,6 +330,53 @@ void cFilterThread::InitAndStart(const AVCodecContext *videoCtx, AVFrame *frame,
 	Start();
 }
 
+/**
+ * Increase the filtered frames counter
+ *
+ * by 2 if the frame is interlaced
+ * by 1 if it's not interlaced
+ *
+ * @param filtFrame       AVFrame
+ */
+void cFilterThread::IncreaseFramesToFilter(AVFrame *frame)
+{
+	if (m_pRender->IsInterlacedFrame(frame)) {
+		m_pRender->IncFramesToFilter();
+		m_pRender->IncFramesToFilter();
+	} else {
+		m_pRender->IncFramesToFilter();
+	}
+}
+
+/**
+ * Render the filtered frame
+ *
+ * @param filtFrame       AVFrame to render
+ */
+int cFilterThread::RenderFrame(AVFrame *filtFrame)
+{
+	m_pRender->FramesRbLock();
+	if (m_pRender->GetFramesFilled() < VIDEO_SURFACES_MAX) {
+		if (filtFrame->format == AV_PIX_FMT_NV12) {
+			// scale filter or sw deinterlacer, no prime data, always returns NV12 -> go through EnqueueFB
+			if (m_filterBug)
+				filtFrame->pts /= 2; // ffmpeg bug
+			m_pRender->DecFramesToFilter();
+			m_pRender->FramesRbUnlock(); // EnqueueFB locks again, so unlock here
+			m_pRender->EnqueueFB(filtFrame);
+		} else {
+			// hw deinterlacers, we received prime data -> put the frame directly into render Rb
+			m_pRender->RbPushFrame(filtFrame);
+			m_pRender->DecFramesToFilter();
+			m_pRender->FramesRbUnlock();
+		}
+		return 1;
+	}
+	m_pRender->FramesRbUnlock();
+
+	return 0;
+}
+
 void cFilterThread::Action(void)
 {
 	AVFrame *frame = 0;
@@ -346,12 +393,7 @@ void cFilterThread::Action(void)
 
 		frame = m_frames.Pop();
 
-		if (m_pRender->IsInterlacedFrame(frame)) {
-			m_pRender->IncFramesToFilter();
-			m_pRender->IncFramesToFilter();
-		} else {
-			m_pRender->IncFramesToFilter();
-		}
+		IncreaseFramesToFilter(frame);
 
 		// add frame to filter
 		if (av_buffersrc_add_frame_flags(m_pBuffersrcCtx, frame, AV_BUFFERSRC_FLAG_KEEP_REF) < 0)
@@ -376,32 +418,16 @@ void cFilterThread::Action(void)
 			// put frame into display queue
 			enqueued = 0;
 			while (Running()) {
-				m_pRender->FramesRbLock();
-				if (m_pRender->GetFramesFilled() < VIDEO_SURFACES_MAX) {
-					if (filtFrame->format == AV_PIX_FMT_NV12) {
-						// scale filter or sw deinterlacer, no prime data, always returns NV12
-						// -> go through EnqueueFB
-						if (m_filterBug)
-							filtFrame->pts /= 2; // ffmpeg bug
-						m_pRender->DecFramesToFilter();
-						m_pRender->FramesRbUnlock();
-						m_pRender->EnqueueFB(filtFrame);
-					} else {
-						// hw deinterlacers, we received prime data
-						// -> put the frame directly into render Rb
-						m_pRender->RbPushFrame(filtFrame);
-						m_pRender->DecFramesToFilter();
-						m_pRender->FramesRbUnlock();
-					}
+				if (RenderFrame(filtFrame)) {
+					// frame was rendered
 					enqueued = 1;
 					break;
-				// render ringbuffer is full, wait until some frames were displayed
 				} else {
-					m_pRender->FramesRbUnlock();
+					// render ringbuffer is full, wait until some frames were displayed
 					usleep(1000);
-					continue;
 				}
 			}
+
 			if (!enqueued)
 				av_frame_free(&filtFrame);
 		}
@@ -452,69 +478,22 @@ cPipFilterThread::cPipFilterThread(cVideoRender *render) : cFilterThread(render)
 {
 }
 
-cPipFilterThread::~cPipFilterThread(void)
+/**
+ * Render the filtered frame
+ *
+ * @param filtFrame       AVFrame to render
+ */
+int cPipFilterThread::RenderFrame(AVFrame *filtFrame)
 {
-}
-
-void cPipFilterThread::Action(void)
-{
-	AVFrame *frame = 0;
-	int ret = 0;
-	int enqueued = 0;
-
-	LOGDEBUG("threads: pip video filter thread started");
-
-	while (Running()) {
-		if (m_frames.Empty()) {
-			usleep(1000);
-			continue;
-		}
-
-		frame = m_frames.Pop();
-
-		// add frame to filter
-		if (av_buffersrc_add_frame_flags(m_pBuffersrcCtx, frame, AV_BUFFERSRC_FLAG_KEEP_REF) < 0)
-			LOGWARNING("filter thread: %s: can't add_frame: %s", __FUNCTION__, av_err2str(ret));
-
-		av_frame_free(&frame);
-
-		// get filtered frames
-		while (Running()) {
-			AVFrame *filtFrame = av_frame_alloc();
-			ret = av_buffersink_get_frame(m_pBuffersinkCtx, filtFrame);
-
-			if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
-				av_frame_free(&filtFrame);
-				break;
-			} else if (ret < 0) {
-				LOGERROR("filter thread: %s: can't get filtered frame: %s", __FUNCTION__, av_err2str(ret));
-				av_frame_free(&filtFrame);
-				break;
-			}
-
-			// put frame into display queue
-			enqueued = 0;
-			while (Running()) {
-				m_pRender->PipFramesRbLock();
-				if (m_pRender->GetPipFramesFilled() < VIDEO_SURFACES_MAX) {
-					if (filtFrame->format == AV_PIX_FMT_NV12) {
-						// scale filter, no prime data, always returns NV12
-						// -> go through EnqueueFB
-						m_pRender->PipFramesRbUnlock();
-						m_pRender->PipEnqueueFB(filtFrame);
-					}
-					enqueued = 1;
-					break;
-				// render ringbuffer is full, wait until some frames were displayed
-				} else {
-					m_pRender->PipFramesRbUnlock();
-					usleep(1000);
-					continue;
-				}
-			}
-			if (!enqueued)
-				av_frame_free(&filtFrame);
-		}
+	m_pRender->PipFramesRbLock();
+	if (m_pRender->GetPipFramesFilled() < VIDEO_SURFACES_MAX) {
+		// scale filter, no prime data, always returns NV12 -> go through EnqueueFB
+		// frame format must be AV_PIX_FMT_NV12
+		m_pRender->PipFramesRbUnlock();
+		m_pRender->PipEnqueueFB(filtFrame);
+		return 1;
 	}
-	LOGDEBUG("threads: filter thread stopped");
+	m_pRender->PipFramesRbUnlock();
+
+	return 0;
 }
