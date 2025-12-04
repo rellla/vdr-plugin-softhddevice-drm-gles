@@ -272,10 +272,11 @@ private:
 	void PageFlipBlack(cDrmBuffer *, AVFrame *);
 	void PageFlipOsd(cDrmBuffer *, AVFrame *);
 	void PageFlipVideo(AVFrame *, cDrmBuffer *, cDrmBuffer *, AVFrame *);
+	cDrmBuffer *GetBufferInternal(cDrmBuffer *, AVFrame *, bool);
 	cDrmBuffer *GetBuffer(AVFrame *);
-	int SetOsdBuffer(drmModeAtomicReqPtr);
-	void SetVideoBuffer(cDrmBuffer *);
 	cDrmBuffer *GetPipBuffer(AVFrame *);
+	void SetVideoBuffer(cDrmBuffer *);
+	int SetOsdBuffer(drmModeAtomicReqPtr);
 	void SetPipBuffer(cDrmBuffer *);
 	int CommitBuffer(cDrmBuffer *, cDrmBuffer *, int);
 	void Grab(cDrmBuffer *, cDrmBuffer *);

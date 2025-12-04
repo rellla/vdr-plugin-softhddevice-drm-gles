@@ -661,12 +661,14 @@ bool cVideoRender::IsInterlacedFrame(AVFrame *frame)
  *
  * First, search for an already created buffer. If there is no such buffer, create one.
  *
- * @param frame  AVFrame which should be associated to the buffer
+ * @param buffer              cDrmBuffer array
+ * @param frame               AVFrame which should be associated to the buffer
+ * @param canHaveTrickspeed   this buffer can be a trickspeed buffer (false for pip)
  *
  * @retval 0     got a buffer
  * @retval 1     sth went wrong
  */
-cDrmBuffer *cVideoRender::GetBuffer(AVFrame *frame)
+cDrmBuffer *cVideoRender::GetBufferInternal(cDrmBuffer* buffer, AVFrame *frame, bool canHaveTrickspeed)
 {
 	cDrmBuffer *buf = nullptr;
 	int i;
@@ -675,14 +677,14 @@ cDrmBuffer *cVideoRender::GetBuffer(AVFrame *frame)
 
 	// search for a made fd / FB combination
 	for (i = 0; i < RENDERBUFFERS; i++) {
-		if (m_buffer[i].IsTrickspeedBuffer() && !m_buffer[i].IsSwBuffer())
+		if (canHaveTrickspeed && buffer[i].IsTrickspeedBuffer() && !buffer[i].IsSwBuffer())
 			break;
 
-		if (!m_buffer[i].IsDirty())
+		if (!buffer[i].IsDirty())
 			continue;
 
-		if (m_buffer[i].FdPrime(0) == primedata->objects[0].fd) {
-			buf = &m_buffer[i];
+		if (buffer[i].FdPrime(0) == primedata->objects[0].fd) {
+			buf = &buffer[i];
 			break;
 		}
 	}
@@ -690,7 +692,7 @@ cDrmBuffer *cVideoRender::GetBuffer(AVFrame *frame)
 	// search for a "free" buffer
 	if (buf == nullptr) {
 		for (i = 0; i < RENDERBUFFERS; i++) {
-			if (!m_buffer[i].IsDirty())
+			if (!buffer[i].IsDirty())
 				break;
 		}
 		if (i == RENDERBUFFERS) {
@@ -698,77 +700,33 @@ cDrmBuffer *cVideoRender::GetBuffer(AVFrame *frame)
 			return nullptr;
 		}
 
-		buf = &m_buffer[i];
+		buf = &buffer[i];
 		if (buf->Setup(m_pDrmDevice->Fd(), (uint32_t)frame->width, (uint32_t)frame->height,
 		               0, primedata))
 			return nullptr;
 
-		m_buffer[i].MarkAsHwBuffer();
+		buffer[i].MarkAsHwBuffer();
 	}
 
-	if (buf == nullptr) {
+	if (!buf) {
 		LOGDEBUG("videorender: %s: SHOULD NOT HAPPEN! failed, no buffer found!", __FUNCTION__);
 		return nullptr;
 	}
 
-	buf->SetTrickspeed(GetTrickSpeed());
+	if (canHaveTrickspeed)
+		buf->SetTrickspeed(GetTrickSpeed());
 
 	return buf;
 }
 
-/**
- * Get suitable framebuffer for frame
- *
- * First, search for an already created buffer. If there is no such buffer, create one.
- *
- * @param frame  AVFrame which should be associated to the buffer
- *
- * @retval 0     got a buffer
- * @retval 1     sth went wrong
- */
+cDrmBuffer *cVideoRender::GetBuffer(AVFrame *frame)
+{
+	return GetBufferInternal(m_buffer, frame, true);
+}
+
 cDrmBuffer *cVideoRender::GetPipBuffer(AVFrame *frame)
 {
-	cDrmBuffer *buf = nullptr;
-	int i;
-
-	AVDRMFrameDescriptor *primedata = (AVDRMFrameDescriptor *)frame->data[0];
-
-	// search for a made fd / FB combination
-	for (i = 0; i < RENDERBUFFERS; i++) {
-		if (!m_pipBuffer[i].IsDirty())
-			continue;
-
-		if (m_pipBuffer[i].FdPrime(0) == primedata->objects[0].fd) {
-			buf = &m_pipBuffer[i];
-			break;
-		}
-	}
-
-	// search for a "free" buffer
-	if (buf == nullptr) {
-		for (i = 0; i < RENDERBUFFERS; i++) {
-			if (!m_pipBuffer[i].IsDirty())
-				break;
-		}
-		if (i == RENDERBUFFERS) {
-			LOGDEBUG("videorender: %s: SHOULD NOT HAPPEN! no free buffer available!", __FUNCTION__);
-			return nullptr;
-		}
-
-		buf = &m_pipBuffer[i];
-		if (buf->Setup(m_pDrmDevice->Fd(), (uint32_t)frame->width, (uint32_t)frame->height,
-		               0, primedata))
-			return nullptr;
-
-		m_pipBuffer[i].MarkAsHwBuffer();
-	}
-
-	if (buf == nullptr) {
-		LOGDEBUG("videorender: %s: SHOULD NOT HAPPEN! failed, no buffer found!", __FUNCTION__);
-		return nullptr;
-	}
-
-	return buf;
+	return GetBufferInternal(m_pipBuffer, frame, false);
 }
 
 /**
