@@ -57,7 +57,6 @@ protected:
 #ifdef WRITE_PNG
 	int m_cDebugMenu;
 	int m_cWritePngs;
-//	const char *m_cPngVariant[4];
 #endif
 #endif
 

@@ -73,14 +73,6 @@ void cMenuSetupSoft::Create(void)
 
 	current = Current();	// get current menu item index
 	Clear();            	// clear the menu
-#ifdef USE_GLES
-#ifdef WRITE_PNG
-//    m_cPngVariant[0] = tr("none");
-//    m_cPngVariant[1] = tr("output fb");
-//    m_cPngVariant[2] = tr("render fb");
-//    m_cPngVariant[3] = tr("both");
-#endif
-#endif
 
 	//
 	// General
@@ -121,7 +113,6 @@ void cMenuSetupSoft::Create(void)
 		Add(CollapsedItem(tr("Debug"), m_cDebugMenu));
 		if (m_cDebugMenu) {
 			Add(new cMenuEditBoolItem(tr("Write OSD to file"), &m_cWritePngs, trVDR("no"), trVDR("yes")));
-//			Add(new cMenuEditStraItem(tr("Write OSD to file"), &m_cWritePngs, 4, m_cPngVariant));
 		}
 	}
 #endif
