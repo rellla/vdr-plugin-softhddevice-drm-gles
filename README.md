@@ -259,6 +259,61 @@ Setup: /etc/vdr/setup.conf
 		0 = default (600 ms)
 		1 - 1000 = size of the buffer in ms
 
+	softhddevice-drm-gles.AudioAutoAES = 0
+		0 = disabled
+		1 = auto append AES string to the audio device
+
+	softhddevice-drm-gles.AudioEq = 0
+		0 = Equalizer disabled
+		1 = Equalizer enabled
+
+	softhddevice-drm-gles.AudioEqBand[01b..18b] = 0
+		-15 to 1 = equalizer band gain (see Setup menu)
+
+	softhddevice-drm-gles.LogLevel = 0
+		0 = default (no debug logs)
+		value is the sum of the following levels
+			1    Standard debug logs
+			2    AV-Sync debug logs
+			4    Sound/Audio debug logs
+			8    Osd debug logs
+			16   DRM debug logs
+			32   Codec (audio+video) debug logs
+			64   Stillpicture debug logs
+			128  Trickspeed debug logs
+			256  Mediaplayer debug logs
+			512  OpenGL/ES debug logs
+			1024 OpenGL/ES Osd flush time measurement
+			2048 OpenGL/ES Osd single command time measurement
+			4096 Packet tracking logs (decoder + display)
+			8192 Grabbing debug logs
+
+	softhddevice-drm-gles.DisableDeint = 0
+		0 = deinterlacer active if available
+		1 = deinterlacer is disabled
+
+	softhddevice-drm-gles.PipScalePercent = 25
+		10 - 100 = scale factor for pip (%)
+
+	softhddevice-drm-gles.PipLeftPercent = 100
+		0 - 100 = video left (%)
+		0 = left aligned, 100 = right aligned
+
+	softhddevice-drm-gles.PipTopPercent = 0
+		0 - 100 = video top (%)
+		0 = top aligned, 100 = bottom aligned
+
+	softhddevice-drm-gles.PipAltScalePercent = 25
+		10 - 100 = scale factor for alternative pip (%)
+
+	softhddevice-drm-gles.PipAltLeftPercent = 0
+		0 - 100 = video left for alternative pip (%)
+		0 = left aligned, 100 = right aligned
+
+	softhddevice-drm-gles.PipAltTopPercent = 0
+		0 - 100 = video top for alternative pip (%)
+		0 = top aligned, 100 = bottom aligned
+
 
 SVDRP:
 ------
