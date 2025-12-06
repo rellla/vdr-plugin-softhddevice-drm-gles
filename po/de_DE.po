@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: VDR \n"
 "Report-Msgid-Bugs-To: <see README>\n"
-"POT-Creation-Date: 2025-10-05 12:34+0200\n"
+"POT-Creation-Date: 2025-12-06 08:50+0100\n"
 "PO-Revision-Date: blabla\n"
 "Last-Translator: blabla\n"
 "Language-Team: blabla\n"
@@ -16,23 +16,11 @@ msgstr ""
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 
-msgid " play file / make play list"
-msgstr " Datei abspielen / Playliste erstellen"
-
-msgid " select play list"
-msgstr " Vorhandene Playliste auswählen"
-
-msgid "New Playlist"
-msgstr "Neue Playliste erstellen"
-
-msgid "Added to Playlist"
-msgstr "Zur Playliste hinzugefügt"
-
 msgid "A software and GPU emulated HD device"
 msgstr "HD Device mit software und GPU Unterstützung"
 
-msgid "SHD Media Player"
-msgstr "Softhddevice media player"
+msgid "Softhddevice"
+msgstr ""
 
 #, c-format
 msgid "Workaround '%s' unsupported\n"
@@ -54,6 +42,36 @@ msgstr ""
 msgid "Unhandled argument '%s'\n"
 msgstr ""
 
+msgid "Channel not available!"
+msgstr "Kanal nicht verfügbar!"
+
+msgid " Toggle"
+msgstr " Ein/Aus"
+
+msgid " Channel +"
+msgstr " Kanal +"
+
+msgid " Channel -"
+msgstr " Kanal -"
+
+msgid " Swap Channel"
+msgstr " Tausche Kanäle"
+
+msgid " Swap Position"
+msgstr " Tausche Positionen"
+
+msgid " play file / make play list"
+msgstr " Datei abspielen / Playliste erstellen"
+
+msgid " select play list"
+msgstr " Vorhandene Playliste auswählen"
+
+msgid "New Playlist"
+msgstr "Neue Playliste erstellen"
+
+msgid "Added to Playlist"
+msgstr "Zur Playliste hinzugefügt"
+
 msgid "show"
 msgstr "anzeigen"
 
@@ -62,9 +80,6 @@ msgstr "verstecken"
 
 msgid "General"
 msgstr "Allgemeines"
-
-msgid "Make primary device"
-msgstr "Erzeuge primäres Gerät"
 
 msgid "Hide main menu entry"
 msgstr "Verstecke Hauptmenüeintrag"
@@ -145,6 +160,30 @@ msgstr "Video"
 
 msgid "Disable deinterlacer"
 msgstr "Deaktiviere Deinterlacer"
+
+msgid "Picture-in-picture"
+msgstr "Bild-in-Bild"
+
+msgid " video scaling factor (%)"
+msgstr " Skalierung (%)"
+
+msgid " video left (%)"
+msgstr " Abstand links (%)"
+
+msgid " video top (%)"
+msgstr " Abstand oben (%)"
+
+msgid " use alternative position as default"
+msgstr " Benutze Alternativposition"
+
+msgid " alternative video scaling factor (%)"
+msgstr " alt. Skalierung (%)"
+
+msgid " alternative video left (%)"
+msgstr " alt. Abstand links (%)"
+
+msgid " alternative video top (%)"
+msgstr " alt. Abstand rechts (%)"
 
 msgid "Audio"
 msgstr "Audio"
