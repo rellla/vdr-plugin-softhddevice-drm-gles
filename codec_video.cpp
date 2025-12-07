@@ -281,12 +281,9 @@ int cVideoDecoder::Open(enum AVCodecID codecId, AVCodecParameters * par,
 	m_pVideoCtx->pkt_timebase.num = 1;
 	m_pVideoCtx->pkt_timebase.den = 90000;
 
-	if (timebase) {
-		m_pVideoCtx->pkt_timebase.num = timebase->num;
-		m_pVideoCtx->pkt_timebase.den = timebase->den;
-	}
+	if (timebase)
+		m_pVideoCtx->pkt_timebase = *timebase;
 
-	// amlogic h264 decoder needs this
 	if (codecId == AV_CODEC_ID_H264) {
 		if (par) {
 			m_pVideoCtx->coded_width = par->width;
