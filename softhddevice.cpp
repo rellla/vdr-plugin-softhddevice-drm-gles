@@ -159,6 +159,7 @@ cSoftHdDevice::cSoftHdDevice(cSoftHdConfig *config)
 cSoftHdDevice::~cSoftHdDevice(void)
 {
 	LOGDEBUG("device: %s:", __FUNCTION__);
+	OnEventReceived(DetachEvent{});
 	delete m_pSpuDecoder;
 }
 
