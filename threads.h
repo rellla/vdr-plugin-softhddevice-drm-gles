@@ -24,8 +24,7 @@
 
 #include "vdr/thread.h"
 #include "queue.h"
-
-#define VIDEO_SURFACES_MAX 3
+#include "misc.h"
 
 class cSoftHdDevice;
 class cVideoStream;
@@ -101,8 +100,8 @@ public:
 	virtual ~cFilterThread(void);
 	void InitAndStart(const AVCodecContext *, AVFrame *, bool);
 	void Stop(void);
-	int GetBufferFrameCount(void);
 	bool PushFrame(AVFrame *);
+	bool IsInputBufferFull(void) { return m_frames.IsFull(); };
 
 protected:
 	cVideoRender *m_pRender;

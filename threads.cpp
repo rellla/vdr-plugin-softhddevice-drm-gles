@@ -99,24 +99,7 @@ void cDisplayThread::Action(void)
 	while(Running()) {
 		m_mutex.lock();
 
-		m_pRender->FramesRbLock();
-
-		AVFrame *frame = nullptr;
-		bool bufferEmpty = (m_pRender->GetFramesFilled() == 0);
-		if (!bufferEmpty && !m_pRender->IsPlaybackPaused() && m_pRender->ShallDisplayNextFrame())
-			frame = m_pRender->RbGetFrame();
-
-		m_pRender->FramesRbUnlock();
-
-		m_pRender->PipFramesRbLock();
-
-		AVFrame *pipFrame = nullptr;
-		if (m_pRender->GetPipFramesFilled() > 0)
-			pipFrame = m_pRender->PipRbGetFrame();
-
-		m_pRender->PipFramesRbUnlock();
-
-		m_pRender->DisplayFrame(frame, pipFrame, bufferEmpty);
+		m_pRender->DisplayFrame();
 
 		m_mutex.unlock();
 
@@ -343,24 +326,21 @@ int cFilterThread::RenderFrame(AVFrame *filtFrame)
 
 void cFilterThread::Action(void)
 {
-	AVFrame *frame = 0;
-	int ret = 0;
-	int enqueued = 0;
-
 	LOGDEBUG("threads: video filter thread started");
 
 	while (Running()) {
-		if (m_frames.Empty()) {
+		if (m_frames.IsEmpty()) {
 			usleep(1000);
 			continue;
 		}
 
-		frame = m_frames.Pop();
+		AVFrame *frame = m_frames.Pop();
 
 		IncreaseFramesToFilter(frame);
 
 		// add frame to filter
-		if (av_buffersrc_add_frame_flags(m_pBuffersrcCtx, frame, AV_BUFFERSRC_FLAG_KEEP_REF) < 0)
+		int ret;
+		if ((ret = av_buffersrc_add_frame_flags(m_pBuffersrcCtx, frame, AV_BUFFERSRC_FLAG_KEEP_REF)) < 0)
 			LOGWARNING("filter thread: %s: can't add_frame: %s", __FUNCTION__, av_err2str(ret));
 
 		av_frame_free(&frame);
@@ -368,6 +348,9 @@ void cFilterThread::Action(void)
 		// get filtered frames
 		while (Running()) {
 			AVFrame *filtFrame = av_frame_alloc();
+			if (!filtFrame)
+				LOGFATAL("filter thread: %s: can't allocate frame", __FUNCTION__);
+
 			ret = av_buffersink_get_frame(m_pBuffersinkCtx, filtFrame);
 
 			if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
@@ -379,32 +362,22 @@ void cFilterThread::Action(void)
 				break;
 			}
 
-			// put frame into display queue
-			enqueued = 0;
-			while (Running()) {
-				if (RenderFrame(filtFrame)) {
-					// frame was rendered
-					enqueued = 1;
-					break;
-				} else {
-					// render ringbuffer is full, wait until some frames were displayed
-					usleep(1000);
-				}
-			}
+			while (Running() && m_pRender->IsOutputBufferFull())
+				usleep(1000);
 
-			if (!enqueued)
+			// TODO RenderFrame vom pip filter thread
+
+			if (Running()) {
+				if (filtFrame->format == AV_PIX_FMT_NV12 && m_filterBug) // scale filter or sw deinterlacer, no prime data, always returns NV12
+					filtFrame->pts /= 2; // ffmpeg bug
+
+				m_pRender->PushFrame(filtFrame);
+				m_pRender->DecFramesToFilter();
+			} else
 				av_frame_free(&filtFrame);
 		}
 	}
 	LOGDEBUG("threads: filter thread stopped");
-}
-
-/**
- * Get the number of frames in the ringbuffer to be filtered
- */
-int cFilterThread::GetBufferFrameCount(void)
-{
-	return m_frames.Size();
 }
 
 /**
@@ -425,7 +398,7 @@ void cFilterThread::Stop(void)
 	m_filterBug = false;
 	m_pRender->ClearFramesToFilter();
 
-	while (!m_frames.Empty()) {
+	while (!m_frames.IsEmpty()) {
 		AVFrame *frame = m_frames.Pop();
 		av_frame_free(&frame);
 	}

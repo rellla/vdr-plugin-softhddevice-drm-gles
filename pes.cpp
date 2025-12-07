@@ -351,12 +351,11 @@ int cPes::GetPacketLength()
 	return PesLength(m_data);
 }
 
+#include "misc.h"
 /**
  * Pop an AVPacket from the reassembly buffer
  *
  * Creates an AVPacket containing the specified amount of data from the buffer.
- * Handles PTS assignment: only the first frame from a PES packet gets the PTS value,
- * subsequent frames from the same PES packet get AV_NOPTS_VALUE.
  *
  * @param size     Number of bytes to pop from the buffer
  *
@@ -378,6 +377,7 @@ AVPacket *cReassemblyBuffer::PopAvPacket(int size)
 	memcpy(avpkt->data, m_buffer.Peek(), size);
 	memset(&avpkt->data[size], 0, AV_INPUT_BUFFER_PADDING_SIZE);
 
+	// Only audio:
 	// If a PES packet contains multiple frames, only the AVPacket with the first frame of that PES packet shall have a PTS value, when sending it to the decoder.
 	// The following AVPackets created from this PES packet shall have no PTS value.
 	// When retrieving PTS values from the same PES packet, they will be identical.
@@ -470,7 +470,15 @@ AVPacket *cReassemblyBufferAudio::PopAvPacket()
 	m_codec = detectedCodec;
 
 	try {
-		return cReassemblyBuffer::PopAvPacket(AudioCodecMap.at(m_codec).GetFrameSize(m_buffer.Peek()));
+		AVPacket *packet = cReassemblyBuffer::PopAvPacket(AudioCodecMap.at(m_codec).GetFrameSize(m_buffer.Peek()));
+
+		if (m_ptsInvalid) { // the PTS is invalid for this packet because the buffer was truncated before
+			packet->pts = AV_NOPTS_VALUE;
+
+			m_ptsInvalid = false;
+		}
+
+		return packet;
 	} catch (const std::invalid_argument &e) {
 		LOGWARNING("pes: %s: garbage in audio stream received: %s", __FUNCTION__, e.what());
 		// the garbage will be removed in the next call to TruncateBufferUntilFirstValidData()
@@ -495,8 +503,10 @@ AVCodecID cReassemblyBufferAudio::TruncateBufferUntilFirstValidData() {
 
 	m_buffer.Erase(firstFrame.pos);
 
-	if (m_buffer.GetSize() < sizeBeforeTruncation)
+	if (m_buffer.GetSize() < sizeBeforeTruncation) {
 		LOGDEBUG("pes: %s: truncated %d of %d bytes while searching for sync word", __FUNCTION__, sizeBeforeTruncation - m_buffer.GetSize(), sizeBeforeTruncation);
+		m_ptsInvalid = true;
+	}
 
 	return firstFrame.codecId;
 }
@@ -620,6 +630,7 @@ void cReassemblyBuffer::Reset()
 {
 	m_buffer.Reset();
 	m_codec = AV_CODEC_ID_NONE;
+	m_lastPoppedPts = AV_NOPTS_VALUE;
 }
 
 /*

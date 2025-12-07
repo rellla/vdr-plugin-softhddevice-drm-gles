@@ -690,7 +690,8 @@ void cSoftHdAudio::Enqueue(uint16_t *buffer, int count, AVFrame *frame)
 	if (n != (size_t) count)
 		LOGERROR("audio: %s: can't place %d samples in ring buffer", __FUNCTION__, count);
 
-	m_inputPts = frame->pts + SamplesToPts(frame->nb_samples, frame->sample_rate);
+	if (frame->pts != AV_NOPTS_VALUE)
+		m_inputPts = frame->pts;
 }
 
 /**
@@ -831,17 +832,6 @@ void cSoftHdAudio::Filter(AVFrame *inframe, AVCodecContext *ctx)
 
 	outframe = FilterGetFrame();
 	EnqueueFrame(outframe);
-}
-
-/**
- * Convert audio sample count to PTS units
- *
- * @param count            number of audio samples
- * @param sampleRateHz     sample rate in Hz
- * @return PTS value in timebase units
- */
-int64_t cSoftHdAudio::SamplesToPts(int count, int sampleRateHz) {
-	return count * av_q2d(*m_pTimebase) / sampleRateHz;
 }
 
 /**

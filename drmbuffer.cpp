@@ -22,8 +22,11 @@
  * GNU Affero General Public License for more details.}
  */
 
+#include <fcntl.h>
+
 #include "drmdevice.h"
 #include "logger.h"
+#include "pool.h"
 
 /*****************************************************************************
  * cDrmBuffer class
@@ -37,9 +40,7 @@
 cDrmBuffer::cDrmBuffer(void)
 {
 	m_dirty = false;
-	m_swbuffer = false;
-	m_trickspeed = false;
-	m_fdPrime[0] = 0;
+	m_dmaBufHandle[0] = 0;
 
 	m_numPlanes = 0;
 	for (int i = 0; i < 4; i++) {
@@ -63,19 +64,17 @@ cDrmBuffer::cDrmBuffer(cDrmBuffer *src)
 	m_fbId = src->m_fbId;
 	m_pixFmt = src->m_pixFmt;
 	m_numPlanes = src->m_numPlanes;
-	m_trickspeed = src->m_trickspeed;
-	m_swbuffer = src->m_swbuffer;
 	m_numObjects = src->m_numObjects;
 	m_dirty = false;
 
 	for (int object = 0; object < m_numObjects; object++) {
-		m_fdPrime[object] = src->m_fdPrime[object];
+		m_dmaBufHandle[object] = src->m_dmaBufHandle[object];
 	}
 
 	for (int i = 0; i < src->m_numPlanes; i++) {
 		m_size[i] = src->m_size[i];
 		m_pitch[i] = src->m_pitch[i];
-		m_handle[i] = src->m_handle[i];
+		m_planePrimeHandle[i] = src->m_planePrimeHandle[i];
 		m_offset[i] = src->m_offset[i];
 		m_objIdx[i] = src->m_objIdx[i];
 	}
@@ -88,10 +87,10 @@ cDrmBuffer::cDrmBuffer(cDrmBuffer *src)
 		for (int object = 0; object < m_numObjects; object++) {
 			// memcpy mmapped data
 			dst_buffer = malloc(src->m_size[object]);
-			src_buffer = mmap(NULL, src->m_size[object], PROT_READ, MAP_SHARED, src->m_fdPrime[object], 0);
+			src_buffer = mmap(NULL, src->m_size[object], PROT_READ, MAP_SHARED, src->m_dmaBufHandle[object], 0);
 			if (src_buffer == MAP_FAILED) {
 				LOGERROR("drmbuffer: %s (clone): cannot map buffer size %d prime_fd %d (%d): %m",
-					__FUNCTION__, src->m_size[object], src->m_fdPrime[object], errno);
+					__FUNCTION__, src->m_size[object], src->m_dmaBufHandle[object], errno);
 				return;
 			}
 
@@ -115,7 +114,7 @@ cDrmBuffer::cDrmBuffer(cDrmBuffer *src)
 
 	for (int plane = 0; plane < m_numPlanes; plane++) {
 		LOGDEBUG2(L_GRAB, "drmbuffer: %s (clone): Cloned plane %d address %p pitch %d offset %d handle %d size %d",
-			__FUNCTION__, plane, m_pPlane[plane], m_pitch[plane], m_offset[plane], m_handle[plane], m_size[plane]);
+			__FUNCTION__, plane, m_pPlane[plane], m_pitch[plane], m_offset[plane], m_planePrimeHandle[plane], m_size[plane]);
 	}
 }
 
@@ -135,7 +134,7 @@ cDrmBuffer::cDrmBuffer(cDrmBuffer *src)
  */
 cDrmBuffer::cDrmBuffer(int fdDrm, uint32_t width, uint32_t height, uint32_t pixFmt, struct gbm_bo *bo)
 {
-	m_fdDrm = fdDrm;
+	m_drmDeviceFd = fdDrm;
 	m_width = width;
 	m_height = height;
 	m_pixFmt = pixFmt;
@@ -143,14 +142,12 @@ cDrmBuffer::cDrmBuffer(int fdDrm, uint32_t width, uint32_t height, uint32_t pixF
 	m_numPlanes = 0;
 	for (int i = 0; i < 4; i++) {
 		m_pPlane[i] = nullptr;
-		m_handle[i] = 0;
+		m_planePrimeHandle[i] = 0;
 		m_offset[i] = 0;
 		m_pitch[i] = 0;
 		m_size[i] = 0;
 	}
 	m_dirty = false;
-	m_swbuffer = false;
-	m_trickspeed = false;
 }
 #endif
 
@@ -167,7 +164,7 @@ cDrmBuffer::~cDrmBuffer(void)
 void cDrmBuffer::Destroy(void)
 {
 	struct drm_mode_destroy_dumb dreq;
-	LOGDEBUG2(L_DRM, "drmbuffer: %s: destroy FB %d", __FUNCTION__, m_fbId);
+	LOGDEBUG2(L_DRM, "drmbuffer: %s: destroy FB %d DMA-BUF handle %d", __FUNCTION__, m_fbId, m_dmaBufHandle[0]);
 
 	for (int i = 0; i < m_numPlanes; i++) {
 		if (m_pPlane[i]) {
@@ -176,23 +173,22 @@ void cDrmBuffer::Destroy(void)
 		}
 	}
 
-	if (drmModeRmFB(m_fdDrm, m_fbId) < 0)
+	if (drmModeRmFB(m_drmDeviceFd, m_fbId) < 0)
 		LOGERROR("drmbuffer: %s: cannot rm FB (%d): %m", __FUNCTION__, errno);
 
-	if (m_fdPrime[0] && m_swbuffer) {
-		if (close(m_fdPrime[0]))
-			LOGERROR("drmbuffer: %s: error closing prime fd %d (%d): %m", __FUNCTION__, m_fdPrime[0], errno);
-		m_fdPrime[0] = 0;
+	if (m_dmaBufHandle[0] && fcntl(m_dmaBufHandle[0], F_GETFD) != -1) { // the handle can be invalid in reverse trickspeed, because the decoder is rapidly reopened
+		if (close(m_dmaBufHandle[0]))
+			LOGERROR("drmbuffer: %s: error closing DMA-BUF handle %d (%d): %m", __FUNCTION__, m_dmaBufHandle[0], errno);
 	}
 
 	for (int i = 0; i < m_numPlanes; i++) {
 		if (m_pPlane[i]) {
 			memset(&dreq, 0, sizeof(dreq));
-			dreq.handle = m_handle[i];
+			dreq.handle = m_planePrimeHandle[i];
 
-			if (drmIoctl(m_fdDrm, DRM_IOCTL_MODE_DESTROY_DUMB, &dreq) < 0)
+			if (drmIoctl(m_drmDeviceFd, DRM_IOCTL_MODE_DESTROY_DUMB, &dreq) < 0)
 				LOGERROR("drmbuffer: %s: cannot destroy dumb buffer (%d): %m", __FUNCTION__, errno);
-			m_handle[i] = 0;
+			m_planePrimeHandle[i] = 0;
 
 		}
 
@@ -204,21 +200,20 @@ void cDrmBuffer::Destroy(void)
 	}
 
 	for (int i = 0; i < m_numObjects; i++) {
-		if (m_primehandle[i]) {
+		if (m_objectPrimeHandle[i]) {
 			// this can happen, when we SetPlayMode 0 while in trickspeed
 			// does not show negative effects, but its not nice though -> TODO
-			if (drmIoctl(m_fdDrm, DRM_IOCTL_GEM_CLOSE, &m_primehandle[i]) < 0)
-				LOGERROR("drmbuffer: %s: cannot close handle %d FB %d GEM (%d): %m", __FUNCTION__, m_primehandle[i], m_fbId, errno);
+			if (drmIoctl(m_drmDeviceFd, DRM_IOCTL_GEM_CLOSE, &m_objectPrimeHandle[i]) < 0)
+				LOGERROR("drmbuffer: %s: cannot close handle %d FB %d GEM (%d): %m", __FUNCTION__, m_objectPrimeHandle[i], m_fbId, errno);
 		}
 	}
 
 	m_width = 0;
 	m_height = 0;
 	m_fbId = 0;
-	m_trickspeed = false;
 	m_dirty = false;
-	m_swbuffer = false;
 	m_numPlanes = 0;
+	m_destroyAfterUse = false;
 }
 
 /**
@@ -266,19 +261,17 @@ const struct format_info *FindFormat(uint32_t format)
 /**
  * Setup the buffer
  *
- * @param fdDrm          drm file descriptor
+ * @param fdDrm          drm device file descriptor
  * @param width          buffer width
  * @param height         buffer height
  * @param pixFmt         buffer pixel format
  * @param primedata      AVDRMFrameDescriptor or NULL (if this is a software buffer)
- *
- * @returns 0            on success, 1 or negative error value on error
  */
-int cDrmBuffer::Setup(int fdDrm, uint32_t width, uint32_t height, uint32_t pixFmt, AVDRMFrameDescriptor *primedata)
+void cDrmBuffer::Setup(int drmDeviceFd, uint32_t width, uint32_t height, uint32_t pixFmt, AVDRMFrameDescriptor *primedata)
 {
 	uint64_t modifier[4] = { 0, 0, 0, 0 };
 	uint32_t mod_flags = 0;
-	m_handle[0] = m_handle[1] = m_handle[2] = m_handle[3] = 0;
+	m_planePrimeHandle[0] = m_planePrimeHandle[1] = m_planePrimeHandle[2] = m_planePrimeHandle[3] = 0;
 	m_pitch[0] = m_pitch[1] = m_pitch[2] = m_pitch[3] = 0;
 	m_offset[0] = m_offset[1] = m_offset[2] = m_offset[3] = 0;
 	m_numObjects = m_numPlanes = 0;
@@ -286,15 +279,12 @@ int cDrmBuffer::Setup(int fdDrm, uint32_t width, uint32_t height, uint32_t pixFm
 	m_width = width;
 	m_height = height;
 	m_pixFmt = pixFmt;
-	m_fdDrm = fdDrm;
-	m_pFrame = nullptr;
+	m_drmDeviceFd = drmDeviceFd;
 
 	if (primedata) {
 		// we have no DRM objects yet, so return
-		if (!primedata->nb_objects) {
-			LOGWARNING("drmbuffer: %s: No primedata objects available!", __FUNCTION__);
-			return 1;
-		}
+		if (!primedata->nb_objects)
+			LOGFATAL("drmbuffer: %s: No primedata objects available!", __FUNCTION__);
 
 		AVDRMLayerDescriptor *layer = &primedata->layers[0];
 
@@ -307,15 +297,13 @@ int cDrmBuffer::Setup(int fdDrm, uint32_t width, uint32_t height, uint32_t pixFm
 
 		// create handles for PrimeFDs
 		for (int object = 0; object < primedata->nb_objects; object++) {
-			if (drmPrimeFDToHandle(fdDrm,
-				primedata->objects[object].fd, &m_primehandle[object])) {
-
-				LOGERROR("drmbuffer: %s: PRIMEDATA Failed to retrieve the Prime Handle %i size %zu (%d): %m", __FUNCTION__,
+			if (drmPrimeFDToHandle(drmDeviceFd, primedata->objects[object].fd, &m_objectPrimeHandle[object])) {
+				LOGFATAL("drmbuffer: %s: PRIMEDATA Failed to retrieve the Prime Handle %i size %zu (%d): %m", __FUNCTION__,
 					primedata->objects[object].fd,
 					primedata->objects[object].size, errno);
-				return -errno;
 			}
-			m_fdPrime[object] = primedata->objects[object].fd;
+
+			m_dmaBufHandle[object] = primedata->objects[object].fd;
 			m_size[object] = primedata->objects[object].size;
 //			LOGDEBUG2(L_DRM, "drmbuffer: %s: PRIMEDATA create handle for PrimeFD (%d|%i): PrimeFD %i ToHandle %i size %zu modifier %" PRIx64 "",
 //				__FUNCTION__, object, primedata->nb_objects, primedata->objects[object].fd, m_primehandle[object],
@@ -325,27 +313,25 @@ int cDrmBuffer::Setup(int fdDrm, uint32_t width, uint32_t height, uint32_t pixFm
 		// fill the planes
 		for (int plane = 0; plane < layer->nb_planes; plane++) {
 			int object = layer->planes[plane].object_index;
-			uint32_t handle = m_primehandle[object];
+			uint32_t handle = m_objectPrimeHandle[object];
 			if (handle) {
-				m_handle[plane] = handle;
+				m_planePrimeHandle[plane] = handle;
 				m_pitch[plane] = layer->planes[plane].pitch;
 				m_offset[plane] = layer->planes[plane].offset;
 				m_objIdx[plane] = object;
 				if (primedata->objects[object].format_modifier)
 					modifier[plane] = primedata->objects[object].format_modifier;
 
-//				LOGDEBUG2(L_DRM, "drmbuffer: %s: PRIMEDATA fill plane %d: handle %d object_index %i pitch %d offset %d size %d modifier %" PRIx64 " (plane not mapped!)",
-//					__FUNCTION__, plane, m_handle[plane], m_objIdx[plane], m_pitch[plane], m_offset[plane], m_size[plane], modifier[plane]);
+				// LOGDEBUG2(L_DRM, "drmbuffer: %s: PRIMEDATA fill plane %d: handle %d object_index %i pitch %d offset %d size %d modifier %" PRIx64 " (plane not mapped!)",
+				// 	__FUNCTION__, plane, m_handle[plane], m_objIdx[plane], m_pitch[plane], m_offset[plane], m_size[plane], modifier[plane]);
 			}
 		}
 		if (modifier[0] && modifier[0] != DRM_FORMAT_MOD_INVALID)
 			mod_flags = DRM_MODE_FB_MODIFIERS;
 	} else {
 		const struct format_info *format_info = FindFormat(m_pixFmt);
-		if (!format_info) {
-			LOGERROR("drmbuffer: %s: No suitable format found!", __FUNCTION__);
-			return 1;
-		}
+		if (!format_info)
+			LOGFATAL("drmbuffer: %s: No suitable format found!", __FUNCTION__);
 
 		m_numPlanes = format_info->num_planes;
 
@@ -364,49 +350,43 @@ int cDrmBuffer::Setup(int fdDrm, uint32_t width, uint32_t height, uint32_t pixFm
 			creq.pitch = 0;
 			creq.size = 0;
 
-			if (drmIoctl(fdDrm, DRM_IOCTL_MODE_CREATE_DUMB, &creq) < 0){
-				LOGERROR("drmbuffer: %s: cannot create dumb buffer %dx%d@%d (%d): %m", __FUNCTION__,
+			if (drmIoctl(drmDeviceFd, DRM_IOCTL_MODE_CREATE_DUMB, &creq) < 0)
+				LOGFATAL("drmbuffer: %s: cannot create dumb buffer %dx%d@%d (%d): %m", __FUNCTION__,
 					creq.width, creq.height, creq.bpp, errno);
-				return -errno;
-			}
 
-			m_handle[plane] = creq.handle;
+			m_planePrimeHandle[plane] = creq.handle;
 			m_pitch[plane] = creq.pitch;
 			m_size[plane] = creq.size;
 
 			struct drm_mode_map_dumb mreq;
 			memset(&mreq, 0, sizeof(struct drm_mode_map_dumb));
-			mreq.handle = m_handle[plane];
+			mreq.handle = m_planePrimeHandle[plane];
 
-			if (drmIoctl(fdDrm, DRM_IOCTL_MODE_MAP_DUMB, &mreq)){
-				LOGERROR("drmbuffer: %s: cannot prepare dumb buffer for mapping (%d): %m", __FUNCTION__, errno);
-				return -errno;
-			}
+			if (drmIoctl(drmDeviceFd, DRM_IOCTL_MODE_MAP_DUMB, &mreq))
+				LOGFATAL("drmbuffer: %s: cannot prepare dumb buffer for mapping (%d): %m", __FUNCTION__, errno);
 
-			m_pPlane[plane] = (uint8_t *)mmap(0, creq.size, PROT_READ | PROT_WRITE, MAP_SHARED, fdDrm, mreq.offset);
+			m_pPlane[plane] = (uint8_t *)mmap(0, creq.size, PROT_READ | PROT_WRITE, MAP_SHARED, drmDeviceFd, mreq.offset);
 
-			if (m_pPlane[plane] == MAP_FAILED) {
-				LOGERROR("drmbuffer: %s: cannot map dumb buffer (%d): %m", __FUNCTION__, errno);
-				return -errno;
-			}
+			if (m_pPlane[plane] == MAP_FAILED)
+				LOGFATAL("drmbuffer: %s: cannot map dumb buffer (%d): %m", __FUNCTION__, errno);
 
 			memset(m_pPlane[plane], 0, m_size[plane]);
 
-//			LOGDEBUG2(L_DRM, "drmbuffer: %s: fill plane %d: handle %d pitch %d offset %d size %d address %p", __FUNCTION__,
-//				plane, m_handle[plane], m_pitch[plane], m_offset[plane], m_size[plane], m_pPlane[plane]);
+			// LOGDEBUG2(L_DRM, "drmbuffer: %s: fill plane %d: prime handle %d pitch %d offset %d size %d address %p", __FUNCTION__,
+			// 	plane, m_planePrimeHandle[plane], m_pitch[plane], m_offset[plane], m_size[plane], m_pPlane[plane]);
 		}
 	}
 
 	int ret = -1;
-	ret = drmModeAddFB2WithModifiers(fdDrm, m_width, m_height, m_pixFmt,
-					 m_handle, m_pitch, m_offset, modifier, &m_fbId, mod_flags);
+	ret = drmModeAddFB2WithModifiers(drmDeviceFd, m_width, m_height, m_pixFmt,
+					 m_planePrimeHandle, m_pitch, m_offset, modifier, &m_fbId, mod_flags);
 
 	if (ret) {
 		if (mod_flags)
 			LOGERROR("drmbuffer: %s: cannot create modifiers framebuffer (%d): %m", __FUNCTION__, errno);
 
-		ret = drmModeAddFB2(fdDrm, m_width, m_height, m_pixFmt,
-			m_handle, m_pitch, m_offset, &m_fbId, 0);
+		ret = drmModeAddFB2(drmDeviceFd, m_width, m_height, m_pixFmt,
+			m_planePrimeHandle, m_pitch, m_offset, &m_fbId, 0);
 	}
 
 	if (ret)
@@ -416,7 +396,6 @@ int cDrmBuffer::Setup(int fdDrm, uint32_t width, uint32_t height, uint32_t pixFm
 		primedata ? "primedata " : "", m_fbId, m_width, m_height, (char *)&m_pixFmt);
 
 	m_dirty = true;
-	return 0;
 }
 
 /**
@@ -429,4 +408,56 @@ void cDrmBuffer::FillBlack(void)
 		if (i < m_width * m_height / 2)
 			m_pPlane[1][i] = 0x80;
 	}
+}
+
+cDrmBuffer *cDrmBufferPool::FindByDmaBufHandle(int primeFd)
+{
+	for (const auto &buf : buffer) {
+		if (buf->IsDirty() && buf->DmaBufHandle() == primeFd)
+			return buf.get();
+	}
+
+	return nullptr;
+}
+
+cDrmBuffer *cDrmBufferPool::FindUninitilized()
+{
+	int i = 0;
+	for (const auto &buf : buffer) {
+		if (!buf->IsDirty())
+			return buf.get();
+
+		i++;
+	}
+
+	return nullptr;
+}
+
+cDrmBuffer *cDrmBufferPool::FindNoPresentationPending()
+{
+	for (const auto &buf : buffer) {
+		if (buf->IsDirty() && !buf->IsPresentationPending())
+			return buf.get();
+	}
+
+	return nullptr;
+}
+
+void cDrmBufferPool::DestroyAllExcept(cDrmBuffer *exceptBuf)
+{
+	for (const auto &buf : buffer) {
+		if (buf.get() != exceptBuf && buf->IsDirty()) {
+			av_frame_free(&buf->frame);
+			buf->Destroy();
+		}
+	}
+}
+
+void cDrmBuffer::PresentationFinished(void)
+{
+	av_frame_free(&frame);
+	m_presentationPending = false;
+
+	if (m_destroyAfterUse)
+		Destroy();
 }

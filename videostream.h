@@ -62,11 +62,12 @@ public:
 	cVideoDecoder *Decoder(void) { return m_pDecoder; };
 	void StartDecoder(cVideoDecoder *decoder, const char *);
 	size_t GetAvPacketsFilled(void) { return m_packets.Size(); };
-	bool IsBufferFull(void) { return m_packets.Size() >= VIDEO_PACKET_MAX; };
+	bool IsInputBufferFull(void) { return m_packets.Size() >= VIDEO_PACKET_MAX; };
 	enum AVCodecID GetCodecId(void) { return m_codecId; };
 	void ResetTrickSpeedFramesSentCounter(void) { m_sentTrickPkts = 0; };
 	bool HasInputPts(void) { return m_inputPts != AV_NOPTS_VALUE; }
 	int64_t GetInputPtsMs(void);
+	int64_t GetInputPts(void) { return m_inputPts; };
 	void SetVideoSize(int, int);
 	void GetVideoSize(int *, int *, double *);
 

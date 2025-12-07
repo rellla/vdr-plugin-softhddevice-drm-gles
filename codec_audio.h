@@ -88,7 +88,6 @@ private:
 	AVCodecID m_codecId = AV_CODEC_ID_NONE;     ///< current codec id
 	AVFrame *m_pFrame;                          ///< decoded ffmpeg audio frame
 	int64_t m_lastPts;                          ///< last seen PTS
-	int64_t m_initialAvpktPts;                  ///< PTS of the first valid avpkt
 	int m_passthroughMask;                      ///< passthrough mask to be set
 	int m_currentPassthrough;                   ///< current passthrough mask
 	int m_currentSampleRate;                    ///< current sample rate

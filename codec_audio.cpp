@@ -369,31 +369,19 @@ void cAudioDecoder::Decode(const AVPacket * avpkt)
 		retRec = avcodec_receive_frame(m_pAudioCtx, frame);
 
 		if (retRec < 0) {
-			if (retRec != AVERROR(EAGAIN)) {
+			if (retRec != AVERROR(EAGAIN))
 				LOGERROR("audiocodec: %s: avcodec_receive_frame error: %s", __FUNCTION__, av_err2str(retRec));
-			} else if (m_lastPts == (int64_t)AV_NOPTS_VALUE && avpkt->pts != (int64_t)AV_NOPTS_VALUE) {
-				// If multiple avpkt are needed for the first decoded frame (i.e. when m_lastPts == AV_NOPTS_VALUE),
-				// we remember the avpkt->pts if we have one and could use it for the frame->pts,
-				// if we don't get one after decode. This way, m_lastPts also gets set.
-				LOGDEBUG2(L_CODEC, "audiocodec: %s: New audio stream, set initial pts to avpkt->pts %s", __FUNCTION__,
-					Timestamp2String(avpkt->pts * 1000 * av_q2d(m_pAudioCtx->pkt_timebase), 1));
-				m_initialAvpktPts = avpkt->pts;
-			}
 		} else {
-			if (m_lastPts == (int64_t) AV_NOPTS_VALUE &&
-				frame->pts == (int64_t) AV_NOPTS_VALUE) {
-				// Force frame->pts to be a valid pts.
-				// If we don't get a valid pts for the decoded frame and also can not set it to m_lastPts, because
-				// this is the first decoded frame, we use the pts of the initial avpkt.
-				LOGWARNING("audiocodec: %s: NO VALID PTS, set frame->pts to last known avpkt->pts %s", __FUNCTION__,
-					Timestamp2String(m_initialAvpktPts * 1000 * av_q2d(m_pAudioCtx->pkt_timebase), 1));
-				frame->pts = m_initialAvpktPts;
-				m_initialAvpktPts = AV_NOPTS_VALUE;
+			if (m_lastPts == AV_NOPTS_VALUE && avpkt->pts == AV_NOPTS_VALUE) {
+				// the first AVPacket has no valid PTS, if its PES packet has been truncated while searching for the sync word
+				av_frame_unref(frame);
+				continue;
 			}
+
 			// update audio clock and remeber last PTS or guess the next PTS
-			if (frame->pts != (int64_t) AV_NOPTS_VALUE) {
+			if (frame->pts != AV_NOPTS_VALUE) {
 				m_lastPts = frame->pts;
-			} else if (m_lastPts != (int64_t) AV_NOPTS_VALUE) {
+			} else if (m_lastPts != AV_NOPTS_VALUE) {
 				frame->pts = m_lastPts +
 					(int64_t)(frame->nb_samples / av_q2d(m_pAudioCtx->pkt_timebase) / frame->sample_rate);
 				m_lastPts = frame->pts;

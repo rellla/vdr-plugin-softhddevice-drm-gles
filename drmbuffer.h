@@ -29,6 +29,11 @@ extern "C" {
 #include <gbm.h>
 #endif
 
+#include "pool.h"
+#include "misc.h"
+
+#define RENDERBUFFERS 36    ///< number of render video buffers
+
 struct format_plane_info
 {
 	uint8_t bitspp;
@@ -53,7 +58,7 @@ public:
 #endif
 	virtual ~cDrmBuffer(void);
 
-	int Setup(int, uint32_t, uint32_t, uint32_t, AVDRMFrameDescriptor *);
+	void Setup(int, uint32_t, uint32_t, uint32_t, AVDRMFrameDescriptor *);
 	void Destroy(void);
 	void InitBo(int, uint32_t, uint32_t, uint32_t, struct gbm_bo *);
 	void FillBlack(void);
@@ -69,26 +74,22 @@ public:
 	bool IsDirty(void) { return m_dirty; };
 	void MarkClean(void) { m_dirty = false; };
 	void MarkDirty(void) { m_dirty = true; };
-	bool IsSwBuffer(void) { return m_swbuffer; };
-	void MarkAsHwBuffer(void) { m_swbuffer = false; };
-	void MarkAsSwBuffer(void) { m_swbuffer = true; };
-
-	void SetTrickspeed(bool trickspeed) { m_trickspeed = trickspeed; };
-	bool IsTrickspeedBuffer(void) { return m_trickspeed; };
+	bool IsPresentationPending(void) { return m_presentationPending; };
+	void SetPresentationPending(bool pending) { m_presentationPending = pending; };
 
 	int Id(void) { return m_fbId; };
 	void SetId(int id) { m_fbId = id; };
-	void SetFdDrm(int fdDrm) { m_fdDrm = fdDrm; };
+	void SetFdDrm(int fdDrm) { m_drmDeviceFd = fdDrm; };
 	int NumPlanes(void) { return m_numPlanes; };
 	void SetNumPlanes(int numPlanes) { m_numPlanes = numPlanes; };
-	int FdPrime(int idx) { return m_fdPrime[idx]; };
-	void SetFdPrime(int idx, uint32_t fd) { m_fdPrime[idx] = fd; };
+	int DmaBufHandle(void) { return m_dmaBufHandle[0]; };
+	void SetDmaBufHandle(uint32_t fd) { m_dmaBufHandle[0] = fd; };
 	void SetNumObjects(int numObjects) { m_numObjects = numObjects; };
 	void SetObjectIndex(int idx, uint32_t objIdx) { m_objIdx[idx] = objIdx; };
 	uint8_t *Plane(int idx) { return m_pPlane[idx]; };
-	uint32_t Handle(int idx) { return m_handle[idx]; };
-	uint32_t *Handle(void) { return m_handle; };
-	void SetHandle(int idx, uint32_t handle) { m_handle[idx] = handle; };
+	uint32_t PrimeHandle(int idx) { return m_planePrimeHandle[idx]; };
+	uint32_t *PrimeHandle(void) { return m_planePrimeHandle; };
+	void SetHandle(int idx, uint32_t handle) { m_planePrimeHandle[idx] = handle; };
 	uint32_t Offset(int idx) { return m_offset[idx]; };
 	uint32_t *Offset(void) { return m_offset; };
 	void SetOffset(int idx, uint32_t offset) { m_offset[idx] = offset; };
@@ -98,9 +99,9 @@ public:
 	uint32_t Size(int idx) { return m_size[idx]; };
 	uint32_t *Size(void) { return m_size; };
 	void SetSize(int idx, uint32_t size) { m_size[idx] = size; };
-
-	AVFrame *Frame(void) { return m_pFrame; };
-	void SetFrame(AVFrame *frame) { m_pFrame = frame; };
+	AVFrame *frame = nullptr;	///< associated AVFrame
+	void SetDestroyAfterUse(bool val) { m_destroyAfterUse = val; };
+	void PresentationFinished(void);
 
 private:
 	uint32_t m_width;           ///< buffer width
@@ -108,29 +109,38 @@ private:
 	uint32_t m_pixFmt;          ///< buffer pixel format
 
 	bool m_dirty;               ///< true, if the buffer is dirty (it was written to)
-	bool m_swbuffer;            ///< true, if the buffer is a software buffer
-	bool m_trickspeed;          ///< true, if the buffer is a trickspeed buffer
 
 	uint32_t m_fbId;            ///< framebuffer id
-	int m_fdDrm;                ///< drm file desriptor
+	int m_drmDeviceFd;          ///< drm device file descriptor
 
 	int m_numPlanes;            ///< number of planes in the buffer
 
-	int m_fdPrime[4];           ///< prime file descriptros (corresponding to objIdx)
+	int m_dmaBufHandle[4];      ///< DMA-BUF file descriptor
 	int m_numObjects;           ///< number of prime objects in the buffer
 	int m_objIdx[4];            ///< index of the objects
-	uint32_t m_primehandle[4];  ///< primedata objects prime handles (count is numObjects, index is objIdx)
+	uint32_t m_objectPrimeHandle[4]; ///< primedata objects prime handles (count is numObjects, index is objIdx)
 
 	uint8_t *m_pPlane[4];       ///< array of the plane data
-	uint32_t m_handle[4];       ///< array of the plane handles
+	uint32_t m_planePrimeHandle[4];  ///< array of the plane handles
 	uint32_t m_offset[4];       ///< array of the plane offset
 	uint32_t m_pitch[4];        ///< array of the plane pitch
 	uint32_t m_size[4]{0};      ///< array of the plane size
 
-	AVFrame *m_pFrame;
+	bool m_presentationPending = false; ///< true, if buffer is pending presentation
+	bool m_destroyAfterUse = false;     ///< true, if buffer should be destroyed after use
+
 #ifdef USE_GLES
 	struct gbm_bo *m_pBo;       ///< pointer to the gbm buffer object
 #endif
+};
+
+class cDrmBufferPool : public cPool<cDrmBuffer> {
+public:
+	cDrmBufferPool() : cPool<cDrmBuffer>(RENDERBUFFERS) {}
+	cDrmBuffer *FindUninitilized(void);
+	cDrmBuffer *FindNoPresentationPending(void);
+	cDrmBuffer *FindByDmaBufHandle(int);
+	void DestroyAllExcept(cDrmBuffer *);
 };
 
 #endif

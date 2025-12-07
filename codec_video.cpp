@@ -265,7 +265,7 @@ int cVideoDecoder::Open(enum AVCodecID codecId, AVCodecParameters * par,
 			m_mutex.Unlock();
 			return -1;
 		}
-		LOGINFO("videocodec: Using %s hardware video acceleration 🤩", type_name ? type_name : "unknown");
+		LOGDEBUG("videocodec: Using %s hardware video acceleration 🤩", type_name ? type_name : "unknown");
 		m_pVideoCtx->hw_device_ctx = hwDeviceCtx;
 		m_pVideoCtx->pix_fmt = AV_PIX_FMT_DRM_PRIME;
 	}

@@ -143,7 +143,7 @@ void cVideoStream::ClearVdrCoreToDecoderQueue(void)
 {
 	LOGDEBUG("videostream %s: packets %d", __FUNCTION__, m_packets.Size());
 
-	while (!m_packets.Empty()) {
+	while (!m_packets.IsEmpty()) {
 		AVPacket *avpkt = m_packets.Pop();
 		av_packet_free(&avpkt);
 	}
@@ -264,6 +264,86 @@ void cVideoStream::FlushDecoder(void)
 	} else {
 		m_pDecoder->FlushBuffers();
 	}
+}
+
+/**
+ * Decodes a reassembled codec packet.
+ */
+void cVideoStream::DecodeInput(void)
+{
+	AVFrame *frame = nullptr;
+	int ret = 0;
+
+	if (m_codecId == AV_CODEC_ID_NONE || m_packets.IsEmpty() || m_pRender->IsOutputBufferFull() || m_pRender->IsFilterInputBufferFull())
+		return;
+
+	if (m_newStream) {
+		int width = 0;
+		int height = 0;
+
+		// amlogic h264 decoder needs width an height for correct decoder open
+		if ((m_codecId == AV_CODEC_ID_H264) && (m_pRender->HardwareQuirks() & QUIRK_CODEC_NEEDS_EXT_INIT)) {
+			cH264Parser h264Parser(m_packets.Peek());
+			h264Parser.GetDimensions(&width, &height);
+
+			LOGDEBUG2(L_CODEC, "videostream %s: Parsed width %d height %d", __FUNCTION__, width, height);
+		}
+
+		if (m_pDecoder->Open(m_codecId, m_pPar, &m_timebase, 0, width, height))
+			LOGFATAL("videostream %s: Could not open the decoder!", __FUNCTION__);
+		m_newStream = false;
+	}
+
+	// wait for m_trickpkts packets
+	//
+	// m_trickpkts is the number of packets we need to have in the buffer
+	// while in interlaced trickspeed mode, needed to get a frame.
+	// This guarantees, that we don't drain the decoder too early, but exactly after
+	// m_trickpkts sent packets
+	int minPkts = (m_pRender->GetTrickSpeed() && m_interlaced) ? m_trickpkts : 1;
+
+	// send packet to decoder
+	AVPacket *avpkt = m_packets.Peek();
+
+	ret = m_pDecoder->SendPacket(avpkt);
+
+	if (ret != AVERROR(EAGAIN)) {
+		avpkt = m_packets.Pop();
+		av_packet_free(&avpkt);
+	}
+
+	// in backward trickspeed force the decoder to decode the frame, if minPkts are sent
+	bool flushDecoder = false;
+	if (ret == 0 && m_pRender->GetTrickSpeed() && !m_pRender->GetTrickForward()) {
+		m_sentTrickPkts++;
+		if (m_sentTrickPkts >= minPkts) {
+			m_pDecoder->SendPacket(NULL);
+			m_sentTrickPkts = 0;
+			flushDecoder = true;
+		}
+	}
+
+	// receive frame from decoder
+	if (!m_newStream) { // this is for mediaplayer?
+		if (m_pDecoder->ReceiveFrame(&frame) == 0)
+			m_pRender->RenderFrame(m_pDecoder->GetContext(), frame);
+	}
+
+	if (ret == AVERROR_EOF || flushDecoder) {
+		FlushDecoder();
+		m_sentTrickPkts = 0;
+	}
+}
+
+/**
+ * Set the interlaced flag for the stream
+ *
+ * @param interlaced        true, if interlaced
+ */
+void cVideoStream::SetInterlaced(bool interlaced)
+{
+//	LOGDEBUG("videostream %s: %d", __FUNCTION__, m_interlaced);
+	m_interlaced = interlaced;
 }
 
 /**

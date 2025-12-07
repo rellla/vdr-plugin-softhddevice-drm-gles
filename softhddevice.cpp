@@ -496,18 +496,19 @@ void cSoftHdDevice::OnEnteringState(State state) {
 			m_pRender->CancelFilterThread();
 			m_pRender->SetPlaybackPaused(false);
 			m_pRender->SetDeinterlacerDeactivated(true);
+			m_pRender->ResetBufferReuseStrategy();
 			break;
 		case STOP:
 			m_pRender->CancelFilterThread();
-
+			m_pRender->DisplayBlackFrame();
 			m_pRender->Reset();
-			m_pRender->DestroyFrameBuffers();
-			m_pRender->ScheduleDisplayBlackFrame();
 			m_playbackMode = NONE;
 
 			m_videoReassemblyBuffer.Reset();
 			m_pVideoStream->ClearVdrCoreToDecoderQueue();
 			m_pRender->ClearDecoderToDisplayQueue();
+			m_pRender->ResetDecodingStrategy();
+			m_pRender->ResetBufferReuseStrategy();
 			m_pVideoStream->CloseDecoder();
 
 			ClearAudio();
@@ -561,15 +562,12 @@ void cSoftHdDevice::OnLeavingState(State state) {
 		case TRICK_SPEED:
 			// The filter thread needs to be restarted for interlaced streams to be rendered with deinterlacer again. It is started lazily.
 			m_pRender->CancelFilterThread();
-
-			m_pRender->DestroyFrameBuffers();
-
 			m_pRender->SetTrickSpeed(0, 1);
 			m_pRender->ResetFrameCounter();
 			m_pRender->SetDeinterlacerDeactivated(false);
-			m_pVideoStream->ResetTrickSpeedFramesSentCounter();
-
 			m_pRender->SetPlaybackPaused(true);
+			m_pRender->ResetBufferReuseStrategy();
+			m_pVideoStream->ResetTrickSpeedFramesSentCounter();
 			break;
 		case STOP:
 			m_receivedAudio = false;
@@ -699,10 +697,9 @@ void cSoftHdDevice::Clear(void)
 	m_pVideoStream->ClearVdrCoreToDecoderQueue();
 	m_pRender->ClearDecoderToDisplayQueue();
 
-	if (m_pVideoStream->GetCodecId() != AV_CODEC_ID_NONE) // audio only (e.g. radio) has no video codec. So, don't flush the video decoder then.
+	if (m_playbackMode == AUDIO_AND_VIDEO || m_playbackMode == VIDEO_ONLY)
 		m_pVideoStream->FlushDecoder();
 
-	m_pRender->DestroyFrameBuffers();
 	m_pRender->Reset();
 
 	m_pAudio->SetPaused(true);
@@ -801,7 +798,7 @@ bool cSoftHdDevice::Poll(__attribute__ ((unused)) cPoller & poller, int timeoutM
 {
 //	LOGDEBUG("device: %s: timeout %d", __FUNCTION__, timeout_ms);
 
-	if (!m_pAudio->IsBufferFull() && !m_pVideoStream->IsBufferFull())
+	if (!m_pAudio->IsBufferFull() && !m_pVideoStream->IsInputBufferFull())
 		return true;
 
 	usleep(timeoutMs * 1000);
@@ -963,11 +960,8 @@ int cSoftHdDevice::PlayAudio(const uchar *data, int size, uchar id)
 
 	m_receivedAudio = true;
 
-	// hard limit buffer full: don't overrun audio buffers on replay
-	if (m_pAudio->IsBufferFull()) {
-//		LOGDEBUG("device: %s: Buffer is Full (%d|%d)!", __FUNCTION__, m_pAudio->GetFreeBytes(), AUDIO_MIN_BUFFER_FREE);
+	if (m_pAudio->IsBufferFull())
 		return 0;
-	}
 
 	cPesAudio pesPacket((const uint8_t*)data, size);
 
@@ -1091,7 +1085,7 @@ int cSoftHdDevice::PlayVideoInternal(cVideoStream *stream, cReassemblyBufferVide
 
 	m_receivedVideo = true;
 
-	if (stream->IsBufferFull())
+	if (stream->IsInputBufferFull())
 		return 0;
 
 	cPesVideo pesPacket((const uint8_t*)data, size);
@@ -1161,7 +1155,7 @@ bool cSoftHdDevice::IsBufferingThresholdReached()
 	int64_t syncedAudioBufferFillLevelMs = m_pAudio->GetInputPtsMs() - GetFirstAudioPtsMsToPlay();
 	int64_t syncedVideoBufferFillLevelMs = m_pVideoStream->GetInputPtsMs() - GetFirstVideoPtsMsToPlay();
 
-	bool reached = m_pRender->IsBufferFull() && // video decoder output buffer (audio hardware output buffer is negligible)
+	bool reached = m_pRender->IsOutputBufferFull() && // video decoder output buffer (audio hardware output buffer is negligible)
 		syncedVideoBufferFillLevelMs > GetBufferFillLevelThresholdMs() && // video decoder input buffer
 		syncedAudioBufferFillLevelMs > GetBufferFillLevelThresholdMs(); // audio decoder output buffer
 

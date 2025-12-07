@@ -837,11 +837,11 @@ cDrmBuffer *cDrmDevice::GetBufFromBo(struct gbm_bo *bo)
 			buf->SetOffset(i, gbm_bo_get_offset(bo, i));
 			modifiers[i] = modifiers[0];
 			buf->SetSize(i, buf->Height() * buf->Pitch(i));
-			LOGDEBUG2(L_DRM, "drmdevice: %s: %d: handle %d pitch %d, offset %d, size %d", __FUNCTION__, i, buf->Handle(i), buf->Pitch(i), buf->Offset(i), buf->Size(i));
+			LOGDEBUG2(L_DRM, "drmdevice: %s: %d: handle %d pitch %d, offset %d, size %d", __FUNCTION__, i, buf->PrimeHandle(i), buf->Pitch(i), buf->Offset(i), buf->Size(i));
 		}
 		buf->SetNumObjects(1);
 		buf->SetObjectIndex(0, 0);
-		buf->SetFdPrime(0, gbm_bo_get_fd(bo));
+		buf->SetDmaBufHandle(gbm_bo_get_fd(bo));
 
 		if (modifiers[0]) {
 			mod_flags = DRM_MODE_FB_MODIFIERS;
@@ -851,7 +851,7 @@ cDrmBuffer *cDrmDevice::GetBufFromBo(struct gbm_bo *bo)
 		uint32_t id;
 		// Add FB
 		ret = drmModeAddFB2WithModifiers(m_fdDrm, buf->Width(), buf->Height(), buf->PixFmt(),
-			buf->Handle(), buf->Pitch(), buf->Offset(), modifiers, &id, mod_flags);
+			buf->PrimeHandle(), buf->Pitch(), buf->Offset(), modifiers, &id, mod_flags);
 		buf->SetId(id);
 	}
 
@@ -863,17 +863,17 @@ cDrmBuffer *cDrmDevice::GetBufFromBo(struct gbm_bo *bo)
 		uint32_t tmpHandle[4] = { gbm_bo_get_handle(bo).u32, 0, 0, 0};
 		uint32_t tmpStride[4] = { gbm_bo_get_stride(bo), 0, 0, 0};
 		uint32_t tmpSize[4]   = { buf->Height() * buf->Width() * buf->Pitch(0), 0, 0, 0};
-		memcpy(buf->Handle(), tmpHandle, sizeof(tmpHandle));
+		memcpy(buf->PrimeHandle(), tmpHandle, sizeof(tmpHandle));
 		memcpy(buf->Pitch(), tmpStride, sizeof(tmpStride));
 		memcpy(buf->Size(), tmpSize, sizeof(tmpSize));
 		memset(buf->Offset(), 0, 16);
 		buf->SetNumObjects(1);
 		buf->SetObjectIndex(0, 0);
-		buf->SetFdPrime(0, gbm_bo_get_fd(bo));
+		buf->SetDmaBufHandle(gbm_bo_get_fd(bo));
 
 		uint32_t id;
 		ret = drmModeAddFB2(m_fdDrm, buf->Width(), buf->Height(), buf->PixFmt(),
-			buf->Handle(), buf->Pitch(), buf->Offset(), &id, 0);
+			buf->PrimeHandle(), buf->Pitch(), buf->Offset(), &id, 0);
 		buf->SetId(id);
 	}
 

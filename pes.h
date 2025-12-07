@@ -180,6 +180,7 @@ public:
 private:
 	SyncWordInfo FindTwoConsecutiveFramesWithSameSyncWord();
 	static constexpr int MAX_HEADER_SIZE = 6;
+	bool m_ptsInvalid = false;   ///< flag indicating if PTS is invalid for current buffer, because it was truncated
 };
 
 #endif

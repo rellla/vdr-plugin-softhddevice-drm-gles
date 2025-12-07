@@ -180,7 +180,6 @@ private:
 	void AlsaSetVolume(int);
 	void AlsaInit(void);
 	void AlsaExit(void);
-	int64_t SamplesToPts(int, int);
 	int BytesToMs(int);
 	int MsToBytes(int);
 	int64_t PtsToMs(int64_t);
