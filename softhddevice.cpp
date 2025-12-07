@@ -971,6 +971,10 @@ int cSoftHdDevice::PlayAudio(const uchar *data, int size, uchar id)
 		return size;
 	}
 
+	static int64_t lastPts = AV_NOPTS_VALUE;
+	LOGINFO("PlayAudio: PTS %s diff %s", Timestamp2String(pesPacket.GetPts(), 90), lastPts != AV_NOPTS_VALUE && pesPacket.HasPts() ? Timestamp2String(pesPacket.GetPts() - lastPts, 90) : "N/A");
+	lastPts = pesPacket.GetPts();
+
 	if (m_audioChannelID != id) {
 		m_audioChannelID = id;
 		m_audioReassemblyBuffer.Reset();
