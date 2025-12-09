@@ -38,6 +38,22 @@
 #define VIDEO_SURFACES_MAX 3
 
 /**
+ * Check, if this is an interlaced frame
+ *
+ * @param frame    AVFrame
+ *
+ * @return         true, if this frame is an interlaced frame
+ */
+static inline bool isInterlacedFrame(AVFrame *frame)
+{
+#if LIBAVUTIL_VERSION_INT < AV_VERSION_INT(58,7,100)
+	return frame->interlaced_frame;
+#else
+	return frame->flags & AV_FRAME_FLAG_INTERLACED;
+#endif
+}
+
+/**
  * Workaround for av_err2str() not working with C++
  */
 #ifdef av_err2str

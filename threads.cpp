@@ -38,6 +38,7 @@ extern "C" {
 #include "videorender.h"
 #include "audio.h"
 #include "videostream.h"
+#include "misc.h"
 
 /*****************************************************************************
  * cDecodingThread class
@@ -160,9 +161,11 @@ void cAudioThread::Stop(void)
  *
  * This thread handles video filters like deinterlacer or scale filter
  ****************************************************************************/
-cFilterThread::cFilterThread(cVideoRender *render) : cThread("softhd filter")
+cFilterThread::cFilterThread(cVideoRender *videoRender, cQueue<cDrmBuffer> *drmBufferQueue, const char *name, std::function<void(AVFrame *)> frameOutput) : cThread(name)
 {
-	m_pRender = render;
+	m_pRender = videoRender;
+	m_pDrmBufferQueue = drmBufferQueue;
+	m_frameOutput = frameOutput;
 }
 
 cFilterThread::~cFilterThread(void)
@@ -185,7 +188,7 @@ void cFilterThread::InitAndStart(const AVCodecContext *videoCtx, AVFrame *frame,
 	if (!m_pFilterGraph)
 		LOGFATAL("filter thread: %s: Cannot alloc filter graph", __FUNCTION__);
 
-	m_pRender->ClearFramesToFilter();
+	m_numFramesToFilter = 0;
 	m_filterBug = false;
 
 	const AVFilter *buffersrc  = avfilter_get_by_name("buffer");
@@ -277,53 +280,6 @@ void cFilterThread::InitAndStart(const AVCodecContext *videoCtx, AVFrame *frame,
 	Start();
 }
 
-/**
- * Increase the filtered frames counter
- *
- * by 2 if the frame is interlaced
- * by 1 if it's not interlaced
- *
- * @param filtFrame       AVFrame
- */
-void cFilterThread::IncreaseFramesToFilter(AVFrame *frame)
-{
-	if (m_pRender->IsInterlacedFrame(frame)) {
-		m_pRender->IncFramesToFilter();
-		m_pRender->IncFramesToFilter();
-	} else {
-		m_pRender->IncFramesToFilter();
-	}
-}
-
-/**
- * Render the filtered frame
- *
- * @param filtFrame       AVFrame to render
- */
-int cFilterThread::RenderFrame(AVFrame *filtFrame)
-{
-	m_pRender->FramesRbLock();
-	if (m_pRender->GetFramesFilled() < VIDEO_SURFACES_MAX) {
-		if (filtFrame->format == AV_PIX_FMT_NV12) {
-			// scale filter or sw deinterlacer, no prime data, always returns NV12 -> go through EnqueueFB
-			if (m_filterBug)
-				filtFrame->pts /= 2; // ffmpeg bug
-			m_pRender->DecFramesToFilter();
-			m_pRender->FramesRbUnlock(); // EnqueueFB locks again, so unlock here
-			m_pRender->EnqueueFB(filtFrame);
-		} else {
-			// hw deinterlacers, we received prime data -> put the frame directly into render Rb
-			m_pRender->RbPushFrame(filtFrame);
-			m_pRender->DecFramesToFilter();
-			m_pRender->FramesRbUnlock();
-		}
-		return 1;
-	}
-	m_pRender->FramesRbUnlock();
-
-	return 0;
-}
-
 void cFilterThread::Action(void)
 {
 	LOGDEBUG("threads: video filter thread started");
@@ -336,7 +292,9 @@ void cFilterThread::Action(void)
 
 		AVFrame *frame = m_frames.Pop();
 
-		IncreaseFramesToFilter(frame);
+		m_numFramesToFilter++;
+		if (isInterlacedFrame(frame))
+			m_numFramesToFilter++;
 
 		// add frame to filter
 		int ret;
@@ -362,17 +320,14 @@ void cFilterThread::Action(void)
 				break;
 			}
 
-			while (Running() && m_pRender->IsOutputBufferFull())
+			while (Running() && m_pDrmBufferQueue->IsFull())
 				usleep(1000);
-
-			// TODO RenderFrame vom pip filter thread
 
 			if (Running()) {
 				if (filtFrame->format == AV_PIX_FMT_NV12 && m_filterBug) // scale filter or sw deinterlacer, no prime data, always returns NV12
 					filtFrame->pts /= 2; // ffmpeg bug
 
-				m_pRender->PushFrame(filtFrame);
-				m_pRender->DecFramesToFilter();
+				m_frameOutput(filtFrame);
 			} else
 				av_frame_free(&filtFrame);
 		}
@@ -381,11 +336,11 @@ void cFilterThread::Action(void)
 }
 
 /**
- * Put a frame in the ringbuffer to be filtered
+ * Put a frame in the buffer to be filtered
  */
-bool cFilterThread::PushFrame(AVFrame *frame)
+void cFilterThread::PushFrame(AVFrame *frame)
 {
-	return m_frames.Push(frame);
+	m_frames.Push(frame);
 }
 
 void cFilterThread::Stop(void)
@@ -396,7 +351,7 @@ void cFilterThread::Stop(void)
 	LOGDEBUG("threads: stopping filter thread");
 	Cancel(2);
 	m_filterBug = false;
-	m_pRender->ClearFramesToFilter();
+	m_numFramesToFilter = 0;
 
 	while (!m_frames.IsEmpty()) {
 		AVFrame *frame = m_frames.Pop();
@@ -404,33 +359,4 @@ void cFilterThread::Stop(void)
 	}
 
 	avfilter_graph_free(&m_pFilterGraph);
-}
-
-/*****************************************************************************
- * cPipFilterThread class
- *
- * This thread handles video filters like deinterlacer or scale filter
- ****************************************************************************/
-cPipFilterThread::cPipFilterThread(cVideoRender *render) : cFilterThread(render)
-{
-}
-
-/**
- * Render the filtered frame
- *
- * @param filtFrame       AVFrame to render
- */
-int cPipFilterThread::RenderFrame(AVFrame *filtFrame)
-{
-	m_pRender->PipFramesRbLock();
-	if (m_pRender->GetPipFramesFilled() < VIDEO_SURFACES_MAX) {
-		// scale filter, no prime data, always returns NV12 -> go through EnqueueFB
-		// frame format must be AV_PIX_FMT_NV12
-		m_pRender->PipFramesRbUnlock();
-		m_pRender->PipEnqueueFB(filtFrame);
-		return 1;
-	}
-	m_pRender->PipFramesRbUnlock();
-
-	return 0;
 }

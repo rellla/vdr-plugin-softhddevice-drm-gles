@@ -22,6 +22,8 @@
  * GNU Affero General Public License for more details.}
  */
 
+#include <string>
+
 #include <assert.h>
 #include <unistd.h>
 
@@ -54,6 +56,109 @@ extern "C" {
 #include "queue.h"
 #include "misc.h"
 
+/**
+ * Helper function to read a line from a given file
+ *
+ * @param[out] buf           pointer to the data
+ * @param[out] size          size of the data at buf
+ * @param[in] file           the filepointer to be read on
+ *
+ * @returns the number of characters read
+ */
+static size_t ReadLineFromFile(char *buf, size_t size, const char * file)
+{
+	FILE *fd = NULL;
+	size_t character;
+
+	fd = fopen(file, "r");
+	if (fd == NULL) {
+		LOGERROR("videostream: %s: Can't open %s", __FUNCTION__, file);
+		return 0;
+	}
+
+	character = getline(&buf, &size, fd);
+
+	fclose(fd);
+
+	return character;
+}
+
+/**
+ * Helper function to find out which platform we are on
+ *
+ * @returns the hardware quirks of the device
+ */
+static int ReadHWPlatform(void)
+{
+	char *txt_buf;
+	char *read_ptr;
+	size_t bufsize = 128;
+	size_t read_size;
+
+	txt_buf = (char *) calloc(bufsize, sizeof(char));
+	int hardwareQuirks = 0;
+
+	read_size = ReadLineFromFile(txt_buf, bufsize, "/sys/firmware/devicetree/base/compatible");
+	if (!read_size) {
+		free((void *)txt_buf);
+		return 0;
+	}
+
+	read_ptr = txt_buf;
+	// be aware: device tree string can contain \x0 bytes, so every C-string function
+	// thinks, we already reached the string's terminating null bytes
+	// so copy the string into a temporary string without the "\0"
+	char *_txt_buf = (char *) calloc(bufsize, sizeof(char));
+	char *_read_ptr = _txt_buf;
+	for (size_t i = 0; i < bufsize; i++) {
+		if (memcmp(read_ptr, "\0", sizeof(char))) {
+			memcpy(_read_ptr, read_ptr, sizeof(char));
+			_read_ptr++;
+		}
+		read_ptr++;
+	}
+
+	read_ptr = txt_buf;
+	LOGDEBUG2(L_DRM, "videorender: %s: found \"%s\", set hardware quirks", __FUNCTION__, _txt_buf);
+
+	while(read_size) {
+		if (strstr(read_ptr, "bcm2836")) {
+			LOGDEBUG2(L_DRM, "videorender: %s: bcm2836 (Raspberry Pi 2 Model B) found", __FUNCTION__);
+			hardwareQuirks |= QUIRK_CODEC_FLUSH_WORKAROUND;
+			break;
+		}
+		if (strstr(read_ptr, "bcm2837")) {
+			LOGDEBUG2(L_DRM, "videorender: %s: bcm2837 (Raspberry Pi 2 Model B v1.2/ 3 Model B, Raspberry Pi 3 Compute Module 3) found", __FUNCTION__);
+			hardwareQuirks |= QUIRK_CODEC_FLUSH_WORKAROUND;
+			break;
+		}
+		if (strstr(read_ptr, "bcm2711")) {
+			LOGDEBUG2(L_DRM, "videorender: %s: bcm2711 (Raspberry Pi 4 Model B, Compute Module 4, Pi 400) found", __FUNCTION__);
+			hardwareQuirks |= QUIRK_CODEC_FLUSH_WORKAROUND;
+			break;
+		}
+		if (strstr(read_ptr, "bcm2712")) {
+			LOGDEBUG2(L_DRM, "videorender: %s: bcm2712 (Raspberry Pi 5, Compute Module 5, Pi 500) found", __FUNCTION__);
+			hardwareQuirks |= QUIRK_CODEC_FLUSH_WORKAROUND;
+			break;
+		}
+		if (strstr(read_ptr, "amlogic")) {
+			LOGDEBUG2(L_DRM, "videorender: %s: amlogic found, disable HW deinterlacer", __FUNCTION__);
+			hardwareQuirks |= QUIRK_CODEC_NEEDS_EXT_INIT
+					   |  QUIRK_CODEC_SKIP_FIRST_FRAMES
+					   |  QUIRK_NO_HW_DEINT;
+			break;
+		}
+
+		read_size -= (strlen(read_ptr) + 1);
+		read_ptr = (char *)&read_ptr[(strlen(read_ptr) + 1)];
+	}
+	free((void *)_txt_buf);
+	free((void *)txt_buf);
+
+	return hardwareQuirks;
+}
+
 /*****************************************************************************
  * cVideoStream class
  ****************************************************************************/
@@ -61,19 +166,25 @@ extern "C" {
 /**
  * cVideoStream constructor
  */
-cVideoStream::cVideoStream(cVideoRender *render)
+cVideoStream::cVideoStream(cVideoRender *render, cQueue<cDrmBuffer> *drmBufferQueue, cSoftHdConfig *config, const char *identifier, std::function<void(AVFrame *)> frameOutput)
 {
-	LOGDEBUG("videostream %s:", __FUNCTION__);
+	LOGDEBUG("videostream %s: %s:", __FUNCTION__, identifier);
 
 	m_pRender = render;
+	m_pDrmBufferQueue = drmBufferQueue;
 	m_pDecoder = nullptr;
+	m_frameOutput = frameOutput;
+	m_identifier = identifier;
 
 	m_codecId = AV_CODEC_ID_NONE;
 	m_newStream = false;
 	m_pPar = nullptr;
 
-	m_videoWidth = 0;
-	m_videoHeight = 0;
+	m_userDisabledDeinterlacer = config->ConfigDisableDeint;
+
+	m_filterThreadName = "shd " + std::string(identifier) + " filter";
+	m_pFilterThread = new cFilterThread(render, m_pDrmBufferQueue, m_filterThreadName.c_str(), frameOutput);
+	m_hardwareQuirks = ReadHWPlatform();
 }
 
 /**
@@ -82,6 +193,9 @@ cVideoStream::cVideoStream(cVideoRender *render)
 cVideoStream::~cVideoStream(void)
 {
 	LOGDEBUG("videostream %s:", __FUNCTION__);
+
+	if (m_pFilterThread)
+		delete m_pFilterThread;
 }
 
 /**
@@ -123,7 +237,7 @@ int64_t cVideoStream::GetInputPtsMs(void)
  */
 void cVideoStream::Exit(void)
 {
-	LOGDEBUG("videostream %s:", __FUNCTION__);
+	LOGDEBUG("videostream %s: %s:", m_identifier, __FUNCTION__);
 
 	ExitDecodingThread();
 
@@ -141,7 +255,7 @@ void cVideoStream::Exit(void)
  */
 void cVideoStream::ClearVdrCoreToDecoderQueue(void)
 {
-	LOGDEBUG("videostream %s: packets %d", __FUNCTION__, m_packets.Size());
+	LOGDEBUG("videostream %s: %s: packets %d", m_identifier, __FUNCTION__, m_packets.Size());
 
 	while (!m_packets.IsEmpty()) {
 		AVPacket *avpkt = m_packets.Pop();
@@ -154,86 +268,14 @@ void cVideoStream::ClearVdrCoreToDecoderQueue(void)
 /**
  * Start the decoder
  */
-void cVideoStream::StartDecoder(cVideoDecoder *decoder, const char *name)
+void cVideoStream::StartDecoder()
 {
-	LOGDEBUG2(L_CODEC, "videostream %s", __FUNCTION__);
+	LOGDEBUG2(L_CODEC, "videostream %s: %s", m_identifier, __FUNCTION__);
 
-	m_pDecoder = decoder;
-	CreateDecodingThread(name);
-}
+	m_pDecoder = new cVideoDecoder(m_hardwareQuirks, m_identifier);
 
-/**
- * Init the decoder
- */
-void cVideoStream::TryInitDecoder(void)
-{
-	if (!m_newStream)
-		return;
-
-	int width = 0;
-	int height = 0;
-
-	// amlogic h264 decoder needs width an height for correct decoder open
-	if ((m_codecId == AV_CODEC_ID_H264) && (m_pRender->HardwareQuirks() & QUIRK_CODEC_NEEDS_EXT_INIT)) {
-		cH264Parser h264Parser(m_packets.Peek());
-		h264Parser.GetDimensions(&width, &height);
-
-		LOGDEBUG2(L_CODEC, "videostream %s: Parsed width %d height %d", __FUNCTION__, width, height);
-	}
-
-	if (m_pDecoder->Open(m_codecId, m_pPar, &m_timebase, 0, width, height))
-		LOGFATAL("videostream %s: Could not open the decoder!", __FUNCTION__);
-
-	m_newStream = false;
-}
-
-/**
- * Returns true if we are able to decode
- */
-bool cVideoStream::CanDecodePacket(void)
-{
-	if (m_codecId == AV_CODEC_ID_NONE || m_packets.Empty())
-		return false;
-
-	return true;
-}
-
-/**
- * Decodes a reassembled codec packet.
- */
-void cVideoStream::DecodeInput(void)
-{
-	if (!CanDecodePacket() || IsBufferFull())
-		return;
-
-	TryInitDecoder();
-
-	// send packet to decoder
-	AVPacket *avpkt = m_packets.Peek();
-
-	int ret = m_pDecoder->SendPacket(avpkt);
-
-	if (ret != AVERROR(EAGAIN)) {
-		avpkt = m_packets.Pop();
-		av_packet_free(&avpkt);
-	}
-
-	// handle trickspeed
-	if (ret == 0)
-		TrickspeedForceDecoderDrain();
-
-	// receive frame from decoder
-	AVFrame *frame = nullptr;
-	int width = 0;
-	int height = 0;
-	if (m_pDecoder->ReceiveFrame(&frame, width, height) == 0) {
-		SetVideoSize(width, height);
-		RenderFrame(frame);
-	}
-
-	// flush if needed (in trickspeed)
-	if (ret == AVERROR_EOF)
-		TrickspeedFlushDecoderBuffers();
+	m_decodingThreadName = "shd " + std::string(m_identifier) + " decode";
+	m_pDecodingThread = new cDecodingThread(this, m_decodingThreadName.c_str());
 }
 
 /**
@@ -241,7 +283,7 @@ void cVideoStream::DecodeInput(void)
  */
 void cVideoStream::CloseDecoder(void)
 {
-	LOGDEBUG2(L_CODEC, "videostream %s", __FUNCTION__);
+	LOGDEBUG2(L_CODEC, "videostream %s: %s", m_identifier, __FUNCTION__);
 
 	m_codecId = AV_CODEC_ID_NONE;
 	m_pDecoder->Close();
@@ -256,11 +298,11 @@ void cVideoStream::CloseDecoder(void)
  */
 void cVideoStream::FlushDecoder(void)
 {
-	LOGDEBUG2(L_CODEC, "videostream %s", __FUNCTION__);
+	LOGDEBUG2(L_CODEC, "videostream %s: %s", m_identifier, __FUNCTION__);
 
-	if (m_pRender->HardwareQuirks() & QUIRK_CODEC_FLUSH_WORKAROUND) {
-		if (m_pDecoder->ReopenCodec(m_codecId, m_pPar, &m_timebase, 0))
-			LOGFATAL("videostream %s: Could not reopen the decoder (flush)!", __FUNCTION__);
+	if (m_hardwareQuirks & QUIRK_CODEC_FLUSH_WORKAROUND) {
+		if (m_pDecoder->ReopenCodec(m_codecId, m_pPar, m_timebase, 0))
+			LOGFATAL("videostream %s: %s: Could not reopen the decoder (flush)!", m_identifier, __FUNCTION__);
 	} else {
 		m_pDecoder->FlushBuffers();
 	}
@@ -274,7 +316,7 @@ void cVideoStream::DecodeInput(void)
 	AVFrame *frame = nullptr;
 	int ret = 0;
 
-	if (m_codecId == AV_CODEC_ID_NONE || m_packets.IsEmpty() || m_pRender->IsOutputBufferFull() || m_pRender->IsFilterInputBufferFull())
+	if (m_codecId == AV_CODEC_ID_NONE || m_packets.IsEmpty() || m_pDrmBufferQueue->IsFull() || m_pFilterThread->IsInputBufferFull())
 		return;
 
 	if (m_newStream) {
@@ -282,15 +324,15 @@ void cVideoStream::DecodeInput(void)
 		int height = 0;
 
 		// amlogic h264 decoder needs width an height for correct decoder open
-		if ((m_codecId == AV_CODEC_ID_H264) && (m_pRender->HardwareQuirks() & QUIRK_CODEC_NEEDS_EXT_INIT)) {
+		if ((m_codecId == AV_CODEC_ID_H264) && (m_hardwareQuirks & QUIRK_CODEC_NEEDS_EXT_INIT)) {
 			cH264Parser h264Parser(m_packets.Peek());
 			h264Parser.GetDimensions(&width, &height);
 
-			LOGDEBUG2(L_CODEC, "videostream %s: Parsed width %d height %d", __FUNCTION__, width, height);
+			LOGDEBUG2(L_CODEC, "videostream %s: %s: Parsed width %d height %d", m_identifier, __FUNCTION__, width, height);
 		}
 
-		if (m_pDecoder->Open(m_codecId, m_pPar, &m_timebase, 0, width, height))
-			LOGFATAL("videostream %s: Could not open the decoder!", __FUNCTION__);
+		if (m_pDecoder->Open(m_codecId, m_pPar, m_timebase, 0, width, height))
+			LOGFATAL("videostream %s: %s: Could not open the decoder!", m_identifier, __FUNCTION__);
 		m_newStream = false;
 	}
 
@@ -326,37 +368,13 @@ void cVideoStream::DecodeInput(void)
 	// receive frame from decoder
 	if (!m_newStream) { // this is for mediaplayer?
 		if (m_pDecoder->ReceiveFrame(&frame) == 0)
-			m_pRender->RenderFrame(m_pDecoder->GetContext(), frame);
+			RenderFrame(frame);
 	}
 
 	if (ret == AVERROR_EOF || flushDecoder) {
 		FlushDecoder();
 		m_sentTrickPkts = 0;
 	}
-}
-
-/**
- * Set the interlaced flag for the stream
- *
- * @param interlaced        true, if interlaced
- */
-void cVideoStream::SetInterlaced(bool interlaced)
-{
-//	LOGDEBUG("videostream %s: %d", __FUNCTION__, m_interlaced);
-	m_interlaced = interlaced;
-}
-
-/**
- * Set video size and aspect
- *
- * @param width            video stream width
- * @param height           video stream height
- */
-void cVideoStream::SetVideoSize(int width, int height)
-{
-	std::lock_guard<std::mutex> lock(m_mutex);
-	m_videoWidth = width;
-	m_videoHeight = height;
 }
 
 /**
@@ -369,14 +387,15 @@ void cVideoStream::SetVideoSize(int width, int height)
 void cVideoStream::GetVideoSize(int *width, int *height, double *aspect_ratio)
 {
 	std::lock_guard<std::mutex> lock(m_mutex);
-	*width = 0;
-	*height = 0;
-	*aspect_ratio = 1.0f;
 
-	if (m_videoWidth && m_videoHeight) {
-		*width = m_videoWidth;
-		*height = m_videoHeight;
-		*aspect_ratio = (double)(m_videoWidth) / (double)(m_videoHeight);
+	if (m_pDecoder && m_pDecoder->GetContext()) {
+		*width = m_pDecoder->GetContext()->coded_width;
+		*height = m_pDecoder->GetContext()->coded_height;
+		*aspect_ratio = *width / (double)*height;
+	} else {
+		*width = 0;
+		*height = 0;
+		*aspect_ratio = 0.0;
 	}
 }
 
@@ -389,6 +408,7 @@ void cVideoStream::GetVideoSize(int *width, int *height, double *aspect_ratio)
  */
 void cVideoStream::Open(AVCodecID codecId, AVCodecParameters *par, AVRational timebase) {
 	m_newStream = true;
+	m_trickpkts = codecId == AV_CODEC_ID_MPEG2VIDEO ? 1 : 2;
 	m_timebase = timebase;
 	m_codecId = codecId;
 	m_pPar = par;
@@ -399,19 +419,11 @@ void cVideoStream::Open(AVCodecID codecId, AVCodecParameters *par, AVRational ti
  ****************************************************************************/
 
 /**
- * Create and start the decoding thread
- */
-void cVideoStream::CreateDecodingThread(const char *name)
-{
-	m_pDecodingThread = new cDecodingThread(this, name);
-}
-
-/**
  * Stop decoding thread
  */
 void cVideoStream::ExitDecodingThread(void)
 {
-	LOGDEBUG("videostream: %s", __FUNCTION__);
+	LOGDEBUG("videostream %s: %s", m_identifier, __FUNCTION__);
 
 	if (m_pDecodingThread->Active())
 		m_pDecodingThread->Stop();
@@ -420,105 +432,74 @@ void cVideoStream::ExitDecodingThread(void)
 		delete m_pDecodingThread;
 }
 
-/*****************************************************************************
- * cMainVideoStream class
- ****************************************************************************/
-
 /**
- * cMainVideoStream constructor
+ * Stop filter thread
  */
-cMainVideoStream::cMainVideoStream(cSoftHdDevice *device) : cVideoStream(device)
-{
-	m_trickpkts = 1;
-	m_interlaced = 0;
+void cVideoStream::CancelFilterThread(void) {
+	if (m_pFilterThread->Active())
+		m_pFilterThread->Stop();
+
+	m_checkFilterThreadNeeded = true;
 }
 
 /**
- * Set the interlaced flag for the stream
+ * Render a frame
  *
- * @param interlaced        true, if interlaced
- */
-void cMainVideoStream::SetInterlaced(bool interlaced)
-{
-//	LOGDEBUG("videostream %s: %d", __FUNCTION__, m_interlaced);
-	m_interlaced = interlaced;
-	// H264 and HEVC need 2 interlaced packets to be sent to the decoder
-	// in trickspeed mode in order to get a decoded frame out
-	m_trickpkts = m_interlaced ? (m_codecId != AV_CODEC_ID_MPEG2VIDEO ? 2 : 1) : 1;
-}
-
-/**
- * Returns true, if the render buffer for main video frames is full
- */
-bool cMainVideoStream::IsBufferFull(void) const
-{
-	return m_pRender->IsBufferFull();
-}
-
-/**
- * Send AVFrame to the renderer
- */
-void cMainVideoStream::RenderFrame(AVFrame *frame)
-{
-	m_pRender->RenderFrame(m_pDecoder->GetContext(), frame);
-}
-
-/**
- * If in trickspeed, drain decoder if needed
+ * Frames either go through the filter thread or directly into the render buffer.
  *
- * In backward trickspeed force the decoder to decode the frame, if m_trickpkts are sent
- * m_trickpkts is the number of packets we need to have in the buffer
- * while in interlaced trickspeed mode, needed to get a frame.
- * This guarantees, that we don't drain the decoder too early, but exactly after
- * m_trickpkts sent packets
- *
- * This needs a check for AVERROR_EOF after receiving the frame (TrickspeedFlushDecoderBuffers())
+ * @param videoCtx      ffmpeg video codec context
+ * @param frame         frame to render
  */
-void cMainVideoStream::TrickspeedForceDecoderDrain(void)
+void cVideoStream::RenderFrame(AVFrame * frame)
 {
-	if (m_pRender->GetTrickSpeed() && !m_pRender->GetTrickForward()) {
-		m_sentTrickPkts++;
-		if (m_sentTrickPkts >= m_trickpkts) {
-			m_pDecoder->SendPacket(NULL);
-			m_sentTrickPkts = 0;
-		}
+	if (frame->decode_error_flags || frame->flags & AV_FRAME_FLAG_CORRUPT)
+		LOGWARNING("videorender: %s: %s: error_flag or FRAME_FLAG_CORRUPT", m_identifier, __FUNCTION__);
+
+	// Filter thread will only be started, if the lambda function returns true
+	if (m_checkFilterThreadNeeded) {
+		m_timebase = m_pDecoder->GetContext()->pkt_timebase;
+
+		// Enable the deinterlacer only if:
+		// - The user did not disable the deinterlacer
+		// - The deinterlacer is not temporarily deactivated (trickspeed and still picture)
+		// - A hardware quirk does not forbid using the deinterlacer
+		// - It is an interlaced stream, determined by:
+		//   - The codec is different from HEVC (always progressive)
+		//   - The framerate is lower or equal to 30fps
+		//   - Or, if the frame's interlaced flag is set
+		// We cannot solely rely on the frame's interlaced flag, because the deinterlacer shall also be enabled with mixed progressive/interlaced streams (e.g. TV station "ProSieben").
+
+		m_interlaced =
+			(m_pDecoder->GetContext()->codec_id != AV_CODEC_ID_HEVC &&
+			m_pDecoder->GetContext()->framerate.num > 0 &&
+			av_q2d(m_pDecoder->GetContext()->framerate) < 30.1) || isInterlacedFrame(frame); // account for rounding errors when comparing double
+
+		bool useDeinterlacer =
+			!m_userDisabledDeinterlacer &&
+			!m_deinterlacerDeactivated &&
+			!(m_hardwareQuirks & QUIRK_NO_HW_DEINT) &&
+			m_interlaced;
+
+		if (m_userDisabledDeinterlacer)
+			LOGDEBUG("videorender: %s: %s: deinterlacer disabled by user configuration", m_identifier, __FUNCTION__);
+
+		// Use the filter thread if:
+		// - AV_PIX_FMT_YUV420P, interlaced -> software deinterlacer (bwdif filter)
+		// - AV_PIX_FMT_YUV420P, progressive -> scale filter to get NV12 frames
+		// - AV_PIX_FMT_DRM_PRIME, interlaced, hw deinterlacer available -> hw deinterlacer
+		if (frame->format == AV_PIX_FMT_YUV420P || (frame->format == AV_PIX_FMT_DRM_PRIME && useDeinterlacer))
+			m_pFilterThread->InitAndStart(m_pDecoder->GetContext(), frame, useDeinterlacer);
+
+		m_checkFilterThreadNeeded = false;
 	}
-}
 
-/**
- * Flush the decoder if needed
- */
-void cMainVideoStream::TrickspeedFlushDecoderBuffers(void)
-{
-	if (m_pRender->GetTrickSpeed()) { // needs flush / reopen
-		FlushDecoder();
-		m_sentTrickPkts = 0;
+	if (m_pFilterThread->Active())
+		m_pFilterThread->PushFrame(frame);
+	else {
+		// AV_PIX_FMT_DRM_PRIME, interlaced, hw deinterlacer not available
+		// AV_PIX_FMT_DRM_PRIME, progressive
+		// -> put the frame directly into render buffer
+		if (!m_pFilterThread->GetNumFramesToFilter())
+			m_frameOutput(frame);
 	}
-}
-
-/*****************************************************************************
- * cPipVideoStream class
- ****************************************************************************/
-
-/**
- * cPipVideoStream constructor
- */
-cPipVideoStream::cPipVideoStream(cSoftHdDevice *device) : cVideoStream(device)
-{
-}
-
-/**
- * Returns true, if the render buffer for pip frames is full
- */
-bool cPipVideoStream::IsBufferFull(void) const
-{
-	return m_pRender->IsPipBufferFull();
-}
-
-/**
- * Send AVFrame to the renderer
- */
-void cPipVideoStream::RenderFrame(AVFrame *frame)
-{
-	m_pRender->RenderPipFrame(m_pDecoder->GetContext(), frame);
 }

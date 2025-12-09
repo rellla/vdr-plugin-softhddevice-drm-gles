@@ -55,7 +55,7 @@ struct BufferUnderrunEvent {
 };
 struct BufferingThresholdReachedEvent {};
 struct PipEvent {
-	enum PipState state;
+	PipState state;
 };
 
 using Event = std::variant<
@@ -68,7 +68,7 @@ using Event = std::variant<
     AttachEvent,
     BufferUnderrunEvent,
     BufferingThresholdReachedEvent,
-    PipEvent,
+    PipEvent
 >;
 
 class IEventReceiver

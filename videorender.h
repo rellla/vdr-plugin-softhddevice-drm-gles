@@ -29,7 +29,6 @@
 #include <xf86drmMode.h>
 
 extern "C" {
-#include <libavfilter/avfilter.h>
 #include <libavutil/hwcontext_drm.h>
 }
 
@@ -127,8 +126,6 @@ public:
 
 	void Init(void);
 	void Exit(void);
-	int HardwareQuirks(void) { return m_hardwareQuirks; };
-	void DisableDeint(bool disable) { m_userDisabledDeinterlacer = disable; };
 
 	void SetVideoOutputPosition(const cRect &);
 	void SetScreenSize(int, int, uint32_t);
@@ -137,8 +134,7 @@ public:
 	void ResetFrameCounter(void);
 	void Reset();
 	void SetPlaybackPaused(bool pause) { m_videoPlaybackPaused = pause; };
-	void SetDeinterlacerDeactivated(bool deactivate) { m_deinterlacerDeactivated = deactivate; };
-	bool IsDeinterlacerDeactivated(void) { return m_deinterlacerDeactivated; };
+
 	void SetScheduleAudioResume(bool resume) { m_resumeAudioScheduled = resume; };
 	void ProcessEvents(void);
 	void ResetBufferReuseStrategy() { delete m_bufferReuseStrategy; m_bufferReuseStrategy = nullptr; };
@@ -166,30 +162,23 @@ public:
 	void DisplayThreadHalt(void) { m_pDisplayThread->Halt(); };
 	void DisplayThreadResume(void) { m_pDisplayThread->Resume(); };
 
-	void CancelFilterThread(void);
-
 	// DRM
 	int DrmHandleEvent(void);
 
 	// Frame and buffer
-	void RenderFrame(AVCodecContext *, AVFrame *);
 	void DisplayFrame();
 	int GetFramesFilled(void) { return m_drmBufferQueue.Size(); };
-	void PushFrame(AVFrame *);
+	void PushMainFrame(AVFrame *);
+	void PushPipFrame(AVFrame *);
 	bool HasOutputPts(void);
 	int64_t GetOutputPtsMs(void);
-	bool IsInterlacedFrame(AVFrame *);
 	void DisplayBlackFrame(void);
 	void ClearDecoderToDisplayQueue(void);
-	bool IsFilterInputBufferFull(void) { return m_pFilterThread->IsInputBufferFull(); };
 	bool IsOutputBufferFull(void);
 	void SetDisplayOneFrameThenPause(bool pause) { m_displayOneFrameThenPause = pause; };
 	void SchedulePlaybackStartAtPtsMs(int64_t ptsMs) { m_schedulePlaybackStartAtPtsMs = ptsMs; };
-
-	// Filter
-	void ClearFramesToFilter(void) { m_numFramesToFilter = 0; };
-	void IncFramesToFilter(void) { m_numFramesToFilter++; };
-	void DecFramesToFilter(void) { m_numFramesToFilter--; };
+	cQueue<cDrmBuffer> *GetMainOutputBuffer(void) { return &m_drmBufferQueue; };
+	cQueue<cDrmBuffer> *GetPipOutputBuffer(void) { return &m_pipDrmBufferQueue; };
 
 #ifdef USE_GLES
 	// GLES
@@ -202,20 +191,9 @@ public:
 	int GlInitiated(void) { return m_pDrmDevice->GlInitiated(); };
 #endif
 
-	// pip
-	void PipRbPushFrame(AVFrame *);
-	AVFrame *PipRbGetFrame(void);
-	void PipFramesRbLock(void);
-	void PipFramesRbUnlock(void);
-	int GetPipFramesFilled(void) { return atomic_read(&m_pipFramesFilled); };
-	void PipEnqueueFB(AVFrame *);
-
+	// PIP
 	void SetPipActive(bool on) { m_pipActive = on; };
 	bool IsPipActive(void) { return m_pipActive; };
-	void RenderPipFrame(AVCodecContext *, AVFrame *);
-	bool IsPipBufferFull(void);
-	void CancelPipFilterThread(void);
-	void DestroyPipFrameBuffers(void);
 	void ClearPipDecoderToDisplayQueue(void);
 	void SetPipSize(bool);
 
@@ -224,26 +202,18 @@ private:
 	cSoftHdAudio *m_pAudio;             ///< pointer to cSoftHdAudio
 	cSoftHdConfig *m_pConfig;           ///< pointer to cSoftHdConfig
 	cDisplayThread *m_pDisplayThread;   ///< pointer to display thread
-	cFilterThread *m_pFilterThread;     ///< pointer to deinterlace filter thread
 	cMutex m_trickspeedMutex;           ///< mutex used while accessing trickspeed parameters
 	cMutex m_videoClockMutex;           ///< mutex used around m_pts
 	std::mutex m_drmBufferPeekMutex;    ///< mutex used while accessing the DRM buffer queue
 	std::vector<Event> m_eventQueue;    ///< event queue for incoming events
 
-	int m_hardwareQuirks;               ///< hardware specific quirks
-
-	cQueue<cDrmBuffer> m_drmBufferQueue{VIDEO_SURFACES_MAX};  ///< queue for DRM buffers to be displayed (VIDEO_SURFACES_MAX is defined in thread.h)
+	cQueue<cDrmBuffer> m_drmBufferQueue{VIDEO_SURFACES_MAX};     ///< queue for DRM buffers to be displayed (VIDEO_SURFACES_MAX is defined in thread.h)
+	cQueue<cDrmBuffer> m_pipDrmBufferQueue{VIDEO_SURFACES_MAX};  ///< queue for PIP DRM buffers to be displayed (VIDEO_SURFACES_MAX is defined in thread.h)
 	int m_trickSpeed;                   ///< current trick speed
 	bool m_trickForward;                ///< true, if trickspeed plays forward
 	int m_framePresentationCounter = 0; ///< number of times the current frame has to be shown (for slow motion)
-
-	int m_numFramesToFilter;            ///< number of frames to be filtered
-	bool m_userDisabledDeinterlacer = false; ///< set, if the user configured the deinterlace to be disabled
-	                                    ///< That way, we don't change the current render pipeline (RenderFrame())
 	int m_numWrongProgressive;          ///< counter for progressive frames sent in an interlaced stream
 	                                    ///< (only used for logging)
-	bool m_deinterlacerDeactivated = false; ///< set, if the deinterlacer shall be deactivated temporarily (used for trick speed and still picture)
-	bool m_checkFilterThreadNeeded;     ///< set, if we have to check, if filter thread is needed at start of playback
 
 	bool m_startgrab;                   ///< internal flag to trigger grabbing
 	cCondVar m_grabCond;                ///< condition gets signalled, if renederer finished to clone the grabbed buffers
@@ -270,7 +240,8 @@ private:
 	cDrmDevice *m_pDrmDevice;           ///< pointer cDrmDevice object
 	cDrmBuffer *m_pBufOsd;              ///< pointer to osd drm buffer object
 	cDrmBuffer m_bufBlack;              ///< black drm buffer object
-	cDrmBuffer *m_pCurrentlyDisplayed = nullptr; ///< pointer to currently displayed DRM buffer
+	cDrmBuffer *m_pCurrentlyDisplayed = nullptr;    ///< pointer to currently displayed DRM buffer
+	cDrmBuffer *m_pCurrentlyPipDisplayed = nullptr; ///< pointer to currently displayed DRM buffer
 	bool m_osdShown;                    ///< set, if osd is shown currently
 	std::atomic<bool> m_videoPlaybackPaused = true;		                  ///< set, if playback is frozen (used for pause)
 	std::atomic<bool> m_resumeAudioScheduled = false;                     ///< set, if audio resume is scheduled after a pause
@@ -279,8 +250,11 @@ private:
 
 	IEventReceiver *m_pEventReceiver;                                     ///< pointer to event receiver
 	cDrmBufferPool m_drmBufferPool;                                       ///< pool of drm buffers
+	cDrmBufferPool m_pipDrmBufferPool;                                    ///< PIP pool of drm buffers
 	std::atomic<cBufferStrategy *> m_bufferReuseStrategy = nullptr;       ///< strategy to select drm buffers
+	std::atomic<cBufferStrategy *> m_pipBufferReuseStrategy = nullptr;       ///< strategy to select drm buffers
 	std::atomic<cDecodingStrategy *> m_decodingStrategy = nullptr;        ///< strategy for decoding setup
+	std::atomic<cDecodingStrategy *> m_pipDecodingStrategy = nullptr;     ///< strategy for decoding setup
 
 #ifdef USE_GLES
 	bool m_disableOglOsd;               ///< set, if ogl osd is disabled
@@ -289,34 +263,15 @@ private:
 	struct gbm_bo *m_pNextBo;           ///< pointer to next gbm buffer object (for later free)
 #endif
 
-	AVFrame *m_pipFramesRb[VIDEO_SURFACES_MAX];  ///< ringbuffer for frames to be displayed (VIDEO_SURFACES_MAX is defined in thread.h)
-	int m_pipFramesWrite;                  ///< m_framesRb write pointer
-	int m_pipFramesRead;                   ///< m_framesRb read pointer
-	atomic_t m_pipFramesFilled;            ///< how many of m_framesRb is used
-	cMutex m_pipDisplayQueue;              ///< mutex used while accessing the render ringbuffer
-
-	cDrmBuffer *m_pCurrentlyPipDisplayed = nullptr; ///< pointer to currently displayed DRM buffer
-
-	cDrmBuffer m_pipBuffer[RENDERBUFFERS]; ///< array of video drm buffer objects
-	int m_numPipBuffers = 0;               ///< number of framebuffers currently set up
-	int m_enqueuePipBufferIdx;             ///< index of the current (sw) framebuffer in the array
 	std::atomic<bool> m_pipActive;         ///< true, if pip should be displayed
-	cPipFilterThread *m_pPipFilterThread;  ///< pointer to pip scale filter thread
-	bool m_checkPipFilterThreadNeeded = true;     ///< set, if we have to check, if pip filter thread is needed at start of playback
 
 	int GetFrameFlags(AVFrame *);
 	void SetFrameFlags(AVFrame *, int);
 	void SetVideoClock(int64_t);
-	void PageFlip(AVFrame *, cDrmBuffer *, AVFrame *, cDrmBuffer *, int);
-	void PageFlipBlack(cDrmBuffer *, AVFrame *);
-	void PageFlipOsd(cDrmBuffer *, AVFrame *);
-	void PageFlipVideo(cDrmBuffer *, cDrmBuffer *, AVFrame *);
-	void CopyNV12ToDrmBuffer(cDrmBuffer *, AVFrame *);
-	AVFrame *MakeDrmPrimeFrame(AVFrame *, cDrmBuffer *);
-	cDrmBuffer *AcquireSwDrmBuffer(cDrmBuffer *, int &, int &, int, int, int, int);
-	cDrmBuffer *GetBufferInternal(cDrmBuffer *, AVFrame *, bool);
-	cDrmBuffer *GetBuffer(AVFrame *);
-	cDrmBuffer *GetPipBuffer(AVFrame *);
+	void PageFlip(cDrmBuffer *, cDrmBuffer *, int);
+	void PageFlipBlack();
+	void PageFlipOsd(cDrmBuffer *);
+	void PageFlipVideo(cDrmBuffer *, cDrmBuffer *);
 	void SetVideoBuffer(cDrmBuffer *);
 	int SetOsdBuffer(drmModeAtomicReqPtr);
 	void SetPipBuffer(cDrmBuffer *);
@@ -324,6 +279,7 @@ private:
 	void Grab(cDrmBuffer *, cDrmBuffer *);
 	void LogDroppedDuped(int64_t, int64_t, int);
 	int64_t PtsToMs(int64_t);
+	void PushFrame(AVFrame *, bool, std::atomic<cBufferStrategy*> &, std::atomic<cDecodingStrategy*> &, cQueue<cDrmBuffer> *, cDrmBufferPool *);
 };
 
 #endif

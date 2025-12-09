@@ -21,16 +21,22 @@
 #ifndef __VIDEOSTREAM_H
 #define __VIDEOSTREAM_H
 
+#include <atomic>
+#include <functional>
 #include <vector>
 
 extern "C" {
+#include <libavfilter/avfilter.h>
 #include <libavcodec/avcodec.h>
+#include <libavutil/avutil.h>
 }
 
 #include "codec_video.h"
 #include "videorender.h"
 #include "pes.h"
 #include "threads.h"
+#include "drmbuffer.h"
+#include "queue.h"
 
 #define VIDEO_BUFFER_SIZE (512 * 1024)  ///< video PES buffer default size
 #define VIDEO_PACKET_MAX 192            ///< max number of video packets held in the buffer
@@ -44,11 +50,11 @@ class cVideoRender;
 class cVideoStream
 {
 public:
-	cVideoStream(cVideoRender *);
+	cVideoStream(cVideoRender *, cQueue<cDrmBuffer> *, cSoftHdConfig *, const char *, std::function<void(AVFrame *)>);
 	virtual ~cVideoStream(void);
 
 	void DecodeInput(void);
-	virtual bool IsInterlaced(void) { return false; };
+	bool IsInterlaced(void) { return false; };
 
 	void Open(AVCodecID, AVCodecParameters * = nullptr, AVRational = { .num = 1, .den = 90000 });
 	void Exit(void);
@@ -60,7 +66,7 @@ public:
 
 	// getters and setters
 	cVideoDecoder *Decoder(void) { return m_pDecoder; };
-	void StartDecoder(cVideoDecoder *decoder, const char *);
+	void StartDecoder();
 	size_t GetAvPacketsFilled(void) { return m_packets.Size(); };
 	bool IsInputBufferFull(void) { return m_packets.Size() >= VIDEO_PACKET_MAX; };
 	enum AVCodecID GetCodecId(void) { return m_codecId; };
@@ -68,79 +74,52 @@ public:
 	bool HasInputPts(void) { return m_inputPts != AV_NOPTS_VALUE; }
 	int64_t GetInputPtsMs(void);
 	int64_t GetInputPts(void) { return m_inputPts; };
-	void SetVideoSize(int, int);
 	void GetVideoSize(int *, int *, double *);
 
 	// decoding thread
-	void CreateDecodingThread(const char *);
 	void ExitDecodingThread(void);
 	void DecodingThreadHalt(void) { m_pDecodingThread->Halt(); };
 	void DecodingThreadResume(void) { m_pDecodingThread->Resume(); };
 
-protected:
-	cVideoDecoder *m_pDecoder;             ///< video decoder
-	cVideoRender *m_pRender;               ///< video renderer
+	// Filter
+	void CancelFilterThread(void);
+	void ResetFilterThreadNeededCheck() { m_checkFilterThreadNeeded = true; };
+
+	void SetDeinterlacerDeactivated(bool deactivate) { m_deinterlacerDeactivated = deactivate; };
+	bool IsDeinterlacerDeactivated(void) { return m_deinterlacerDeactivated; };
+	int HardwareQuirks(void) { return m_hardwareQuirks; };
+	void DisableDeint(bool disable) { m_userDisabledDeinterlacer = disable; };
+
+private:
+	cVideoDecoder *m_pDecoder;          ///< video decoder
+	cVideoRender *m_pRender;            ///< video renderer
+	cFilterThread *m_pFilterThread;     ///< pointer to deinterlace filter thread
+	const char *m_identifier;           ///< identifier string for logging
+	std::string m_filterThreadName;     ///< filter thread name string (persists for object lifetime)
+	std::string m_decodingThreadName;   ///< decoding thread name string (persists for object lifetime)
+	std::function<void(AVFrame *)> m_frameOutput;   ///< function to output the frame
+	cQueue<cDrmBuffer> *m_pDrmBufferQueue;          ///< pointer to renderer's DRM buffer queue
+
+	bool m_checkFilterThreadNeeded;     ///< set, if we have to check, if filter thread is needed at start of playback
+	int m_hardwareQuirks;               ///< hardware specific quirks
+	bool m_userDisabledDeinterlacer = false; ///< set, if the user configured the deinterlace to be disabled
+	bool m_deinterlacerDeactivated = false; ///< set, if the deinterlacer shall be deactivated temporarily (used for trick speed and still picture)
 
 	cQueue<AVPacket> m_packets{VIDEO_PACKET_MAX}; ///< AVPackets queue
 
 	enum AVCodecID m_codecId = AV_CODEC_ID_NONE;  ///< current codec id
 	AVCodecParameters *m_pPar = nullptr;   ///< current codec parameters
-	struct AVRational m_timebase;          ///< current codec timebase
-	int64_t m_inputPts = AV_NOPTS_VALUE;   ///< PTS of the first packet in the input buffer
-	volatile bool m_newStream;             ///< flag for new stream
-
-	void TryInitDecoder(void);             ///< init/ open the decoder if necessary
-	bool CanDecodePacket(void);            ///< is the codec open and we have packets?
-
-	virtual bool IsBufferFull(void) const = 0;
-	virtual void RenderFrame(AVFrame *) = 0;
-
-	virtual void TrickspeedForceDecoderDrain(void) {}
-	virtual void TrickspeedFlushDecoderBuffers(void) {}
-
-private:
-	cDecodingThread *m_pDecodingThread;    ///< pointer to decoding thread	int64_t m_inputPts = AV_NOPTS_VALUE;   ///< PTS of the first packet in the input buffer
-
-	int m_videoWidth;                      ///< current video width (set by decoder)
-	int m_videoHeight;                     ///< current video height (set by decoder)
-	std::mutex m_mutex;                    ///< mutex to lock video size (which is accessed by different threads)
-};
-
-/**
- * cMainVideoStream - Main video stream class
- */
-class cMainVideoStream : public cVideoStream
-{
-public:
-	cMainVideoStream(cSoftHdDevice *);
-
-	void SetInterlaced(bool);
-	bool IsInterlaced(void) { return m_interlaced; };
-	void ResetTrickSpeedFramesSentCounter(void) { m_sentTrickPkts = 0; };
-
-protected:
-	bool IsBufferFull(void) const override;
-	void RenderFrame(AVFrame *) override;
-	void TrickspeedForceDecoderDrain(void) override;
-	void TrickspeedFlushDecoderBuffers(void) override;
-
-private:
+	std::atomic<struct AVRational> m_timebase;          ///< current codec timebase
+	int m_trickpkts;                       ///< how many avpkt does the decoder need in trickspeed mode?
 	int m_sentTrickPkts = 0;               ///< how many avpkt have been sent to the decoder in trickspeed mode?
-	int m_trickpkts = 1;                   ///< how many avpkt does the decoder need in trickspeed mode?
-	bool m_interlaced = 0;                 ///< flag for interlaced stream
-};
+	volatile bool m_newStream;             ///< flag for new stream
+	bool m_interlaced;                     ///< flag for interlaced stream
 
-/**
- * cPipVideoStream - Pip video stream class
- */
-class cPipVideoStream : public cVideoStream
-{
-public:
-	cPipVideoStream(cSoftHdDevice *);
+	cDecodingThread *m_pDecodingThread;    ///< pointer to decoding thread
+	int64_t m_inputPts = AV_NOPTS_VALUE;   ///< PTS of the first packet in the input buffer
+	std::mutex m_mutex;  // TODO                  ///< mutex to lock video size (which is accessed by different threads)
 
-protected:
-	bool IsBufferFull(void) const override;
-	void RenderFrame(AVFrame *) override;
+	void RenderFrame(AVFrame *);
 };
 
 #endif

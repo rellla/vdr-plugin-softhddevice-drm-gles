@@ -21,10 +21,13 @@
 #define __THREADS_H
 
 #include <mutex>
+#include <functional>
 
 #include "vdr/thread.h"
 #include "queue.h"
 #include "misc.h"
+#include "drmbuffer.h"
+#include "queue.h"
 
 class cSoftHdDevice;
 class cVideoStream;
@@ -96,39 +99,28 @@ protected:
 class cFilterThread : public cThread
 {
 public:
-	cFilterThread(cVideoRender *);
+	cFilterThread(cVideoRender *, cQueue<cDrmBuffer> *, const char *, std::function<void(AVFrame *)>);
 	virtual ~cFilterThread(void);
 	void InitAndStart(const AVCodecContext *, AVFrame *, bool);
 	void Stop(void);
-	bool PushFrame(AVFrame *);
+	void PushFrame(AVFrame *);
 	bool IsInputBufferFull(void) { return m_frames.IsFull(); };
+	int GetNumFramesToFilter(void) { return m_numFramesToFilter; };
 
-protected:
+private:
 	cVideoRender *m_pRender;
 
 	AVFilterGraph *m_pFilterGraph;
 	AVFilterContext *m_pBuffersrcCtx;
 	AVFilterContext *m_pBuffersinkCtx;
 
-	bool m_filterBug;                             ///< flag for a ffmpeg bug
+	bool m_filterBug;                               ///< flag for a ffmpeg bug
+	cQueue<AVFrame> m_frames{VIDEO_SURFACES_MAX};   ///< queue for frames to be filtered
+	std::function<void(AVFrame *)> m_frameOutput;   ///< function to output the frame
+	cQueue<cDrmBuffer> *m_pDrmBufferQueue;          ///< pointer to renderer's DRM buffer queue
+	int m_numFramesToFilter = 0;                    ///< number of frames to be filtered
 
-	cQueue<AVFrame> m_frames{VIDEO_SURFACES_MAX}; ///< queue for frames to be filtered
-	virtual void Action(void);
-	virtual void IncreaseFramesToFilter(AVFrame *);
-	virtual int RenderFrame(AVFrame *);
-};
-
-/**
- * Pip filter thread class
- */
-class cPipFilterThread : public cFilterThread
-{
-public:
-	cPipFilterThread(cVideoRender *);
-
-protected:
-	void IncreaseFramesToFilter([[maybe_unused]] AVFrame *frame) override {}
-	int RenderFrame(AVFrame *) override;
+	void Action(void);
 };
 
 #endif

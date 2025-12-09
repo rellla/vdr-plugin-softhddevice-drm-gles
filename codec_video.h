@@ -33,18 +33,19 @@ extern "C" {
  */
 class cVideoDecoder {
 public:
-	cVideoDecoder(int);
+	cVideoDecoder(int, const char *);
 	virtual ~cVideoDecoder(void);
-	int Open(enum AVCodecID, AVCodecParameters *, AVRational *, int, int, int);
+	int Open(enum AVCodecID, AVCodecParameters *, AVRational, int, int, int);
 	void Close(void);
 	int SendPacket(const AVPacket *);
-	int ReceiveFrame(AVFrame **, int &, int &);
+	int ReceiveFrame(AVFrame **);
 	void FlushBuffers(void);
-	int ReopenCodec(enum AVCodecID, AVCodecParameters *, AVRational *, int);
+	int ReopenCodec(enum AVCodecID, AVCodecParameters *, AVRational, int);
 	AVCodecContext *GetContext(void) { return m_pVideoCtx; };
 
 private:
 	AVCodecContext *m_pVideoCtx = nullptr;  ///< video codec context
+	const char *m_identifier;               ///< identifier for logging
 	cMutex m_mutex;                         ///< mutex to lock codec context (TODO: is this needed?)
 	int m_cntPacketsSent;                   ///< number of packets sent to decoder
 	int m_cntFramesReceived;                ///< number of decoded frames received from decoder
@@ -57,7 +58,6 @@ private:
 
 	int GetExtraData(const AVPacket *);
 	bool IsKeyFrame(AVFrame *);
-	bool IsInterlacedFrame(AVFrame *);
 };
 
 #endif

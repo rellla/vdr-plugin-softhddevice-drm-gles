@@ -146,11 +146,11 @@ void cMenuSetupSoft::Create(void)
 	if (m_cVideoMenu) {
 		Add(new cMenuEditBoolItem(tr("Disable deinterlacer"), &m_cDisableDeint, trVDR("no"), trVDR("yes")));
 		Add(SeparatorName(tr("Picture-in-picture")));
-		Add(new cMenuEditIntItem(tr(" video scale rate (%)"), &m_cPipScalePercent, 10, 100));
+		Add(new cMenuEditIntItem(tr(" video scaling factor (%)"), &m_cPipScalePercent, 10, 100));
 		Add(new cMenuEditIntItem(tr(" video left (%)"), &m_cPipLeftPercent, 0, 100));
 		Add(new cMenuEditIntItem(tr(" video top (%)"), &m_cPipTopPercent, 0, 100));
 		Add(new cMenuEditBoolItem(tr(" use alternative position as default"), &m_cPipUseAlt, trVDR("no"), trVDR("yes")));
-		Add(new cMenuEditIntItem(tr(" alternative video scale rate (%)"), &m_cPipAltScalePercent, 10, 100));
+		Add(new cMenuEditIntItem(tr(" alternative video scaling factor (%)"), &m_cPipAltScalePercent, 10, 100));
 		Add(new cMenuEditIntItem(tr(" alternative video left (%)"), &m_cPipAltLeftPercent, 0, 100));
 		Add(new cMenuEditIntItem(tr(" alternative video top (%)"), &m_cPipAltTopPercent, 0, 100));
 	}
@@ -162,7 +162,6 @@ void cMenuSetupSoft::Create(void)
 	if (m_cAudio) {
 		Add(new cMenuEditIntItem(tr("Audio/Video delay (ms)"), &m_cAudioDelay, -1000, 1000));
 		Add(new cMenuEditBoolItem(tr("Volume control"), &m_cAudioSoftvol, tr("Hardware"), tr("Software")));
-		Add(new cMenuEditIntItem(tr("Audio buffer size (ms)"), &m_cAudioBufferTime, 0, 1000));
 		Add(new cMenuEditBoolItem(tr("Enable normalize volume"), &m_cAudioNormalize, trVDR("no"), trVDR("yes")));
 		if (m_cAudioNormalize)
 			Add(new cMenuEditIntItem(tr("  Max normalize factor (/1000)"), &m_cAudioMaxNormalize, 0, 10000));
@@ -341,7 +340,6 @@ cMenuSetupSoft::cMenuSetupSoft(cSoftHdDevice *device)
 	m_cAudio = 0;
 	m_cAudioDelay              = m_pConfig->ConfigVideoAudioDelayMs;
 	m_cAudioSoftvol            = m_pConfig->ConfigAudioSoftvol;
-	m_cAudioBufferTime         = m_pConfig->ConfigAudioBufferTime;
 	m_cAudioNormalize          = m_pConfig->ConfigAudioNormalize;
 	m_cAudioMaxNormalize       = m_pConfig->ConfigAudioMaxNormalize;
 	m_cAudioCompression        = m_pConfig->ConfigAudioCompression;
@@ -443,11 +441,8 @@ void cMenuSetupSoft::Store(void)
 	// Audio
 	//
 	SetupStore("AudioDelay", m_pConfig->ConfigVideoAudioDelayMs = m_cAudioDelay);
-	m_pDevice->SetVideoAudioDelayMs(m_pConfig->ConfigVideoAudioDelayMs);
 	SetupStore("AudioSoftvol", m_pConfig->ConfigAudioSoftvol = m_cAudioSoftvol);
 	m_pAudioDevice->SetSoftvol(m_pConfig->ConfigAudioSoftvol);
-	SetupStore("AudioBufferTime", m_pConfig->ConfigAudioBufferTime = m_cAudioBufferTime);
-	m_pAudioDevice->SetBufferTimeMs(m_pConfig->ConfigAudioBufferTime);
 	SetupStore("AudioNormalize", m_pConfig->ConfigAudioNormalize = m_cAudioNormalize);
 	SetupStore("AudioMaxNormalize", m_pConfig->ConfigAudioMaxNormalize = m_cAudioMaxNormalize);
 	m_pAudioDevice->SetNormalize(m_pConfig->ConfigAudioNormalize, m_pConfig->ConfigAudioMaxNormalize);

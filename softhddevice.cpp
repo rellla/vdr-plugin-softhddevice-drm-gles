@@ -27,6 +27,7 @@
 #define __USE_GNU
 #endif
 
+#include <functional>
 #include <mutex>
 #include <variant>
 
@@ -283,6 +284,7 @@ void cSoftHdDevice::OnEventReceived(const Event& event)
 					m_pAudio->LazyInit();
 					SetState(BUFFERING);
 					m_pRender->ResetFrameCounter();
+					m_pVideoStream->ResetFilterThreadNeededCheck();
 				},
 				[&invalid](const PauseEvent&) { invalid(); },
 				[&invalid](const StopEvent&) { invalid(); },
@@ -350,6 +352,9 @@ void cSoftHdDevice::OnEventReceived(const Event& event)
 						LOGFATAL("device: buffering threshold reached and no a/v available. This is a bug.");
 
 					SetState(PLAY);
+				},
+				[this](const PipEvent& p) {
+					HandlePip(p.state);
 				},
 			}, event);
 			break;
@@ -493,13 +498,13 @@ void cSoftHdDevice::OnEnteringState(State state) {
 			break;
 		case TRICK_SPEED:
 			// The filter thread needs to be restarted for interlaced streams to be rendered without deinterlacer in trick speed mode. It is started lazily.
-			m_pRender->CancelFilterThread();
+			m_pVideoStream->CancelFilterThread();
 			m_pRender->SetPlaybackPaused(false);
-			m_pRender->SetDeinterlacerDeactivated(true);
+			m_pVideoStream->SetDeinterlacerDeactivated(true);
 			m_pRender->ResetBufferReuseStrategy();
 			break;
 		case STOP:
-			m_pRender->CancelFilterThread();
+			m_pVideoStream->CancelFilterThread();
 			m_pRender->DisplayBlackFrame();
 			m_pRender->Reset();
 			m_playbackMode = NONE;
@@ -515,7 +520,7 @@ void cSoftHdDevice::OnEnteringState(State state) {
 			break;
 		case STILL_PICTURE:
 			m_pRender->SetPlaybackPaused(false);
-			m_pRender->SetDeinterlacerDeactivated(true);
+			m_pVideoStream->SetDeinterlacerDeactivated(true);
 			break;
 		case DETACHED:
 			// resume the previously stopped threads
@@ -529,9 +534,7 @@ void cSoftHdDevice::OnEnteringState(State state) {
 			m_pAudio->Exit();
 			m_pRender->Exit(); // render must be stopped before videostream!
 			m_pVideoStream->Exit();
-#ifdef USE_GLES
-			m_pOsdProvider->StopOpenGlThread();
-#endif
+
 			delete m_pAudioDecoder; // includes a Close()
 			delete m_pVideoStream;
 			delete m_pRender;
@@ -561,10 +564,11 @@ void cSoftHdDevice::OnLeavingState(State state) {
 			break;
 		case TRICK_SPEED:
 			// The filter thread needs to be restarted for interlaced streams to be rendered with deinterlacer again. It is started lazily.
-			m_pRender->CancelFilterThread();
+			m_pVideoStream->CancelFilterThread();
 			m_pRender->SetTrickSpeed(0, 1);
 			m_pRender->ResetFrameCounter();
-			m_pRender->SetDeinterlacerDeactivated(false);
+			m_pVideoStream->ResetFilterThreadNeededCheck();
+			m_pVideoStream->SetDeinterlacerDeactivated(false);
 			m_pRender->SetPlaybackPaused(true);
 			m_pRender->ResetBufferReuseStrategy();
 			m_pVideoStream->ResetTrickSpeedFramesSentCounter();
@@ -574,18 +578,18 @@ void cSoftHdDevice::OnLeavingState(State state) {
 			m_receivedVideo = false;
 			break;
 		case STILL_PICTURE:
-			m_pRender->SetDeinterlacerDeactivated(false);
+			m_pVideoStream->SetDeinterlacerDeactivated(false);
 			m_pRender->SetPlaybackPaused(true);
 			break;
 		case DETACHED:
 			m_pAudio = new cSoftHdAudio(this);
 			m_pRender = new cVideoRender(this);
-			m_pVideoStream = new cMainVideoStream(this);
+			m_pVideoStream = new cVideoStream(m_pRender, m_pRender->GetMainOutputBuffer(), m_pConfig, "main", std::bind(&cVideoRender::PushMainFrame, m_pRender, std::placeholders::_1));
 			m_pAudioDecoder = new cAudioDecoder(m_pAudio);
 			m_pRender->Init(); // starts display thread
-			m_pVideoStream->StartDecoder(new cVideoDecoder(m_pRender->HardwareQuirks()), "shd vid decode"); // starts decoding thread
-			m_pPipStream = new cPipVideoStream(this);
-			m_pPipStream->StartDecoder(new cVideoDecoder(m_pRender->HardwareQuirks()), "shd pip decode"); // starts decoding thread
+			m_pVideoStream->StartDecoder(); // starts decoding thread
+			m_pPipStream = new cVideoStream(m_pRender, m_pRender->GetPipOutputBuffer(), m_pConfig, "PIP", std::bind(&cVideoRender::PushPipFrame, m_pRender, std::placeholders::_1));
+			m_pPipStream->StartDecoder(); // starts decoding thread
 			// Audio is init lazily (includes starting thread)
 			break;
 	}
@@ -691,7 +695,7 @@ void cSoftHdDevice::Clear(void)
 	m_pVideoStream->DecodingThreadHalt();
 
 	m_pRender->SetDisplayOneFrameThenPause(true);
-	m_pRender->CancelFilterThread();
+	m_pVideoStream->CancelFilterThread();
 
 	m_videoReassemblyBuffer.Reset();
 	m_pVideoStream->ClearVdrCoreToDecoderQueue();
@@ -1578,8 +1582,8 @@ void cSoftHdDevice::SetEnableOglOsd(void)
  */
 void cSoftHdDevice::SetDisableDeint(void)
 {
-	if (m_pRender)
-		m_pRender->DisableDeint(m_pConfig->ConfigDisableDeint);
+	if (m_pVideoStream)
+		m_pVideoStream->DisableDeint(m_pConfig->ConfigDisableDeint);
 }
 
 /**
@@ -1980,8 +1984,7 @@ void cSoftHdDevice::DelPip(void)
 	LOGDEBUG("pip: %s: deleting receiver for channel (%d) %s", __FUNCTION__, m_pPipChannel->Number(), m_pPipChannel->Name());
 
 	m_pPipStream->DecodingThreadHalt();
-	m_pRender->CancelPipFilterThread();
-	m_pRender->DestroyPipFrameBuffers();
+	m_pPipStream->CancelFilterThread();
 	m_pipReassemblyBuffer.Reset();
 	m_pPipStream->ClearVdrCoreToDecoderQueue();
 	m_pRender->ClearPipDecoderToDisplayQueue();

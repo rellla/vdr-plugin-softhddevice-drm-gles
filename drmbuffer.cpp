@@ -335,8 +335,8 @@ void cDrmBuffer::Setup(int drmDeviceFd, uint32_t width, uint32_t height, uint32_
 
 		m_numPlanes = format_info->num_planes;
 
-//		LOGDEBUG2(L_DRM, "drmbuffer: %s:  %d x %d, pix_fmt %4.4s nb_planes %d", __FUNCTION__,
-//			m_width, m_height, (char *)&m_pixFmt, m_numPlanes);
+		// LOGDEBUG2(L_DRM, "drmbuffer: %s:  %d x %d, pix_fmt %4.4s nb_planes %d", __FUNCTION__,
+		// 	m_width, m_height, (char *)&m_pixFmt, m_numPlanes);
 
 		for (int plane = 0; plane < format_info->num_planes; plane++) {
 			const struct format_plane_info *plane_info = &format_info->planes[plane];
