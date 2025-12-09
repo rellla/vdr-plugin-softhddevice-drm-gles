@@ -52,6 +52,12 @@ jobs:
         cd vdr
         make include-dir vdr.pc
         make -C PLUGINS/src/softhddevice-drm-gles INCLUDES="-isystem `pwd`/include -Werror" GLES=1
+        cd PLUGINS/src/softhddevice-drm-gles
+        if ! git diff --quiet -- po/*.po; then
+          echo "ERROR: The translation files need to be updated:"
+          git --no-pager diff -- po/*.po
+          exit 1
+        fi
       continue-on-error: false
 
     - name: Upload build artifacts
