@@ -138,10 +138,9 @@ void cVideoRender::ClearDecoderToDisplayQueue(void)
 void cVideoRender::ClearPipDecoderToDisplayQueue(void)
 {
 	m_pipDrmBufferQueue.Clear();
-	m_pipDrmBufferPool.DestroyAllExcept(m_pCurrentlyPipDisplayed);
+	m_pipDrmBufferPool.DestroyAllExcept(nullptr);
 
-	if (m_pCurrentlyPipDisplayed)
-		m_pCurrentlyPipDisplayed->SetDestroyAfterUse(true);
+	m_pCurrentlyPipDisplayed = nullptr;
 }
 
 struct sRect {
@@ -673,10 +672,12 @@ void cVideoRender::DisplayFrame()
 		PageFlipBlack();
 	}
 
-	if (m_pCurrentlyPipDisplayed)
-		m_pCurrentlyPipDisplayed->PresentationFinished();
+	if (pipBuf) {
+		if (m_pCurrentlyPipDisplayed && m_pCurrentlyPipDisplayed != pipBuf)
+			m_pCurrentlyPipDisplayed->PresentationFinished();
 
-	m_pCurrentlyPipDisplayed = pipBuf;
+		m_pCurrentlyPipDisplayed = pipBuf;
+	}
 
 	m_framePresentationCounter--;
 }
