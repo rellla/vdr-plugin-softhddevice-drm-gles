@@ -360,6 +360,7 @@ See keymacros.conf how to setup the macros.
 
 
 Currently supported:  
+
 	@softhddevice-drm-gles Blue 1      Toggle pip
 	@softhddevice-drm-gles Blue 2      Pip channel +
 	@softhddevice-drm-gles Blue 3      Pip channel -
