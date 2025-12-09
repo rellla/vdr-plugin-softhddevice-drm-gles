@@ -1341,9 +1341,7 @@ void cVideoRender::Init(void)
 	if (!m_pBufOsd)
 		m_pBufOsd = new cDrmBuffer();
 
-	if (m_pBufOsd->Setup(m_pDrmDevice->Fd(), m_pDrmDevice->DisplayWidth(), m_pDrmDevice->DisplayHeight(), DRM_FORMAT_ARGB8888, NULL)) {
-		LOGFATAL("videorender: %s: SetupFB FB OSD failed!", __FUNCTION__);
-	}
+	m_pBufOsd->Setup(m_pDrmDevice->Fd(), m_pDrmDevice->DisplayWidth(), m_pDrmDevice->DisplayHeight(), DRM_FORMAT_ARGB8888, NULL);
 #else
 	if (m_disableOglOsd) {
 		if (!m_pBufOsd)
