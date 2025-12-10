@@ -165,6 +165,7 @@ public:
 	//
 	const char *CommandLineHelp(void);  // wrapped by cPluginSoftHdDevice::CommandLineHelp()
 	int ProcessArgs(int, char *[]);     // wrapped by cPluginSoftHdDevice::ProcessArgs()
+	void Stop(void);
 
 	//
 	// cSoftHdDevice public methods

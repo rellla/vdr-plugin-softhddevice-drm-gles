@@ -160,8 +160,16 @@ cSoftHdDevice::cSoftHdDevice(cSoftHdConfig *config)
 cSoftHdDevice::~cSoftHdDevice(void)
 {
 	LOGDEBUG("device: %s:", __FUNCTION__);
-	OnEventReceived(DetachEvent{});
 	delete m_pSpuDecoder;
+}
+
+/**
+ * Called by VDR when the plugin is stopped.
+ */
+void cSoftHdDevice::Stop(void)
+{
+	LOGDEBUG("device: %s", __FUNCTION__);
+	OnEventReceived(DetachEvent{});
 }
 
 /**
@@ -266,7 +274,7 @@ void cSoftHdDevice::OnEventReceived(const Event& event)
 				[&invalid](const StopEvent&) { invalid(); },
 				[&invalid](const TrickSpeedEvent&) { invalid(); },
 				[&invalid](const StillPictureEvent&) { invalid(); },
-				[&invalid](const DetachEvent&) { invalid(); },
+				[](const DetachEvent&) { /* ignore */ },
 				[this](const AttachEvent&) {
 					SetState(STOP);
 				},
