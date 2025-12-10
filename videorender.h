@@ -257,13 +257,13 @@ private:
 	std::atomic<cDecodingStrategy *> m_pipDecodingStrategy = nullptr;     ///< strategy for decoding setup
 
 #ifdef USE_GLES
-	bool m_disableOglOsd;               ///< set, if ogl osd is disabled
-	struct gbm_bo *m_bo;                ///< pointer to current gbm buffer object
-	struct gbm_bo *m_pOldBo;            ///< pointer to old gbm buffer object (for later free)
-	struct gbm_bo *m_pNextBo;           ///< pointer to next gbm buffer object (for later free)
+	bool m_disableOglOsd;                      ///< set, if ogl osd is disabled
+	struct gbm_bo *m_bo;                       ///< pointer to current gbm buffer object
+	struct gbm_bo *m_pOldBo;                   ///< pointer to old gbm buffer object (for later free)
+	struct gbm_bo *m_pNextBo;                  ///< pointer to next gbm buffer object (for later free)
 #endif
 
-	std::atomic<bool> m_pipActive;         ///< true, if pip should be displayed
+	std::atomic<bool> m_pipActive = false;     ///< true, if pip should be displayed
 
 	int GetFrameFlags(AVFrame *);
 	void SetFrameFlags(AVFrame *, int);
