@@ -599,7 +599,7 @@ void cVideoRender::DisplayFrame()
 
 		{
 			std::lock_guard<std::mutex> lock(m_drmBufferPeekMutex);
-			if (!m_videoPlaybackPaused)
+			if (!m_videoPlaybackPaused || m_schedulePlaybackStartAtPtsMs != AV_NOPTS_VALUE)
 				drmBuffer = m_drmBufferQueue.Pop();
 		}
 	}
@@ -612,8 +612,10 @@ void cVideoRender::DisplayFrame()
 			if (PtsToMs(drmBuffer->frame->pts) < m_schedulePlaybackStartAtPtsMs) {
 				drmBuffer->PresentationFinished();
 				return;
-			} else
+			} else {
 				m_schedulePlaybackStartAtPtsMs = AV_NOPTS_VALUE;
+				m_videoPlaybackPaused = false;
+			}
 		} else if (!m_displayOneFrameThenPause) {
 			// A/V sync
 			int64_t audioPtsMs = m_pAudio->GetHardwareOutputPtsMs();
