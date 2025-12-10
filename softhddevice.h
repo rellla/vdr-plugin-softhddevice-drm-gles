@@ -207,6 +207,8 @@ public:
 	void Detach(void);
 	void Attach(void);
 	bool IsDetached(void) const;
+	void ResetOsdProvider(void) { m_pOsdProvider = nullptr; }
+	bool IsOsdProviderSet(void) const { return m_pOsdProvider != nullptr; }
 
 	bool IsBufferingThresholdReached(void);
 

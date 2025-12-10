@@ -318,11 +318,6 @@ cSoftOsdProvider::cSoftOsdProvider(cSoftHdDevice *device) : cOsdProvider()
 {
 	LOGDEBUG2(L_OSD, "osdprovider: %s:", __FUNCTION__);
 	m_pDevice = device;
-
-#ifdef USE_GLES
-	if (!m_pDevice->OglOsdIsDisabled())
-		StopOpenGlThread();
-#endif
 }
 
 /**
@@ -331,10 +326,14 @@ cSoftOsdProvider::cSoftOsdProvider(cSoftHdDevice *device) : cOsdProvider()
 cSoftOsdProvider::~cSoftOsdProvider()
 {
 	LOGDEBUG2(L_OSD, "osdprovider %s:", __FUNCTION__);
+
+	if (m_pDevice->IsOsdProviderSet()) {
+		m_pDevice->ResetOsdProvider();
 #ifdef USE_GLES
-	if (!m_pDevice->OglOsdIsDisabled())
-		StopOpenGlThread();
+		if (!m_pDevice->OglOsdIsDisabled())
+			StopOpenGlThread();
 #endif
+	}
 }
 
 /**

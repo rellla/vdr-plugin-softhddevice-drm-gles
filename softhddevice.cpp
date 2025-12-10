@@ -189,8 +189,6 @@ void cSoftHdDevice::MakePrimaryDevice(bool on)
 		OnEventReceived(DetachEvent{});
 
 	cDevice::MakePrimaryDevice(on);
-	if (on)
-		m_pOsdProvider = new cSoftOsdProvider(this); // no need to delete it, VDR does it
 }
 
 /**
@@ -535,6 +533,11 @@ void cSoftHdDevice::OnEnteringState(State state) {
 			m_pRender->Exit(); // render must be stopped before videostream!
 			m_pVideoStream->Exit();
 
+#ifdef USE_GLES
+			if (m_pOsdProvider) // can be deleted by VDR already
+				m_pOsdProvider->StopOpenGlThread();
+#endif
+
 			delete m_pAudioDecoder; // includes a Close()
 			delete m_pVideoStream;
 			delete m_pRender;
@@ -591,6 +594,9 @@ void cSoftHdDevice::OnLeavingState(State state) {
 			m_pPipStream = new cVideoStream(m_pRender, m_pRender->GetPipOutputBuffer(), m_pConfig, "PIP", std::bind(&cVideoRender::PushPipFrame, m_pRender, std::placeholders::_1));
 			m_pPipStream->StartDecoder(); // starts decoding thread
 			// Audio is init lazily (includes starting thread)
+
+			if (!m_pOsdProvider)
+				m_pOsdProvider = new cSoftOsdProvider(this); // no need to delete it, VDR does it
 			break;
 	}
 }
