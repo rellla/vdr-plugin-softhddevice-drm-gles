@@ -163,7 +163,7 @@ bool cPluginSoftHdDevice::Start(void)
 {
 //	LOGDEBUG("plugin: %s:", __FUNCTION__);
 
-	return true;
+	return m_pDevice->Start();
 }
 
 /**
@@ -174,6 +174,8 @@ bool cPluginSoftHdDevice::Start(void)
 void cPluginSoftHdDevice::Stop(void)
 {
 	//LOGDEBUG("plugin: %s:", __FUNCTION__);
+
+	m_pDevice->Stop();
 }
 
 /**
@@ -295,11 +297,6 @@ cString cPluginSoftHdDevice::SVDRPCommand(const char *command, const char *optio
 		LOGDEBUG("plugin: %s: SVDRPCommand: %s %s", __FUNCTION__, command, option);
 		if (m_pDevice->IsDetached())
 			return "SoftHdDevice is already detached";
-
-		if (m_pDevice->Replaying()) {
-			LOGDEBUG("plugin: %s: Device is replaying, stop replay first", __FUNCTION__);
-			m_pDevice->StopReplay();
-		}
 
 		m_pDevice->Detach();
 		return "Detached SoftHdDevice";
