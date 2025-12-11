@@ -220,9 +220,9 @@ int cDrmPlane::HasZpos(int fdDrm)
 /**
  * Dump the plane parameter modesetting values
  */
-void cDrmPlane::DumpParameters(void)
+void cDrmPlane::DumpParameters(const char *id)
 {
-	LOGERROR("DumpParameters (plane_id = %d):", GetId());
+	LOGERROR("DumpParameters (plane_id = %d | %s):", GetId(), id);
 	LOGERROR("  CRTC ID: %" PRIu64 "",          GetCrtcId());
 	LOGERROR("  FB ID  : %" PRIu64 "",          GetFbId());
 	LOGERROR("  CRTC X : %" PRIu64 "",          GetCrtcX());

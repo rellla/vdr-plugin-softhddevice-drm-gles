@@ -445,11 +445,11 @@ int cVideoRender::CommitBuffer(cDrmBuffer *buf, cDrmBuffer *pip)
 	// do the atomic commit
 	if (drmModeAtomicCommit(fdDrm, modeReq, flags, NULL) != 0) {
 		if (modeSet & MODESET_OSD)
-			osdPlane->DumpParameters();
+			osdPlane->DumpParameters("osd");
 		if (modeSet & MODESET_VIDEO)
-			videoPlane->DumpParameters();
+			videoPlane->DumpParameters("video");
 		if (modeSet & MODESET_PIP)
-			pipPlane->DumpParameters();
+			pipPlane->DumpParameters("pip");
 
 		drmModeAtomicFree(modeReq);
 		LOGERROR("videorender: %s: page flip failed (%d): %m", __FUNCTION__, errno);
@@ -1411,9 +1411,9 @@ void cVideoRender::Init(void)
 
 	if (drmModeAtomicCommit(m_pDrmDevice->Fd(), modeReq, flags, NULL) != 0) {
 #ifndef USE_GLES
-		osdPlane->DumpParameters();
+		osdPlane->DumpParameters("osd");
 #endif
-		videoPlane->DumpParameters();
+		videoPlane->DumpParameters("video");
 
 		drmModeAtomicFree(modeReq);
 		LOGFATAL("videorender: %s: cannot set atomic mode (%d): %m", __FUNCTION__, errno);

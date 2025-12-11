@@ -34,7 +34,7 @@ public:
 	void SetParams(uint64_t, uint64_t,
 	               uint64_t, uint64_t, uint64_t, uint64_t,
 	               uint64_t, uint64_t, uint64_t, uint64_t);
-	void DumpParameters(void);
+	void DumpParameters(const char *);
 	void FillProperties(int);
 	void FreeProperties(void);
 	void SetPlaneZpos(drmModeAtomicReqPtr);
