@@ -905,8 +905,13 @@ void cSoftHdDevice::SetVideoFormat(bool videoFormat16_9)
 void cSoftHdDevice::GetVideoSize(int &width, int &height, double &aspectRatio)
 {
 //	LOGDEBUG("device: %s: %d x %d @ %f", __FUNCTION__, *width, *height, *aspectRatio);
-	if (IsDetached())
+
+	if (IsDetached()) { // return default values according to vdr docs
+		width = 0;
+		height = 0;
+		aspectRatio = 1.0;
 		return;
+	}
 
 	m_pVideoStream->GetVideoSize(&width, &height, &aspectRatio);
 }
@@ -918,8 +923,12 @@ void cSoftHdDevice::GetVideoSize(int &width, int &height, double &aspectRatio)
  */
 void cSoftHdDevice::GetOsdSize(int &width, int &height, double &aspectRatio)
 {
-	if (IsDetached())
+	if (IsDetached()) { // hardcode to 1920x1080 in detached state
+		width = 1920;
+		height = 1080;
+		aspectRatio = (double)width / (double)height;
 		return;
+	}
 
 	std::lock_guard<std::mutex> lock(m_sizeMutex);
 	width = m_screenWidth;
