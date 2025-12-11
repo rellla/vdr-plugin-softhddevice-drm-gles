@@ -371,12 +371,11 @@ void cVideoRender::Grab(cDrmBuffer *buf, cDrmBuffer *pip)
  * Commit the frame to the hardware
  *
  * @param buf        video drm buffer
- * @param osdOnly    commit only osd
  *
  * @retval 0         modesetting and commit was done, need to process outstanding DRM events
  * @retval -1        no modesetting and commit was done
  */
-int cVideoRender::CommitBuffer(cDrmBuffer *buf, cDrmBuffer *pip, int osdOnly)
+int cVideoRender::CommitBuffer(cDrmBuffer *buf, cDrmBuffer *pip)
 {
 	enum modeSetLevel {
 		MODESET_OSD   = (1 << 0),
@@ -398,7 +397,7 @@ int cVideoRender::CommitBuffer(cDrmBuffer *buf, cDrmBuffer *pip, int osdOnly)
 	}
 
 	// handle the video plane
-	if (!osdOnly) {
+	if (buf) {
 		SetVideoBuffer(buf);
 		videoPlane->SetPlane(modeReq);
 		modeSet |= MODESET_VIDEO;
@@ -532,9 +531,9 @@ void cVideoRender::SetFrameFlags(AVFrame *frame, int flags)
  * @param frame     AVFrame
  * @param buf       drm buffer
  */
-void cVideoRender::PageFlip(cDrmBuffer *buf, cDrmBuffer *pipBuf, int osdOnly)
+void cVideoRender::PageFlip(cDrmBuffer *buf, cDrmBuffer *pipBuf)
 {
-	if (CommitBuffer(buf, pipBuf, osdOnly) < 0) {
+	if (CommitBuffer(buf, pipBuf) < 0) {
 		// no modesetting was done
 		if (buf && buf->frame)
 			av_frame_free(&buf->frame);
@@ -545,7 +544,7 @@ void cVideoRender::PageFlip(cDrmBuffer *buf, cDrmBuffer *pipBuf, int osdOnly)
 			LOGERROR("threads: display thread: drmHandleEvent failed!");
 
 		// now, that we had a successful commit, set the STC if we have a frame. Skip if only the OSD was updated.
-		if (buf && buf->frame && !osdOnly) {
+		if (buf && buf->frame) {
 			if (buf->frame->pts != AV_NOPTS_VALUE)
 				SetVideoClock(buf->frame->pts);
 
@@ -560,7 +559,7 @@ void cVideoRender::PageFlip(cDrmBuffer *buf, cDrmBuffer *pipBuf, int osdOnly)
  */
 void cVideoRender::PageFlipBlack()
 {
-	PageFlip(&m_bufBlack, NULL, 0);
+	PageFlip(&m_bufBlack, NULL);
 }
 
 /**
@@ -568,7 +567,7 @@ void cVideoRender::PageFlipBlack()
  */
 void cVideoRender::PageFlipOsd(cDrmBuffer *pipBuf)
 {
-	PageFlip(NULL, pipBuf, 1);
+	PageFlip(NULL, pipBuf);
 }
 
 /**
@@ -579,7 +578,7 @@ void cVideoRender::PageFlipOsd(cDrmBuffer *pipBuf)
  */
 void cVideoRender::PageFlipVideo(cDrmBuffer *buf, cDrmBuffer *pipBuf)
 {
-	PageFlip(buf, pipBuf, 0);
+	PageFlip(buf, pipBuf);
 }
 
 /**
@@ -661,12 +660,14 @@ void cVideoRender::DisplayFrame()
 
 		m_lastFrameWasDropped = false;
 		m_pCurrentlyDisplayed = drmBuffer;
-	} else if ((m_pBufOsd && m_pBufOsd->IsDirty())) {
-		PageFlipOsd(pipBuf);
 	} else if (!m_drmBufferQueue.IsEmpty() && !m_videoPlaybackPaused && m_pCurrentlyDisplayed) {
 		// display the current frame again in trick speed mode or for A/V syncing.
 		PageFlipVideo(m_pCurrentlyDisplayed, pipBuf);
-	} else if (pipBuf || m_startgrab) {
+	} else if (!m_drmBufferQueue.IsEmpty() && m_pCurrentlyDisplayed) {
+		PageFlipVideo(m_pCurrentlyDisplayed, pipBuf);
+	} else if ((m_pBufOsd && m_pBufOsd->IsDirty()) || pipBuf) {
+		PageFlipOsd(pipBuf);
+	} else if (m_startgrab) {
 		PageFlipBlack();
 	}
 

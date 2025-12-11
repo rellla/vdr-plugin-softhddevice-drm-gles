@@ -266,14 +266,14 @@ private:
 	int GetFrameFlags(AVFrame *);
 	void SetFrameFlags(AVFrame *, int);
 	void SetVideoClock(int64_t);
-	void PageFlip(cDrmBuffer *, cDrmBuffer *, int);
+	void PageFlip(cDrmBuffer *, cDrmBuffer *);
 	void PageFlipBlack();
 	void PageFlipOsd(cDrmBuffer *);
 	void PageFlipVideo(cDrmBuffer *, cDrmBuffer *);
 	void SetVideoBuffer(cDrmBuffer *);
 	int SetOsdBuffer(drmModeAtomicReqPtr);
 	void SetPipBuffer(cDrmBuffer *);
-	int CommitBuffer(cDrmBuffer *, cDrmBuffer *, int);
+	int CommitBuffer(cDrmBuffer *, cDrmBuffer *);
 	void Grab(cDrmBuffer *, cDrmBuffer *);
 	void LogDroppedDuped(int64_t, int64_t, int);
 	int64_t PtsToMs(int64_t);
