@@ -139,10 +139,18 @@ void cAudioThread::Action(void)
 {
 	LOGDEBUG("threads: audio thread started");
 	while (Running()) {
-		m_pAudio->CyclicCall();
+		bool sleep = !m_pAudio->CyclicCall();
 		m_pAudio->ProcessEvents();
 
-		usleep(10000);
+		// auto i = m_pAudio->GetHardwareOutputPtsMs();
+
+		// if (i != AV_NOPTS_VALUE)
+		// 	LOGINFO("Current audio PTS: %s", Timestamp2String(i, 1));
+
+		if (sleep) {
+			LOGINFO("SLEEPING");
+			// usleep(10000);
+		}
 	}
 	LOGDEBUG("threads: audio thread stopped");
 }

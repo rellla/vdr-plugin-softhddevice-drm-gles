@@ -23,6 +23,8 @@
  * GNU Affero General Public License for more details.}
  */
 
+ #include <algorithm>
+
 #include <stdint.h>
 #include <math.h>
 
@@ -948,7 +950,11 @@ int64_t cSoftHdAudio::GetHardwareOutputPtsMs(void)
 		delaySamples = 0L;
 	}
 
-	return GetOutputPtsMsInternal() - (int64_t)delaySamples * 1000 / m_hwSampleRate;
+	int delayMs = (int64_t)delaySamples * 1000 / m_hwSampleRate;
+
+	LOGINFO("Current audio PTS: %s delay: %dms", Timestamp2String(GetOutputPtsMsInternal(), 1), delayMs);
+
+	return GetOutputPtsMsInternal() - delayMs;
 }
 
 /**
@@ -1014,7 +1020,19 @@ void cSoftHdAudio::SetPaused(bool pause)
 			if (ret)
 				LOGERROR("audio: %s: snd_pcm_pause(): %s", __FUNCTION__, snd_strerror(ret));
 		}
-	}
+	} else if (!pause)
+		FlushAlsaBuffers();
+}
+
+void cSoftHdAudio::UnpauseAfterMs(int64_t delayMs)
+{
+	std::lock_guard<std::mutex> lock(m_mutex);
+
+	m_playSilenceForMs = delayMs;
+	FlushAlsaBuffers();
+
+	if (delayMs == 0)
+		m_paused = false;
 }
 
 /**
@@ -1166,52 +1184,66 @@ void cSoftHdAudio::FlushAlsaBuffers(void)
  * Handles audio output to ALSA, writing samples from the ring buffer
  * to the hardware when space is available.
  */
-void cSoftHdAudio::CyclicCall()
+bool cSoftHdAudio::CyclicCall()
 {
-	if (m_paused || !m_pAlsaPCMHandle)
-		return;
+	if (!m_pAlsaPCMHandle)
+		return false;
 
 	// wait for space in kernel buffers
 	int ret = snd_pcm_wait(m_pAlsaPCMHandle, 150);
 	if (ret < 0) {
+		LOGINFO("1 ret: %s", snd_strerror(ret));
 		ret = snd_pcm_recover(m_pAlsaPCMHandle, ret, 0);
-		return;
+		return false;
 	} else if (ret == 0) {
 		LOGDEBUG2(L_SOUND, "audio: %s: snd_pcm_wait timeout", __FUNCTION__);
-		return;
+		return false;
 	}
 
 	std::lock_guard<std::mutex> lock(m_mutex);
-
-	// check if paused while waiting for kernel buffer space
-	if (m_paused)
-		return;
 
 	// how many bytes can be written?
 	ret = snd_pcm_avail(m_pAlsaPCMHandle);
 	if (ret < 0) {
 		if (ret == -EAGAIN)
-			return;
+			return false;
 
 		if (snd_pcm_recover(m_pAlsaPCMHandle, ret, 0) < 0)
 			LOGERROR("audio: %s: failed to recover from snd_pcm_avail: %s", __FUNCTION__, snd_strerror(ret));
 
 		LOGERROR("audio: %s: snd_pcm_avail(): %s", __FUNCTION__, snd_strerror(ret));
-		return;
+		return false;
 	}
 
 	int alsaBufferFreeBytes = snd_pcm_frames_to_bytes(m_pAlsaPCMHandle, ret);
 
 	const void *data;
-	size_t inputBufferFillLevel = m_pRingbuffer.GetReadPointer(&data);
+	size_t inputBufferFillLevel;
+	if (m_playSilenceForMs > 0) {
+		int silenceBytes = std::min(MsToBytes(m_playSilenceForMs), alsaBufferFreeBytes);
 
-	if (inputBufferFillLevel == 0)
-		m_eventQueue.push_back(BufferUnderrunEvent{AUDIO});
+		inputBufferFillLevel = silenceBytes;
+		data = m_silenceBuffer;
+
+		m_playSilenceForMs -= BytesToMs(silenceBytes);
+		LOGINFO("silence: %dms", BytesToMs(silenceBytes));
+
+		if (m_playSilenceForMs == 0)
+			m_paused = false;
+	} else if (m_paused) {
+		inputBufferFillLevel = sizeof(m_silenceBuffer);
+		data = m_silenceBuffer;
+	} else {
+		inputBufferFillLevel = m_pRingbuffer.GetReadPointer(&data);
+
+		if (inputBufferFillLevel == 0)
+			m_eventQueue.push_back(BufferUnderrunEvent{AUDIO});
+	}
 
 	int bytesToWrite = std::min(alsaBufferFreeBytes, (int)inputBufferFillLevel);
 
 	if (bytesToWrite == 0)
-		return;
+		return false;
 
 	// muting pass-through AC-3, can produce disturbance
 	if (m_volume == 0 || (m_softVolume && !m_passthrough)) {
@@ -1222,17 +1254,31 @@ void cSoftHdAudio::CyclicCall()
 
 	int framesToWrite = snd_pcm_bytes_to_frames(m_pAlsaPCMHandle, bytesToWrite);
 
+	int bytesToWriteRecalc = snd_pcm_frames_to_bytes(m_pAlsaPCMHandle, framesToWrite); // recalc bytes, alsa may round it
+
+	LOGINFO("audio: %s: writing %d bytes (%dms) to alsa device", __FUNCTION__, bytesToWriteRecalc, BytesToMs(bytesToWriteRecalc));
+
 	if (m_alsaUseMmap)
 		ret = snd_pcm_mmap_writei(m_pAlsaPCMHandle, data, framesToWrite);
 	else
 		ret = snd_pcm_writei(m_pAlsaPCMHandle, data, framesToWrite);
 
-	m_pRingbuffer.ReadAdvance(bytesToWrite);
+	if (!m_paused) {
+		m_pRingbuffer.ReadAdvance(bytesToWrite);
+
+		if (snd_pcm_state(m_pAlsaPCMHandle) == SND_PCM_STATE_PREPARED) {
+			LOGINFO("starting");
+			if (snd_pcm_start(m_pAlsaPCMHandle) < 0) {
+				LOGERROR("audio: %s: snd_pcm_start() failed", __FUNCTION__);
+				return false;
+			}
+		}
+	}
 
 	if (ret != framesToWrite) {
 		if (ret < 0) {
 			if (ret == -EAGAIN)
-				return;
+				return false;
 
 			LOGWARNING("audio: %s: writei failed: %s", __FUNCTION__, snd_strerror(ret));
 
@@ -1241,6 +1287,8 @@ void cSoftHdAudio::CyclicCall()
 		} else
 			LOGWARNING("audio: %s: not all frames written", __FUNCTION__);
 	}
+
+	return true;
 }
 
 /**

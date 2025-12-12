@@ -30,6 +30,7 @@
 #include <functional>
 #include <mutex>
 #include <variant>
+#include <algorithm>
 
 #include <assert.h>
 #include <unistd.h>
@@ -368,11 +369,29 @@ void cSoftHdDevice::OnEventReceived(const Event& event)
 			std::visit(overload{
 				[this](const PlayEvent&) {
 					// resume from pause
-					if (m_playbackMode == AUDIO_ONLY)
-						m_pAudio->SetPaused(false);
-					else {
-						m_pRender->SetScheduleAudioResume(true);
-						m_pRender->SetPlaybackPaused(false);
+					int audioBehindVideoByMs;
+					switch (m_playbackMode) {
+						case AUDIO_ONLY:
+							m_pAudio->SetPaused(false);
+							break;
+						case VIDEO_ONLY:
+							m_pRender->SetPlaybackPaused(false);
+							break;
+						case AUDIO_AND_VIDEO:
+							audioBehindVideoByMs = m_pRender->GetOutputPtsMs() - m_pAudio->GetOutputPtsMs() - m_pConfig->ConfigVideoAudioDelayMs;
+							LOGDEBUG2(L_AV_SYNC, "device: delay %dms: audio %s, video %s", audioBehindVideoByMs, Timestamp2String(m_pAudio->GetOutputPtsMs(), 1), Timestamp2String(m_pRender->GetOutputPtsMs(), 1));
+							if (audioBehindVideoByMs > 0) {
+								m_pAudio->DropSamplesOlderThanPtsMs(m_pAudio->GetOutputPtsMs() + audioBehindVideoByMs);
+								m_pAudio->SetPaused(false);
+							} else {
+								m_pAudio->UnpauseAfterMs(std::abs(audioBehindVideoByMs));
+							}
+
+							m_pRender->SetPlaybackPaused(false);
+							break;
+						case NONE:
+							LOGFATAL("device: play event in PLAY state with NONE playback mode. This is a bug.");
+							break;
 					}
 				},
 				[this](const PauseEvent&) {
@@ -498,7 +517,7 @@ void cSoftHdDevice::OnEnteringState(State state) {
 			if (m_playbackMode == AUDIO_ONLY)
 				m_pAudio->SetPaused(false);
 			else {
-				m_pRender->SetScheduleAudioResume(true);
+				m_pAudio->SetPaused(false);
 				m_pRender->SetPlaybackPaused(false);
 			}
 			break;
@@ -567,7 +586,6 @@ void cSoftHdDevice::OnLeavingState(State state) {
 		case PLAY:
 			m_pRender->SchedulePlaybackStartAtPtsMs(AV_NOPTS_VALUE);
 			m_pRender->SetPlaybackPaused(true);
-			m_pRender->SetScheduleAudioResume(false);
 			m_pAudio->SetPaused(true);
 			break;
 		case BUFFERING:
@@ -989,9 +1007,9 @@ int cSoftHdDevice::PlayAudio(const uchar *data, int size, uchar id)
 		return size;
 	}
 
-	static int64_t lastPts = AV_NOPTS_VALUE;
-	LOGINFO("PlayAudio: PTS %s diff %s", Timestamp2String(pesPacket.GetPts(), 90), lastPts != AV_NOPTS_VALUE && pesPacket.HasPts() ? Timestamp2String(pesPacket.GetPts() - lastPts, 90) : "N/A");
-	lastPts = pesPacket.GetPts();
+	// static int64_t lastPts = AV_NOPTS_VALUE;
+	// LOGINFO("PlayAudio: PTS %s diff %s", Timestamp2String(pesPacket.GetPts(), 90), lastPts != AV_NOPTS_VALUE && pesPacket.HasPts() ? Timestamp2String(pesPacket.GetPts() - lastPts, 90) : "N/A");
+	// lastPts = pesPacket.GetPts();
 
 	if (m_audioChannelID != id) {
 		m_audioChannelID = id;
