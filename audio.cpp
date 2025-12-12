@@ -583,31 +583,6 @@ int cSoftHdAudio::InitFilter(AVCodecContext *audioCtx)
 }
 
 /******************************************************************************
- * Audio ringbuffer
- *****************************************************************************/
-
-/**
- * Setup audio ringbuffer
- */
-void cSoftHdAudio::InitRingbuffer(void)
-{
-	// ~2s 8ch 16bit
-	m_pRingbuffer = new cSoftHdRingbuffer(m_ringBufferSize);
-}
-
-/**
- * Cleanup audio ringbuffer
- */
-void cSoftHdAudio::ExitRingbuffer(void)
-{
-	if (m_pRingbuffer) {
-		delete m_pRingbuffer;
-		m_pRingbuffer = nullptr;
-	}
-	m_hwSampleRate = 0;	// checked for valid setup
-}
-
-/******************************************************************************
  * Audio stream handling
  *****************************************************************************/
 
@@ -633,7 +608,7 @@ void cSoftHdAudio::DropSamplesOlderThanPtsMs(int64_t ptsMs)
 	int frames = dropBytes / frameSize;
 	dropBytes = frames * frameSize;
 
-	dropBytes = std::min(dropBytes, (int)m_pRingbuffer->UsedBytes());
+	dropBytes = std::min(dropBytes, (int)m_pRingbuffer.UsedBytes());
 
 	if (dropBytes > 0) {
 		LOGDEBUG2(L_AV_SYNC, "audio: %s: dropping %dms audio samples to start in sync with the video (output PTS %s -> %s, target PTS %s)",
@@ -643,7 +618,7 @@ void cSoftHdAudio::DropSamplesOlderThanPtsMs(int64_t ptsMs)
 			Timestamp2String(GetOutputPtsMsInternal() + BytesToMs(dropBytes), 1),
 			Timestamp2String(ptsMs, 1));
 
-		m_pRingbuffer->ReadAdvance(dropBytes);
+		m_pRingbuffer.ReadAdvance(dropBytes);
 	}
 }
 
@@ -686,7 +661,7 @@ void cSoftHdAudio::Enqueue(uint16_t *buffer, int count, AVFrame *frame)
 {
 	std::lock_guard<std::mutex> lock(m_mutex);
 
-	size_t n = m_pRingbuffer->Write((const uint16_t *)buffer, count);
+	size_t n = m_pRingbuffer.Write((const uint16_t *)buffer, count);
 	if (n != (size_t) count)
 		LOGERROR("audio: %s: can't place %d samples in ring buffer", __FUNCTION__, count);
 
@@ -899,7 +874,7 @@ void cSoftHdAudio::FlushBuffers(void)
 	if (m_inputPts != AV_NOPTS_VALUE)
 		FlushAlsaBuffers();
 
-	m_pRingbuffer->Reset();
+	m_pRingbuffer.Reset();
 	m_inputPts = AV_NOPTS_VALUE;
 	m_filterChanged = 1;
 }
@@ -911,7 +886,7 @@ int cSoftHdAudio::GetFreeBytes(void)
 {
 	std::lock_guard<std::mutex> lock(m_mutex);
 
-	return m_pRingbuffer ? m_pRingbuffer->FreeBytes() : INT32_MAX;
+	return m_pRingbuffer.FreeBytes();
 }
 
 /**
@@ -920,7 +895,7 @@ int cSoftHdAudio::GetFreeBytes(void)
 int cSoftHdAudio::GetUsedBytes(void)
 {
 	// FIXME: not correct, if multiple buffer are in use
-	return m_pRingbuffer ? m_pRingbuffer->UsedBytes() : 0;
+	return m_pRingbuffer.UsedBytes();
 }
 
 /**
@@ -944,7 +919,7 @@ int64_t cSoftHdAudio::GetOutputPtsMs(void)
 
 int64_t cSoftHdAudio::GetOutputPtsMsInternal(void)
 {
-	return PtsToMs(m_inputPts) - BytesToMs(m_pRingbuffer->UsedBytes());
+	return PtsToMs(m_inputPts) - BytesToMs(m_pRingbuffer.UsedBytes());
 }
 
 /**
@@ -1101,7 +1076,6 @@ void cSoftHdAudio::SetPassthrough(int mask)
 void cSoftHdAudio::LazyInit()
 {
 	if (!m_initialized) {
-		InitRingbuffer();
 		AlsaInit();
 		m_pAudioThread = new cAudioThread(this);
 
@@ -1124,7 +1098,6 @@ void cSoftHdAudio::Exit(void)
 		avfilter_graph_free(&m_pFilterGraph);
 
 		AlsaExit();
-		ExitRingbuffer();
 	}
 	m_initialized = false;
 }
@@ -1230,7 +1203,7 @@ void cSoftHdAudio::CyclicCall()
 	int alsaBufferFreeBytes = snd_pcm_frames_to_bytes(m_pAlsaPCMHandle, ret);
 
 	const void *data;
-	size_t inputBufferFillLevel = m_pRingbuffer->GetReadPointer(&data);
+	size_t inputBufferFillLevel = m_pRingbuffer.GetReadPointer(&data);
 
 	if (inputBufferFillLevel == 0)
 		m_eventQueue.push_back(BufferUnderrunEvent{AUDIO});
@@ -1254,7 +1227,7 @@ void cSoftHdAudio::CyclicCall()
 	else
 		ret = snd_pcm_writei(m_pAlsaPCMHandle, data, framesToWrite);
 
-	m_pRingbuffer->ReadAdvance(bytesToWrite);
+	m_pRingbuffer.ReadAdvance(bytesToWrite);
 
 	if (ret != framesToWrite) {
 		if (ret < 0) {

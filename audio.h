@@ -54,7 +54,7 @@ public:
 	bool IsPaused(void) { return m_paused; };
 	void Filter(AVFrame *, AVCodecContext *);
 	void Enqueue(uint16_t *, int, AVFrame *);
-	bool IsBufferFull(void) { return m_pRingbuffer->FreeBytes() <= AUDIO_MIN_BUFFER_FREE; }
+	bool IsBufferFull(void) { return m_pRingbuffer.FreeBytes() <= AUDIO_MIN_BUFFER_FREE; }
 
 	void FlushBuffers(void);
 	int GetUsedBytes(void);
@@ -150,16 +150,13 @@ private:
 	int CheckForFilterReady(AVCodecContext *);
 
 	// ring buffer variables
-	cSoftHdRingbuffer *m_pRingbuffer = nullptr;                 ///< sample ring buffer
-	const unsigned m_ringBufferSize = 3 * 5 * 7 * 8 * 2 * 1000; ///< default ring buffer size ~2s 8ch 16bit (3 * 5 * 7 * 8)
+	static constexpr unsigned RINGBUFFER_SIZE = 3 * 5 * 7 * 8 * 2 * 1000; ///< default ring buffer size ~2s 8ch 16bit (3 * 5 * 7 * 8)
+	cSoftHdRingbuffer m_pRingbuffer{RINGBUFFER_SIZE};                     ///< sample ring buffer
 
 	void Normalize(uint16_t *, int);
 	void Compress(uint16_t *, int);
 	void SoftAmplify(int16_t *, int);
 	int InitFilter(AVCodecContext *);
-
-	void InitRingbuffer(void);
-	void ExitRingbuffer(void);
 
 	void EnqueueFrame(AVFrame *);
 
