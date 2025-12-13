@@ -887,19 +887,16 @@ int64_t cSoftHdAudio::GetHardwareOutputPtsMs(void)
 	if (!m_hwSampleRate || !m_pAlsaPCMHandle || m_inputPts == AV_NOPTS_VALUE)
 		return AV_NOPTS_VALUE;
 
-	// delay in frames in alsa + kernel buffers
-	snd_pcm_sframes_t delaySamples;
-	if (snd_pcm_delay(m_pAlsaPCMHandle, &delaySamples) < 0)
-		delaySamples = 0L;
+	snd_pcm_sframes_t delayFrames;
+	if (snd_pcm_delay(m_pAlsaPCMHandle, &delayFrames) < 0)
+		delayFrames = 0L;
 
-	if (delaySamples < 0) {
+	if (delayFrames < 0) {
 		LOGDEBUG2(L_SOUND, "audio: %s: delay < 0", __FUNCTION__);
-		delaySamples = 0L;
+		delayFrames = 0L;
 	}
 
-	int delayMs = (int64_t)delaySamples * 1000 / m_hwSampleRate;
-
-	return GetOutputPtsMsInternal() - delayMs;
+	return GetOutputPtsMsInternal() - FramesToMs(delayFrames);
 }
 
 /**
