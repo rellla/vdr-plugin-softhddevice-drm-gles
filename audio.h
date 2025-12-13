@@ -180,12 +180,11 @@ private:
 	void AlsaSetVolume(int);
 	void AlsaInit(void);
 	void AlsaExit(void);
-	int MsToFrames(int);
-	int FramesToMs(int);
-	int BytesToMs(int);
-	int MsToBytes(int);
-	int64_t PtsToMs(int64_t);
-	int64_t MsToPts(int64_t);
+	int64_t PtsToMs(int64_t pts) { return pts * av_q2d(*m_pTimebase) * 1000; }
+	int64_t MsToPts(int64_t ptsMs) { return ptsMs / av_q2d(*m_pTimebase) / 1000; }
+	int MsToFrames(int milliseconds) { return (int64_t)milliseconds * m_hwSampleRate / 1000; }
+	int FramesToMs(int frames) { return (int64_t)frames * 1000 / m_hwSampleRate; }
+
 	int64_t GetOutputPtsMsInternal(void);
 };
 

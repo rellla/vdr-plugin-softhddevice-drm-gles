@@ -603,21 +603,15 @@ void cSoftHdAudio::DropSamplesOlderThanPtsMs(int64_t ptsMs)
 	if (!HasPts())
 		return;
 
-	int dropBytes = MsToBytes(std::max((int64_t)0, ptsMs - GetOutputPtsMsInternal()));
-
-	// The bytes to drop must be a multiple of the frame size (channels * bytes per sample)
-	int frameSize = m_hwNumChannels * m_bytesPerSample;
-	int frames = dropBytes / frameSize;
-	dropBytes = frames * frameSize;
+	int dropBytes = snd_pcm_frames_to_bytes(m_pAlsaPCMHandle, MsToFrames(std::max((int64_t)0, ptsMs - GetOutputPtsMsInternal())));
 
 	dropBytes = std::min(dropBytes, (int)m_pRingbuffer.UsedBytes());
 
 	if (dropBytes > 0) {
-		LOGDEBUG2(L_AV_SYNC, "audio: %s: dropping %dms audio samples to start in sync with the video (output PTS %s -> %s, target PTS %s)",
+		LOGDEBUG2(L_AV_SYNC, "audio: %s: dropping %dms audio samples to start in sync with the video (output PTS %s -> %s)",
 			__FUNCTION__,
-			BytesToMs(dropBytes),
+			ptsMs,
 			Timestamp2String(GetOutputPtsMsInternal(), 1),
-			Timestamp2String(GetOutputPtsMsInternal() + BytesToMs(dropBytes), 1),
 			Timestamp2String(ptsMs, 1));
 
 		m_pRingbuffer.ReadAdvance(dropBytes);
@@ -812,61 +806,6 @@ void cSoftHdAudio::Filter(AVFrame *inframe, AVCodecContext *ctx)
 }
 
 /**
- * Convert PTS to milliseconds
- *
- * @param pts     presentation timestamp in timebase units
- * @return time in milliseconds
- */
-int64_t cSoftHdAudio::PtsToMs(int64_t pts) {
-	return pts * av_q2d(*m_pTimebase) * 1000;
-}
-
-/**
- * Convert milliseconds to PTS
- *
- * @param pts     presentation timestamp in milliseconds
- * @return time in timebase units
- */
-int64_t cSoftHdAudio::MsToPts(int64_t ptsMs) {
-	return ptsMs / av_q2d(*m_pTimebase) / 1000;
-}
-
-/**
- * Convert milliseconds to byte count in hardware audio format
- *
- * Calculates how many bytes are needed to represent the given duration
- * in the current hardware audio format (sample rate, channels, bit depth).
- *
- * @param milliseconds     duration in milliseconds
- * @return byte count
- */
-int cSoftHdAudio::MsToBytes(int milliseconds) {
-	return (int64_t)milliseconds * m_hwSampleRate * m_hwNumChannels * m_bytesPerSample / 1000;
-}
-
-int cSoftHdAudio::MsToFrames(int milliseconds) {
-	return (int64_t)milliseconds * m_hwSampleRate / 1000;
-}
-
-int cSoftHdAudio::FramesToMs(int frames) {
-	return (int64_t)frames * 1000 / m_hwSampleRate;
-}
-
-/**
- * Convert byte count to milliseconds in hardware audio format
- *
- * Calculates the duration represented by the given number of bytes
- * in the current hardware audio format (sample rate, channels, bit depth).
- *
- * @param count     number of bytes
- * @return duration in milliseconds
- */
-int cSoftHdAudio::BytesToMs(int count)
-{
-	return count * 1000 / m_hwSampleRate / m_hwNumChannels / m_bytesPerSample;
-}
-
-/**
  * Flush audio buffers
  *
  * Stop alsa player if running,
@@ -929,7 +868,7 @@ int64_t cSoftHdAudio::GetOutputPtsMs(void)
 
 int64_t cSoftHdAudio::GetOutputPtsMsInternal(void)
 {
-	return PtsToMs(m_inputPts) - BytesToMs(m_pRingbuffer.UsedBytes());
+	return PtsToMs(m_inputPts) - FramesToMs(snd_pcm_bytes_to_frames(m_pAlsaPCMHandle, m_pRingbuffer.UsedBytes()));
 }
 
 /**
