@@ -1473,6 +1473,13 @@ int cSoftHdAudio::AlsaSetup(int channels, int sample_rate, int passthrough)
 	int err;
 	unsigned bufferTimeUs = 100'000;
 
+	if (m_pAudioThread) {
+		m_pAudioThread->Stop();
+		delete m_pAudioThread;
+
+		FlushAlsaBuffers();
+	}
+
 	m_downmix = 0;
 
 	state = snd_pcm_state(m_pAlsaPCMHandle);
