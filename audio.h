@@ -90,7 +90,7 @@ private:
 	IEventReceiver *m_pEventReceiver;       ///< pointer to event receiver
 
 	// thread
-	cAudioThread *m_pAudioThread;           ///< pointer to audio thread
+	cAudioThread *m_pAudioThread = nullptr; ///< pointer to audio thread
 
 	// common audio, alsa
 	bool m_initialized = false;             ///< class initialized
