@@ -101,7 +101,7 @@ private:
 	std::mutex m_mutex;                     ///< mutex for thread safety
 	std::vector<Event> m_eventQueue;    ///< event queue for incoming events
 	uint8_t m_silenceBuffer[19200]{0};      ///< silent buffer for pausing. The size is arbitrary. It was the largest chunk seen that ALSA can process in one write.
-	int64_t m_playSilenceForMs = 0;         ///< amount of silence to play in ms
+	int m_playSilenceForFrameCount = 0;     ///< amount of silence to play in frame count
 
 	int m_downmix;                          ///< set stereo downmix
 
@@ -180,6 +180,8 @@ private:
 	void AlsaSetVolume(int);
 	void AlsaInit(void);
 	void AlsaExit(void);
+	int MsToFrames(int);
+	int FramesToMs(int);
 	int BytesToMs(int);
 	int MsToBytes(int);
 	int64_t PtsToMs(int64_t);
