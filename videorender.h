@@ -250,7 +250,7 @@ private:
 	cDrmBufferPool m_drmBufferPool;                                       ///< pool of drm buffers
 	cDrmBufferPool m_pipDrmBufferPool;                                    ///< PIP pool of drm buffers
 	std::atomic<cBufferStrategy *> m_bufferReuseStrategy = nullptr;       ///< strategy to select drm buffers
-	std::atomic<cBufferStrategy *> m_pipBufferReuseStrategy = nullptr;       ///< strategy to select drm buffers
+	std::atomic<cBufferStrategy *> m_pipBufferReuseStrategy = nullptr;    ///< strategy to select drm buffers
 	std::atomic<cDecodingStrategy *> m_decodingStrategy = nullptr;        ///< strategy for decoding setup
 	std::atomic<cDecodingStrategy *> m_pipDecodingStrategy = nullptr;     ///< strategy for decoding setup
 

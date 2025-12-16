@@ -261,7 +261,7 @@ const struct format_info *FindFormat(uint32_t format)
 /**
  * Setup the buffer
  *
- * @param fdDrm          drm device file descriptor
+ * @param drmDeviceFd    drm device file descriptor
  * @param width          buffer width
  * @param height         buffer height
  * @param pixFmt         buffer pixel format
@@ -378,8 +378,7 @@ void cDrmBuffer::Setup(int drmDeviceFd, uint32_t width, uint32_t height, uint32_
 	}
 
 	int ret = -1;
-	ret = drmModeAddFB2WithModifiers(drmDeviceFd, m_width, m_height, m_pixFmt,
-					 m_planePrimeHandle, m_pitch, m_offset, modifier, &m_fbId, mod_flags);
+	ret = drmModeAddFB2WithModifiers(drmDeviceFd, m_width, m_height, m_pixFmt, m_planePrimeHandle, m_pitch, m_offset, modifier, &m_fbId, mod_flags);
 
 	if (ret) {
 		if (mod_flags)
