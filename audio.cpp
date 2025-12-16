@@ -603,14 +603,15 @@ void cSoftHdAudio::DropSamplesOlderThanPtsMs(int64_t ptsMs)
 	if (!HasPts())
 		return;
 
-	int dropBytes = snd_pcm_frames_to_bytes(m_pAlsaPCMHandle, MsToFrames(std::max((int64_t)0, ptsMs - GetOutputPtsMsInternal())));
+	int64_t dropMs = std::max((int64_t)0, ptsMs - GetOutputPtsMsInternal());
+	int dropBytes = snd_pcm_frames_to_bytes(m_pAlsaPCMHandle, MsToFrames(dropMs));
 
 	dropBytes = std::min(dropBytes, (int)m_pRingbuffer.UsedBytes());
 
 	if (dropBytes > 0) {
 		LOGDEBUG2(L_AV_SYNC, "audio: %s: dropping %dms audio samples to start in sync with the video (output PTS %s -> %s)",
 			__FUNCTION__,
-			ptsMs,
+			dropMs,
 			Timestamp2String(GetOutputPtsMsInternal(), 1),
 			Timestamp2String(ptsMs, 1));
 
