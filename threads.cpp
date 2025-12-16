@@ -106,7 +106,9 @@ void cDisplayThread::Action(void)
 
 		m_pRender->ProcessEvents();
 
-		if (!scheduleImmediately)
+		if (scheduleImmediately)
+			usleep(100); // yield thread. give control also to threads with lower priority.
+		else
 			usleep(1000);
 	}
 	LOGDEBUG("threads: display thread stopped");
