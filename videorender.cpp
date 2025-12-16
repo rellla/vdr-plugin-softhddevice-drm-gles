@@ -589,7 +589,7 @@ void cVideoRender::DisplayFrame()
 	if (m_pDevice->IsBufferingThresholdReached())
 		m_eventQueue.push_back(BufferingThresholdReachedEvent{});
 
-	if (m_drmBufferQueue.IsEmpty() && !m_videoPlaybackPaused && m_schedulePlaybackStartAtPtsMs == AV_NOPTS_VALUE && !GetTrickSpeed())
+	if (m_pDevice->VideoStream()->GetAvPacketsFilled() == 0 && !m_videoPlaybackPaused && m_schedulePlaybackStartAtPtsMs == AV_NOPTS_VALUE && !GetTrickSpeed())
 		m_eventQueue.push_back(BufferUnderrunEvent{VIDEO});
 
 	cDrmBuffer *drmBuffer = nullptr;
