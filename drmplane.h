@@ -60,7 +60,7 @@ public:
 	uint64_t GetZpos(void) { return m_zpos; };
 	void SetZpos(uint64_t zpos) { m_zpos = zpos; };
 
-	int GetCountProps(void) { return m_props->count_props; };
+	int GetCountProps(void) { return m_props ? m_props->count_props : 0; };
 	char *GetPropsInfoName(int prop) { return m_propsInfo[prop]->name; };
 	uint32_t GetPropsInfoPropId(int prop) { return m_propsInfo[prop]->prop_id; };
 	drmModeObjectProperties *GetProps(void) { return m_props; };
@@ -69,10 +69,10 @@ public:
 	drmModePropertyRes **GetPropsInfoElem(int elem) { return &m_propsInfo[elem]; };
 
 private:
-	uint32_t m_planeId;                 ///< the plane's ID
-	uint64_t m_type;                    ///< type: DRM_PLANE_TYPE_PRIMARY or
+	uint32_t m_planeId = 0;             ///< the plane's ID
+	uint64_t m_type = 0;                ///< type: DRM_PLANE_TYPE_PRIMARY or
 	                                    ///<       DRM_PLANE_TYPE_OVERLAY
-	drmModeObjectProperties *m_props;
+	drmModeObjectProperties *m_props = nullptr;
 	drmModePropertyRes **m_propsInfo;
 
 	// The modesetting parameters for a drm commit
@@ -86,7 +86,7 @@ private:
 	uint64_t m_srcY;                  ///< SRC_Y
 	uint64_t m_srcW;                  ///< SRC_W
 	uint64_t m_srcH;                  ///< SRC_H
-	uint64_t m_zpos;                  ///< ZPOS
+	uint64_t m_zpos = 0;              ///< ZPOS
 
 	int SetPropertyRequest(drmModeAtomicReqPtr, const char *, uint64_t);
 };

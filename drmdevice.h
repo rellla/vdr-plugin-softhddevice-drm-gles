@@ -129,11 +129,11 @@ private:
 	uint32_t m_userReqDisplayRefreshRate;  ///< user requested display refresh rate
 
 	bool m_useZpos;                        ///< is set, if drm hardware can use zpos
-	uint64_t m_zposOverlay;                ///< zpos of overlay plane
-	uint64_t m_zposPrimary;                ///< zpos of primary plane
+	uint64_t m_zposOverlay = 0;            ///< zpos of overlay plane
+	uint64_t m_zposPrimary = 0;            ///< zpos of primary plane
 	cDrmPlane m_videoPlane;                ///< the video drm plane
 	cDrmPlane m_osdPlane;                  ///< the osd drm plane
-	uint64_t m_zposPip;                    ///< zpos of pip plane
+	uint64_t m_zposPip = 0;                ///< zpos of pip plane
 	cDrmPlane m_pipPlane;                  ///< the pip drm plane
 
 	int32_t FindCrtcForConnector(const drmModeRes *, const drmModeConnector *);

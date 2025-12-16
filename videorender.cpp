@@ -95,6 +95,7 @@ cVideoRender::cVideoRender(cSoftHdDevice *device)
 	m_timebase = av_make_q(1, 90000);
 
 	m_pBufOsd = nullptr;
+	m_osdShown = false;
 
 #ifdef USE_GLES
 	m_disableOglOsd = m_pConfig->ConfigDisableOglOsd;
@@ -410,17 +411,19 @@ int cVideoRender::CommitBuffer(cDrmBuffer *buf, cDrmBuffer *pip)
 	}
 
 	// handle the pip plane
-	if (IsPipActive() && pip) {
-		SetPipBuffer(pip);
-		pipPlane->SetPlane(modeReq);
-		modeSet |= MODESET_PIP;
-	} else if (IsPipActive() && m_pCurrentlyPipDisplayed) {
-		SetPipBuffer(m_pCurrentlyPipDisplayed);
-		pipPlane->SetPlane(modeReq);
-		modeSet |= MODESET_PIP;
-	} else {
-		pipPlane->ClearPlane(modeReq);
-		modeSet |= MODESET_PIP;
+	if (pipPlane->GetId()) {
+		if (IsPipActive() && pip) {
+			SetPipBuffer(pip);
+			pipPlane->SetPlane(modeReq);
+			modeSet |= MODESET_PIP;
+		} else if (IsPipActive() && m_pCurrentlyPipDisplayed) {
+			SetPipBuffer(m_pCurrentlyPipDisplayed);
+			pipPlane->SetPlane(modeReq);
+			modeSet |= MODESET_PIP;
+		} else {
+			pipPlane->ClearPlane(modeReq);
+			modeSet |= MODESET_PIP;
+		}
 	}
 
 	// handle the osd plane

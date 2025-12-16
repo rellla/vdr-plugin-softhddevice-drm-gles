@@ -398,8 +398,8 @@ int cDrmDevice::Init(void)
 			continue;
 		}
 
-		uint64_t type;
-		uint64_t zpos;
+		uint64_t type = 0;
+		uint64_t zpos = 0;
 		char pixelformats[256];
 
 		if (plane->possible_crtcs & (1 << m_crtcIndex)) {
@@ -518,8 +518,7 @@ int cDrmDevice::Init(void)
 		m_zposPip = best_overlay_pip_plane.GetZpos();
 		m_pipPlane.SetZpos(m_zposPip);
 	} else {
-		LOGERROR("drmdevice: %s: no suitable pip planes found", __FUNCTION__);
-		return -1;
+		LOGWARNING("drmdevice: %s: No suitable plane for Picture-in-Picture found. PIP will be disabled.", __FUNCTION__);
 	}
 
 	// debug output
@@ -547,7 +546,9 @@ int cDrmDevice::Init(void)
 	// fill the plane's properties to speed up SetPropertyRequest later
 	m_videoPlane.FillProperties(m_fdDrm);
 	m_osdPlane.FillProperties(m_fdDrm);
-	m_pipPlane.FillProperties(m_fdDrm);
+
+	if (m_pipPlane.GetId())
+		m_pipPlane.FillProperties(m_fdDrm);
 
 	// Check, if we can set z-order (meson and rpi have fixed z-order, which cannot be changed)
 	if (m_useZpos && !m_videoPlane.HasZpos(m_fdDrm)) {
@@ -556,7 +557,7 @@ int cDrmDevice::Init(void)
 	if (m_useZpos && !m_osdPlane.HasZpos(m_fdDrm)) {
 		m_useZpos = false;
 	}
-	if (m_useZpos && !m_pipPlane.HasZpos(m_fdDrm)) {
+	if (m_useZpos && m_pipPlane.GetId() && !m_pipPlane.HasZpos(m_fdDrm)) {
 		m_useZpos = false;
 	}
 
@@ -626,6 +627,8 @@ int cDrmDevice::Init(void)
 		return -1;
 	}
 #endif
+
+	InitEvent();
 
 	return 0;
 }

@@ -136,7 +136,7 @@ int cDrmPlane::SetPropertyRequest(drmModeAtomicReqPtr ModeReq, const char *propN
 	}
 
 	if (id < 0) {
-		LOGERROR("drmplane: %s: Unable to find value for property \'%s\'.",
+		LOGDEBUG("drmplane: %s: Unable to find value for property \'%s\'.",
 			__FUNCTION__, propName);
 		return -EINVAL;
 	}
