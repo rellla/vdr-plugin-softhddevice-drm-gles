@@ -267,9 +267,6 @@ private:
 	void SetFrameFlags(AVFrame *, int);
 	void SetVideoClock(int64_t);
 	void PageFlip(cDrmBuffer *, cDrmBuffer *);
-	void PageFlipBlack();
-	void PageFlipOsd(cDrmBuffer *);
-	void PageFlipVideo(cDrmBuffer *, cDrmBuffer *);
 	void SetVideoBuffer(cDrmBuffer *);
 	int SetOsdBuffer(drmModeAtomicReqPtr);
 	void SetPipBuffer(cDrmBuffer *);

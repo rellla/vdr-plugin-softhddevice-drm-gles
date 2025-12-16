@@ -554,34 +554,6 @@ void cVideoRender::PageFlip(cDrmBuffer *buf, cDrmBuffer *pipBuf)
 }
 
 /**
- * Do the pageflip and set a black buffer for the video
- *
- */
-void cVideoRender::PageFlipBlack()
-{
-	PageFlip(&m_bufBlack, NULL);
-}
-
-/**
- * Do the pageflip for osd and skip the video
- */
-void cVideoRender::PageFlipOsd(cDrmBuffer *pipBuf)
-{
-	PageFlip(NULL, pipBuf);
-}
-
-/**
- * Do the pageflip for osd and/or video
- *
- * @param frame     AVFrame
- * @param buf       drm buffer
- */
-void cVideoRender::PageFlipVideo(cDrmBuffer *buf, cDrmBuffer *pipBuf)
-{
-	PageFlip(buf, pipBuf);
-}
-
-/**
  * Display the frame (video and/or osd)
  */
 void cVideoRender::DisplayFrame()
@@ -653,22 +625,20 @@ void cVideoRender::DisplayFrame()
 			m_displayOneFrameThenPause = false;
 		}
 
-		PageFlipVideo(drmBuffer, pipBuf);
+		PageFlip(drmBuffer, pipBuf);
 
 		if (m_pCurrentlyDisplayed)
 			m_pCurrentlyDisplayed->PresentationFinished();
 
 		m_lastFrameWasDropped = false;
 		m_pCurrentlyDisplayed = drmBuffer;
-	} else if (!m_drmBufferQueue.IsEmpty() && !m_videoPlaybackPaused && m_pCurrentlyDisplayed) {
+	} else if (m_pCurrentlyDisplayed && !m_drmBufferQueue.IsEmpty() && !m_videoPlaybackPaused) {
 		// display the current frame again in trick speed mode or for A/V syncing.
-		PageFlipVideo(m_pCurrentlyDisplayed, pipBuf);
-	} else if (!m_drmBufferQueue.IsEmpty() && m_pCurrentlyDisplayed) {
-		PageFlipVideo(m_pCurrentlyDisplayed, pipBuf);
+		PageFlip(m_pCurrentlyDisplayed, pipBuf);
 	} else if ((m_pBufOsd && m_pBufOsd->IsDirty()) || pipBuf) {
-		PageFlipOsd(pipBuf);
+		PageFlip(NULL, pipBuf);
 	} else if (m_startgrab) {
-		PageFlipBlack();
+		PageFlip(&m_bufBlack, NULL);
 	}
 
 	if (pipBuf) {
@@ -685,7 +655,7 @@ void cVideoRender::DisplayBlackFrame(void)
 {
 	LOGDEBUG2(L_DRM, "videorender: %s: closing, set a black FB", __FUNCTION__);
 
-	PageFlipBlack();
+	PageFlip(&m_bufBlack, NULL);
 
 	if (m_pCurrentlyDisplayed) {
 		av_frame_free(&m_pCurrentlyDisplayed->frame);
