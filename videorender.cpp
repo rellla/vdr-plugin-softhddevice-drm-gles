@@ -528,10 +528,11 @@ void cVideoRender::SetFrameFlags(AVFrame *frame, int flags)
 /**
  * Do the pageflip
  *
- * @param frame     AVFrame
  * @param buf       drm buffer
+ * @param pipBuf    drm pip buffer
+ * @return          true if page flip was done
  */
-void cVideoRender::PageFlip(cDrmBuffer *buf, cDrmBuffer *pipBuf)
+bool cVideoRender::PageFlip(cDrmBuffer *buf, cDrmBuffer *pipBuf)
 {
 	if (CommitBuffer(buf, pipBuf) < 0) {
 		// no modesetting was done
@@ -539,6 +540,8 @@ void cVideoRender::PageFlip(cDrmBuffer *buf, cDrmBuffer *pipBuf)
 			av_frame_free(&buf->frame);
 		if (pipBuf && pipBuf->frame)
 			av_frame_free(&pipBuf->frame);
+
+		return false;
 	} else {
 		if (m_pDrmDevice->HandleEvent() != 0)
 			LOGERROR("threads: display thread: drmHandleEvent failed!");
@@ -550,13 +553,16 @@ void cVideoRender::PageFlip(cDrmBuffer *buf, cDrmBuffer *pipBuf)
 
 			LOGDEBUG2(L_PACKET, "videorender: %s: ID %d:                 PTS %s", __FUNCTION__, buf->Id(), Timestamp2String(buf->frame->pts, 90));
 		}
+
+		return true;
 	}
 }
 
 /**
  * Display the frame (video and/or osd)
+ * @return true if it shall be scheduled immediately again
  */
-void cVideoRender::DisplayFrame()
+bool cVideoRender::DisplayFrame()
 {
 	if (m_pDevice->IsBufferingThresholdReached())
 		m_eventQueue.push_back(BufferingThresholdReachedEvent{});
@@ -577,12 +583,13 @@ void cVideoRender::DisplayFrame()
 
 	cDrmBuffer *pipBuf = m_pipDrmBufferQueue.Pop();
 
+	bool pageFlipDone = false;
 	if (drmBuffer) {
 		if (m_schedulePlaybackStartAtPtsMs != AV_NOPTS_VALUE) {
 			// check if playback shall start
 			if (PtsToMs(drmBuffer->frame->pts) < m_schedulePlaybackStartAtPtsMs) {
 				drmBuffer->PresentationFinished();
-				return;
+				return true;
 			} else {
 				m_schedulePlaybackStartAtPtsMs = AV_NOPTS_VALUE;
 				m_videoPlaybackPaused = false;
@@ -610,7 +617,7 @@ void cVideoRender::DisplayFrame()
 					m_framePresentationCounter--; // skip this pageflip
 					m_lastFrameWasDropped = true;
 
-					return;
+					return true;
 				}
 
 				m_startCounter++;
@@ -625,7 +632,7 @@ void cVideoRender::DisplayFrame()
 			m_displayOneFrameThenPause = false;
 		}
 
-		PageFlip(drmBuffer, pipBuf);
+		pageFlipDone = PageFlip(drmBuffer, pipBuf);
 
 		if (m_pCurrentlyDisplayed)
 			m_pCurrentlyDisplayed->PresentationFinished();
@@ -634,11 +641,11 @@ void cVideoRender::DisplayFrame()
 		m_pCurrentlyDisplayed = drmBuffer;
 	} else if (m_pCurrentlyDisplayed && !m_drmBufferQueue.IsEmpty() && !m_videoPlaybackPaused) {
 		// display the current frame again in trick speed mode or for A/V syncing.
-		PageFlip(m_pCurrentlyDisplayed, pipBuf);
+		pageFlipDone = PageFlip(m_pCurrentlyDisplayed, pipBuf);
 	} else if ((m_pBufOsd && m_pBufOsd->IsDirty()) || pipBuf) {
-		PageFlip(NULL, pipBuf);
+		pageFlipDone = PageFlip(NULL, pipBuf);
 	} else if (m_startgrab) {
-		PageFlip(&m_bufBlack, NULL);
+		pageFlipDone = PageFlip(&m_bufBlack, NULL);
 	}
 
 	if (pipBuf) {
@@ -649,6 +656,8 @@ void cVideoRender::DisplayFrame()
 	}
 
 	m_framePresentationCounter--;
+
+	return pageFlipDone;
 }
 
 void cVideoRender::DisplayBlackFrame(void)

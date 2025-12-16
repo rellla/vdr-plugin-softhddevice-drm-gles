@@ -100,13 +100,14 @@ void cDisplayThread::Action(void)
 	while(Running()) {
 		m_mutex.lock();
 
-		m_pRender->DisplayFrame();
+		bool scheduleImmediately = m_pRender->DisplayFrame();
 
 		m_mutex.unlock();
 
 		m_pRender->ProcessEvents();
 
-		usleep(1000);
+		if (!scheduleImmediately)
+			usleep(1000);
 	}
 	LOGDEBUG("threads: display thread stopped");
 }

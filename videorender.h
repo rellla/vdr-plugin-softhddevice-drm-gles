@@ -165,7 +165,7 @@ public:
 	int DrmHandleEvent(void);
 
 	// Frame and buffer
-	void DisplayFrame();
+	bool DisplayFrame();
 	int GetFramesFilled(void) { return m_drmBufferQueue.Size(); };
 	void PushMainFrame(AVFrame *);
 	void PushPipFrame(AVFrame *);
@@ -266,7 +266,7 @@ private:
 	int GetFrameFlags(AVFrame *);
 	void SetFrameFlags(AVFrame *, int);
 	void SetVideoClock(int64_t);
-	void PageFlip(cDrmBuffer *, cDrmBuffer *);
+	bool PageFlip(cDrmBuffer *, cDrmBuffer *);
 	void SetVideoBuffer(cDrmBuffer *);
 	int SetOsdBuffer(drmModeAtomicReqPtr);
 	void SetPipBuffer(cDrmBuffer *);
