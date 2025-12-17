@@ -98,6 +98,7 @@ private:
 	unsigned int m_hwNumChannels;           ///< number of hardware channels
 	AVRational *m_pTimebase;                ///< pointer to AVCodecContext pkts_timebase
 	std::mutex m_mutex;                     ///< mutex for thread safety
+	std::mutex m_pauseMutex;                ///< mutex for a safe thread pausing
 	std::vector<Event> m_eventQueue;    ///< event queue for incoming events
 
 	int m_downmix;                          ///< set stereo downmix

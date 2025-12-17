@@ -537,6 +537,8 @@ void cSoftHdDevice::OnEnteringState(State state) {
 			m_pRender->ResetBufferReuseStrategy();
 			break;
 		case STOP:
+			ClearAudio();
+
 			m_pVideoStream->CancelFilterThread();
 			m_pRender->DisplayBlackFrame();
 			m_pRender->Reset();
@@ -549,7 +551,6 @@ void cSoftHdDevice::OnEnteringState(State state) {
 			m_pRender->ResetBufferReuseStrategy();
 			m_pVideoStream->CloseDecoder();
 
-			ClearAudio();
 			break;
 		case STILL_PICTURE:
 			m_pRender->SetPlaybackPaused(false);

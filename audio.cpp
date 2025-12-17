@@ -945,7 +945,7 @@ void cSoftHdAudio::SetPaused(bool pause)
 {
 	LOGDEBUG2(L_SOUND, "audio: %s: %d", __FUNCTION__, pause);
 
-	std::lock_guard<std::mutex> lock(m_mutex);
+	std::lock_guard<std::mutex> lock(m_pauseMutex);
 
 	m_paused = pause;
 
@@ -1117,6 +1117,8 @@ void cSoftHdAudio::FlushAlsaBuffers(void)
  */
 bool cSoftHdAudio::CyclicCall()
 {
+	std::lock_guard<std::mutex> lock1(m_pauseMutex);
+
 	if (m_paused)
 		return false;
 
@@ -1130,11 +1132,7 @@ bool cSoftHdAudio::CyclicCall()
 		return false;
 	}
 
-	std::lock_guard<std::mutex> lock(m_mutex);
-
-	// check if paused while waiting for kernel buffer space
-	if (m_paused)
-		return false;
+	std::lock_guard<std::mutex> lock2(m_mutex);
 
 	// query available space in alsa buffer
 	int freeAlsaBufferFrameCount = snd_pcm_avail(m_pAlsaPCMHandle);
