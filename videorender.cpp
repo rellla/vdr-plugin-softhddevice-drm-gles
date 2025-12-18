@@ -123,8 +123,6 @@ cVideoRender::~cVideoRender(void)
  */
 void cVideoRender::ClearDecoderToDisplayQueue(void)
 {
-	std::lock_guard<std::mutex> lock(m_drmBufferPeekMutex);
-
 	m_drmBufferQueue.Clear();
 	m_drmBufferPool.DestroyAllExcept(m_pCurrentlyDisplayed);
 
@@ -574,11 +572,8 @@ bool cVideoRender::DisplayFrame()
 	if (m_framePresentationCounter == 0) {
 		m_framePresentationCounter = std::max(1, GetTrickSpeed());
 
-		{
-			std::lock_guard<std::mutex> lock(m_drmBufferPeekMutex);
-			if (!m_videoPlaybackPaused || m_schedulePlaybackStartAtPtsMs != AV_NOPTS_VALUE)
-				drmBuffer = m_drmBufferQueue.Pop();
-		}
+		if (!m_videoPlaybackPaused || m_schedulePlaybackStartAtPtsMs != AV_NOPTS_VALUE)
+			drmBuffer = m_drmBufferQueue.Pop();
 	}
 
 	cDrmBuffer *pipBuf = m_pipDrmBufferQueue.Pop();
@@ -964,6 +959,10 @@ void cVideoRender::PushFrame(
 			decodingStrategy = new cDecodingStrategySoftware();
 	}
 
+	// Store the PTS of the first frame to be presented. The first frame might not have a valid PTS, if gone through a HW deinterlacer.
+	if (m_pts == AV_NOPTS_VALUE && frame->pts != AV_NOPTS_VALUE)
+		m_pts = frame->pts;
+
 	AVDRMFrameDescriptor *primedata = (AVDRMFrameDescriptor *)frame->data[0];
 	cDrmBuffer *buf = bufferReuseStrategy.load()->GetBuffer(drmBufferPool, primedata);
 
@@ -979,18 +978,6 @@ void cVideoRender::PushFrame(
 }
 
 /**
- * Check if output has a valid PTS
- *
- * @return true if the next frame to display has a valid PTS
- */
-bool cVideoRender::HasOutputPts(void)
-{
-	std::lock_guard<std::mutex> lock(m_drmBufferPeekMutex);
-
-	return !m_drmBufferQueue.IsEmpty() && m_drmBufferQueue.Peek()->frame->pts != AV_NOPTS_VALUE;
-}
-
-/**
  * Get the output PTS in milliseconds
  *
  * Returns the presentation timestamp of the next frame to be displayed.
@@ -999,10 +986,11 @@ bool cVideoRender::HasOutputPts(void)
  */
 int64_t cVideoRender::GetOutputPtsMs(void)
 {
-	std::lock_guard<std::mutex> lock(m_drmBufferPeekMutex);
+	if (m_pts == AV_NOPTS_VALUE)
+		return AV_NOPTS_VALUE;
 
 	m_timebaseMutex.Lock();
-	int64_t pts = m_drmBufferQueue.Peek()->frame->pts * 1000 * av_q2d(m_timebase);
+	int64_t pts = m_pts * 1000 * av_q2d(m_timebase);
 	m_timebaseMutex.Unlock();
 
 	return pts;
@@ -1049,6 +1037,7 @@ void cVideoRender::Reset()
 	m_framesDuped = 0;
 	m_framesDropped = 0;
 	m_numWrongProgressive = 0;
+	m_pts = AV_NOPTS_VALUE;
 
 	delete m_decodingStrategy;
 	m_decodingStrategy = nullptr;

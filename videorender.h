@@ -169,7 +169,6 @@ public:
 	int GetFramesFilled(void) { return m_drmBufferQueue.Size(); };
 	void PushMainFrame(AVFrame *);
 	void PushPipFrame(AVFrame *);
-	bool HasOutputPts(void);
 	int64_t GetOutputPtsMs(void);
 	void DisplayBlackFrame(void);
 	void ClearDecoderToDisplayQueue(void);
@@ -203,7 +202,6 @@ private:
 	cDisplayThread *m_pDisplayThread;   ///< pointer to display thread
 	cMutex m_trickspeedMutex;           ///< mutex used while accessing trickspeed parameters
 	cMutex m_videoClockMutex;           ///< mutex used around m_pts
-	std::mutex m_drmBufferPeekMutex;    ///< mutex used while accessing the DRM buffer queue
 	std::vector<Event> m_eventQueue;    ///< event queue for incoming events
 
 	cQueue<cDrmBuffer> m_drmBufferQueue{VIDEO_SURFACES_MAX};     ///< queue for DRM buffers to be displayed (VIDEO_SURFACES_MAX is defined in thread.h)
@@ -228,7 +226,7 @@ private:
 	bool m_lastFrameWasDropped = false; ///< true, if the last frame was dropped
 	AVRational m_timebase;              ///< timebase used for pts, set by first RenderFrame()
 	cMutex m_timebaseMutex;             ///< mutex used around m_timebase
-	int64_t m_pts;                      ///< current video PTS
+	int64_t m_pts = AV_NOPTS_VALUE;     ///< current video PTS
 
 	cRect m_videoRect;                  ///< rect of the currently displayed video
 	bool m_videoIsScaled;               ///< true, if the currently displayed video is scaled

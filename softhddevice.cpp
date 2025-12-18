@@ -1193,18 +1193,19 @@ bool cSoftHdDevice::IsBufferingThresholdReached()
 		return false;
 
 	bool audioHasPts = m_pAudio->HasPts();
-	bool videoHasPts = m_pVideoStream->HasInputPts();
+	bool videoHasInputPts = m_pVideoStream->HasInputPts();
+	bool videoHasOutputPts = m_pRender->GetOutputPtsMs() != AV_NOPTS_VALUE;
 
 	// Assume audio only or video only if no PES fragment from the other stream has been received, while the buffering threshold of the other stream is reached.
 	// Check for buffer fill level only if at least one PES packet was reassembled and pushed to the respective decoder.
-	bool audioOnly = audioHasPts && !videoHasPts && m_receivedAudio && !m_receivedVideo;
-	bool videoOnly = !audioHasPts && videoHasPts && !m_receivedAudio && m_receivedVideo;
+	bool audioOnly = audioHasPts && !videoHasInputPts && m_receivedAudio && !m_receivedVideo;
+	bool videoOnly = !audioHasPts && videoHasInputPts && !m_receivedAudio && m_receivedVideo;
 
-	if ((audioOnly &&                              m_pAudio->GetInputPtsMs()       - m_pAudio->GetOutputPtsMs()  > GetBufferFillLevelThresholdMs()) ||
-	    (videoOnly && m_pRender->HasOutputPts() && m_pVideoStream->GetInputPtsMs() - m_pRender->GetOutputPtsMs() > GetBufferFillLevelThresholdMs())) {
+	if ((audioOnly &&                      m_pAudio->GetInputPtsMs()       - m_pAudio->GetOutputPtsMs()  > GetBufferFillLevelThresholdMs()) ||
+	    (videoOnly && videoHasOutputPts && m_pVideoStream->GetInputPtsMs() - m_pRender->GetOutputPtsMs() > GetBufferFillLevelThresholdMs())) {
 		LOGDEBUG("device: %s: Detected audio or video only", __FUNCTION__);
 		return true;
-	} else if (!audioHasPts || !videoHasPts || !m_pRender->HasOutputPts())
+	} else if (!audioHasPts || !videoHasInputPts || !videoHasOutputPts)
 		return false; // Either no video or no audio received, yet. Or, video didn't make it to the output buffer, yet.
 
 	int64_t syncedAudioBufferFillLevelMs = m_pAudio->GetInputPtsMs() - GetFirstAudioPtsMsToPlay();
