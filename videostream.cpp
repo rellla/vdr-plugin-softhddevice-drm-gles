@@ -119,31 +119,31 @@ static int ReadHWPlatform(void)
 	}
 
 	read_ptr = txt_buf;
-	LOGDEBUG2(L_DRM, "videorender: %s: found \"%s\", set hardware quirks", __FUNCTION__, _txt_buf);
+	LOGDEBUG2(L_DRM, "videostream: %s: found \"%s\", set hardware quirks", __FUNCTION__, _txt_buf);
 
 	while(read_size) {
 		if (strstr(read_ptr, "bcm2836")) {
-			LOGDEBUG2(L_DRM, "videorender: %s: bcm2836 (Raspberry Pi 2 Model B) found", __FUNCTION__);
+			LOGDEBUG2(L_DRM, "videostream: %s: bcm2836 (Raspberry Pi 2 Model B) found", __FUNCTION__);
 			hardwareQuirks |= QUIRK_CODEC_FLUSH_WORKAROUND;
 			break;
 		}
 		if (strstr(read_ptr, "bcm2837")) {
-			LOGDEBUG2(L_DRM, "videorender: %s: bcm2837 (Raspberry Pi 2 Model B v1.2/ 3 Model B, Raspberry Pi 3 Compute Module 3) found", __FUNCTION__);
+			LOGDEBUG2(L_DRM, "videostream: %s: bcm2837 (Raspberry Pi 2 Model B v1.2/ 3 Model B, Raspberry Pi 3 Compute Module 3) found", __FUNCTION__);
 			hardwareQuirks |= QUIRK_CODEC_FLUSH_WORKAROUND;
 			break;
 		}
 		if (strstr(read_ptr, "bcm2711")) {
-			LOGDEBUG2(L_DRM, "videorender: %s: bcm2711 (Raspberry Pi 4 Model B, Compute Module 4, Pi 400) found", __FUNCTION__);
+			LOGDEBUG2(L_DRM, "videostream: %s: bcm2711 (Raspberry Pi 4 Model B, Compute Module 4, Pi 400) found", __FUNCTION__);
 			hardwareQuirks |= QUIRK_CODEC_FLUSH_WORKAROUND;
 			break;
 		}
 		if (strstr(read_ptr, "bcm2712")) {
-			LOGDEBUG2(L_DRM, "videorender: %s: bcm2712 (Raspberry Pi 5, Compute Module 5, Pi 500) found", __FUNCTION__);
+			LOGDEBUG2(L_DRM, "videostream: %s: bcm2712 (Raspberry Pi 5, Compute Module 5, Pi 500) found", __FUNCTION__);
 			hardwareQuirks |= QUIRK_CODEC_FLUSH_WORKAROUND;
 			break;
 		}
 		if (strstr(read_ptr, "amlogic")) {
-			LOGDEBUG2(L_DRM, "videorender: %s: amlogic found, disable HW deinterlacer", __FUNCTION__);
+			LOGDEBUG2(L_DRM, "videostream: %s: amlogic found, disable HW deinterlacer", __FUNCTION__);
 			hardwareQuirks |= QUIRK_CODEC_NEEDS_EXT_INIT
 					   |  QUIRK_CODEC_SKIP_FIRST_FRAMES
 					   |  QUIRK_NO_HW_DEINT;
@@ -168,7 +168,7 @@ static int ReadHWPlatform(void)
  */
 cVideoStream::cVideoStream(cVideoRender *render, cQueue<cDrmBuffer> *drmBufferQueue, cSoftHdConfig *config, const char *identifier, std::function<void(AVFrame *)> frameOutput)
 {
-	LOGDEBUG("videostream %s: %s:", __FUNCTION__, identifier);
+	LOGDEBUG("videostream %s: %s", __FUNCTION__, identifier);
 
 	m_pRender = render;
 	m_pDrmBufferQueue = drmBufferQueue;
@@ -386,16 +386,16 @@ void cVideoStream::DecodeInput(void)
  */
 void cVideoStream::GetVideoSize(int *width, int *height, double *aspect_ratio)
 {
-	std::lock_guard<std::mutex> lock(m_mutex);
+	AVCodecContext *videoCtx = m_pDecoder->GetContext();
 
-	if (m_pDecoder && m_pDecoder->GetContext()) {
-		*width = m_pDecoder->GetContext()->coded_width;
-		*height = m_pDecoder->GetContext()->coded_height;
+	if (m_pDecoder && videoCtx) {
+		*width = videoCtx->coded_width;
+		*height = videoCtx->coded_height;
 		*aspect_ratio = *width / (double)*height;
 	} else {
 		*width = 0;
 		*height = 0;
-		*aspect_ratio = 0.0;
+		*aspect_ratio = 1.0;
 	}
 }
 
@@ -453,7 +453,7 @@ void cVideoStream::CancelFilterThread(void) {
 void cVideoStream::RenderFrame(AVFrame * frame)
 {
 	if (frame->decode_error_flags || frame->flags & AV_FRAME_FLAG_CORRUPT)
-		LOGWARNING("videorender: %s: %s: error_flag or FRAME_FLAG_CORRUPT", m_identifier, __FUNCTION__);
+		LOGWARNING("videostream: %s: %s: error_flag or FRAME_FLAG_CORRUPT", m_identifier, __FUNCTION__);
 
 	// Filter thread will only be started, if the lambda function returns true
 	if (m_checkFilterThreadNeeded) {
@@ -481,7 +481,7 @@ void cVideoStream::RenderFrame(AVFrame * frame)
 			m_interlaced;
 
 		if (m_userDisabledDeinterlacer)
-			LOGDEBUG("videorender: %s: %s: deinterlacer disabled by user configuration", m_identifier, __FUNCTION__);
+			LOGDEBUG("videostream: %s: %s: deinterlacer disabled by user configuration", m_identifier, __FUNCTION__);
 
 		// Use the filter thread if:
 		// - AV_PIX_FMT_YUV420P, interlaced -> software deinterlacer (bwdif filter)

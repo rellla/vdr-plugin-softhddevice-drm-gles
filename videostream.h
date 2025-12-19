@@ -100,16 +100,16 @@ private:
 	std::function<void(AVFrame *)> m_frameOutput;   ///< function to output the frame
 	cQueue<cDrmBuffer> *m_pDrmBufferQueue;          ///< pointer to renderer's DRM buffer queue
 
-	bool m_checkFilterThreadNeeded;     ///< set, if we have to check, if filter thread is needed at start of playback
-	int m_hardwareQuirks;               ///< hardware specific quirks
-	bool m_userDisabledDeinterlacer = false; ///< set, if the user configured the deinterlace to be disabled
-	bool m_deinterlacerDeactivated = false; ///< set, if the deinterlacer shall be deactivated temporarily (used for trick speed and still picture)
+	bool m_checkFilterThreadNeeded;                 ///< set, if we have to check, if filter thread is needed at start of playback
+	int m_hardwareQuirks;                           ///< hardware specific quirks
+	bool m_userDisabledDeinterlacer = false;        ///< set, if the user configured the deinterlace to be disabled
+	bool m_deinterlacerDeactivated = false;         ///< set, if the deinterlacer shall be deactivated temporarily (used for trick speed and still picture)
 
-	cQueue<AVPacket> m_packets{VIDEO_PACKET_MAX}; ///< AVPackets queue
+	cQueue<AVPacket> m_packets{VIDEO_PACKET_MAX};   ///< AVPackets queue
 
-	enum AVCodecID m_codecId = AV_CODEC_ID_NONE;  ///< current codec id
-	AVCodecParameters *m_pPar = nullptr;   ///< current codec parameters
-	std::atomic<struct AVRational> m_timebase;          ///< current codec timebase
+	enum AVCodecID m_codecId = AV_CODEC_ID_NONE;    ///< current codec id
+	AVCodecParameters *m_pPar = nullptr;            ///< current codec parameters
+	std::atomic<struct AVRational> m_timebase;      ///< current codec timebase
 	int m_trickpkts;                       ///< how many avpkt does the decoder need in trickspeed mode?
 	int m_sentTrickPkts = 0;               ///< how many avpkt have been sent to the decoder in trickspeed mode?
 	volatile bool m_newStream;             ///< flag for new stream
@@ -117,7 +117,6 @@ private:
 
 	cDecodingThread *m_pDecodingThread;    ///< pointer to decoding thread
 	int64_t m_inputPts = AV_NOPTS_VALUE;   ///< PTS of the first packet in the input buffer
-	std::mutex m_mutex;  // TODO                  ///< mutex to lock video size (which is accessed by different threads)
 
 	void RenderFrame(AVFrame *);
 };
