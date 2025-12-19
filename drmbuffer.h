@@ -58,7 +58,7 @@ public:
 #endif
 	virtual ~cDrmBuffer(void);
 
-	void Setup(int, uint32_t, uint32_t, uint32_t, AVDRMFrameDescriptor *);
+	void Setup(int, uint32_t, uint32_t, uint32_t, AVDRMFrameDescriptor *, bool);
 	void Destroy(void);
 	void InitBo(int, uint32_t, uint32_t, uint32_t, struct gbm_bo *);
 	void FillBlack(void);
@@ -128,6 +128,7 @@ private:
 
 	bool m_presentationPending = false; ///< true, if buffer is pending presentation
 	bool m_destroyAfterUse = false;     ///< true, if buffer should be destroyed after use
+	bool m_closeHandleOnDestroy;        ///< true, if DMA-BUF handle should be closed on destroy
 
 #ifdef USE_GLES
 	struct gbm_bo *m_pBo;       ///< pointer to the gbm buffer object

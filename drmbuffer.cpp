@@ -176,7 +176,7 @@ void cDrmBuffer::Destroy(void)
 	if (drmModeRmFB(m_drmDeviceFd, m_fbId) < 0)
 		LOGERROR("drmbuffer: %s: cannot rm FB (%d): %m", __FUNCTION__, errno);
 
-	if (m_dmaBufHandle[0] && fcntl(m_dmaBufHandle[0], F_GETFD) != -1) { // the handle can be invalid in reverse trickspeed, because the decoder is rapidly reopened
+	if (m_closeHandleOnDestroy &&m_dmaBufHandle[0] && fcntl(m_dmaBufHandle[0], F_GETFD) != -1) { // the handle can be invalid in reverse trickspeed, because the decoder is rapidly reopened
 		if (close(m_dmaBufHandle[0]))
 			LOGERROR("drmbuffer: %s: error closing DMA-BUF handle %d (%d): %m", __FUNCTION__, m_dmaBufHandle[0], errno);
 	}
@@ -267,7 +267,7 @@ const struct format_info *FindFormat(uint32_t format)
  * @param pixFmt         buffer pixel format
  * @param primedata      AVDRMFrameDescriptor or NULL (if this is a software buffer)
  */
-void cDrmBuffer::Setup(int drmDeviceFd, uint32_t width, uint32_t height, uint32_t pixFmt, AVDRMFrameDescriptor *primedata)
+void cDrmBuffer::Setup(int drmDeviceFd, uint32_t width, uint32_t height, uint32_t pixFmt, AVDRMFrameDescriptor *primedata, bool closeHandleOnDestroy)
 {
 	uint64_t modifier[4] = { 0, 0, 0, 0 };
 	uint32_t mod_flags = 0;
@@ -280,6 +280,7 @@ void cDrmBuffer::Setup(int drmDeviceFd, uint32_t width, uint32_t height, uint32_
 	m_height = height;
 	m_pixFmt = pixFmt;
 	m_drmDeviceFd = drmDeviceFd;
+	m_closeHandleOnDestroy = closeHandleOnDestroy;
 
 	if (primedata) {
 		// we have no DRM objects yet, so return
