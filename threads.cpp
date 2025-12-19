@@ -147,6 +147,8 @@ void cAudioThread::Action(void)
 
 		if (sleep)
 			usleep(10000);
+		else
+			usleep(100); // yield thread. give control also to threads with lower priority.
 	}
 	LOGDEBUG("threads: audio thread stopped");
 }
