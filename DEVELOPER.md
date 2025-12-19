@@ -98,14 +98,17 @@ stateDiagram-v2
 
     Detached --> Stop: AttachEvent
 
-    Stop --> Play: PlayEvent
+    Stop --> Buffering: PlayEvent
     Stop --> Detached: DetachEvent
+
+    Buffering --> Play: BufferingThresholdReachedEvent
 
     Play --> TrickSpeed: TrickSpeedEvent
     Play --> Stop: StopEvent<br/>DetachEvent
     Play --> Play: StillPictureEvent<br/>PauseEvent<br/>PlayEvent
+    Play --> Buffering: BufferUnderrunEvent
 
-    TrickSpeed --> Play: PlayEvent
+    TrickSpeed --> Buffering: PlayEvent
     TrickSpeed --> Stop: StopEvent<br/>DetachEvent
     TrickSpeed --> TrickSpeed: StillPictureEvent<br/>PauseEvent<br/>TrickSpeedEvent
 
@@ -113,11 +116,13 @@ stateDiagram-v2
     classDef playState fill:#81c784,stroke:#388e3c,stroke-width:2px,color:#000
     classDef trickspeedState fill:#64b5f6,stroke:#1976d2,stroke-width:2px,color:#000
     classDef detachState fill:#fd00fd,stroke:#ca00ca,stroke-width:2px,color:#000
+    classDef buffering fill:#fff59d,stroke:#fbc02d,stroke-width:2px,color:#000000
 
     class Stop stopState
     class Play playState
     class TrickSpeed trickspeedState
     class Detached detachState
+    class Buffering buffering
 ```
 
 ## Video Data Flow Call Graph
@@ -157,31 +162,23 @@ graph TD
     %% Filter Thread Decision
     RenderFrame --> |AVFrame|FormatCheck{Frame format?}
     FormatCheck -->|YUV420P or<br/>interlaced DRM_PRIME| FilterPush["cFilterThread::PushFrame"]
-    FormatCheck -->|Progressive DRM_PRIME| RenderRB["cVideoRender::m_framesRb"]
-    FormatCheck -->|NV12 Format| EnqFB["cVideoRender::EnqueueFB"]
+    FormatCheck -->|Progressive DRM_PRIME| RenderRB["cVideoRender::m_drmBufferQueue"]
+    FormatCheck -->|NV12 Format| PushFrame["cVideoRender::PushFrame"]
 
     %% Filter Thread Path
     FilterPush --> FilterQueue["cFilterThread::m_frames<br/>**3**x AVFrame"]
     FilterQueue --> FilterAction["cFilterThread::Action"]
     FilterAction --> |Interlaced DRM_PRIME|HWDeint["FFMPEG filter:<br />HW Deinterlacer"]
     FilterAction --> |YUV420P|SWDeint["FFMPEG filter:<br/>Convert to NV12 with optional SW Deinterlacing"]
-    HWDeint -->|Progressive DRM_PRIME| RenderRB["cVideoRender::m_framesRb<br/>Size: **3**x AVFrame"]
-    SWDeint --> |NV12 Format|EnqFB["cVideoRender::EnqueueFB"]
+    HWDeint -->|Progressive DRM_PRIME| RenderRB["cVideoRender::m_drmBufferQueue<br/>Size: **3**x AVFrame"]
+    SWDeint --> |NV12 Format|PushFrame["cVideoRender::PushFrame"]
 
-    %% EnqueueFB Path (Software frames need buffer prep)
-    EnqFB --> |Progressive DRM_PRIME|RenderRB
+    %% PushFrame Path (Software frames need buffer prep)
+    PushFrame --> |Progressive DRM_PRIME|RenderRB
 
     %% Display Thread
     RenderRB --> |AVFrame|DispThread["cDisplayThread::Action"]
-    DispThread --> DisplayFrame["cVideoRender::DisplayFrame<br/>(A/V sync)<br/>cVideoRender::m_buffer **36**x cDrmBuffer"]
-    DisplayFrame --> GetFrame["cVideoRender::GetFrame"]
-    GetFrame -->|AVFrame| DisplayFrame
-
-    DisplayFrame --> |AVFrame|GetBuffer["cVideoRender::GetBuffer"]
-    GetBuffer -->|cDrmBuffer| DisplayFrame
-
-    DisplayFrame -->|AVFrame| SetFrame["cDrmBuffer::SetFrame"]
-    SetFrame --> DisplayFrame
+    DispThread --> DisplayFrame["cVideoRender::DisplayFrame<br/>(A/V sync)<br/>cVideoRender::m_drmBufferPool **36**x cDrmBuffer"]
     DisplayFrame --> |AVFrame & cDrmBuffer|PageFlipVid["cVideoRender::PageFlipVideo"]
 
     PageFlipVid --> |AVFrame & cDrmBuffer|PageFlip["PageFlip"]
@@ -202,9 +199,9 @@ graph TD
     class VDR,PlayVideo,PushPes,CreatePkt vdrThread
     class DecThread,DecInput,SendPkt,RecvFrame,RenderFrame,FilterPush decThread
     class FilterAction,HWDeint,SWDeint filterThread
-    class DispThread,DisplayFrame,GetFrame,PageFlipVid,PageFlip,CommitBuf,DrmCommit,GetBuffer,SetFrame displayThread
+    class DispThread,DisplayFrame,PageFlipVid,PageFlip,CommitBuf,DrmCommit displayThread
     class Hardware hardware
-    class PktQueue,FilterQueue,RenderRB,EnqFB buffer
+    class PktQueue,FilterQueue,RenderRB,PushFrame buffer
     class FormatCheck decThread
 ```
 
@@ -223,16 +220,16 @@ flowchart TD
     TrickSpeedDecision --> |Trick Speed|TrickSpeedFormat{Format?}
     TrickSpeedFormat --> |__SW decoded__<br/>YUV420P<br/>_progressive or interlaced_<br/>RPI 4&5: 576i MPEG2<br/>RPI4: 1080p HEVC<br/>RPI5: 1080i H.264<br/>RK3399: __None__|FilterThreadForceProgressive
     TrickSpeedFormat --> |__HW decoded__<br/>DRM_PRIME<br/>_progressive or interlaced_<br/>RPI4: 1080i H.264<br/>RPI5: 1080p HEVC<br/>RK3399: all|Display
-    EnqueueFB --> |DRM_PRIME<br/>progressive or interlaced|Display
-    FilterThreadForceProgressive --> |NV12<br/>progressive or interlaced|EnqueueFB
+    PushFrame --> |DRM_PRIME<br/>progressive or interlaced|Display
+    FilterThreadForceProgressive --> |NV12<br/>progressive or interlaced|PushFrame
 
     TrickSpeedDecision --> |Normal Playback|NormalPlaybackFormat{Format?}
     NormalPlaybackFormat --> |__SW decoded__<br/>_YUV420P<br/>interlaced_<br/>RPI 4&5: 576i MPEG2<br/>RPI5: 1080i H.264<br/>RK3399: __None__|FilterThreadSwDeinterlacer
     NormalPlaybackFormat --> |__SW decoded__<br/>_YUV420P<br/>progressive_<br/>RPI5: 720p H.264<br/>RPI4/RK3399: __None__|FilterThreadProgressive
     NormalPlaybackFormat --> |__HW decoded__<br/>_DRM_PRIME<br/>interlaced_<br/>RPI4/RK3399: 1080i H.264<br/>RPI5: __None__|FilterThreadHwDeinterlacer
     NormalPlaybackFormat --> |__HW decoded__<br/>DRM_PRIME<br/>_progressive_<br/>RPI 4&5/RK3399: 1080p HEVC<br/>RPI4/RK3399: 720p H.264|Display
-    FilterThreadSwDeinterlacer --> |NV12<br/>progressive|EnqueueFB
-    FilterThreadProgressive --> |NV12<br/>progressive|EnqueueFB
+    FilterThreadSwDeinterlacer --> |NV12<br/>progressive|PushFrame
+    FilterThreadProgressive --> |NV12<br/>progressive|PushFrame
     FilterThreadHwDeinterlacer --> |DRM_PRIME<br/>progressive|Display
 
     classDef decThread fill:#ce93d8,stroke:#8e24aa,stroke-width:2px,color:#000000
@@ -243,7 +240,7 @@ flowchart TD
     class Decoder decThread
     class FilterThreadForceProgressive,FilterThreadProgressive,FilterThreadHwDeinterlacer,FilterThreadSwDeinterlacer filterThread
     class Display displayThread
-    class EnqueueFB buffer
+    class PushFrame buffer
 ```
 
 ## VDR State Management
@@ -297,10 +294,10 @@ The latter can happen for example on bad reception when garbage is received.
 
 ## Buffering
 
-The audio and video data is buffered when VDR calls `SetPlayMode(pmAudioVideo)`, or `Clear()`, or when the buffer underruns during playback.
+The audio and video data is buffered when VDR calls `SetPlayMode(pmAudioVideo)`, `Clear()` or when the buffer underruns during playback.
 
-The first audio PTS value and the first video PTS value VDR sends (and are received in `PlayVideo()`/`PlayAudio()`) differ in most cases (up to 3.5s were observed).
-The subset having only video or only audio is dropped, so that playback starts at the first frame where video *and* audio are available.
+The first audio PTS value and the first video PTS value which VDR sends (and which are received in `PlayVideo()`/`PlayAudio()`) differ in most cases (up to 3.5s were observed).
+The subset having only video or only audio is dropped, so that playback starts at the first frame where video *and* audio are present.
 However, the first received video frame is not dropped but displayed immediately after `Clear()` is called.
 This comes into handy when using `SkipSeconds`, having a responsive experience when seeking in a recording.
 
@@ -310,8 +307,46 @@ To calculate if the buffer fill levels are sufficient to start playback, the fol
 - On each `Play*()` invocation, find the oldest PTS in each buffer (audio and video).
 - Use the buffer with the newer of both values to calculate its fill level (this will be the buffer having audio *and* video the whole buffer).
 - When the fill threshold of that buffer is reached, truncate the above mentioned subset of the other buffer.
-- Wait if the display output queue is not completely filled, yet.
+- Wait until the display output queue is completely filled.
 - Start playback.
+
+### Example: Buffering a H.264 Live Stream
+
+This is a real-life example, switching to the TV station "DMAX" (576i/H.264).
+
+The first video packets (20.890-21.510s) are dropped, because they contain no codec information/I-frame.
+So, the first frame the decoder outputs is 21.510s, which is also the first frame being displayed.
+
+All audio samples are dropped (21.510-20.302=1.208s), which have PTS values before the initially displayed video frame to let audio and video start in sync.
+
+At the point the buffer threshold is reached (450ms), the audio buffer has a size of 21.886-21.510=0.376s and the video buffer of 22.490-21.510=0.980s.
+
+The audio buffer size is apparently below the threshold in this example.
+Nevertheless, the buffer threshold is reached, because the the PTS values represent the start of a frame, and the threshold calculation takes the end of the last audio frame into account.
+
+The PTS timestamps in the following timeline are truncated to seconds for simplicity, but represent real values.
+
+```mermaid
+timeline
+title PTS Timeline: Live Stream Buffering
+
+section Dropped
+20.302s: First arrived audio packet
+20.890s: First arrived video packet
+section Displayed
+21.510s: First video packet with a codec syncword being detected: First audio/video frame to be output
+21.886s: Last arrived audio packet before the buffer threshold is reached
+22.490s: Last arrived video packet before the buffer threshold is reached
+```
+
+The time between the first received PES packet of this stream and the first pageflip are 1.8s in this example.
+
+That the first PTS to be output is determined by the video stream seems to be the common case.
+If the first audio packet arrives after the first decoded video frame, the initial PTS to be output would be determined by the audio stream.
+
+Side note: For additional responsiveness/optimization, the first video packets (until the first sync word was received), were tried to put through the decoder (opened with the correct codec ID), but the decoder responded with invalid data.
+Only tried with H.264.
+
 
 ## Misc
 
