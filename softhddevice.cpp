@@ -389,13 +389,11 @@ void cSoftHdDevice::OnEventReceived(const Event& event)
 							break;
 						case AUDIO_AND_VIDEO:
 							audioBehindVideoByMs = m_pRender->GetOutputPtsMs() - m_pAudio->GetOutputPtsMs() - m_pConfig->ConfigVideoAudioDelayMs;
-							LOGDEBUG2(L_AV_SYNC, "device: delay %dms: audio %s, video %s", audioBehindVideoByMs, Timestamp2String(m_pAudio->GetOutputPtsMs(), 1), Timestamp2String(m_pRender->GetOutputPtsMs(), 1));
 							if (audioBehindVideoByMs > 0) {
 								m_pAudio->DropSamplesOlderThanPtsMs(m_pAudio->GetOutputPtsMs() + audioBehindVideoByMs);
 								m_pAudio->SetPaused(false);
-							} else {
-								m_pAudio->UnpauseAfterMs(std::abs(audioBehindVideoByMs));
-							}
+							} else
+								m_pRender->SetScheduleAudioResume(true);
 
 							m_pRender->SetPlaybackPaused(false);
 							break;

@@ -52,7 +52,6 @@ public:
 	int Setup(AVCodecContext *, int , int , int);
 	void SetPaused(bool);
 	bool IsPaused(void) { return m_paused; };
-	void UnpauseAfterMs(int64_t);
 	void Filter(AVFrame *, AVCodecContext *);
 	void Enqueue(uint16_t *, int, AVFrame *);
 	bool IsBufferFull(void) { return m_pRingbuffer.FreeBytes() <= AUDIO_MIN_BUFFER_FREE; }
@@ -100,8 +99,6 @@ private:
 	AVRational *m_pTimebase;                ///< pointer to AVCodecContext pkts_timebase
 	std::mutex m_mutex;                     ///< mutex for thread safety
 	std::vector<Event> m_eventQueue;    ///< event queue for incoming events
-	uint8_t m_silenceBuffer[19200]{0};      ///< silent buffer for pausing. The size is arbitrary. It was the largest chunk seen that ALSA can process in one write.
-	int m_playSilenceForFrameCount = 0;     ///< amount of silence to play in frame count
 
 	int m_downmix;                          ///< set stereo downmix
 

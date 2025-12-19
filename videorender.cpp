@@ -597,7 +597,11 @@ bool cVideoRender::DisplayFrame()
 			if (audioPtsMs != AV_NOPTS_VALUE) {
 				int audioBehindVideoByMs = videoPtsMs - audioPtsMs - m_pDevice->GetVideoAudioDelayMs();
 
-				if (!m_pAudio->IsPaused() && audioBehindVideoByMs > AV_SYNC_THRESHOLD_AUDIO_BEHIND_VIDEO_MS) { // duplicate frame
+				if (m_resumeAudioScheduled && audioBehindVideoByMs >= 0) { // resume audio from pause
+					LOGDEBUG2(L_AV_SYNC, "videorender: resuming audio playback: video %s, audio %s", Timestamp2String(videoPtsMs, 1), Timestamp2String(audioPtsMs, 1));
+					m_pAudio->SetPaused(false);
+					m_resumeAudioScheduled = false;
+				} else if (!m_pAudio->IsPaused() && audioBehindVideoByMs > AV_SYNC_THRESHOLD_AUDIO_BEHIND_VIDEO_MS) { // duplicate frame
 					LogDroppedDuped(audioPtsMs, videoPtsMs, audioBehindVideoByMs);
 
 					m_framePresentationCounter++; // display the current video frame one period longer
