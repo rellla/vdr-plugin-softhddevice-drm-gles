@@ -928,7 +928,7 @@ AVFrame *cDecodingStrategyHardware::PrepareDrmBuffer(cDrmBuffer *buf, int drmDev
 
 void cVideoRender::PushMainFrame(AVFrame *frame)
 {
-	PushFrame(frame, GetTrickSpeed() && !GetTrickForward(), m_bufferReuseStrategy, m_decodingStrategy, &m_drmBufferQueue, &m_drmBufferPool);
+	PushFrame(frame, GetTrickSpeed(), m_bufferReuseStrategy, m_decodingStrategy, &m_drmBufferQueue, &m_drmBufferPool);
 }
 
 void cVideoRender::PushPipFrame(AVFrame *frame)
@@ -941,14 +941,14 @@ void cVideoRender::PushPipFrame(AVFrame *frame)
  */
 void cVideoRender::PushFrame(
 	AVFrame *frame,
-	bool reverseTrickspeed,
+	bool trickspeed,
 	std::atomic<cBufferStrategy*> &bufferReuseStrategy,
 	std::atomic<cDecodingStrategy*> &decodingStrategy,
 	cQueue<cDrmBuffer>* drmBufferQueue,
 	cDrmBufferPool *drmBufferPool)
 {
 	if (bufferReuseStrategy == nullptr) {
-		if (reverseTrickspeed)
+		if (trickspeed)
 			bufferReuseStrategy = new cBufferStrategyUseOnce();
 		else if (frame->format == AV_PIX_FMT_DRM_PRIME)
 			bufferReuseStrategy = new cBufferStrategyReuseHardware();
