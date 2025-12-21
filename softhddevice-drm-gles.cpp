@@ -58,9 +58,9 @@ extern "C"
 /*****************************************************************************
  * Static variables
  ****************************************************************************/
-static const char *const VERSION = "1.4.1";    ///< vdr-plugin version number
-                                               ///< Makefile extracts the version number for generating the file name
-                                               ///< for the distribution archive.
+static const char *const VERSION = "1.4.1" GIT_DESCRIBE;    ///< vdr-plugin version number
+                                                            ///< Makefile extracts the version number for generating the file name
+                                                            ///< for the distribution archive.
 
 static const char *const DESCRIPTION = trNOOP("A software and GPU emulated HD device");
                                                ///< vdr-plugin description.

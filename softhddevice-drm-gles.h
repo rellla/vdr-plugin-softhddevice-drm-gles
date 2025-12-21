@@ -31,6 +31,10 @@
 #include "softhddevice.h"
 #include "config.h"
 
+#ifndef GIT_DESCRIBE
+#define GIT_DESCRIBE "-unknown"
+#endif
+
 class cSoftHdDevice;
 
 /*****************************************************************************

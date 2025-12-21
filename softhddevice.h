@@ -44,10 +44,6 @@ extern "C"
 #include "pipreceiver.h"
 #include "event.h"
 
-#ifndef GIT_DESCRIBE
-#define GIT_DESCRIBE "unknown"
-#endif
-
 // State machine definitions
 // Implementing C++17 visitor pattern
 
