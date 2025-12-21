@@ -142,13 +142,10 @@ void cAudioThread::Action(void)
 {
 	LOGDEBUG("threads: audio thread started");
 	while (Running()) {
-		bool sleep = !m_pAudio->CyclicCall();
+		m_pAudio->CyclicCall();
 		m_pAudio->ProcessEvents();
 
-		if (sleep)
-			usleep(10000);
-		else
-			usleep(100); // yield thread. give control also to threads with lower priority.
+		usleep(10000);
 	}
 	LOGDEBUG("threads: audio thread stopped");
 }
