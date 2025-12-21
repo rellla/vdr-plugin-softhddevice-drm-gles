@@ -342,7 +342,7 @@ void cVideoStream::DecodeInput(void)
 	// while in interlaced trickspeed mode, needed to get a frame.
 	// This guarantees, that we don't drain the decoder too early, but exactly after
 	// m_trickpkts sent packets
-	int minPkts = (m_pRender->GetTrickSpeed() && m_interlaced) ? m_trickpkts : 1;
+	int minPkts = (m_pRender->IsTrickSpeed() && m_interlaced) ? m_trickpkts : 1;
 
 	// send packet to decoder
 	AVPacket *avpkt = m_packets.Peek();
@@ -356,7 +356,7 @@ void cVideoStream::DecodeInput(void)
 
 	// in backward trickspeed force the decoder to decode the frame, if minPkts are sent
 	bool flushDecoder = false;
-	if (ret == 0 && m_pRender->GetTrickSpeed() && !m_pRender->GetTrickForward()) {
+	if (ret == 0 && m_pRender->IsTrickSpeed() && !m_pRender->IsForwardTrickspeed()) {
 		m_sentTrickPkts++;
 		if (m_sentTrickPkts >= minPkts) {
 			m_pDecoder->SendPacket(NULL);

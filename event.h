@@ -41,7 +41,8 @@ struct PlayEvent {};
 struct PauseEvent {};
 struct StopEvent {};
 struct TrickSpeedEvent {
-	int speed;
+	double speed;
+	bool active;
 	bool forward;
 };
 struct StillPictureEvent {

@@ -334,7 +334,7 @@ void cSoftHdDevice::OnEventReceived(const Event& event)
 				[this](const TrickSpeedEvent& t) {
 					// abort buffering and proceed with trick speed immediately, because trick speed shall be as fast and as demanded as possible
 					SetState(PLAY);
-					m_pRender->SetTrickSpeed(t.speed, t.forward);
+					m_pRender->SetTrickSpeed(t.speed, t.active, t.forward);
 					SetState(TRICK_SPEED);
 				},
 				[this](const StillPictureEvent& s) {
@@ -410,7 +410,7 @@ void cSoftHdDevice::OnEventReceived(const Event& event)
 					SetState(STOP);
 				},
 				[this](const TrickSpeedEvent& t) {
-					m_pRender->SetTrickSpeed(t.speed, t.forward);
+					m_pRender->SetTrickSpeed(t.speed, t.active, t.forward);
 					SetState(TRICK_SPEED);
 				},
 				[this](const StillPictureEvent& s) {
@@ -447,7 +447,7 @@ void cSoftHdDevice::OnEventReceived(const Event& event)
 				},
 				[this](const TrickSpeedEvent& t) {
 					// resume from pause, or change trick speed direction/speed
-					m_pRender->SetTrickSpeed(t.speed, t.forward);
+					m_pRender->SetTrickSpeed(t.speed, t.active, t.forward);
 					m_pRender->SetPlaybackPaused(false);
 				 },
 				[this](const StillPictureEvent& s) {
@@ -478,7 +478,7 @@ void cSoftHdDevice::OnEventReceived(const Event& event)
 					SetState(STOP);
 				},
 				[this](const TrickSpeedEvent& t) {
-					m_pRender->SetTrickSpeed(t.speed, t.forward);
+					m_pRender->SetTrickSpeed(t.speed, t.active, t.forward);
 					SetState(TRICK_SPEED);
 				},
 				[this](const StillPictureEvent& s) {
@@ -601,7 +601,7 @@ void cSoftHdDevice::OnLeavingState(State state) {
 		case TRICK_SPEED:
 			// The filter thread needs to be restarted for interlaced streams to be rendered with deinterlacer again. It is started lazily.
 			m_pVideoStream->CancelFilterThread();
-			m_pRender->SetTrickSpeed(0, 1);
+			m_pRender->SetTrickSpeed(0, false, false);
 			m_pRender->ResetFrameCounter();
 			m_pVideoStream->ResetFilterThreadNeededCheck();
 			m_pVideoStream->SetDeinterlacerDeactivated(false);
@@ -697,19 +697,81 @@ int64_t cSoftHdDevice::GetSTC(void)
 }
 
 /**
- * Set trick play speed.
- *
+ * Sets the device into a mode where replay is done slower.
  * Every single frame shall then be displayed the given number of
- * times.
- *
- * @param speed       trick speed
- * @param forward     flag forward direction
+ * times. Forward is true if replay is done in the normal (forward)
+ * direction, false if it is done reverse.
+ * The cDvbPlayer uses the following values for the various speeds:
+ *                   1x   2x   3x
+ * Fast Forward       6    3    1
+ * Fast Reverse       6    3    1
+ * Slow Forward       8    4    2
+ * Slow Reverse      63   48   24
  */
 void cSoftHdDevice::TrickSpeed(int speed, bool forward)
 {
 	LOGDEBUG("device: %s: %d %s", __FUNCTION__, speed, forward ? "forward" : "backward");
 
-	OnEventReceived(TrickSpeedEvent{speed, forward});
+	// This normalizes the VDR frame displaying count into a factor, representing how fast/slow the playback shall be.
+	// For example, a factor of 2.0 means twice as fast as normal, a factor of 0.5 means half as fast as normal (slow-mo).
+	// This is necessary because VDR sends only I-frames during trickspeed, but the distance between I-frames depends on the encoding parameters.
+	// Therefore, we send a normalized factor for the further components, which then calculate the necessary frame displaying count by considering the distance between I-frames.
+
+	double normalizedSpeed = 1;
+	static constexpr double MAX_SPEED = 3;
+
+	// these are arbitrary values, which feel just right
+	static constexpr double FAST_TRICKSPEED_FACTOR = 5; // the higher the factor, the faster the fast forward/reverse
+	static constexpr double SLOW_FORWARD_FACTOR = 2; // the higher the factor, the slower the slow-mo
+
+	// Fastest speed in reverse slow-mo is the original speed. Slower speeds are too slow, because of the already low frame rate.
+	static constexpr double SLOW_REVERSE_FACTOR = 1;
+
+	// speed of the trickspeed (VDR's magic frame displaying count)
+	switch (speed) {
+		case 6:
+		case 8:
+		case 63:
+			normalizedSpeed = 1; // slowest (both, in fast trickspeed and slow-mo)
+			break;
+		case 3:
+		case 4:
+		case 48:
+			normalizedSpeed = 2;
+			break;
+		case 1:
+		case 2:
+		case 24:
+			normalizedSpeed = 3; // fastest (both, in fast trickspeed and slow-mo)
+			break;
+	}
+
+	// figure out if VDR demands slow-mo or fast trickspeed
+	double tmp;
+	switch (speed) {
+		case 8:
+		case 4:
+		case 2:
+		case 63:
+		case 48:
+		case 24:
+			// slow-mo
+			tmp = (MAX_SPEED + 1) - normalizedSpeed;
+
+			if (forward)
+				tmp *= SLOW_FORWARD_FACTOR;
+			else
+				tmp *= SLOW_REVERSE_FACTOR;
+
+			normalizedSpeed = 1 / tmp;
+		break;
+		default:
+			// fast trickspeed
+			normalizedSpeed *= FAST_TRICKSPEED_FACTOR;
+		break;
+	}
+
+	OnEventReceived(TrickSpeedEvent{normalizedSpeed, speed != 0, forward});
 }
 
 /**
@@ -946,14 +1008,14 @@ void cSoftHdDevice::GetOsdSize(int &width, int &height, double &aspectRatio)
  *
  * @param width           screen width
  * @param height          screen height
- * @param refreshRate     screen refresh rate (currently unused)
+ * @param refreshRateHz   screen refresh rate in Hz
  */
-void cSoftHdDevice::SetScreenSize(int width, int height, uint32_t refreshRate)
+void cSoftHdDevice::SetScreenSize(int width, int height, double refreshRateHz)
 {
 	std::lock_guard<std::mutex> lock(m_sizeMutex);
 	m_screenWidth = width;
 	m_screenHeight = height;
-	m_screenRefreshRate = refreshRate;
+	m_screenRefreshRateHz = refreshRateHz;
 }
 
 /**

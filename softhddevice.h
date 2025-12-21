@@ -189,7 +189,7 @@ public:
 	void SetDisableDeint(void);
 	void OsdClose(void);
 	void OsdDrawARGB(int, int, int, int, int, const uint8_t *, int, int);
-	void SetScreenSize(int, int, uint32_t);
+	void SetScreenSize(int, int, double);
 
 	// audio
 	int GetVideoAudioDelayMs(void) { return m_pConfig->ConfigVideoAudioDelayMs; };
@@ -260,7 +260,7 @@ private:
 
 	int m_screenWidth;
 	int m_screenHeight;
-	uint32_t m_screenRefreshRate;
+	double m_screenRefreshRateHz;
 
 	int PlayVideoInternal(cVideoStream *, cReassemblyBufferVideo *, const uchar *, int);
 	void ClearAudio(void);

@@ -363,10 +363,13 @@ int cDrmDevice::Init(void)
 		}
 	}
 
-	m_pRender->SetScreenSize(m_drmModeInfo.hdisplay, m_drmModeInfo.vdisplay, m_drmModeInfo.vrefresh);
+	// Calculate the refresh rate. Don't use m_drmModeInfo.vrefresh, because we need the precise value.
+	double refreshRateHz = (double)m_drmModeInfo.clock * 1000.0 / ((double)m_drmModeInfo.htotal * (double)m_drmModeInfo.vtotal);
 
-	LOGINFO("DRM Setup: Using Monitor Mode %dx%d@%d, m_crtcId %d crtc_idx %d",
-		m_drmModeInfo.hdisplay, m_drmModeInfo.vdisplay, m_drmModeInfo.vrefresh, m_crtcId, m_crtcIndex);
+	m_pRender->SetScreenSize(m_drmModeInfo.hdisplay, m_drmModeInfo.vdisplay, refreshRateHz);
+
+	LOGINFO("DRM Setup: Using Monitor Mode %dx%d@%.2fHz, m_crtcId %d crtc_idx %d",
+		m_drmModeInfo.hdisplay, m_drmModeInfo.vdisplay, refreshRateHz, m_crtcId, m_crtcIndex);
 
 	drmModeFreeConnector(connector);
 

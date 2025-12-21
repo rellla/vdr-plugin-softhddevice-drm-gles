@@ -89,8 +89,8 @@ cVideoRender::cVideoRender(cSoftHdDevice *device)
 	m_startCounter = 0;
 	m_videoIsScaled = false;
 
-	m_trickSpeed = 0;
-	m_trickForward = true;
+	m_trickspeedFactor = 0;
+	m_forwardTrickspeed = true;
 
 	m_timebase = av_make_q(1, 90000);
 
@@ -565,13 +565,11 @@ bool cVideoRender::DisplayFrame()
 	if (m_pDevice->IsBufferingThresholdReached())
 		m_eventQueue.push_back(BufferingThresholdReachedEvent{});
 
-	if (m_pDevice->VideoStream()->GetAvPacketsFilled() == 0 && !m_videoPlaybackPaused && m_schedulePlaybackStartAtPtsMs == AV_NOPTS_VALUE && !GetTrickSpeed())
+	if (m_pDevice->VideoStream()->GetAvPacketsFilled() == 0 && !m_videoPlaybackPaused && m_schedulePlaybackStartAtPtsMs == AV_NOPTS_VALUE && !IsTrickSpeed())
 		m_eventQueue.push_back(BufferUnderrunEvent{VIDEO});
 
 	cDrmBuffer *drmBuffer = nullptr;
 	if (m_framePresentationCounter == 0) {
-		m_framePresentationCounter = std::max(1, GetTrickSpeed());
-
 		if (!m_videoPlaybackPaused || m_schedulePlaybackStartAtPtsMs != AV_NOPTS_VALUE)
 			drmBuffer = m_drmBufferQueue.Pop();
 	}
@@ -580,6 +578,14 @@ bool cVideoRender::DisplayFrame()
 
 	bool pageFlipDone = false;
 	if (drmBuffer) {
+		if (m_framePresentationCounter == 0) {
+			if (m_pCurrentlyDisplayed) {
+				int64_t interFrameGapMs = std::abs(PtsToMs(drmBuffer->frame->pts - m_pCurrentlyDisplayed->frame->pts));
+				m_framePresentationCounter = GetFramePresentationCount(interFrameGapMs);
+			} else
+				m_framePresentationCounter = 1;
+		}
+
 		if (m_schedulePlaybackStartAtPtsMs != AV_NOPTS_VALUE) {
 			// check if playback shall start
 			if (PtsToMs(drmBuffer->frame->pts) < m_schedulePlaybackStartAtPtsMs) {
@@ -622,7 +628,7 @@ bool cVideoRender::DisplayFrame()
 				m_startCounter++;
 			}
 
-			if (m_videoPlaybackPaused || GetTrickSpeed())
+			if (m_videoPlaybackPaused || IsTrickSpeed())
 				m_pAudio->DropSamplesOlderThanPtsMs(drmBuffer->frame->pts * 1000 * av_q2d(m_timebase));
 		}
 
@@ -654,7 +660,8 @@ bool cVideoRender::DisplayFrame()
 		m_pCurrentlyPipDisplayed = pipBuf;
 	}
 
-	m_framePresentationCounter--;
+	if (m_framePresentationCounter > 0)
+		m_framePresentationCounter--;
 
 	return pageFlipDone;
 }
@@ -928,7 +935,7 @@ AVFrame *cDecodingStrategyHardware::PrepareDrmBuffer(cDrmBuffer *buf, int drmDev
 
 void cVideoRender::PushMainFrame(AVFrame *frame)
 {
-	PushFrame(frame, GetTrickSpeed(), m_bufferReuseStrategy, m_decodingStrategy, &m_drmBufferQueue, &m_drmBufferPool);
+	PushFrame(frame, IsTrickSpeed(), m_bufferReuseStrategy, m_decodingStrategy, &m_drmBufferQueue, &m_drmBufferPool);
 }
 
 void cVideoRender::PushPipFrame(AVFrame *frame)
@@ -1032,7 +1039,7 @@ int64_t cVideoRender::GetVideoClock(void)
 void cVideoRender::ResetFrameCounter(void)
 {
 	m_startCounter = 0;
-	LOGDEBUG("videorender: %s: reset m_startCounter %d TrickSpeed %d", __FUNCTION__, m_startCounter, GetTrickSpeed());
+	LOGDEBUG("videorender: %s: reset m_startCounter %d TrickSpeed %d", __FUNCTION__, m_startCounter, IsTrickSpeed());
 }
 
 void cVideoRender::Reset()
@@ -1051,45 +1058,36 @@ void cVideoRender::Reset()
  * Set the trickspeed parameters
  *
  * @param speed         trick speed value from VDR (0 = normal)
- * @param forward       1 if forward trick speed, 0 if backward
+ * @param active        true if trickspeed is active
+ * @param forward       true if forward trick speed, false if backward
  */
-void cVideoRender::SetTrickSpeed(int speed, int forward)
+void cVideoRender::SetTrickSpeed(double speed, bool active, bool forward)
 {
-	LOGDEBUG2(L_TRICK, "videorender: %s: set trick speed %d %s", __FUNCTION__, speed, forward ? "forward" : "backward");
-	m_trickspeedMutex.Lock();
-	m_framePresentationCounter = std::max(1, speed); // speed is 0 in normal playback. Set it to 1 to display the frames exactly once.
-	m_trickSpeed = speed;
-	m_trickForward = forward;
-	m_trickspeedMutex.Unlock();
+	LOGDEBUG2(L_TRICK, "videorender: %s: set trick speed %.3f %s", __FUNCTION__, speed, forward ? "forward" : "backward");
+	m_framePresentationCounter = 1;
+	m_trickspeedFactor = speed;
+	m_trickspeed = active;
+	m_forwardTrickspeed = forward;
 }
 
 /**
- * Get the current trickspeed
+ * Get the number of times the current frame shall be presented in trickspeed mode.
+ * This is calculated based on the inter-frame gap (distance between each I-frame VDR sends us during trickspeed), the refresh rate of the output device, and the trickspeed speed.
  *
- * @returns current trick speed value set with SetTrickSpeed()
+ * @param interFrameGapMs      inter-frame gap in ms
+ * @retval                     number of times the current frame shall be presented
  */
-int cVideoRender::GetTrickSpeed(void)
+int cVideoRender::GetFramePresentationCount(int64_t interFrameGapMs)
 {
-	int speed;
-	m_trickspeedMutex.Lock();
-	speed = m_trickSpeed * (m_pDevice->VideoStream()->IsInterlaced() ? 2 : 1);
-	m_trickspeedMutex.Unlock();
-	return speed;
-}
+	if (!IsTrickSpeed())
+		return 1;
 
-/**
- * Get the current trickspeed direction
- *
- * @retval 1       if forward trickspeed
- * @retval 0       if backward trickspeed
- */
-int cVideoRender::GetTrickForward(void)
-{
-	int dir;
-	m_trickspeedMutex.Lock();
-	dir = m_trickForward;
-	m_trickspeedMutex.Unlock();
-	return dir;
+	// Calculate the expected number of display refreshes for this frame
+	double interFrameGapSec = interFrameGapMs / 1000.0;
+	double refreshPeriodSec = 1.0 / m_refreshRateHz;
+	int displayCount = std::max(1, static_cast<int>(std::round(interFrameGapSec / refreshPeriodSec / m_trickspeedFactor)));
+
+	return displayCount;
 }
 
 /*****************************************************************************
@@ -1288,11 +1286,12 @@ void cVideoRender::GetStats(int *duped, int *dropped, int *counter)
  *
  * @param width           screen width
  * @param height          screen height
- * @param refreshRate     screen refresh rate
+ * @param refreshRateHz   screen refresh rate in Hz
  */
-void cVideoRender::SetScreenSize(int width, int height, uint32_t refreshRate)
+void cVideoRender::SetScreenSize(int width, int height, double refreshRateHz)
 {
-	m_pDevice->SetScreenSize(width, height, refreshRate);
+	m_refreshRateHz = refreshRateHz;
+	m_pDevice->SetScreenSize(width, height, refreshRateHz);
 }
 
 /**

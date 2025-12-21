@@ -128,7 +128,7 @@ public:
 	void Exit(void);
 
 	void SetVideoOutputPosition(const cRect &);
-	void SetScreenSize(int, int, uint32_t);
+	void SetScreenSize(int, int, double);
 	int64_t GetVideoClock(void);
 	void GetStats(int *, int *, int *);
 	void ResetFrameCounter(void);
@@ -145,9 +145,9 @@ public:
 	void OsdDrawARGB(int, int, int, int, int, const uint8_t *, int, int);
 
 	// TrickSpeed
-	void SetTrickSpeed(int, int);
-	int GetTrickSpeed(void);
-	int GetTrickForward(void);
+	void SetTrickSpeed(double, bool, bool);
+	bool IsTrickSpeed(void) { return m_trickspeed; };
+	bool IsForwardTrickspeed(void) { return m_forwardTrickspeed; };
 
 	// Grab
 	int TriggerGrab(void);
@@ -201,15 +201,16 @@ private:
 	cSoftHdAudio *m_pAudio;             ///< pointer to cSoftHdAudio
 	cSoftHdConfig *m_pConfig;           ///< pointer to cSoftHdConfig
 	cDisplayThread *m_pDisplayThread;   ///< pointer to display thread
-	cMutex m_trickspeedMutex;           ///< mutex used while accessing trickspeed parameters
 	cMutex m_videoClockMutex;           ///< mutex used around m_pts
 	std::vector<Event> m_eventQueue;    ///< event queue for incoming events
+	double m_refreshRateHz;             ///< screen refresh rate in Hz
 
 	cQueue<cDrmBuffer> m_drmBufferQueue{VIDEO_SURFACES_MAX};     ///< queue for DRM buffers to be displayed (VIDEO_SURFACES_MAX is defined in thread.h)
 	cQueue<cDrmBuffer> m_pipDrmBufferQueue{VIDEO_SURFACES_MAX};  ///< queue for PIP DRM buffers to be displayed (VIDEO_SURFACES_MAX is defined in thread.h)
-	int m_trickSpeed;                   ///< current trick speed
-	bool m_trickForward;                ///< true, if trickspeed plays forward
-	int m_framePresentationCounter = 0; ///< number of times the current frame has to be shown (for slow motion)
+	std::atomic<double> m_trickspeedFactor;   ///< current trick speed
+	std::atomic<bool> m_trickspeed = false;   ///< true, if trickspeed is active
+	std::atomic<bool> m_forwardTrickspeed;    ///< true, if trickspeed plays forward
+	std::atomic<int> m_framePresentationCounter = 0; ///< number of times the current frame has to be shown (for slow-motion)
 	int m_numWrongProgressive;          ///< counter for progressive frames sent in an interlaced stream
 	                                    ///< (only used for logging)
 
@@ -275,6 +276,7 @@ private:
 	void LogDroppedDuped(int64_t, int64_t, int);
 	int64_t PtsToMs(int64_t);
 	void PushFrame(AVFrame *, bool, std::atomic<cBufferStrategy*> &, std::atomic<cDecodingStrategy*> &, cQueue<cDrmBuffer> *, cDrmBufferPool *);
+	int GetFramePresentationCount(int64_t);
 };
 
 #endif
