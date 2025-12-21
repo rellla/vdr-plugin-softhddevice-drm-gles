@@ -172,6 +172,8 @@ int cSoftHdDevice::Start(void)
 	LOGDEBUG("device: %s", __FUNCTION__);
 	OnEventReceived(AttachEvent{});
 
+	LOGDEBUG("device: Git revision: %s", GIT_DESCRIBE);
+
 	return true;
 }
 
