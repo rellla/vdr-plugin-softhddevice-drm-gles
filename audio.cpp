@@ -1617,6 +1617,13 @@ void cSoftHdAudio::AlsaInitPCMDevice(void)
 		freeDevice = (device != NULL);  // FindAlsaDevice allocates memory
 	}
 
+	// Rockchip mainline kernel
+	if (!device) {
+		LOGDEBUG2(L_SOUND, "audio: %s: Try default:CARD=hdmisound devices...", __FUNCTION__);
+		device = FindAlsaDevice("pcm", "default:CARD=hdmisound", m_passthrough);
+		freeDevice = (device != NULL);  // FindAlsaDevice allocates memory
+	}
+
 	// walkthrough default: devices
 	if (!device) {
 		LOGDEBUG2(L_SOUND, "audio: %s: Try default: devices...", __FUNCTION__);
