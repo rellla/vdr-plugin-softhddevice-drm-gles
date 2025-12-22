@@ -167,7 +167,6 @@ private:
 	snd_mixer_elem_t *m_pAlsaMixerElem;  ///< alsa mixer element
 	int m_alsaRatio;                     ///< internal -> mixer ratio * 1000
 	bool m_alsaUseMmap;                  ///< use mmap
-	bool m_alsaCanPause;                 ///< hw supports pause
 
 	void XrunRecovery(void);
 	char *OpenAlsaDevice(const char *, int);

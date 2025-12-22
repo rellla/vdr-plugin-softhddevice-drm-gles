@@ -94,8 +94,6 @@ cSoftHdAudio::cSoftHdAudio(cSoftHdDevice *device)
 	if (m_pConfig->ConfigAudioPassthroughState)
 		m_passthrough = m_pConfig->ConfigAudioPassthroughMask;
 
-	m_alsaCanPause = false;
-
 	m_inputPts = AV_NOPTS_VALUE;
 }
 
@@ -948,22 +946,6 @@ void cSoftHdAudio::SetPaused(bool pause)
 	std::lock_guard<std::mutex> lock(m_pauseMutex);
 
 	m_paused = pause;
-
-	if (m_alsaCanPause) {
-		snd_pcm_state_t expectedState;
-		if (pause)
-			expectedState = SND_PCM_STATE_RUNNING;
-		else
-			expectedState = SND_PCM_STATE_PAUSED;
-
-		if (snd_pcm_state(m_pAlsaPCMHandle) == expectedState) {
-			LOGDEBUG2(L_SOUND, "audio: %s: state running, try snd_pcm_pause(1)!", __FUNCTION__);
-
-			int ret = snd_pcm_pause(m_pAlsaPCMHandle, pause);
-			if (ret)
-				LOGERROR("audio: %s: snd_pcm_pause(): %s", __FUNCTION__, snd_strerror(ret));
-		}
-	}
 }
 
 /**
@@ -1501,8 +1483,6 @@ int cSoftHdAudio::AlsaSetup(int channels, int sample_rate, int passthrough)
 		LOGWARNING("audio: %s: bufferTime %d not supported! %s", __FUNCTION__, bufferTimeUs, snd_strerror(err));
 	}
 
-	m_alsaCanPause = snd_pcm_hw_params_can_pause(hwparams);
-
 /*	err = snd_pcm_hw_params_test_format(m_pAlsaPCMHandle, hwparams, SND_PCM_FORMAT_S16);
 	if (err < 0)	// err == 0 if is supported
 		LOGERROR("audio: %s: SND_PCM_FORMAT_S16 not supported! %s", __FUNCTION__,
@@ -1516,12 +1496,12 @@ int cSoftHdAudio::AlsaSetup(int channels, int sample_rate, int passthrough)
 		LOGERROR("audio: %s: set params error: %s\n"
 			"           Channels %d SampleRate %d\n"
 			"           HWChannels %d HWSampleRate %d SampleFormat %s\n"
-			"           Supports pause: %s mmap: %s\n"
+			"           mmap: %s\n"
 			"           AlsaBufferTime %dms pcm state: %s",
 			__FUNCTION__,
 			snd_strerror(err), channels, sample_rate, m_hwNumChannels,
 			m_hwSampleRate, snd_pcm_format_name(SND_PCM_FORMAT_S16),
-			m_alsaCanPause ? "yes" : "no", m_alsaUseMmap ? "yes" : "no",
+			m_alsaUseMmap ? "yes" : "no",
 			bufferTimeUs / 1000, snd_pcm_state_name(state));
 		return -1;
 	}
@@ -1529,12 +1509,12 @@ int cSoftHdAudio::AlsaSetup(int channels, int sample_rate, int passthrough)
 	LOGINFO("audio: alsa set up:\n"
 		"           Channels %d SampleRate %d%s\n"
 		"           HWChannels %d HWSampleRate %d SampleFormat %s\n"
-		"           Supports pause: %s mmap: %s\n"
+		"           mmap: %s\n"
 		"           AlsaBufferTime %dms",
 		channels, sample_rate, passthrough ? " -> passthrough" : "",
 		m_hwNumChannels, m_hwSampleRate,
 		snd_pcm_format_name(SND_PCM_FORMAT_S16),
-		m_alsaCanPause ? "yes" : "no", m_alsaUseMmap ? "yes" : "no",
+		m_alsaUseMmap ? "yes" : "no",
 		bufferTimeUs / 1000);
 
 	m_pAudioThread = new cAudioThread(this);
