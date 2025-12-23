@@ -656,8 +656,22 @@ void cSoftHdAudio::Enqueue(uint16_t *buffer, int count, AVFrame *frame)
 {
 	std::lock_guard<std::mutex> lock(m_mutex);
 
-	size_t n = m_pRingbuffer.Write((const uint16_t *)buffer, count);
-	if (n != (size_t) count)
+	// pitch adjustment
+	if (m_pitchAdjustFrameCounter == 0 && std::abs(m_pitchPpm) > 1) { // only adjust if pitch has a significant value to prevent overly large values/division by zero
+		int oneFrameBytes = snd_pcm_frames_to_bytes(m_pAlsaPCMHandle, 1);
+
+		if (m_pitchPpm < 0 && m_pRingbuffer.Write((const uint16_t *)buffer, oneFrameBytes)) {// insert additional frame
+		} else if (m_pitchPpm > 0) // drop frame
+			count = std::max(0, count - oneFrameBytes);
+
+		m_pitchAdjustFrameCounter = std::round(1'000'000.0 / std::abs(m_pitchPpm));
+	}
+
+	m_pitchAdjustFrameCounter = std::max(0, m_pitchAdjustFrameCounter - (int)snd_pcm_bytes_to_frames(m_pAlsaPCMHandle, count));
+
+	// write to ringbuffer
+	int bytesWritten = m_pRingbuffer.Write((const uint16_t *)buffer, count);
+	if (bytesWritten != count)
 		LOGERROR("audio: %s: can't place %d samples in ring buffer", __FUNCTION__, count);
 
 	if (frame->pts != AV_NOPTS_VALUE)
