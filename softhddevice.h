@@ -262,6 +262,8 @@ private:
 	int m_screenHeight;
 	double m_screenRefreshRateHz;
 
+	bool m_forceDetached = false; ///< start the plugin in detached state
+
 	int PlayVideoInternal(cVideoStream *, cReassemblyBufferVideo *, const uchar *, int);
 	void ClearAudio(void);
 	void OnEventReceived(const Event&);

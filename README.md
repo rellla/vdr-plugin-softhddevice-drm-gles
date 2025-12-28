@@ -189,6 +189,7 @@ Use vdr -h to see the command line arguments supported by the plugin.
 	-p device for pass-through
 	-c audio mixer channel name
 	-d display resolution (e.g. 1920x1080@50)
+	-D	start plugin in detached state
 	-w workarounds
 		disable-ogl-osd (to disable HW accelerated OSD)
 

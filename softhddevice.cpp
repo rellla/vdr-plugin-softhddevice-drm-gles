@@ -287,7 +287,8 @@ void cSoftHdDevice::OnEventReceived(const Event& event)
 				[&invalid](const StillPictureEvent&) { invalid(); },
 				[](const DetachEvent&) { /* ignore */ },
 				[this](const AttachEvent&) {
-					SetState(STOP);
+					if (!m_forceDetached)
+						SetState(STOP);
 				},
 				[&invalid](const BufferUnderrunEvent&) { invalid(); },
 				[&invalid](const BufferingThresholdReachedEvent&) { invalid(); },
@@ -1532,6 +1533,7 @@ const char *cSoftHdDevice::CommandLineHelp(void)
 	       "  -p device\taudio device for pass-through (hw:0,1)\n"
 	       "  -c channel\taudio mixer channel name (fe. PCM)\n"
 	       "  -d resolution\tdisplay resolution (fe. 1920x1080@50)\n"
+	       "  -D start in detached state\n"
 #ifdef USE_GLES
 	       "  -w workaround\tenable/disable workarounds\n"
 	       "\tdisable-ogl-osd disable openGL osd\n"
@@ -1553,9 +1555,9 @@ int cSoftHdDevice::ProcessArgs(int argc, char *argv[])
 
 	for (;;) {
 #ifdef USE_GLES
-		switch (getopt(argc, argv, "-a:c:p:d:w:")) {
+		switch (getopt(argc, argv, "-a:c:p:d:Dw:")) {
 #else
-		switch (getopt(argc, argv, "-a:c:p:d:")) {
+		switch (getopt(argc, argv, "-a:c:p:d:D")) {
 #endif
 		case 'a':           // audio device for pcm
 			m_pConfig->ConfigAudioPCMDevice = optarg;
@@ -1568,6 +1570,9 @@ int cSoftHdDevice::ProcessArgs(int argc, char *argv[])
 			continue;
 		case 'd':           // set display output
 			m_pConfig->ConfigDisplayResolution = optarg;
+			continue;
+		case 'D':           // start plugin in detached state
+			m_forceDetached = true;
 			continue;
 #ifdef USE_GLES
 		case 'w':           // workarounds
@@ -1825,6 +1830,8 @@ void cSoftHdDevice::Detach(void)
  */
 void cSoftHdDevice::Attach(void)
 {
+	m_forceDetached = false;
+
 	if (m_needsMakePrimary) {
 		MakePrimaryDevice(true);
 		m_needsMakePrimary = false;
