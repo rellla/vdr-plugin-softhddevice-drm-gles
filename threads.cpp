@@ -244,15 +244,20 @@ void cFilterThread::InitAndStart(const AVCodecContext *videoCtx, AVFrame *frame,
 
 	av_free(par);
 
-	ret = avfilter_graph_create_filter(&m_pBuffersinkCtx, buffersink, "out", NULL, NULL, m_pFilterGraph);
-	if (ret < 0)
-		LOGFATAL("filter thread: %s: Cannot create buffer sink (%d)", __FUNCTION__, ret);
+	m_pBuffersinkCtx = avfilter_graph_alloc_filter(m_pFilterGraph, buffersink, "out");
+	if (!m_pBuffersinkCtx)
+		LOGFATAL("filter thread: %s: Cannot create buffer sink", __FUNCTION__);
 
 	if (frame->format != AV_PIX_FMT_DRM_PRIME) {
 		enum AVPixelFormat pixFmts[] = { AV_PIX_FMT_NV12, AV_PIX_FMT_NONE };
+
 		ret = av_opt_set_int_list(m_pBuffersinkCtx, "pix_fmts", pixFmts, AV_PIX_FMT_NONE, AV_OPT_SEARCH_CHILDREN);
 		if (ret < 0)
 			LOGFATAL("filter thread: %s: Cannot set output pixel format (%d)", __FUNCTION__, ret);
+
+		ret = avfilter_init_dict(m_pBuffersinkCtx, NULL);
+		if (ret < 0)
+			LOGFATAL("filter thread: %s: Cannot initialize buffer sink (%d)", __FUNCTION__, ret);
 	}
 
 	AVFilterInOut *outputs = avfilter_inout_alloc();
@@ -269,12 +274,12 @@ void cFilterThread::InitAndStart(const AVCodecContext *videoCtx, AVFrame *frame,
 	inputs->next       = NULL;
 
 	ret = avfilter_graph_parse_ptr(m_pFilterGraph, filterDescr, &inputs, &outputs, NULL);
-	avfilter_inout_free(&inputs);
-	avfilter_inout_free(&outputs);
-
 	if (ret < 0) {
 		LOGFATAL("filter thread: %s: avfilter_graph_parse_ptr failed (%d)", __FUNCTION__, ret);
 	}
+
+	avfilter_inout_free(&inputs);
+	avfilter_inout_free(&outputs);
 
 	ret = avfilter_graph_config(m_pFilterGraph, NULL);
 	if (ret < 0)
