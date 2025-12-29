@@ -192,7 +192,7 @@ Use vdr -h to see the command line arguments supported by the plugin.
 	-D	start plugin in detached state
 	-w workarounds
 		disable-ogl-osd (to disable HW accelerated OSD)
-
+		disable-pip (to force disabling the pip feature)
 
 Setup:	environment
 -------------------

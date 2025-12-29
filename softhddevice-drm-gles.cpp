@@ -321,63 +321,65 @@ cString cPluginSoftHdDevice::SVDRPCommand(const char *command, const char *optio
 	}
 
 	// pip
-	if (!strcasecmp(command, "PION")) {
-		LOGDEBUG("plugin: %s: SVDRPCommand: %s %s", __FUNCTION__, command, option);
-		if (m_pDevice->PipIsEnabled())
-			return "Pip is already enabled";
+	if (m_pDevice->UsePip()) {
+		if (!strcasecmp(command, "PION")) {
+			LOGDEBUG("plugin: %s: SVDRPCommand: %s %s", __FUNCTION__, command, option);
+			if (m_pDevice->PipIsEnabled())
+				return "Pip is already enabled";
 
-		m_pDevice->PipEnable();
-		return "Pip was enabled";
-	}
-	if (!strcasecmp(command, "PIOF")) {
-		LOGDEBUG("plugin: %s: SVDRPCommand: %s %s", __FUNCTION__, command, option);
-		if (!m_pDevice->PipIsEnabled())
-			return "Pip isn't enabled";
-
-		m_pDevice->PipDisable();
-		return "Pip was disabled";
-	}
-	if (!strcasecmp(command, "PITO")) {
-		LOGDEBUG("plugin: %s: SVDRPCommand: %s %s", __FUNCTION__, command, option);
-		if (!m_pDevice->PipIsEnabled()) {
 			m_pDevice->PipEnable();
 			return "Pip was enabled";
-		} else {
+		}
+		if (!strcasecmp(command, "PIOF")) {
+			LOGDEBUG("plugin: %s: SVDRPCommand: %s %s", __FUNCTION__, command, option);
+			if (!m_pDevice->PipIsEnabled())
+				return "Pip isn't enabled";
+
 			m_pDevice->PipDisable();
 			return "Pip was disabled";
 		}
-	}
-	if (!strcasecmp(command, "PIPU")) {
-		LOGDEBUG("plugin: %s: SVDRPCommand: %s %s", __FUNCTION__, command, option);
-		if (!m_pDevice->PipIsEnabled())
-			return "Pip isn't enabled";
+		if (!strcasecmp(command, "PITO")) {
+			LOGDEBUG("plugin: %s: SVDRPCommand: %s %s", __FUNCTION__, command, option);
+			if (!m_pDevice->PipIsEnabled()) {
+				m_pDevice->PipEnable();
+				return "Pip was enabled";
+			} else {
+				m_pDevice->PipDisable();
+				return "Pip was disabled";
+			}
+		}
+		if (!strcasecmp(command, "PIPU")) {
+			LOGDEBUG("plugin: %s: SVDRPCommand: %s %s", __FUNCTION__, command, option);
+			if (!m_pDevice->PipIsEnabled())
+				return "Pip isn't enabled";
 
-		m_pDevice->PipChannelChange(1);
-		return "Pip channel up";
-	}
-	if (!strcasecmp(command, "PIPD")) {
-		LOGDEBUG("plugin: %s: SVDRPCommand: %s %s", __FUNCTION__, command, option);
-		if (!m_pDevice->PipIsEnabled())
-			return "Pip isn't enabled";
+			m_pDevice->PipChannelChange(1);
+			return "Pip channel up";
+		}
+		if (!strcasecmp(command, "PIPD")) {
+			LOGDEBUG("plugin: %s: SVDRPCommand: %s %s", __FUNCTION__, command, option);
+			if (!m_pDevice->PipIsEnabled())
+				return "Pip isn't enabled";
 
-		m_pDevice->PipChannelChange(-1);
-		return "Pip channel down";
-	}
-	if (!strcasecmp(command, "PIPC")) {
-		LOGDEBUG("plugin: %s: SVDRPCommand: %s %s", __FUNCTION__, command, option);
-		if (!m_pDevice->PipIsEnabled())
-			return "Pip isn't enabled";
+			m_pDevice->PipChannelChange(-1);
+			return "Pip channel down";
+		}
+		if (!strcasecmp(command, "PIPC")) {
+			LOGDEBUG("plugin: %s: SVDRPCommand: %s %s", __FUNCTION__, command, option);
+			if (!m_pDevice->PipIsEnabled())
+				return "Pip isn't enabled";
 
-		m_pDevice->PipChannelSwap();
-		return "Pip swap channels";
-	}
-	if (!strcasecmp(command, "PIPP")) {
-		LOGDEBUG("plugin: %s: SVDRPCommand: %s %s", __FUNCTION__, command, option);
-		if (!m_pDevice->PipIsEnabled())
-			return "Pip isn't enabled";
+			m_pDevice->PipChannelSwap();
+			return "Pip swap channels";
+		}
+		if (!strcasecmp(command, "PIPP")) {
+			LOGDEBUG("plugin: %s: SVDRPCommand: %s %s", __FUNCTION__, command, option);
+			if (!m_pDevice->PipIsEnabled())
+				return "Pip isn't enabled";
 
-		m_pDevice->PipSwapPosition();
-		return "Pip swap position";
+			m_pDevice->PipSwapPosition();
+			return "Pip swap position";
+		}
 	}
 
 	return NULL;

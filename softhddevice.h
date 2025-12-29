@@ -224,6 +224,8 @@ public:
 	int PlayPipVideo(const uchar *, int);
 	void PipSetSize(void);
 	void PipSwapPosition(void);
+	void SetDrmCanDisplayPip(bool canDisplay) { m_drmCanDisplayPip = canDisplay; };
+	bool UsePip(void) { return m_drmCanDisplayPip && !m_disablePip; };
 
 private:
 	static constexpr int MIN_BUFFER_FILL_LEVEL_THRESHOLD_MS = 450; ///< min buffering threshold in ms
@@ -257,6 +259,8 @@ private:
 	std::atomic<bool> m_receivedAudio = false; ///< flag if audio packets have been received
 	std::atomic<bool> m_receivedVideo = false; ///< flag if video packets have been received
 	bool m_pipUseAlt;                ///< use alternative pip position
+	bool m_drmCanDisplayPip = true;  ///< true, if the drm device is able to display a pip video
+	bool m_disablePip = false;       ///< true, if pip was disabled by the user
 
 	int m_screenWidth;
 	int m_screenHeight;

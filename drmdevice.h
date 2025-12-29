@@ -96,6 +96,7 @@ public:
 	cDrmPlane *OsdPlane(void) { return &m_osdPlane; };
 	cDrmPlane *VideoPlane(void) { return &m_videoPlane; };
 	cDrmPlane *PipPlane(void) { return &m_pipPlane; };
+	bool HasPipPlane(void) { return m_pipPlane.GetId(); };
 
 #ifdef USE_GLES
 	EGLSurface EglSurface(void) { return m_eglSurface; };

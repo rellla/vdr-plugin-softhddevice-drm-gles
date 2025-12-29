@@ -145,14 +145,16 @@ void cMenuSetupSoft::Create(void)
 	Add(CollapsedItem(tr("Video"), m_cVideoMenu));
 	if (m_cVideoMenu) {
 		Add(new cMenuEditBoolItem(tr("Disable deinterlacer"), &m_cDisableDeint, trVDR("no"), trVDR("yes")));
-		Add(SeparatorName(tr("Picture-in-picture")));
-		Add(new cMenuEditIntItem(tr(" video scaling factor (%)"), &m_cPipScalePercent, 10, 100));
-		Add(new cMenuEditIntItem(tr(" video left (%)"), &m_cPipLeftPercent, 0, 100));
-		Add(new cMenuEditIntItem(tr(" video top (%)"), &m_cPipTopPercent, 0, 100));
-		Add(new cMenuEditBoolItem(tr(" use alternative position as default"), &m_cPipUseAlt, trVDR("no"), trVDR("yes")));
-		Add(new cMenuEditIntItem(tr(" alternative video scaling factor (%)"), &m_cPipAltScalePercent, 10, 100));
-		Add(new cMenuEditIntItem(tr(" alternative video left (%)"), &m_cPipAltLeftPercent, 0, 100));
-		Add(new cMenuEditIntItem(tr(" alternative video top (%)"), &m_cPipAltTopPercent, 0, 100));
+		if (m_pDevice->UsePip()) {
+			Add(SeparatorName(tr("Picture-in-picture")));
+			Add(new cMenuEditIntItem(tr(" video scaling factor (%)"), &m_cPipScalePercent, 10, 100));
+			Add(new cMenuEditIntItem(tr(" video left (%)"), &m_cPipLeftPercent, 0, 100));
+			Add(new cMenuEditIntItem(tr(" video top (%)"), &m_cPipTopPercent, 0, 100));
+			Add(new cMenuEditBoolItem(tr(" use alternative position as default"), &m_cPipUseAlt, trVDR("no"), trVDR("yes")));
+			Add(new cMenuEditIntItem(tr(" alternative video scaling factor (%)"), &m_cPipAltScalePercent, 10, 100));
+			Add(new cMenuEditIntItem(tr(" alternative video left (%)"), &m_cPipAltLeftPercent, 0, 100));
+			Add(new cMenuEditIntItem(tr(" alternative video top (%)"), &m_cPipAltTopPercent, 0, 100));
+		}
 	}
 
 	//
@@ -435,7 +437,8 @@ void cMenuSetupSoft::Store(void)
 	SetupStore("PipAltScalePercent", m_pConfig->ConfigPipAltScalePercent = m_cPipAltScalePercent);
 	SetupStore("PipAltLeftPercent", m_pConfig->ConfigPipAltLeftPercent = m_cPipAltLeftPercent);
 	SetupStore("PipAltTopPercent", m_pConfig->ConfigPipAltTopPercent = m_cPipAltTopPercent);
-	m_pDevice->PipSetSize();
+	if (m_pDevice->UsePip())
+		m_pDevice->PipSetSize();
 
 	//
 	// Audio

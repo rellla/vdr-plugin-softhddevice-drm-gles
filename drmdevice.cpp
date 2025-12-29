@@ -598,18 +598,30 @@ int cDrmDevice::Init(void)
 	drmModeFreeEncoder(encoder);
 	drmModeFreeResources(resources);
 
-	LOGINFO("DRM setup - CRTC: %i video_plane: %i (%s %" PRIu64 ") osd_plane: %i (%s %" PRIu64 ") pip_plane: %i (%s %" PRIu64 ") m_useZpos: %d",
-		m_crtcId,
-		m_videoPlane.GetId(),
-		m_videoPlane.GetType() == DRM_PLANE_TYPE_PRIMARY ? "PRIMARY" : "OVERLAY",
-		m_videoPlane.GetZpos(),
-		m_osdPlane.GetId(),
-		m_osdPlane.GetType() == DRM_PLANE_TYPE_PRIMARY ? "PRIMARY" : "OVERLAY",
-		m_osdPlane.GetZpos(),
-		m_pipPlane.GetId(),
-		m_pipPlane.GetType() == DRM_PLANE_TYPE_PRIMARY ? "PRIMARY" : "OVERLAY",
-		m_pipPlane.GetZpos(),
-		m_useZpos);
+	if (m_pipPlane.GetId()) {
+		LOGINFO("DRM setup - CRTC: %i video_plane: %i (%s %" PRIu64 ") osd_plane: %i (%s %" PRIu64 ") pip_plane: %i (%s %" PRIu64 ") m_useZpos: %d",
+			m_crtcId,
+			m_videoPlane.GetId(),
+			m_videoPlane.GetType() == DRM_PLANE_TYPE_PRIMARY ? "PRIMARY" : "OVERLAY",
+			m_videoPlane.GetZpos(),
+			m_osdPlane.GetId(),
+			m_osdPlane.GetType() == DRM_PLANE_TYPE_PRIMARY ? "PRIMARY" : "OVERLAY",
+			m_osdPlane.GetZpos(),
+			m_pipPlane.GetId(),
+			m_pipPlane.GetType() == DRM_PLANE_TYPE_PRIMARY ? "PRIMARY" : "OVERLAY",
+			m_pipPlane.GetZpos(),
+			m_useZpos);
+	} else {
+		LOGINFO("DRM setup - CRTC: %i video_plane: %i (%s %" PRIu64 ") osd_plane: %i (%s %" PRIu64 ") m_useZpos: %d (pip disbled)",
+			m_crtcId,
+			m_videoPlane.GetId(),
+			m_videoPlane.GetType() == DRM_PLANE_TYPE_PRIMARY ? "PRIMARY" : "OVERLAY",
+			m_videoPlane.GetZpos(),
+			m_osdPlane.GetId(),
+			m_osdPlane.GetType() == DRM_PLANE_TYPE_PRIMARY ? "PRIMARY" : "OVERLAY",
+			m_osdPlane.GetZpos(),
+			m_useZpos);
+	}
 
 #ifdef USE_GLES
 	if (m_pRender->OglOsdDisabled())
@@ -627,8 +639,6 @@ int cDrmDevice::Init(void)
 		return -1;
 	}
 #endif
-
-	InitEvent();
 
 	return 0;
 }

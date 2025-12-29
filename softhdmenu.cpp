@@ -112,12 +112,14 @@ void cSoftHdMenu::MainMenu(void)
 	Clear();                           // clear the menu
 
 	// pip
-	Add(SeparatorName("PIP"));
-	Add(new cOsdItem(hk(tr(" Toggle")), osUser1));
-	Add(new cOsdItem(hk(tr(" Channel +")), osUser2));
-	Add(new cOsdItem(hk(tr(" Channel -")), osUser3));
-	Add(new cOsdItem(hk(tr(" Swap Channel")), osUser4));
-	Add(new cOsdItem(hk(tr(" Swap Position")), osUser5));
+	if (m_pDevice->UsePip()) {
+		Add(SeparatorName("PIP"));
+		Add(new cOsdItem(hk(tr(" Toggle")), osUser1));
+		Add(new cOsdItem(hk(tr(" Channel +")), osUser2));
+		Add(new cOsdItem(hk(tr(" Channel -")), osUser3));
+		Add(new cOsdItem(hk(tr(" Swap Channel")), osUser4));
+		Add(new cOsdItem(hk(tr(" Swap Position")), osUser5));
+	}
 
 	Add(SeparatorSpace());
 
@@ -194,6 +196,9 @@ eOSState cSoftHdMenu::ProcessKey(eKeys key)
 	switch (m_hotkeyState) {
 		case HotkeyState::Initial:
 			if (key == kBlue) {
+				if (!m_pDevice->UsePip())
+					return osEnd;
+
 				m_hotkeyState = HotkeyState::Blue;
 				return osContinue;
 			}

@@ -1307,6 +1307,8 @@ void cVideoRender::Init(void)
 	if (m_pDrmDevice->Init())
 		LOGFATAL("videorender: %s: failed", __FUNCTION__);
 
+	m_pDevice->SetDrmCanDisplayPip(m_pDrmDevice->HasPipPlane());
+
 	cDrmPlane *videoPlane = m_pDrmDevice->VideoPlane();
 	cDrmPlane *osdPlane = m_pDrmDevice->OsdPlane();
 

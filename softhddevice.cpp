@@ -1534,10 +1534,11 @@ const char *cSoftHdDevice::CommandLineHelp(void)
 	       "  -c channel\taudio mixer channel name (fe. PCM)\n"
 	       "  -d resolution\tdisplay resolution (fe. 1920x1080@50)\n"
 	       "  -D start in detached state\n"
-#ifdef USE_GLES
 	       "  -w workaround\tenable/disable workarounds\n"
+#ifdef USE_GLES
 	       "\tdisable-ogl-osd disable openGL osd\n"
 #endif
+	       "\tdisable-pip disable picture-in-picture\n"
 	       "\n";
 }
 
@@ -1574,17 +1575,19 @@ int cSoftHdDevice::ProcessArgs(int argc, char *argv[])
 		case 'D':           // start plugin in detached state
 			m_forceDetached = true;
 			continue;
-#ifdef USE_GLES
 		case 'w':           // workarounds
-			if (!strcasecmp("disable-ogl-osd", optarg)) {
+			if (!strcasecmp("disable-pip", optarg)) {
+				m_disablePip = true;
+#ifdef USE_GLES
+			} else if (!strcasecmp("disable-ogl-osd", optarg)) {
 				SetDisableOglOsd();
+#endif
 			} else {
 				fprintf(stderr, _("Workaround '%s' unsupported\n"),
 				optarg);
 				return 0;
 			}
 			continue;
-#endif
 		case EOF:
 			break;
 		case '-':
