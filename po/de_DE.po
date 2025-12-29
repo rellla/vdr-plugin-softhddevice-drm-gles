@@ -60,6 +60,9 @@ msgstr " Tausche Kanäle"
 msgid " Swap Position"
 msgstr " Tausche Positionen"
 
+msgid " Detach device"
+msgstr " Device trennen"
+
 msgid " play file / make play list"
 msgstr " Datei abspielen / Playliste erstellen"
 

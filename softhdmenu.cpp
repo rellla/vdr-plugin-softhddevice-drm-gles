@@ -121,22 +121,31 @@ void cSoftHdMenu::MainMenu(void)
 
 	Add(SeparatorSpace());
 
-	Add(SeparatorName("Mediaplayer"));
+	// detach
+	Add(SeparatorName("Detach"));
+	Add(new cOsdItem(hk(tr(" Detach device")), osUser6));
+
+	Add(SeparatorSpace());
+
 	// mediaplayer
-	Add(new cOsdItem(hk(tr(" play file / make play list")), osUser6));
-	Add(new cOsdItem(hk(tr(" select play list")), osUser7));
+	Add(SeparatorName("Mediaplayer"));
+	Add(new cOsdItem(hk(tr(" play file / make play list")), osUser7));
+	Add(new cOsdItem(hk(tr(" select play list")), osUser8));
 
 	SetCurrent(Get(current));          // restore selected menu entry
 	Display();
 }
 
-enum PipHotkey {
+enum Hotkeys {
 	PIPKEYBASE = 100,
 	PIPTOGGLEONOFF,
 	PIPCHANNELUP,
 	PIPCHANNELDOWN,
 	PIPCHANNELSWAP,
-	PIPPOSITIONSWAP
+	PIPPOSITIONSWAP,
+	DETACHKEYBASE = 110,
+	DETACHDEVICE,
+	ATTACHDEVICE
 };
 
 /**
@@ -144,6 +153,7 @@ enum PipHotkey {
  */
 void cSoftHdMenu::HandleHotKey(int code) {
 	switch (code) {
+		// pip
 		case PIPTOGGLEONOFF:
 			m_pDevice->PipToggle();
 			break;
@@ -158,6 +168,13 @@ void cSoftHdMenu::HandleHotKey(int code) {
 			break;
 		case PIPPOSITIONSWAP:
 			m_pDevice->PipSwapPosition();
+			break;
+		// detach/ attach
+		case DETACHDEVICE:
+			m_pDevice->Detach();
+			break;
+		case ATTACHDEVICE:
+			m_pDevice->Attach();
 			break;
 		default:
 			break;
@@ -180,10 +197,23 @@ eOSState cSoftHdMenu::ProcessKey(eKeys key)
 				m_hotkeyState = HotkeyState::Blue;
 				return osContinue;
 			}
+			if (key == kRed) {
+				m_hotkeyState = HotkeyState::Red;
+				return osContinue;
+			}
 			break;
-		case HotkeyState::Blue:
+		case HotkeyState::Blue:              // pip
 			if (k0 <= key && key <= k9) {
 				int hotkeyCode = PIPKEYBASE + key - k0;
+				m_hotkeyState = HotkeyState::Initial;
+				HandleHotKey(hotkeyCode);
+				return osEnd;
+			}
+			m_hotkeyState = HotkeyState::Initial;
+			break;
+		case HotkeyState::Red:               // detach/ attach
+			if (k0 <= key && key <= k9) {
+				int hotkeyCode = DETACHKEYBASE + key - k0;
 				m_hotkeyState = HotkeyState::Initial;
 				HandleHotKey(hotkeyCode);
 				return osEnd;
@@ -213,12 +243,17 @@ eOSState cSoftHdMenu::ProcessKey(eKeys key)
 			m_pDevice->PipSwapPosition();
 			return osEnd;
 
+		// detach
+		case osUser6:                   // detach device
+			m_pDevice->Detach();
+			return osEnd;
+
 		// mediaplayer
-		case osUser6:                   // play file / make play list
+		case osUser7:                   // play file / make play list
 			m_path = cVideoDirectory::Name();
 			FindFile(m_path, NULL);
 			return osContinue;
-		case osUser7:                   // select play list
+		case osUser8:                   // select play list
 			m_path = cPlugin::ConfigDirectory("softhddevice-drm-gles");
 			SelectPL();
 			return osContinue;

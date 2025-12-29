@@ -367,6 +367,8 @@ Currently supported:
 	@softhddevice-drm-gles Blue 3      Pip channel -
 	@softhddevice-drm-gles Blue 4      Swap pip and live stream
 	@softhddevice-drm-gles Blue 5      Swap pip position
+	@softhddevice-drm-gles Red 1       Detach device
+	@softhddevice-drm-gles Red 2       Attach device
 
 
 Copyright:

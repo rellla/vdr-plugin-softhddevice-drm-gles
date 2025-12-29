@@ -29,7 +29,8 @@
 
 typedef enum {
 	Initial,
-	Blue
+	Blue,
+	Red
 } HotkeyState;
 
 class cSoftHdMenu : public cOsdMenu
