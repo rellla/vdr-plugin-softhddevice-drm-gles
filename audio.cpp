@@ -1040,13 +1040,12 @@ void cSoftHdAudio::Exit(void)
  */
 void cSoftHdAudio::HandleError(int error)
 {
-	if (snd_pcm_state(m_pAlsaPCMHandle) == SND_PCM_STATE_XRUN)
-		m_eventQueue.push_back(BufferUnderrunEvent{AUDIO});
-
-	if (snd_pcm_recover(m_pAlsaPCMHandle, error, 0) < 0)
+	if (!error) { // SND_PCM_STATE_XRUN
+		if (error = snd_pcm_prepare(m_pAlsaPCMHandle))
+			LOGERROR("audio: %s: Cannot recover from XRUN: %s", __FUNCTION__, snd_strerror(error));
+	} else if (snd_pcm_recover(m_pAlsaPCMHandle, error, 0) < 0) {
 		LOGERROR("audio: %s: Cannot recover: %s", __FUNCTION__, snd_strerror(error));
-
-	snd_pcm_prepare(m_pAlsaPCMHandle);
+	}
 }
 
 /**
@@ -1436,6 +1435,9 @@ int cSoftHdAudio::AlsaSetup(int channels, int sample_rate, int passthrough)
 	}
 
 	m_downmix = 0;
+
+	if (snd_pcm_state(m_pAlsaPCMHandle) == SND_PCM_STATE_XRUN)
+		HandleError(0);
 
 	snd_pcm_hw_params_alloca(&hwparams);
 	if ((err = snd_pcm_hw_params_any(m_pAlsaPCMHandle, hwparams)) < 0) {
