@@ -1996,7 +1996,7 @@ void cSoftHdDevice::SetEnablePip(bool on)
 
 	if (!m_pipActive) {
 		LOGDEBUG("device: %s: enabling pip (channel %d)", __FUNCTION__, m_pipChannelNum);
-		NewPip(m_pipChannelNum);
+		NewPip(0);
 		m_pRender->SetPipActive(true);
 	} else {
 		LOGDEBUG("device: %s: disabling pip", __FUNCTION__);
