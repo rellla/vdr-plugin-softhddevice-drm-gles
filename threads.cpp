@@ -176,6 +176,28 @@ cFilterThread::~cFilterThread(void)
 }
 
 /**
+ * Setup the filter output pixel format
+ *
+ * @param pixFmt            AV pixel format
+ */
+void cFilterThread::SetFilterOutputPixFormat(AVPixelFormat pixFmt)
+{
+	int ret;
+	enum AVPixelFormat pixFmts[] = { pixFmt, AV_PIX_FMT_NONE };
+
+#if LIBAVFILTER_BUILD >= AV_VERSION_INT(10, 6, 100)
+	ret = av_opt_set_array(m_pBuffersinkCtx, "pixel_formats",
+		AV_OPT_SEARCH_CHILDREN, 0, sizeof(pixFmts) / sizeof(pixFmts[0]) - 1, AV_OPT_TYPE_PIXEL_FMT, pixFmts);
+#else
+	ret = av_opt_set_int_list(m_pBuffersinkCtx, "pix_fmts",
+		pixFmts, AV_PIX_FMT_NONE, AV_OPT_SEARCH_CHILDREN);
+#endif
+
+	if (ret < 0)
+		LOGFATAL("filter thread: %s: Cannot set output pixel format (%d)", __FUNCTION__, ret);
+}
+
+/**
  * Init and start the video filter thread
  *
  * @param videoCtx               codec context
@@ -197,6 +219,10 @@ void cFilterThread::InitAndStart(const AVCodecContext *videoCtx, AVFrame *frame,
 	const AVFilter *buffersrc  = avfilter_get_by_name("buffer");
 	const AVFilter *buffersink = avfilter_get_by_name("buffersink");
 
+#if LIBAVFILTER_VERSION_INT < AV_VERSION_INT(7,16,100)
+	avfilter_register_all();
+#endif
+
 	// interlaced and non-trickspeed AV_PIX_FMT_DRM_PRIME (hardware decoded) -> hardware deinterlacer
 	// interlaced and non-trickspeed AV_PIX_FMT_YUV420P (software decoded) -> software deinterlacer
 	// progressive and trickspeed AV_PIX_FMT_YUV420P (software decoded) -> scale filter (for NV12 output)
@@ -212,53 +238,64 @@ void cFilterThread::InitAndStart(const AVCodecContext *videoCtx, AVFrame *frame,
 		filterDescr = "scale";
 	} else
 		LOGFATAL("filter thread: %s: Unexpected pixel format: %d", __FUNCTION__, frame->format);
-#if LIBAVFILTER_VERSION_INT < AV_VERSION_INT(7,16,100)
-	avfilter_register_all();
-#endif
-
-	// if we have a 576i stream without a valid sample_aspect_ratio (0/1) force it to be 64/45
-	// wich "stretches" a 576i stream to 1920/1080 size
-	int sarNum = videoCtx->sample_aspect_ratio.num != 0 ? videoCtx->sample_aspect_ratio.num : (videoCtx->height == 576 ? 64 : 1);
-	int sarDen = videoCtx->sample_aspect_ratio.num != 0 ? videoCtx->sample_aspect_ratio.den : (videoCtx->height == 576 ? 45 : 1);
-
-	snprintf(args, sizeof(args), "video_size=%dx%d:pix_fmt=%d:time_base=%d/%d:pixel_aspect=%d/%d",
-		videoCtx->width, videoCtx->height, frame->format,
-		videoCtx->pkt_timebase.num ? videoCtx->pkt_timebase.num : 1,
-		videoCtx->pkt_timebase.num ? videoCtx->pkt_timebase.den : 1,
-		sarNum,
-		sarDen);
-
-	LOGDEBUG2(L_CODEC, "filter thread: %s: filter=\"%s\" args=\"%s\"", __FUNCTION__, filterDescr, args);
-
-	ret = avfilter_graph_create_filter(&m_pBuffersrcCtx, buffersrc, "in", args, NULL, m_pFilterGraph);
-	if (ret < 0)
-		LOGFATAL("filter thread: %s: Cannot create buffer source (%d)", __FUNCTION__, ret);
-
-	AVBufferSrcParameters *par = av_buffersrc_parameters_alloc();
-	memset(par, 0, sizeof(*par));
-	par->format = AV_PIX_FMT_NONE;
-	par->hw_frames_ctx = frame->hw_frames_ctx;
-	ret = av_buffersrc_parameters_set(m_pBuffersrcCtx, par);
-	if (ret < 0)
-		LOGFATAL("filter thread: %s: Cannot av_buffersrc_parameters_set (%d)", __FUNCTION__, ret);
-
-	av_free(par);
 
 	m_pBuffersinkCtx = avfilter_graph_alloc_filter(m_pFilterGraph, buffersink, "out");
 	if (!m_pBuffersinkCtx)
 		LOGFATAL("filter thread: %s: Cannot create buffer sink", __FUNCTION__);
 
-	if (frame->format != AV_PIX_FMT_DRM_PRIME) {
-		enum AVPixelFormat pixFmts[] = { AV_PIX_FMT_NV12, AV_PIX_FMT_NONE };
+	if (frame->format == AV_PIX_FMT_DRM_PRIME) {
+		SetFilterOutputPixFormat(AV_PIX_FMT_DRM_PRIME);
 
-		ret = av_opt_set_int_list(m_pBuffersinkCtx, "pix_fmts", pixFmts, AV_PIX_FMT_NONE, AV_OPT_SEARCH_CHILDREN);
-		if (ret < 0)
-			LOGFATAL("filter thread: %s: Cannot set output pixel format (%d)", __FUNCTION__, ret);
+		m_pBuffersrcCtx = avfilter_graph_alloc_filter(m_pFilterGraph, buffersrc, "in");
+		if (!m_pBuffersrcCtx)
+			LOGFATAL("filter thread: %s: Cannot create buffer src", __FUNCTION__);
 
-		ret = avfilter_init_dict(m_pBuffersinkCtx, NULL);
+		AVBufferSrcParameters *par = av_buffersrc_parameters_alloc();
+		memset(par, 0, sizeof(*par));
+
+		par->format = AV_PIX_FMT_DRM_PRIME;
+		par->hw_frames_ctx = frame->hw_frames_ctx;
+		par->time_base = videoCtx->pkt_timebase;
+		par->width = videoCtx->width;
+		par->height = videoCtx->height;
+		par->sample_aspect_ratio = videoCtx->sample_aspect_ratio;
+
+		LOGDEBUG2(L_CODEC, "filter thread: %s: filter=\"%s\" fmt %d, hw ctx %p, tb %d/%d, wxh %dx%d, sar %d/%d",
+			__FUNCTION__, filterDescr,
+			par->format, par->hw_frames_ctx, par->time_base.num, par->time_base.den,
+			par->width, par->height, par->sample_aspect_ratio.num, par->sample_aspect_ratio.den);
+
+		ret = av_buffersrc_parameters_set(m_pBuffersrcCtx, par);
 		if (ret < 0)
-			LOGFATAL("filter thread: %s: Cannot initialize buffer sink (%d)", __FUNCTION__, ret);
+			LOGFATAL("filter thread: %s: Cannot av_buffersrc_parameters_set (%d)", __FUNCTION__, ret);
+
+		av_free(par);
+
+		ret = avfilter_init_dict(m_pBuffersrcCtx, NULL);
+		if (ret < 0)
+			LOGFATAL("filter thread: %s: Cannot initialize buffer src (%d)", __FUNCTION__, ret);
+	} else {
+		SetFilterOutputPixFormat(AV_PIX_FMT_NV12);
+
+		snprintf(args, sizeof(args), "video_size=%dx%d:pix_fmt=%d:time_base=%d/%d:pixel_aspect=%d/%d",
+			videoCtx->width, videoCtx->height, frame->format,
+			videoCtx->pkt_timebase.num ? videoCtx->pkt_timebase.num : 1,
+			videoCtx->pkt_timebase.num ? videoCtx->pkt_timebase.den : 1,
+			// if we have a 576i stream without a valid sample_aspect_ratio (0/1) force it to be 64/45
+			// wich "stretches" a 576i stream to 1920/1080 size
+			videoCtx->sample_aspect_ratio.num != 0 ? videoCtx->sample_aspect_ratio.num : (videoCtx->height == 576 ? 64 : 1),
+			videoCtx->sample_aspect_ratio.num != 0 ? videoCtx->sample_aspect_ratio.den : (videoCtx->height == 576 ? 45 : 1));
+
+		LOGDEBUG2(L_CODEC, "filter thread: %s: filter=\"%s\" args=\"%s\"", __FUNCTION__, filterDescr, args);
+
+		ret = avfilter_graph_create_filter(&m_pBuffersrcCtx, buffersrc, "in", args, NULL, m_pFilterGraph);
+		if (ret < 0)
+			LOGFATAL("filter thread: %s: Cannot create buffer src", __FUNCTION__);
 	}
+
+	ret = avfilter_init_dict(m_pBuffersinkCtx, NULL);
+	if (ret < 0)
+		LOGFATAL("filter thread: %s: Cannot initialize buffer sink (%d)", __FUNCTION__, ret);
 
 	AVFilterInOut *outputs = avfilter_inout_alloc();
 	AVFilterInOut *inputs  = avfilter_inout_alloc();

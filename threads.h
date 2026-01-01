@@ -121,6 +121,7 @@ private:
 	int m_numFramesToFilter = 0;                    ///< number of frames to be filtered
 
 	void Action(void);
+	void SetFilterOutputPixFormat(AVPixelFormat);
 };
 
 #endif
