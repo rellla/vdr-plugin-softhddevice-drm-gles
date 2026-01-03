@@ -183,6 +183,7 @@ void cDrmPlane::SetPlane(drmModeAtomicReqPtr ModeReq)
 void cDrmPlane::ClearPlane(drmModeAtomicReqPtr ModeReq)
 {
 	SetPropertyRequest(ModeReq, "FB_ID",   0);
+	SetPropertyRequest(ModeReq, "CRTC_ID", 0);
 }
 
 /**

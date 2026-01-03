@@ -205,7 +205,10 @@ static sRect ComputeFittedRect(AVFrame *frame, uint64_t dispX, uint64_t dispY, u
  */
 void cVideoRender::SetVideoBuffer(cDrmBuffer *buf)
 {
-	AVFrame *frame = buf ? buf->frame : nullptr;
+	if (!buf)
+		return;
+
+	AVFrame *frame = buf->frame;
 
 	// set display dimensions as default
 	uint64_t dispWidth = m_pDrmDevice->DisplayWidth();
@@ -281,7 +284,10 @@ int cVideoRender::SetOsdBuffer(drmModeAtomicReqPtr modeReq)
  */
 void cVideoRender::SetPipBuffer(cDrmBuffer *buf)
 {
-	AVFrame *frame = buf ? buf->frame : nullptr;
+	if (!buf)
+		return;
+
+	AVFrame *frame = buf->frame;
 
 	// set display dimensions as default
 	uint64_t dispWidth = m_pDrmDevice->DisplayWidth();
@@ -355,7 +361,7 @@ void cVideoRender::Grab(cDrmBuffer *buf, cDrmBuffer *pip)
 	}
 
 	cDrmBuffer *pipBuf = pip ? pip : (m_pCurrentlyPipDisplayed ? m_pCurrentlyPipDisplayed : NULL);
-	if (pipBuf) {
+	if (pipBuf && !m_videoIsScaled) {
 		LOGDEBUG2(L_GRAB, "videorender: %s: Trigger pip grab arrived", __FUNCTION__);
 		cDrmBuffer *pipVideoBuf = new cDrmBuffer(pipBuf);
 		// use dimensions which have been set earlier
@@ -412,11 +418,11 @@ int cVideoRender::CommitBuffer(cDrmBuffer *buf, cDrmBuffer *pip)
 
 	// handle the pip plane
 	if (pipPlane->GetId()) {
-		if (IsPipActive() && pip) {
+		if (IsPipActive() && pip && !m_videoIsScaled) {
 			SetPipBuffer(pip);
 			pipPlane->SetPlane(modeReq);
 			modeSet |= MODESET_PIP;
-		} else if (IsPipActive() && m_pCurrentlyPipDisplayed) {
+		} else if (IsPipActive() && m_pCurrentlyPipDisplayed  && !m_videoIsScaled) {
 			SetPipBuffer(m_pCurrentlyPipDisplayed);
 			pipPlane->SetPlane(modeReq);
 			modeSet |= MODESET_PIP;
