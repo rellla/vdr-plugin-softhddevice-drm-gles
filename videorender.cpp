@@ -202,11 +202,14 @@ static sRect ComputeFittedRect(AVFrame *frame, uint64_t dispX, uint64_t dispY, u
  * Modesetting for video
  *
  * @param[in] buf    drm video buffer to display
+ *
+ * @retval 1         no modesetting was done
+ * @retval 0         modesetting was done
  */
-void cVideoRender::SetVideoBuffer(cDrmBuffer *buf)
+int cVideoRender::SetVideoBuffer(cDrmBuffer *buf)
 {
 	if (!buf)
-		return;
+		return 1;
 
 	AVFrame *frame = buf->frame;
 
@@ -236,6 +239,8 @@ void cVideoRender::SetVideoBuffer(cDrmBuffer *buf)
 
 	// set dimensions for grab early, because we might skip this at the next frame
 	m_lastVideoGrab.Set(fittedRect.x, fittedRect.y, fittedRect.w, fittedRect.h);
+
+	return 0;
 }
 
 /**
@@ -246,46 +251,48 @@ void cVideoRender::SetVideoBuffer(cDrmBuffer *buf)
  */
 int cVideoRender::SetOsdBuffer(drmModeAtomicReqPtr modeReq)
 {
+	if (!m_pBufOsd || !m_pBufOsd->IsDirty())
+		return 1;
+
 	cDrmPlane *videoPlane = m_pDrmDevice->VideoPlane();
 	cDrmPlane *osdPlane = m_pDrmDevice->OsdPlane();
 
 	// We had draw activity on the osd buffer
-	if (m_pBufOsd && m_pBufOsd->IsDirty()) {
-		if (m_pDrmDevice->UseZpos()) {
-			videoPlane->SetZpos(m_osdShown ? m_pDrmDevice->ZposPrimary() : m_pDrmDevice->ZposOverlay());
-			osdPlane->SetZpos(m_osdShown ? m_pDrmDevice->ZposOverlay() : m_pDrmDevice->ZposPrimary());
-			videoPlane->SetPlaneZpos(modeReq);
-			osdPlane->SetPlaneZpos(modeReq);
+	if (m_pDrmDevice->UseZpos()) {
+		videoPlane->SetZpos(m_osdShown ? m_pDrmDevice->ZposPrimary() : m_pDrmDevice->ZposOverlay());
+		osdPlane->SetZpos(m_osdShown ? m_pDrmDevice->ZposOverlay() : m_pDrmDevice->ZposPrimary());
+		videoPlane->SetPlaneZpos(modeReq);
+		osdPlane->SetPlaneZpos(modeReq);
 
-			LOGDEBUG2(L_DRM, "videorender: %s: SetPlaneZpos: video->plane_id %d -> zpos %" PRIu64 ", osd->plane_id %d -> zpos %" PRIu64 "", __FUNCTION__,
-				videoPlane->GetId(), videoPlane->GetZpos(),
-				osdPlane->GetId(), osdPlane->GetZpos());
-		}
-
-		uint64_t crtcW = m_osdShown ? m_pBufOsd->Width() : 0;
-		uint64_t crtcH = m_osdShown ? m_pBufOsd->Height() : 0;
-
-		// now set the plane parameters
-		osdPlane->SetParams(m_pDrmDevice->CrtcId(), m_pBufOsd->Id(),
-			0, 0, crtcW, crtcH,
-			0, 0, crtcW, crtcH);
-
-		m_pBufOsd->MarkClean();
-		return 0;
+		LOGDEBUG2(L_DRM, "videorender: %s: SetPlaneZpos: video->plane_id %d -> zpos %" PRIu64 ", osd->plane_id %d -> zpos %" PRIu64 "", __FUNCTION__,
+			videoPlane->GetId(), videoPlane->GetZpos(),
+			osdPlane->GetId(), osdPlane->GetZpos());
 	}
 
-	return 1;
+	uint64_t crtcW = m_osdShown ? m_pBufOsd->Width() : 0;
+	uint64_t crtcH = m_osdShown ? m_pBufOsd->Height() : 0;
+
+	// now set the plane parameters
+	osdPlane->SetParams(m_pDrmDevice->CrtcId(), m_pBufOsd->Id(),
+		0, 0, crtcW, crtcH,
+		0, 0, crtcW, crtcH);
+
+	m_pBufOsd->MarkClean();
+	return 0;
 }
 
 /**
  * Modesetting for pip
  *
  * @param[in] buf    drm video buffer to display
+ *
+ * @retval 1         no modesetting was done
+ * @retval 0         modesetting was done
  */
-void cVideoRender::SetPipBuffer(cDrmBuffer *buf)
+int cVideoRender::SetPipBuffer(cDrmBuffer *buf)
 {
-	if (!buf)
-		return;
+	if (!buf || !m_pipActive || m_videoIsScaled)
+		return 1;
 
 	AVFrame *frame = buf->frame;
 
@@ -332,6 +339,8 @@ void cVideoRender::SetPipBuffer(cDrmBuffer *buf)
 
 	// set dimensions for grab early, because we might skip this at the next frame
 	m_lastPipGrab.Set(crtcX, crtcY, crtcW, crtcH);
+
+	return 0;
 }
 
 /**
@@ -402,34 +411,22 @@ int cVideoRender::CommitBuffer(cDrmBuffer *buf, cDrmBuffer *pip)
 	}
 
 	// handle the video plane
-	if (buf) {
-		SetVideoBuffer(buf);
+	// If no new video is available, set the old buffer again, if available.
+	// This is necessary to recognize a size-change in SetVideoBuffer().
+	// Though this is not expensive, maybe we should only call that, if size really changed.
+	if (!SetVideoBuffer(buf) || !SetVideoBuffer(m_pCurrentlyDisplayed)) {
 		videoPlane->SetPlane(modeReq);
 		modeSet |= MODESET_VIDEO;
 //		LOGDEBUG2(L_DRM, "videorender: %s: SetPlane Video (fb = %" PRIu64 ")", __FUNCTION__, videoPlane->GetFbId());
-	} else if (m_pCurrentlyDisplayed) {
-		// If no new video is available, set the old buffer again, if available.
-		// This is necessary to recognize a size-change in SetVideoBuffer().
-		// Though this is not expensive, maybe we should only call that, if size really changed.
-		SetVideoBuffer(m_pCurrentlyDisplayed);
-		videoPlane->SetPlane(modeReq);
-		modeSet |= MODESET_VIDEO;
 	}
 
 	// handle the pip plane
 	if (pipPlane->GetId()) {
-		if (IsPipActive() && pip && !m_videoIsScaled) {
-			SetPipBuffer(pip);
+		if (!SetPipBuffer(pip) || !SetPipBuffer(m_pCurrentlyPipDisplayed))
 			pipPlane->SetPlane(modeReq);
-			modeSet |= MODESET_PIP;
-		} else if (IsPipActive() && m_pCurrentlyPipDisplayed  && !m_videoIsScaled) {
-			SetPipBuffer(m_pCurrentlyPipDisplayed);
-			pipPlane->SetPlane(modeReq);
-			modeSet |= MODESET_PIP;
-		} else {
+		else
 			pipPlane->ClearPlane(modeReq);
-			modeSet |= MODESET_PIP;
-		}
+		modeSet |= MODESET_PIP;
 	}
 
 	// handle the osd plane

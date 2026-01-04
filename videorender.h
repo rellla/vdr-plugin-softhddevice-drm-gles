@@ -192,7 +192,6 @@ public:
 
 	// PIP
 	void SetPipActive(bool on) { m_pipActive = on; };
-	bool IsPipActive(void) { return m_pipActive; };
 	void ClearPipDecoderToDisplayQueue(void);
 	void SetPipSize(bool);
 
@@ -268,9 +267,9 @@ private:
 	void SetFrameFlags(AVFrame *, int);
 	void SetVideoClock(int64_t);
 	bool PageFlip(cDrmBuffer *, cDrmBuffer *);
-	void SetVideoBuffer(cDrmBuffer *);
+	int SetVideoBuffer(cDrmBuffer *);
 	int SetOsdBuffer(drmModeAtomicReqPtr);
-	void SetPipBuffer(cDrmBuffer *);
+	int SetPipBuffer(cDrmBuffer *);
 	int CommitBuffer(cDrmBuffer *, cDrmBuffer *);
 	void Grab(cDrmBuffer *, cDrmBuffer *);
 	void LogDroppedDuped(int64_t, int64_t, int);
