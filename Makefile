@@ -145,6 +145,7 @@ OBJS = $(PLUGIN).o \
 	filllevel.o \
 	grab.o \
 	h264parser.o \
+	jittertracker.o \
 	logger.o \
 	mediaplayer.o \
 	pes.o \

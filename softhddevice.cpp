@@ -551,6 +551,8 @@ void cSoftHdDevice::OnEnteringState(State state) {
 			m_pRender->ResetDecodingStrategy();
 			m_pRender->ResetBufferReuseStrategy();
 			m_pVideoStream->CloseDecoder();
+			m_audioJitterTracker.Reset();
+			m_videoJitterTracker.Reset();
 
 			break;
 		case STILL_PICTURE:
@@ -873,7 +875,7 @@ void cSoftHdDevice::HandleStillPicture(const uchar *data, int size)
 		cPesVideo pesPacket((const uint8_t*)currentPacketStart, size - (currentPacketStart - data));
 
 		if (pesPacket.IsValid())
-			PlayVideoInternal(m_pVideoStream, &m_videoReassemblyBuffer, currentPacketStart, pesPacket.GetPacketLength());
+			PlayVideoInternal(m_pVideoStream, &m_videoReassemblyBuffer, currentPacketStart, pesPacket.GetPacketLength(), false);
 		else {
 			LOGWARNING("device: %s: invalid PES packet", __FUNCTION__);
 			break;
@@ -1084,6 +1086,11 @@ int cSoftHdDevice::PlayAudio(const uchar *data, int size, uchar id)
 		return size;
 	}
 
+	if (Transferring()) { // compensation is only necessary with live streams
+		m_pAudio->ClockDriftCompensation();
+		m_audioJitterTracker.PacketReceived();
+	}
+
 	if (m_audioChannelID != id) {
 		m_audioChannelID = id;
 		m_audioReassemblyBuffer.Reset();
@@ -1167,7 +1174,7 @@ void cSoftHdDevice::SetVolumeDevice(int volume)
 int cSoftHdDevice::PlayVideo(const uchar *data, int size)
 {
 //	LOGDEBUG("device: %s: %p %d", __FUNCTION__, data, size);
-	return PlayVideoInternal(m_pVideoStream, &m_videoReassemblyBuffer, data, size);
+	return PlayVideoInternal(m_pVideoStream, &m_videoReassemblyBuffer, data, size, Transferring());
 }
 
 /**
@@ -1183,16 +1190,19 @@ int cSoftHdDevice::PlayVideo(const uchar *data, int size)
 int cSoftHdDevice::PlayPipVideo(const uchar *data, int size)
 {
 //	LOGDEBUG("device: %s: %p %d", __FUNCTION__, data, size);
-	return PlayVideoInternal(m_pPipStream, &m_pipReassemblyBuffer, data, size);
+	return PlayVideoInternal(m_pPipStream, &m_pipReassemblyBuffer, data, size, false);
 }
 
 /**
  * Play a video packet
  *
- * @param data    A complete PES packet with optionally fragmented payload
- * @param size    the length of the PES packet including header
+ * @param stream          video stream to play to
+ * @param buffer          reassembly buffer for this stream
+ * @param data            A complete PES packet with optionally fragmented payload
+ * @param size            the length of the PES packet including header
+ * @param trackJitter     whether to track jitter for this packet
  */
-int cSoftHdDevice::PlayVideoInternal(cVideoStream *stream, cReassemblyBufferVideo *buffer, const uchar *data, int size)
+int cSoftHdDevice::PlayVideoInternal(cVideoStream *stream, cReassemblyBufferVideo *buffer, const uchar *data, int size, bool trackJitter)
 {
 	// LOGDEBUG("device: %s: %p %d", __FUNCTION__, data, size);
 
@@ -1208,6 +1218,9 @@ int cSoftHdDevice::PlayVideoInternal(cVideoStream *stream, cReassemblyBufferVide
 
 		return size;
 	}
+
+	if (trackJitter)
+		m_videoJitterTracker.PacketReceived();
 
 	if (stream->GetCodecId() == AV_CODEC_ID_NONE) {
 		// The playback has just started

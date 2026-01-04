@@ -43,6 +43,7 @@ extern "C"
 #include "softhdosd.h"
 #include "pipreceiver.h"
 #include "event.h"
+#include "jittertracker.h"
 
 // State machine definitions
 // Implementing C++17 visitor pattern
@@ -242,6 +243,8 @@ private:
 	cSoftOsdProvider *m_pOsdProvider; ///< pointer to cSoftOsdProvider object
 	cReassemblyBufferVideo m_videoReassemblyBuffer; ///< video pes reassembly buffer
 	cReassemblyBufferAudio m_audioReassemblyBuffer; ///< audio pes reassembly buffer
+	cJitterTracker m_audioJitterTracker{"audio"};   ///< audio jitter tracker
+	cJitterTracker m_videoJitterTracker{"video"};   ///< video jitter tracker
 
 	std::atomic<PlaybackMode> m_playbackMode = NONE; ///< current playback mode
 	int m_audioChannelID;            ///< current audio channel ID
@@ -268,7 +271,7 @@ private:
 
 	bool m_forceDetached = false; ///< start the plugin in detached state
 
-	int PlayVideoInternal(cVideoStream *, cReassemblyBufferVideo *, const uchar *, int);
+	int PlayVideoInternal(cVideoStream *, cReassemblyBufferVideo *, const uchar *, int, bool);
 	void ClearAudio(void);
 	void OnEventReceived(const Event&);
 	void HandleStillPicture(const uchar *data, int size);
