@@ -142,11 +142,13 @@ OBJS = $(PLUGIN).o \
 	drmbuffer.o \
 	drmdevice.o \
 	drmplane.o \
+	filllevel.o \
 	grab.o \
 	h264parser.o \
 	logger.o \
 	mediaplayer.o \
 	pes.o \
+	pidcontroller.o \
 	pipreceiver.o \
 	ringbuffer.o \
 	softhddevice.o \

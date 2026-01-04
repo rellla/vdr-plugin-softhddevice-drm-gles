@@ -602,7 +602,8 @@ void cSoftHdAudio::DropSamplesOlderThanPtsMs(int64_t ptsMs)
 		return;
 
 	int64_t dropMs = std::max((int64_t)0, ptsMs - GetOutputPtsMsInternal());
-	int dropBytes = snd_pcm_frames_to_bytes(m_pAlsaPCMHandle, MsToFrames(dropMs));
+	int dropFrames = MsToFrames(dropMs);
+	int dropBytes = snd_pcm_frames_to_bytes(m_pAlsaPCMHandle, dropFrames);
 
 	dropBytes = std::min(dropBytes, (int)m_pRingbuffer.UsedBytes());
 
@@ -613,6 +614,9 @@ void cSoftHdAudio::DropSamplesOlderThanPtsMs(int64_t ptsMs)
 			Timestamp2String(GetOutputPtsMsInternal(), 1),
 			Timestamp2String(ptsMs, 1));
 
+		m_pidController.Reset();
+		m_fillLevel.Reset();
+		m_fillLevel.WroteFrames(dropFrames);
 		m_pRingbuffer.ReadAdvance(dropBytes);
 	}
 }
@@ -660,8 +664,9 @@ void cSoftHdAudio::Enqueue(uint16_t *buffer, int count, AVFrame *frame)
 	if (m_pitchAdjustFrameCounter == 0 && std::abs(m_pitchPpm) > 1) { // only adjust if pitch has a significant value to prevent overly large values/division by zero
 		int oneFrameBytes = snd_pcm_frames_to_bytes(m_pAlsaPCMHandle, 1);
 
-		if (m_pitchPpm < 0 && m_pRingbuffer.Write((const uint16_t *)buffer, oneFrameBytes)) {// insert additional frame
-		} else if (m_pitchPpm > 0) // drop frame
+		if (m_pitchPpm < 0 && m_pRingbuffer.Write((const uint16_t *)buffer, oneFrameBytes)) // insert additional frame
+			m_fillLevel.ReceivedFrames(1);
+		else if (m_pitchPpm > 0) // drop frame
 			count = std::max(0, count - oneFrameBytes);
 
 		m_pitchAdjustFrameCounter = std::round(1'000'000.0 / std::abs(m_pitchPpm));
@@ -673,6 +678,8 @@ void cSoftHdAudio::Enqueue(uint16_t *buffer, int count, AVFrame *frame)
 	int bytesWritten = m_pRingbuffer.Write((const uint16_t *)buffer, count);
 	if (bytesWritten != count)
 		LOGERROR("audio: %s: can't place %d samples in ring buffer", __FUNCTION__, count);
+
+	m_fillLevel.ReceivedFrames(snd_pcm_bytes_to_frames(m_pAlsaPCMHandle, bytesWritten));
 
 	if (frame->pts != AV_NOPTS_VALUE)
 		m_inputPts = frame->pts;
@@ -836,6 +843,9 @@ void cSoftHdAudio::FlushBuffers(void)
 	if (m_inputPts != AV_NOPTS_VALUE)
 		FlushAlsaBuffers();
 
+	m_fillLevel.Reset();
+	m_fillLevel.ResetFramesCounters();
+	m_pidController.Reset();
 	m_pRingbuffer.Reset();
 	m_inputPts = AV_NOPTS_VALUE;
 	m_filterChanged = 1;
@@ -1162,6 +1172,7 @@ bool cSoftHdAudio::CyclicCall()
 	else
 		framesWritten = snd_pcm_writei(m_pAlsaPCMHandle, data, framesToWrite);
 
+	m_fillLevel.WroteFrames(framesWritten);
 	m_pRingbuffer.ReadAdvance(snd_pcm_frames_to_bytes(m_pAlsaPCMHandle, framesWritten));
 
 	if (framesWritten != framesToWrite) {
@@ -1482,6 +1493,8 @@ int cSoftHdAudio::AlsaSetup(int channels, int sample_rate, int passthrough)
 		LOGWARNING("audio: %s: bufferTime %d not supported! %s", __FUNCTION__, bufferTimeUs, snd_strerror(err));
 	}
 
+	m_alsaBufferSizeFrames = MsToFrames(bufferTimeUs / 1000);
+
 /*	err = snd_pcm_hw_params_test_format(m_pAlsaPCMHandle, hwparams, SND_PCM_FORMAT_S16);
 	if (err < 0)	// err == 0 if is supported
 		LOGERROR("audio: %s: SND_PCM_FORMAT_S16 not supported! %s", __FUNCTION__,
@@ -1574,4 +1587,45 @@ void cSoftHdAudio::ProcessEvents()
 		m_pEventReceiver->OnEventReceived(event);
 
 	m_eventQueue.clear();
+}
+
+/**
+ * Calculate clock drift compensation
+ *
+ * Uses a PID controller to adjust the playback pitch based on the
+ * audio buffer fill level. This keeps the buffer level constant
+ * and compensates for clock drift between the sender and the audio hardware.
+ *
+ * Also updates the low-pass filter for the buffer fill level.
+ */
+void cSoftHdAudio::ClockDriftCompensation()
+{
+	double bufferFillLevelMs = FramesToMsDouble(m_fillLevel.GetBufferFillLevelFramesAvg());
+	if (m_fillLevel.IsSettled()) {
+		auto now = std::chrono::steady_clock::now();
+		std::chrono::duration<double> elapsedSec = now - m_lastPidInvocation;
+		m_lastPidInvocation = now;
+
+		m_pitchPpm = m_pidController.Update(bufferFillLevelMs, elapsedSec.count()) * -1;
+	} else
+		m_pidController.SetTargetValue(bufferFillLevelMs);
+
+	if (m_packetCounter++ % 1000 == 0) {
+		LOGDEBUG2(L_SOUND, "audio: %s: buffer fill level: %.1fms (target: %.1fms), clock drift compensating pitch: %.1fppm, PID controller: P=%.2fppm I=%.2fppm D=%.2fppm",
+			__FUNCTION__,
+			bufferFillLevelMs,
+			m_pidController.GetTargetValue(),
+			m_pitchPpm.load(),
+			m_pidController.GetPTerm(),
+			m_pidController.GetITerm(),
+			m_pidController.GetDTerm());
+	}
+
+	// buffer fill level low pass filter
+	int hardwareBufferFillLevelFrames = m_alsaBufferSizeFrames - snd_pcm_avail(m_pAlsaPCMHandle);
+
+	if (hardwareBufferFillLevelFrames < 0)
+		LOGWARNING("audio: %s: snd_pcm_avail() failes: %s", __FUNCTION__, snd_strerror(hardwareBufferFillLevelFrames));
+	else
+		m_fillLevel.UpdateAvgBufferFillLevel(hardwareBufferFillLevelFrames);
 }

@@ -23,6 +23,7 @@
 
 #include <atomic>
 #include <vector>
+#include <chrono>
 
 extern "C"
 {
@@ -34,6 +35,8 @@ extern "C"
 #include "threads.h"
 #include "event.h"
 #include "config.h"
+#include "filllevel.h"
+#include "pidcontroller.h"
 
 #define NORMALIZE_MAX_INDEX 128		///< number of average values
 
@@ -81,12 +84,18 @@ public:
 	bool CyclicCall(void);
 	void DropSamplesOlderThanPtsMs(int64_t);
 	void ProcessEvents(void);
+	void ClockDriftCompensation(void);
 
 private:
 	constexpr static int AUDIO_MIN_BUFFER_FREE = 3072 * 8 * 8; ///< Minimum free space in audio buffer 8 packets for 8 channels
 	cSoftHdDevice *m_pDevice;               ///< pointer to device
 	cSoftHdConfig *m_pConfig;               ///< pointer to config
 	IEventReceiver *m_pEventReceiver;       ///< pointer to event receiver
+	cBufferFillLevelLowPassFilter m_fillLevel;                  ///< low pass filter for the buffer fill level
+	cPidController m_pidController{3, 0.005, 0, 1000};          ///< PID controller for clock drift compensation with tuning values coming from educated guesses
+	std::chrono::steady_clock::time_point m_lastPidInvocation;  ///< last time the PID controller was invoked
+	int m_alsaBufferSizeFrames = 0;         ///< alsa buffer size in frames
+	int m_packetCounter = 0;                ///< packet counter for logging
 
 	// thread
 	cAudioThread *m_pAudioThread = nullptr; ///< pointer to audio thread
@@ -183,6 +192,7 @@ private:
 	int64_t MsToPts(int64_t ptsMs) { return ptsMs / av_q2d(*m_pTimebase) / 1000; }
 	int MsToFrames(int milliseconds) { return (int64_t)milliseconds * m_hwSampleRate / 1000; }
 	int FramesToMs(int frames) { return (int64_t)frames * 1000 / m_hwSampleRate; }
+	double FramesToMsDouble(int frames) { return (double)frames * 1000 / m_hwSampleRate; }
 
 	int64_t GetOutputPtsMsInternal(void);
 };
