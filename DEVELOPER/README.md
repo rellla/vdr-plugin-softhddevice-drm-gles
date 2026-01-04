@@ -347,6 +347,79 @@ If the first audio packet arrives after the first decoded video frame, the initi
 Side note: For additional responsiveness/optimization, the first video packets (until the first sync word was received), were tried to put through the decoder (opened with the correct codec ID), but the decoder responded with invalid data.
 Only tried with H.264.
 
+## Broadcaster/Playback Device Clock Drift & Recovery
+
+This plugin implements an active clock recovery mechanism to solve synchronization issues inherent in live streaming environments (e.g., DVB-S).
+By using a PID controller to monitor buffer levels, the system compensates for hardware clock skew between the broadcast encoder and the playback device, preventing buffer underruns and overruns.
+
+### The Challenge: Hardware Clock Drift
+
+In any live stream, the sender's clock (broadcast encoder) and the receiver's clock (playback device) are never perfectly synchronized.
+This discrepancy leads to two inevitable failure states:
+
+- **Receiver is faster:** The device consumes audio samples faster than they are received. The buffer gradually drains, leading to an underrun.
+- **Receiver is slower:** The device consumes samples too slowly. The buffer fills until it overflows.
+
+Without active compensation, this drift is constant.
+Calculations shows that with a positive clock skew of 10ppm, a buffer of 330ms will underrun in approximately 9 hours.
+
+### The Solution: PID-Controlled Resampling
+
+To counteract drift, the plugin utilizes a **PID (Proportional-Integral-Derivative)** controller.
+This controller continuously calculates the error between the current buffer fill level and the target level, dynamically adjusting the audio playback speed via resampling.
+
+#### Mechanism
+
+The adjustment involves imperceptibly adding or removing single audio samples.
+For a typical 10ppm positive skew at 48kHz, roughly one sample is removed every 2 seconds.
+While this prevents buffer underruns, it causes a drift in A/V sync, eventually necessitating a video frame drop/dupe to realign.
+
+#### Control Loop Terms
+
+- **Proportional (P):** Handles immediate corrections based on the current distance from the target buffer level.
+- **Integral (I):** Handles long-term drift. It accumulates error over time to "learn" the steady-state clock skew (ppm difference).
+- **Derivative (D):** Not currently used, but available for dampening if required.
+
+### System Verification
+
+The effectiveness of the PID controller was verified using **PlotJuggler**.
+
+#### 1. Uncorrected State (Baseline)
+
+Prior to implementation, the buffer exhibited a linear downward trend.
+Eventually a buffer underrun occurred after 32,000s (~9h) and buffering started again leading to a short playback pause.
+
+- **X-axis:** Time in seconds.
+- **Upper Graph Y-axis:** Buffer fill level in ms.
+- **Lower Graph Y-axis:** Compensation in ppm.
+
+![Graph showing the buffer drain before the fix](clock-drift-before.png)
+
+#### 2. Corrected State (PID Active)
+
+With the PID controller active, the buffer locks onto the target level.
+
+- **Stabilization Phase (0s - 1500s):** An initial dip occurs while the **Integral term (Orange Line)** accumulates data. Starting from 0, the controller takes time to learn the specific drift of the hardware.
+- **Steady State (>1500s):** Once the Integral term stabilizes (in this example, at ~10ppm), the buffer level (Blue Line) recovers and tracks the target (Red Line) indefinitely, oscillating only slightly due to packet jitter.
+
+![Graph showing the PID controller holding the buffer fill level constant after the fix](clock-drift-after.png)
+
+Please note that the first graph's Y-axis range is more than 300ms and the range of the second is only 3ms.
+This causes the second graph to look more jitterish, because it is more zoomed-in.
+
+### Tuning & Visualization with PlotJuggler
+
+The PID controller includes built-in telemetry to visualize internal state (P, I, D terms, input, and output) in real-time.
+This is essential for tuning the PID parameters.
+
+**To enable the tuning aid:**
+
+1. **Enable Telemetry:** In the source code, uncomment the macro `PID_CONTROLLER_TUNING_AID_ADDRESS` in `cPidController`.
+2. **Configure Target IP:** In `cPidController::SendTuningAidData()`, update the UDP target IP address to match the machine running PlotJuggler.
+3. **Setup PlotJuggler:**
+    - Install [PlotJuggler](https://github.com/facontidavide/PlotJuggler).
+    - Load the provided layout configuration file (located in the repo at `DEVELOPER/PidControllerPlotJugglerConfig.xml`). This will automatically configure the data series, graphs, and legends to match the screenshots above.
+    - Start the UDP Server in PlotJuggler to begin receiving live data from the plugin.
 
 ## Misc
 
