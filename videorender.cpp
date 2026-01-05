@@ -572,7 +572,7 @@ bool cVideoRender::DisplayFrame()
 	if (m_pDevice->IsBufferingThresholdReached())
 		m_eventQueue.push_back(BufferingThresholdReachedEvent{});
 
-	if (m_pDevice->VideoStream()->GetAvPacketsFilled() == 0 && !m_videoPlaybackPaused && m_schedulePlaybackStartAtPtsMs == AV_NOPTS_VALUE && !IsTrickSpeed())
+	if (m_pDevice->VideoStream()->GetAvPacketsFilled() == 0 && !m_videoPlaybackPaused && m_schedulePlaybackStartAtPtsMs == AV_NOPTS_VALUE && !IsTrickSpeed() && !IsStillpicture())
 		m_eventQueue.push_back(BufferUnderrunEvent{VIDEO});
 
 	cDrmBuffer *drmBuffer = nullptr;
@@ -602,7 +602,7 @@ bool cVideoRender::DisplayFrame()
 				m_schedulePlaybackStartAtPtsMs = AV_NOPTS_VALUE;
 				m_videoPlaybackPaused = false;
 			}
-		} else if (!m_displayOneFrameThenPause) {
+		} else if (!m_displayOneFrameThenPause && !IsStillpicture()) {
 			// A/V sync
 			int64_t audioPtsMs = m_pAudio->GetHardwareOutputPtsMs();
 			int64_t videoPtsMs = PtsToMs(drmBuffer->frame->pts);

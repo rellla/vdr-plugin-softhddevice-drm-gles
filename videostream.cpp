@@ -436,6 +436,7 @@ void cVideoStream::CancelFilterThread(void) {
 		m_pFilterThread->Stop();
 
 	m_checkFilterThreadNeeded = true;
+	m_deinterlacerDeactivated = false;
 }
 
 /**

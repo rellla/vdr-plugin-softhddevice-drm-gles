@@ -57,7 +57,6 @@ enum State {
 	BUFFERING,
 	PLAY,
 	TRICK_SPEED,
-	STILL_PICTURE,
 	DETACHED
 };
 
@@ -82,7 +81,6 @@ inline const char* StateToString(State s) {
 		case State::BUFFERING: return "BUFFERING";
         case State::PLAY: return "PLAY";
         case State::TRICK_SPEED: return "TRICK_SPEED";
-        case State::STILL_PICTURE: return "STILL_PICTURE";
         case State::DETACHED: return "DETACHED";
     }
     return "Unknown";

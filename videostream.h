@@ -74,6 +74,7 @@ public:
 	bool HasInputPts(void) { return m_inputPts != AV_NOPTS_VALUE; }
 	int64_t GetInputPtsMs(void);
 	int64_t GetInputPts(void) { return m_inputPts; };
+	void ResetInputPts(void) { m_inputPts = AV_NOPTS_VALUE; };
 	void GetVideoSize(int *, int *, double *);
 
 	// decoding thread

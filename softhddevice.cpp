@@ -307,7 +307,9 @@ void cSoftHdDevice::OnEventReceived(const Event& event)
 				[&invalid](const PauseEvent&) { invalid(); },
 				[&invalid](const StopEvent&) { invalid(); },
 				[&invalid](const TrickSpeedEvent&) { invalid(); },
-				[&invalid](const StillPictureEvent&) { invalid(); },
+				[this](const StillPictureEvent& s) {
+					HandleStillPicture(s.data, s.size);
+				 },
 				[this, &needsResume](const DetachEvent&) {
 					HandlePip(PIPSTOP);
 					SetState(DETACHED);
@@ -385,9 +387,6 @@ void cSoftHdDevice::OnEventReceived(const Event& event)
 						case AUDIO_ONLY:
 							m_pAudio->SetPaused(false);
 							break;
-						case VIDEO_ONLY:
-							m_pRender->SetPlaybackPaused(false);
-							break;
 						case AUDIO_AND_VIDEO:
 							audioBehindVideoByMs = m_pRender->GetOutputPtsMs() - m_pAudio->GetOutputPtsMs() - m_pConfig->ConfigVideoAudioDelayMs;
 							if (audioBehindVideoByMs > 0) {
@@ -396,6 +395,9 @@ void cSoftHdDevice::OnEventReceived(const Event& event)
 							} else
 								m_pRender->SetScheduleAudioResume(true);
 
+							// fallthrough
+						case VIDEO_ONLY:
+							m_pRender->SetStillpicture(false);
 							m_pRender->SetPlaybackPaused(false);
 							break;
 						case NONE:
@@ -469,35 +471,6 @@ void cSoftHdDevice::OnEventReceived(const Event& event)
 				},
 			}, event);
 			break;
-		case State::STILL_PICTURE:
-			std::visit(overload{
-				[this](const PlayEvent&) {
-					SetState(PLAY);
-				},
-				[&invalid](const PauseEvent&) { invalid(); },
-				[this](const StopEvent&) {
-					SetState(STOP);
-				},
-				[this](const TrickSpeedEvent& t) {
-					m_pRender->SetTrickSpeed(t.speed, t.active, t.forward);
-					SetState(TRICK_SPEED);
-				},
-				[this](const StillPictureEvent& s) {
-					HandleStillPicture(s.data, s.size);
-				},
-				[this, &needsResume](const DetachEvent&) {
-					HandlePip(PIPSTOP);
-					SetState(DETACHED);
-					needsResume = false;
-				},
-				[&invalid](const AttachEvent&) { invalid(); },
-				[&invalid](const BufferUnderrunEvent&) { invalid(); },
-				[&invalid](const BufferingThresholdReachedEvent&) { invalid(); },
-				[this](const PipEvent& p) {
-					HandlePip(p.state);
-				},
-			}, event);
-			break;
 	}
 
 	if (needsResume) {
@@ -523,10 +496,12 @@ void cSoftHdDevice::OnEnteringState(State state) {
 			// nothing
 			break;
 		case PLAY:
-			if (m_playbackMode == AUDIO_ONLY)
+			if (m_playbackMode != VIDEO_ONLY)
 				m_pAudio->SetPaused(false);
-			else {
-				m_pAudio->SetPaused(false);
+
+			if (m_playbackMode != AUDIO_ONLY) {
+				m_pVideoStream->SetDeinterlacerDeactivated(false);
+				m_pRender->SetStillpicture(false);
 				m_pRender->SetPlaybackPaused(false);
 			}
 			break;
@@ -554,10 +529,6 @@ void cSoftHdDevice::OnEnteringState(State state) {
 			m_audioJitterTracker.Reset();
 			m_videoJitterTracker.Reset();
 
-			break;
-		case STILL_PICTURE:
-			m_pRender->SetPlaybackPaused(false);
-			m_pVideoStream->SetDeinterlacerDeactivated(true);
 			break;
 		case DETACHED:
 			// resume the previously stopped threads
@@ -615,10 +586,6 @@ void cSoftHdDevice::OnLeavingState(State state) {
 		case STOP:
 			m_receivedAudio = false;
 			m_receivedVideo = false;
-			break;
-		case STILL_PICTURE:
-			m_pVideoStream->SetDeinterlacerDeactivated(false);
-			m_pRender->SetPlaybackPaused(true);
 			break;
 		case DETACHED:
 			m_pAudio = new cSoftHdAudio(this);
@@ -868,7 +835,11 @@ void cSoftHdDevice::StillPicture(const uchar *data, int size)
  */
 void cSoftHdDevice::HandleStillPicture(const uchar *data, int size)
 {
-	SetState(STILL_PICTURE);
+	m_pRender->SetPlaybackPaused(false);
+	m_pVideoStream->SetDeinterlacerDeactivated(true);
+
+	// skip BufferUnderrunEvent{VIDEO} in renderer
+	m_pRender->SetStillpicture(true);
 
 	const uchar *currentPacketStart = data;
 	while (currentPacketStart < data + size) {
@@ -885,6 +856,7 @@ void cSoftHdDevice::HandleStillPicture(const uchar *data, int size)
 	}
 
 	m_pVideoStream->PushAvPacket(m_videoReassemblyBuffer.PopAvPacket());
+	m_pVideoStream->ResetInputPts(); // stillpicture shouldn't trigger having video data
 	m_pVideoStream->Flush();
 }
 
@@ -1174,6 +1146,8 @@ void cSoftHdDevice::SetVolumeDevice(int volume)
 int cSoftHdDevice::PlayVideo(const uchar *data, int size)
 {
 //	LOGDEBUG("device: %s: %p %d", __FUNCTION__, data, size);
+	m_receivedVideo = true;
+
 	return PlayVideoInternal(m_pVideoStream, &m_videoReassemblyBuffer, data, size, Transferring());
 }
 
@@ -1190,6 +1164,8 @@ int cSoftHdDevice::PlayVideo(const uchar *data, int size)
 int cSoftHdDevice::PlayPipVideo(const uchar *data, int size)
 {
 //	LOGDEBUG("device: %s: %p %d", __FUNCTION__, data, size);
+	m_receivedVideo = true;
+
 	return PlayVideoInternal(m_pPipStream, &m_pipReassemblyBuffer, data, size, false);
 }
 
@@ -1205,8 +1181,6 @@ int cSoftHdDevice::PlayPipVideo(const uchar *data, int size)
 int cSoftHdDevice::PlayVideoInternal(cVideoStream *stream, cReassemblyBufferVideo *buffer, const uchar *data, int size, bool trackJitter)
 {
 	// LOGDEBUG("device: %s: %p %d", __FUNCTION__, data, size);
-
-	m_receivedVideo = true;
 
 	if (stream->IsInputBufferFull())
 		return 0;

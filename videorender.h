@@ -144,10 +144,12 @@ public:
 	void OsdClear(void);
 	void OsdDrawARGB(int, int, int, int, int, const uint8_t *, int, int);
 
-	// TrickSpeed
+	// TrickSpeed/ Stillpicture
 	void SetTrickSpeed(double, bool, bool);
 	bool IsTrickSpeed(void) { return m_trickspeed; };
 	bool IsForwardTrickspeed(void) { return m_forwardTrickspeed; };
+	void SetStillpicture(bool active) { m_stillpicture = active; };
+	bool IsStillpicture(void) { return m_stillpicture; };
 
 	// Grab
 	int TriggerGrab(void);
@@ -209,6 +211,7 @@ private:
 	std::atomic<double> m_trickspeedFactor;   ///< current trick speed
 	std::atomic<bool> m_trickspeed = false;   ///< true, if trickspeed is active
 	std::atomic<bool> m_forwardTrickspeed;    ///< true, if trickspeed plays forward
+	std::atomic<bool> m_stillpicture = false; ///< true, if stillpicture is active
 	std::atomic<int> m_framePresentationCounter = 0; ///< number of times the current frame has to be shown (for slow-motion)
 	int m_numWrongProgressive;          ///< counter for progressive frames sent in an interlaced stream
 	                                    ///< (only used for logging)
