@@ -426,6 +426,7 @@ int cVideoRender::CommitBuffer(cDrmBuffer *buf, cDrmBuffer *pip)
 			pipPlane->SetPlane(modeReq);
 		else
 			pipPlane->ClearPlane(modeReq);
+
 		modeSet |= MODESET_PIP;
 	}
 
