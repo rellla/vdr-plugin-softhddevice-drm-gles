@@ -363,6 +363,9 @@ This discrepancy leads to two inevitable failure states:
 Without active compensation, this drift is constant.
 Calculations shows that with a positive clock skew of 10ppm, a buffer of 330ms will underrun in approximately 9 hours.
 
+This doesn't seem to be an issue when using audio passthrough.
+Probably because the audio receiving device takes care of compansation.
+
 ### The Solution: PID-Controlled Resampling
 
 To counteract drift, the plugin utilizes a **PID (Proportional-Integral-Derivative)** controller.

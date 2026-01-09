@@ -1064,7 +1064,7 @@ void cSoftHdAudio::Exit(void)
  */
 void cSoftHdAudio::HandleError(int error)
 {
-	if (snd_pcm_state(m_pAlsaPCMHandle) == SND_PCM_STATE_XRUN)
+	if (snd_pcm_state(m_pAlsaPCMHandle) == SND_PCM_STATE_XRUN && m_passthrough == 0)
 		m_eventQueue.push_back(BufferUnderrunEvent{AUDIO});
 
 	if (snd_pcm_recover(m_pAlsaPCMHandle, error, 0) < 0)
@@ -1600,6 +1600,9 @@ void cSoftHdAudio::ProcessEvents()
  */
 void cSoftHdAudio::ClockDriftCompensation()
 {
+	if (m_passthrough)
+		return;
+
 	double bufferFillLevelMs = FramesToMsDouble(m_fillLevel.GetBufferFillLevelFramesAvg());
 	if (m_fillLevel.IsSettled()) {
 		auto now = std::chrono::steady_clock::now();
