@@ -1164,7 +1164,6 @@ int cSoftHdDevice::PlayVideo(const uchar *data, int size)
 int cSoftHdDevice::PlayPipVideo(const uchar *data, int size)
 {
 //	LOGDEBUG("device: %s: %p %d", __FUNCTION__, data, size);
-	m_receivedVideo = true;
 
 	return PlayVideoInternal(m_pPipStream, &m_pipReassemblyBuffer, data, size, false);
 }
