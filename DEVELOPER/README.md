@@ -102,15 +102,18 @@ stateDiagram-v2
     Stop --> Detached: DetachEvent
 
     Buffering --> Play: BufferingThresholdReachedEvent
+    Buffering --> Stop: StopEvent
+    Buffering --> TrickSpeed: TrickSpeedEvent
+    Buffering --> Detached: DetachEvent
 
     Play --> TrickSpeed: TrickSpeedEvent
-    Play --> Stop: StopEvent<br/>DetachEvent
-    Play --> Play: StillPictureEvent<br/>PauseEvent<br/>PlayEvent
+    Play --> Stop: StopEvent
     Play --> Buffering: BufferUnderrunEvent
+    Play --> Detached: DetachEvent
 
-    TrickSpeed --> Buffering: PlayEvent
-    TrickSpeed --> Stop: StopEvent<br/>DetachEvent
-    TrickSpeed --> TrickSpeed: StillPictureEvent<br/>PauseEvent<br/>TrickSpeedEvent
+    TrickSpeed --> Play: PlayEvent
+    TrickSpeed --> Stop: StopEvent
+    TrickSpeed --> Detached: DetachEvent
 
     classDef stopState fill:#e57373,stroke:#d32f2f,stroke-width:2px,color:#000
     classDef playState fill:#81c784,stroke:#388e3c,stroke-width:2px,color:#000
