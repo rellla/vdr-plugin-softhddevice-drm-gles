@@ -309,7 +309,7 @@ void cSoftHdDevice::OnEventReceived(const Event& event)
 				[&invalid](const TrickSpeedEvent&) { invalid(); },
 				[this](const StillPictureEvent& s) {
 					HandleStillPicture(s.data, s.size);
-				 },
+				},
 				[this, &needsResume](const DetachEvent&) {
 					HandlePip(PIPSTOP);
 					SetState(DETACHED);
@@ -330,7 +330,7 @@ void cSoftHdDevice::OnEventReceived(const Event& event)
 				},
 				[this](const PauseEvent&) {
 					// ignore
-				 },
+				},
 				[this](const StopEvent&) {
 					SetState(STOP);
 				},
@@ -342,7 +342,7 @@ void cSoftHdDevice::OnEventReceived(const Event& event)
 				},
 				[this](const StillPictureEvent& s) {
 					HandleStillPicture(s.data, s.size);
-				 },
+				},
 				[this, &needsResume](const DetachEvent&) {
 					SetState(DETACHED);
 					needsResume = false;
@@ -452,7 +452,7 @@ void cSoftHdDevice::OnEventReceived(const Event& event)
 					// resume from pause, or change trick speed direction/speed
 					m_pRender->SetTrickSpeed(t.speed, t.active, t.forward);
 					m_pRender->SetPlaybackPaused(false);
-				 },
+				},
 				[this](const StillPictureEvent& s) {
 					HandleStillPicture(s.data, s.size);
 				},
