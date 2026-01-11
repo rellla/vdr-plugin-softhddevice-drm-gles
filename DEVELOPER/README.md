@@ -90,7 +90,8 @@ graph TD
 
 ## State Diagram
 
-This is the model of the state machine implemented in softhddevice.cpp.
+This is the model of the state machine implemented in softhddevice.cpp.  
+The diagram doesn't contain the DetachEvent. This event can be triggered in every state and causes a state change to DETACHED.
 
 ```mermaid
 stateDiagram-v2
@@ -99,21 +100,17 @@ stateDiagram-v2
     Detached --> Stop: AttachEvent
 
     Stop --> Buffering: PlayEvent
-    Stop --> Detached: DetachEvent
 
     Buffering --> Play: BufferingThresholdReachedEvent
     Buffering --> Stop: StopEvent
     Buffering --> TrickSpeed: TrickSpeedEvent
-    Buffering --> Detached: DetachEvent
 
     Play --> TrickSpeed: TrickSpeedEvent
     Play --> Stop: StopEvent
     Play --> Buffering: BufferUnderrunEvent
-    Play --> Detached: DetachEvent
 
     TrickSpeed --> Play: PlayEvent
     TrickSpeed --> Stop: StopEvent
-    TrickSpeed --> Detached: DetachEvent
 
     classDef stopState fill:#e57373,stroke:#d32f2f,stroke-width:2px,color:#000
     classDef playState fill:#81c784,stroke:#388e3c,stroke-width:2px,color:#000
