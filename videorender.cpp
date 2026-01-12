@@ -651,8 +651,10 @@ bool cVideoRender::DisplayFrame()
 
 		m_lastFrameWasDropped = false;
 		m_pCurrentlyDisplayed = drmBuffer;
-	} else if (m_pCurrentlyDisplayed && !m_drmBufferQueue.IsEmpty() && !m_videoPlaybackPaused) {
-		// display the current frame again in trick speed mode or for A/V syncing.
+	} else if (m_pCurrentlyDisplayed &&
+	         ((!m_drmBufferQueue.IsEmpty() && !m_videoPlaybackPaused) || m_startgrab)) {
+		// display the current frame again in trick speed mode or for A/V syncing
+		// or if we want to grab the current frame
 		pageFlipDone = PageFlip(m_pCurrentlyDisplayed, pipBuf);
 	} else if ((m_pBufOsd && m_pBufOsd->IsDirty()) || pipBuf) {
 		pageFlipDone = PageFlip(NULL, pipBuf);
