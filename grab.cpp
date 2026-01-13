@@ -2,7 +2,7 @@
  * @file grab.cpp
  * Grabber class
  *
- * This file defines cSoftHdGrab, which is used to handle
+ * This file defines cGrabBuffer, which is used to handle
  * grab requests.
  *
  * @copyright (c) 2025 by Andreas Baierl. All Rights Reserved.
@@ -24,13 +24,13 @@
 #include "grab.h"
 
 /*****************************************************************************
- * cSoftHdGrab class
+ * cGrabBuffer class
  ****************************************************************************/
 
 /**
  * Grabber class constructor
  */
- cSoftHdGrab::cSoftHdGrab(void)
+ cGrabBuffer::cGrabBuffer(void)
 {
 	m_pBuf = NULL;
 	m_pResult = NULL;
@@ -42,14 +42,14 @@
 /**
  * Grabber class destructor
  */
-cSoftHdGrab::~cSoftHdGrab(void)
+cGrabBuffer::~cGrabBuffer(void)
 {
 }
 
 /**
  * Free the grab buffer
  */
-void cSoftHdGrab::FreeBuf(void)
+void cGrabBuffer::FreeBuf(void)
 {
 	if (!m_pBuf)
 		return;

@@ -25,17 +25,17 @@
 #include <vdr/osd.h>
 
 /**
- * cSoftHdGrab - Grabber class
+ * cGrabBuffer - Grab buffer class
  *
  * Class to hold the data for a grabbed buffer.
  * Grab is triggered by VDR/ cSoftHdDevice, data is set by the renderer
  * and composed by cSoftHdDevice again.
  */
-class cSoftHdGrab
+class cGrabBuffer
 {
 public:
-	cSoftHdGrab(void);
-	virtual ~cSoftHdGrab(void);
+	cGrabBuffer(void);
+	virtual ~cGrabBuffer(void);
 	void FreeBuf(void);
 
 	// setters and getters

@@ -1132,7 +1132,7 @@ int cVideoRender::TriggerGrab(void)
 void cVideoRender::ConvertVideoBufToRgb(void)
 {
 	int size = 0;
-	cSoftHdGrab *grab = &m_grabVideo;
+	cGrabBuffer *grab = &m_grabVideo;
 	cDrmBuffer *buf = grab->GetBuf();
 
 	// early return if buf = NULL
@@ -1161,7 +1161,7 @@ void cVideoRender::ConvertVideoBufToRgb(void)
 void cVideoRender::ConvertPipBufToRgb(void)
 {
 	int size = 0;
-	cSoftHdGrab *grab = &m_grabPip;
+	cGrabBuffer *grab = &m_grabPip;
 	cDrmBuffer *buf = grab->GetBuf();
 
 	// early return if buf = NULL
@@ -1191,7 +1191,7 @@ void cVideoRender::ConvertPipBufToRgb(void)
 void cVideoRender::ConvertOsdBufToRgb(void)
 {
 	int size;
-	cSoftHdGrab *grab = &m_grabOsd;
+	cGrabBuffer *grab = &m_grabOsd;
 	cDrmBuffer *buf = grab->GetBuf();
 
 	// early return if buf = NULL
@@ -1235,11 +1235,11 @@ void cVideoRender::ClearGrab(void)
  * @param[out] height     returns output height
  * @param[in] type        0: video, 1: osd, 2: pip
  *
- * @returns the pointer to the cSoftHdGrab object
+ * @returns the pointer to the cGrabBuffer object
  */
-cSoftHdGrab *cVideoRender::GetGrab(int *size, int *width, int *height, int *x, int *y, int type)
+cGrabBuffer *cVideoRender::GetGrab(int *size, int *width, int *height, int *x, int *y, int type)
 {
-	cSoftHdGrab *grab;
+	cGrabBuffer *grab;
 	switch (type) {
 	case 0:
 		grab = &m_grabVideo;

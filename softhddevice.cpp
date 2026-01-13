@@ -1379,7 +1379,7 @@ uchar *cSoftHdDevice::GrabImage(int &size, bool jpeg, int quality, int width, in
 
 	// 5. fetch video data
 	// Video comes as RGB, width and height is original screen dimension (video is maybe scaled)
-	cSoftHdGrab *videoGrab = m_pRender->GetGrab(&videoSize, &videoWidth, &videoHeight, &videoX, &videoY, 0);
+	cGrabBuffer *videoGrab = m_pRender->GetGrab(&videoSize, &videoWidth, &videoHeight, &videoX, &videoY, 0);
 	uint8_t *video = NULL;
 	if (videoGrab->GetSize())
 		video = videoGrab->GetData();
@@ -1395,7 +1395,7 @@ uchar *cSoftHdDevice::GrabImage(int &size, bool jpeg, int quality, int width, in
 
 	// 6. fetch pip data
 	// Pip video comes as RGB, width and height is original screen dimension (video is maybe scaled)
-	cSoftHdGrab *pipGrab = m_pRender->GetGrab(&pipSize, &pipWidth, &pipHeight, &pipX, &pipY, 2);
+	cGrabBuffer *pipGrab = m_pRender->GetGrab(&pipSize, &pipWidth, &pipHeight, &pipX, &pipY, 2);
 	uint8_t *pip = NULL;
 	if (pipGrab->GetSize())
 		pip = pipGrab->GetData();
@@ -1404,7 +1404,7 @@ uchar *cSoftHdDevice::GrabImage(int &size, bool jpeg, int quality, int width, in
 
 	// 7. fetch osd data
 	// OSD comes as ARGB, width and height is original screen dimension (osd is always fullscreen)
-	cSoftHdGrab *osdGrab = m_pRender->GetGrab(NULL, NULL, NULL, NULL, NULL, 1);
+	cGrabBuffer *osdGrab = m_pRender->GetGrab(NULL, NULL, NULL, NULL, NULL, 1);
 	uint8_t *osd = NULL;
 	if (osdGrab->GetSize())
 		osd = osdGrab->GetData();;
