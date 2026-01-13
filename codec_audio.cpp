@@ -57,7 +57,7 @@ cAudioDecoder::cAudioDecoder(cSoftHdAudio *audio)
 	m_pAudioCtx = NULL;
 	m_lastPts = AV_NOPTS_VALUE;
 
-	m_passthroughMask = mask & (CODEC_PCM | CODEC_AC3 | CODEC_EAC3 | CODEC_DTS);
+	m_passthroughMask = mask & (CODEC_AC3 | CODEC_EAC3 | CODEC_DTS);
 	LOGDEBUG2(L_CODEC, "audiocodec: %s: Set passthrough mask %d", __FUNCTION__, m_passthroughMask);
 }
 
@@ -151,14 +151,6 @@ void cAudioDecoder::Close(void)
 int cAudioDecoder::DecodePassthrough(const AVPacket * avpkt, AVFrame *frame)
 {
 	m_pAudio->SetTimebase(&m_pAudioCtx->pkt_timebase);
-
-/* TODO: PCM passthrough, just forward the data?
-	// PCM passthrough
-	if (m_passthroughMask & CODEC_PCM && m_pAudioCtx->codec_id == AV_CODEC_ID_PCM) {
-		m_pAudio->EnqueueSpdif(m_pAudioCtx, avpkt->data, avpkt->size, frame);
-		return 1;
-	}
-*/
 
 	// AC3 passthrough
 	if (m_passthroughMask & CODEC_AC3 && m_pAudioCtx->codec_id == AV_CODEC_ID_AC3) {
@@ -304,7 +296,6 @@ int cAudioDecoder::UpdateFormat(void)
 
 	LOGDEBUG2(L_SOUND, "audiocodec: %s: format change %s %dHz *%d channels%s%s%s%s%s%d", __FUNCTION__,
 		av_get_sample_fmt_name(m_pAudioCtx->sample_fmt), m_pAudioCtx->sample_rate, m_pAudioCtx->ch_layout.nb_channels,
-		m_passthroughMask & CODEC_PCM ? " PCM" : "",
 		m_passthroughMask & CODEC_AC3 ? " AC3" : "",
 		m_passthroughMask & CODEC_EAC3 ? " EAC3" : "",
 		m_passthroughMask & CODEC_DTS ? " DTS" : "",
@@ -317,9 +308,9 @@ int cAudioDecoder::UpdateFormat(void)
 	m_currentHwNumChannels = m_pAudioCtx->ch_layout.nb_channels;
 	m_currentPassthrough = m_passthroughMask;
 
-	if ((m_currentPassthrough & CODEC_AC3 && m_pAudioCtx->codec_id == AV_CODEC_ID_AC3) ||
-		(m_currentPassthrough & CODEC_EAC3 && m_pAudioCtx->codec_id == AV_CODEC_ID_EAC3) ||
-		(m_currentPassthrough & CODEC_DTS && m_pAudioCtx->codec_id == AV_CODEC_ID_DTS)) {
+	if ((m_currentPassthrough & CODEC_AC3  && m_pAudioCtx->codec_id == AV_CODEC_ID_AC3) ||
+	    (m_currentPassthrough & CODEC_EAC3 && m_pAudioCtx->codec_id == AV_CODEC_ID_EAC3) ||
+	    (m_currentPassthrough & CODEC_DTS  && m_pAudioCtx->codec_id == AV_CODEC_ID_DTS)) {
 
 		// E-AC3 over HDMI: some receivers need HBR
 		if (m_pAudioCtx->codec_id == AV_CODEC_ID_EAC3)
@@ -426,10 +417,10 @@ void cAudioDecoder::FlushBuffers(void)
 /**
  * Set audio pass-through mask
  *
- * @param mask         codec to enable (PCM, AC-3, E-AC-3, DTS)
+ * @param mask         codec to enable (AC-3, E-AC-3, DTS)
  */
 void cAudioDecoder::SetPassthrough(int mask)
 {
 	LOGDEBUG2(L_CODEC, "audiocodec: %s: %d", __FUNCTION__, mask);
-	m_passthroughMask = mask & (CODEC_PCM | CODEC_AC3 | CODEC_EAC3 | CODEC_DTS);
+	m_passthroughMask = mask & (CODEC_AC3 | CODEC_EAC3 | CODEC_DTS);
 }

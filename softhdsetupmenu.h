@@ -94,7 +94,6 @@ protected:
 	int m_cAudioStereoDescent;
 	int m_cAudioDownmix;
 	int m_cAudioPassthroughDefault;
-	int m_cAudioPassthroughPCM;
 	int m_cAudioPassthroughAC3;
 	int m_cAudioPassthroughEAC3;
 	int m_cAudioPassthroughDTS;

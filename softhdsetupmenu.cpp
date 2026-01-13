@@ -174,7 +174,6 @@ void cMenuSetupSoft::Create(void)
 		Add(new cMenuEditBoolItem(tr("Enable Stereo downmix"), &m_cAudioDownmix, trVDR("no"), trVDR("yes")));
 		Add(new cMenuEditBoolItem(tr("Enable Pass-through"), &m_cAudioPassthroughDefault, trVDR("off"), trVDR("on")));
 		if (m_cAudioPassthroughDefault) {
-			Add(new cMenuEditBoolItem(tr("\040\040PCM pass-through"), &m_cAudioPassthroughPCM, trVDR("no"), trVDR("yes")));
 			Add(new cMenuEditBoolItem(tr("\040\040AC-3 pass-through"), &m_cAudioPassthroughAC3, trVDR("no"), trVDR("yes")));
 			Add(new cMenuEditBoolItem(tr("\040\040E-AC-3 pass-through"), &m_cAudioPassthroughEAC3, trVDR("no"), trVDR("yes")));
 			Add(new cMenuEditBoolItem(tr("\040\040DTS pass-through"), &m_cAudioPassthroughDTS, trVDR("no"), trVDR("yes")));
@@ -349,7 +348,6 @@ cMenuSetupSoft::cMenuSetupSoft(cSoftHdDevice *device)
 	m_cAudioStereoDescent      = m_pConfig->ConfigAudioStereoDescent;
 	m_cAudioDownmix            = m_pConfig->ConfigAudioDownmix;
 	m_cAudioPassthroughDefault = m_pConfig->ConfigAudioPassthroughState;
-	m_cAudioPassthroughPCM     = m_pConfig->ConfigAudioPassthroughMask & CODEC_PCM;
 	m_cAudioPassthroughAC3     = m_pConfig->ConfigAudioPassthroughMask & CODEC_AC3;
 	m_cAudioPassthroughEAC3    = m_pConfig->ConfigAudioPassthroughMask & CODEC_EAC3;
 	m_cAudioPassthroughDTS     = m_pConfig->ConfigAudioPassthroughMask & CODEC_DTS;
@@ -461,8 +459,7 @@ void cMenuSetupSoft::Store(void)
 	if (m_pConfig->ConfigAudioDownmix != m_cAudioDownmix) {
 		m_pDevice->ResetChannelId();
 	}
-	m_pConfig->ConfigAudioPassthroughMask = (m_cAudioPassthroughPCM ? CODEC_PCM : 0)
-	                                      | (m_cAudioPassthroughAC3 ? CODEC_AC3 : 0)
+	m_pConfig->ConfigAudioPassthroughMask = (m_cAudioPassthroughAC3 ? CODEC_AC3 : 0)
 	                                      | (m_cAudioPassthroughEAC3 ? CODEC_EAC3 : 0)
 	                                      | (m_cAudioPassthroughDTS ? CODEC_DTS : 0);
 	m_pConfig->ConfigAudioPassthroughState = m_cAudioPassthroughDefault;
