@@ -44,6 +44,7 @@ extern "C"
 #include "pipreceiver.h"
 #include "event.h"
 #include "jittertracker.h"
+#include "grab.h"
 
 // State machine definitions
 // Implementing C++17 visitor pattern
@@ -246,8 +247,7 @@ private:
 
 	std::atomic<PlaybackMode> m_playbackMode = NONE; ///< current playback mode
 	int m_audioChannelID;            ///< current audio channel ID
-	bool m_grabActive;               ///< simple lock variable
-	                                 ///< skips a new grab request if the last one is still active
+	cSoftHdGrab *m_pGrab;            ///< pointer to grabber object
 
 	bool m_pipActive;                ///< true, if pip is active
 	int m_pipChannelNum;             ///< current pip channel number

@@ -24,6 +24,24 @@
 
 #include <vdr/osd.h>
 
+enum Grabtype {
+	GRABVIDEO,
+	GRABPIP,
+	GRABOSD
+};
+
+inline const char* GrabtypeToString(Grabtype t) {
+    switch(t) {
+        case Grabtype::GRABVIDEO: return "VIDEO";
+        case Grabtype::GRABPIP: return "PIP";
+        case Grabtype::GRABOSD: return "OSD";
+    }
+    return "Unknown";
+}
+
+class cDrmBuffer;
+class cVideoRender;
+
 /**
  * cGrabBuffer - Grab buffer class
  *
@@ -36,13 +54,13 @@ class cGrabBuffer
 public:
 	cGrabBuffer(void);
 	virtual ~cGrabBuffer(void);
-	void FreeBuf(void);
+	void FreeDrmBuf(void);
 
 	// setters and getters
 	void SetRect(int x, int y, int width, int height) { m_rect.Set(x, y, width, height); };
 	void SetData(uint8_t *result) { m_pResult = result; };
 	void SetSize(int size) { m_size = size; };
-	void SetBuf(cDrmBuffer *buf) { m_pBuf = buf; };
+	void SetDrmBuf(cDrmBuffer *buf) { m_pBuf = buf; };
 
 	int GetX(void) { return m_rect.X(); };
 	int GetY(void) { return m_rect.Y(); };
@@ -50,12 +68,43 @@ public:
 	int GetHeight(void) { return m_rect.Height(); };
 	uint8_t *GetData(void) { return m_pResult; };
 	int GetSize(void) { return m_size; };
-	cDrmBuffer *GetBuf(void) { return m_pBuf; };
+	cDrmBuffer *GetDrmBuf(void) { return m_pBuf; };
 private:
 	uint8_t *m_pResult;          ///< pointer to grabbed image
 	struct cDrmBuffer *m_pBuf;   ///< pointer to original buffer
 	int m_size;                  ///< size of grabbed data
 	cRect m_rect;                ///< rect of the grabbed data
+};
+
+/**
+ * cSoftHdGrab - Grabber class
+ */
+class cSoftHdGrab
+{
+public:
+	cSoftHdGrab(cVideoRender *);
+	virtual ~cSoftHdGrab(void);
+
+	bool Active(void) { return m_isActive; };
+	bool Start(bool, int, int, int, int, int);
+	uint8_t *Image(void) { return m_grabbedImage; };
+	int Size(void) { return m_grabbedSize; };
+
+private:
+	cVideoRender *m_pRender;
+	uint8_t *m_grabbedImage;
+	int m_grabbedSize;
+	bool m_isActive;
+
+	bool m_isJpeg = true;
+	int m_quality;
+	int m_grabbedWidth;
+	int m_grabbedHeight;
+	int m_screenWidth;
+	int m_screenHeight;
+
+	bool ProcessGrab(void);
+	uint8_t *GetGrab(int *, int *, int *, int *, int *, Grabtype);
 };
 
 #endif

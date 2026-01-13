@@ -77,6 +77,7 @@ extern "C" {
 #define AV_SYNC_THRESHOLD_AUDIO_AHEAD_VIDEO_MS 5   ///< threshold in ms, when to drop video frames to keep audio and video in sync
 
 class cDrmDevice;
+class cGrabBuffer;
 
 class cBufferStrategy {
 public:
@@ -153,11 +154,10 @@ public:
 
 	// Grab
 	int TriggerGrab(void);
-	void ConvertVideoBufToRgb(void);
-	void ConvertOsdBufToRgb(void);
-	void ConvertPipBufToRgb(void);
-	void ClearGrab(void);
-	cGrabBuffer *GetGrab(int *, int *, int *, int *, int *, int);
+	void ClearGrabBuffers(void);
+	cGrabBuffer *GetGrabbedVideoBuffer(void) { return &m_grabVideo; };
+	cGrabBuffer *GetGrabbedOsdBuffer(void) { return &m_grabOsd; };
+	cGrabBuffer *GetGrabbedPipBuffer(void) { return &m_grabPip; };
 
 	// Threads
 	void ExitDisplayThread(void);
@@ -274,7 +274,7 @@ private:
 	int SetOsdBuffer(drmModeAtomicReqPtr);
 	int SetPipBuffer(cDrmBuffer *);
 	int CommitBuffer(cDrmBuffer *, cDrmBuffer *);
-	void Grab(cDrmBuffer *, cDrmBuffer *);
+	void CreateGrabBuffers(bool);
 	void LogDroppedDuped(int64_t, int64_t, int);
 	int64_t PtsToMs(int64_t);
 	void PushFrame(AVFrame *, bool, std::atomic<cBufferStrategy*> &, std::atomic<cDecodingStrategy*> &, cQueue<cDrmBuffer> *, cDrmBufferPool *);

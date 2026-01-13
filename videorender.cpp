@@ -344,44 +344,6 @@ int cVideoRender::SetPipBuffer(cDrmBuffer *buf)
 }
 
 /**
- * Grab video and osd
- *
- * @param buf       video drm buffer
- *                  if buf was (currently) set, it is used for the grab,
- *                  otherwise the last displayed buffer is used (pause mode)
- */
-void cVideoRender::Grab(cDrmBuffer *buf, cDrmBuffer *pip)
-{
-	if (m_pBufOsd && m_osdShown) {
-		LOGDEBUG2(L_GRAB, "videorender: %s: Trigger osd grab arrived", __FUNCTION__);
-		cDrmBuffer *osdBuf = new cDrmBuffer(m_pBufOsd);
-		// dimensions should be the size on screen
-		m_grabOsd.SetRect(0, 0, m_pBufOsd->Width(), m_pBufOsd->Height());
-		m_grabOsd.SetBuf(osdBuf);
-	}
-
-	cDrmBuffer *pbuf = buf ? buf : (m_pCurrentlyDisplayed ? m_pCurrentlyDisplayed : NULL);
-	if (pbuf) {
-		LOGDEBUG2(L_GRAB, "videorender: %s: Trigger video grab arrived", __FUNCTION__);
-		cDrmBuffer *videoBuf = new cDrmBuffer(pbuf);
-		// use dimensions which have been set earlier
-		m_grabVideo.SetRect(m_lastVideoGrab.X(), m_lastVideoGrab.Y(), m_lastVideoGrab.Width(), m_lastVideoGrab.Height());
-		m_grabVideo.SetBuf(videoBuf);
-	}
-
-	cDrmBuffer *pipBuf = pip ? pip : (m_pCurrentlyPipDisplayed ? m_pCurrentlyPipDisplayed : NULL);
-	if (pipBuf && !m_videoIsScaled) {
-		LOGDEBUG2(L_GRAB, "videorender: %s: Trigger pip grab arrived", __FUNCTION__);
-		cDrmBuffer *pipVideoBuf = new cDrmBuffer(pipBuf);
-		// use dimensions which have been set earlier
-		m_grabPip.SetRect(m_lastPipGrab.X(), m_lastPipGrab.Y(), m_lastPipGrab.Width(), m_lastPipGrab.Height());
-		m_grabPip.SetBuf(pipVideoBuf);
-	}
-
-	m_grabCond.Broadcast();
-}
-
-/**
  * Commit the frame to the hardware
  *
  * @param buf        video drm buffer
@@ -436,10 +398,6 @@ int cVideoRender::CommitBuffer(cDrmBuffer *buf, cDrmBuffer *pip)
 		modeSet |= MODESET_OSD;
 		LOGDEBUG2(L_DRM, "videorender: %s: SetPlane OSD %d (fb = %" PRIu64 ")", __FUNCTION__, m_osdShown, osdPlane->GetFbId());
 	}
-
-	// grab, if requested
-	if (m_startgrab)
-		Grab(buf, pip);
 
 	// return without an atomic commit (no video frame and osd activity)
 	if (!modeSet) {
@@ -651,15 +609,11 @@ bool cVideoRender::DisplayFrame()
 
 		m_lastFrameWasDropped = false;
 		m_pCurrentlyDisplayed = drmBuffer;
-	} else if (m_pCurrentlyDisplayed &&
-	         ((!m_drmBufferQueue.IsEmpty() && !m_videoPlaybackPaused) || m_startgrab)) {
+	} else if (m_pCurrentlyDisplayed && !m_drmBufferQueue.IsEmpty() && !m_videoPlaybackPaused) {
 		// display the current frame again in trick speed mode or for A/V syncing
-		// or if we want to grab the current frame
 		pageFlipDone = PageFlip(m_pCurrentlyDisplayed, pipBuf);
 	} else if ((m_pBufOsd && m_pBufOsd->IsDirty()) || pipBuf) {
 		pageFlipDone = PageFlip(NULL, pipBuf);
-	} else if (m_startgrab) {
-		pageFlipDone = PageFlip(&m_bufBlack, NULL);
 	}
 
 	if (pipBuf) {
@@ -671,6 +625,8 @@ bool cVideoRender::DisplayFrame()
 
 	if (m_framePresentationCounter > 0)
 		m_framePresentationCounter--;
+
+	CreateGrabBuffers(!m_videoIsScaled);
 
 	return pageFlipDone;
 }
@@ -1127,149 +1083,55 @@ int cVideoRender::TriggerGrab(void)
 }
 
 /**
- * Convert the video drm buffer to an rgb image
-*/
-void cVideoRender::ConvertVideoBufToRgb(void)
+ * Copy current video, osd and pip buffers to dedicated grabbing buffers
+ *
+ * @param grabPip   true, if the pip buffer should be grabbed
+ */
+void cVideoRender::CreateGrabBuffers(bool grabPip)
 {
-	int size = 0;
-	cGrabBuffer *grab = &m_grabVideo;
-	cDrmBuffer *buf = grab->GetBuf();
-
-	// early return if buf = NULL
-	if (!buf) {
-		grab->SetData(NULL);
-		grab->SetSize(0);
+	if (!m_startgrab)
 		return;
+
+	if (m_pBufOsd && m_osdShown) {
+		LOGDEBUG2(L_GRAB, "videorender: %s: Trigger osd grab arrived", __FUNCTION__);
+		cDrmBuffer *osdBuf = new cDrmBuffer(m_pBufOsd);
+		// dimensions should be the size on screen
+		m_grabOsd.SetRect(0, 0, m_pBufOsd->Width(), m_pBufOsd->Height());
+		m_grabOsd.SetDrmBuf(osdBuf);
 	}
 
-	for (int plane = 0; plane < buf->NumPlanes(); plane++) {
-		LOGDEBUG2(L_GRAB, "videorender: %s: VIDEO plane %d address %p pitch %d offset %d handle %d size %d", __FUNCTION__,
-			   plane, buf->Plane(plane), buf->Pitch(plane), buf->Offset(plane), buf->PrimeHandle(plane), buf->Size(plane));
-	}
-	// result's width and height are original dimensions how buffer is presented on the screen
-	uint8_t * result = BufToRgb(buf, &size, grab->GetWidth(), grab->GetHeight(), AV_PIX_FMT_RGB24);
-	grab->SetData(result);
-	grab->SetSize(size);
-	grab->FreeBuf();
-
-	return;
-}
-
-/**
- * Convert the pip drm buffer to an rgb image
-*/
-void cVideoRender::ConvertPipBufToRgb(void)
-{
-	int size = 0;
-	cGrabBuffer *grab = &m_grabPip;
-	cDrmBuffer *buf = grab->GetBuf();
-
-	// early return if buf = NULL
-	if (!buf) {
-		grab->SetData(NULL);
-		grab->SetSize(0);
-		return;
+	cDrmBuffer *pbuf = m_pCurrentlyDisplayed ? m_pCurrentlyDisplayed : NULL;
+	if (pbuf) {
+		LOGDEBUG2(L_GRAB, "videorender: %s: Trigger video grab arrived", __FUNCTION__);
+		cDrmBuffer *videoBuf = new cDrmBuffer(pbuf);
+		// use dimensions which have been set earlier
+		m_grabVideo.SetRect(m_lastVideoGrab.X(), m_lastVideoGrab.Y(), m_lastVideoGrab.Width(), m_lastVideoGrab.Height());
+		m_grabVideo.SetDrmBuf(videoBuf);
 	}
 
-	for (int plane = 0; plane < buf->NumPlanes(); plane++) {
-		LOGDEBUG2(L_GRAB, "videorender: %s: PIP plane %d address %p pitch %d offset %d handle %d size %d", __FUNCTION__,
-			   plane, buf->Plane(plane), buf->Pitch(plane), buf->Offset(plane), buf->PrimeHandle(plane), buf->Size(plane));
-	}
-	// result's width and height are original dimensions how buffer is presented on the screen
-	uint8_t * result = BufToRgb(buf, &size, grab->GetWidth(), grab->GetHeight(), AV_PIX_FMT_RGB24);
-	grab->SetData(result);
-	grab->SetSize(size);
-	grab->FreeBuf();
-
-	return;
-}
-
-
-/**
- * Convert the osd drm buffer to an rgb image
-*/
-void cVideoRender::ConvertOsdBufToRgb(void)
-{
-	int size;
-	cGrabBuffer *grab = &m_grabOsd;
-	cDrmBuffer *buf = grab->GetBuf();
-
-	// early return if buf = NULL
-	if (!buf) {
-		grab->SetData(NULL);
-		grab->SetSize(0);
-		return;
+	cDrmBuffer *pipBuf = m_pCurrentlyPipDisplayed ? m_pCurrentlyPipDisplayed : NULL;
+	if (pipBuf && grabPip) {
+		LOGDEBUG2(L_GRAB, "videorender: %s: Trigger pip grab arrived", __FUNCTION__);
+		cDrmBuffer *pipVideoBuf = new cDrmBuffer(pipBuf);
+		// use dimensions which have been set earlier
+		m_grabPip.SetRect(m_lastPipGrab.X(), m_lastPipGrab.Y(), m_lastPipGrab.Width(), m_lastPipGrab.Height());
+		m_grabPip.SetDrmBuf(pipVideoBuf);
 	}
 
-	for (int plane = 0; plane < buf->NumPlanes(); plane++) {
-		LOGDEBUG2(L_GRAB, "videorender: %s: OSD plane %d address %p pitch %d offset %d handle %d size %d", __FUNCTION__,
-			   plane, buf->Plane(plane), buf->Pitch(plane), buf->Offset(plane), buf->PrimeHandle(plane), buf->Size(plane));
-	}
-	// result's width and height are original dimensions how buffer is presented on the screen
-	uint8_t * result = BufToRgb(buf, &size, grab->GetWidth(), grab->GetHeight(), AV_PIX_FMT_BGRA);
-	grab->SetData(result);
-	grab->SetSize(size);
-	grab->FreeBuf();
-
-	return;
+	m_grabCond.Broadcast();
 }
 
 /**
  * Clear the grab drm buffers
-*/
-void cVideoRender::ClearGrab(void)
-{
-	if (m_grabOsd.GetBuf())
-		m_grabOsd.FreeBuf();
-	if (m_grabVideo.GetBuf())
-		m_grabVideo.FreeBuf();
-	if (m_grabPip.GetBuf())
-		m_grabPip.FreeBuf();
-}
-
-/**
- * Get the grabbed image
- *
- * @param[out] size       returns output size (memory)
- * @param[out] width      returns output width
- * @param[out] height     returns output height
- * @param[in] type        0: video, 1: osd, 2: pip
- *
- * @returns the pointer to the cGrabBuffer object
  */
-cGrabBuffer *cVideoRender::GetGrab(int *size, int *width, int *height, int *x, int *y, int type)
+void cVideoRender::ClearGrabBuffers(void)
 {
-	cGrabBuffer *grab;
-	switch (type) {
-	case 0:
-		grab = &m_grabVideo;
-		break;
-	case 1:
-		grab = &m_grabOsd;
-		break;
-	case 2:
-		grab = &m_grabPip;
-		break;
-	default:
-		LOGERROR("videorender: %s: unknown grab requested", __FUNCTION__);
-		return NULL;
-	}
-
-	LOGDEBUG2(L_GRAB, "videorender: %s: %s size %d %dx%d at %d|%d %p", __FUNCTION__, type == 0 ? "VIDEO" : (type == 1 ? "OSD" : "PIP"),
-		grab->GetSize(), grab->GetWidth(), grab->GetHeight(), grab->GetX(), grab->GetY(), grab->GetData());
-
-	if (size)
-		*size = grab->GetSize();
-	if (width)
-		*width = grab->GetWidth();
-	if (height)
-		*height = grab->GetHeight();
-	if (x)
-		*x = grab->GetX();
-	if (y)
-		*y = grab->GetY();
-
-	return grab;
+	if (m_grabOsd.GetDrmBuf())
+		m_grabOsd.FreeDrmBuf();
+	if (m_grabVideo.GetDrmBuf())
+		m_grabVideo.FreeDrmBuf();
+	if (m_grabPip.GetDrmBuf())
+		m_grabPip.FreeDrmBuf();
 }
 
 /**

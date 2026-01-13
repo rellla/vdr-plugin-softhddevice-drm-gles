@@ -68,67 +68,6 @@ extern "C" {
 #define _(str) gettext(str)                    ///< gettext shortcut
 #define _N(str) str                            ///< gettext_noop shortcut
 
-/**
- * Call rgb to jpeg for C Plugin
- */
-extern "C" uint8_t * CreateJpeg(uint8_t * image, int *size, int quality,
-	int width, int height)
-{
-	return (uint8_t *) RgbToJpeg((uchar *) image, width, height, *size, quality);
-}
-
-#if defined(USE_JPEG) && JPEG_LIB_VERSION >= 80
-/**
- * Create a jpeg image in memory
- *
- * @param image      raw RGB image
- * @param raw_size   size of raw image
- * @param size[out]  size of jpeg image
- * @param quality    jpeg quality
- * @param width      number of horizontal pixels in image
- * @param height     number of vertical pixels in image
- *
- * @returns allocated jpeg image.
- */
-uint8_t *CreateJpeg(uint8_t * image, int raw_size, int *size, int quality,
-	int width, int height)
-{
-	struct jpeg_compress_struct cinfo;
-	struct jpeg_error_mgr jerr;
-	JSAMPROW row_ptr[1];
-	int rowStride;
-	uint8_t *outbuf;
-	long unsigned int outsize;
-
-	outbuf = NULL;
-	outsize = 0;
-	cinfo.err = jpeg_std_error(&jerr);
-	jpeg_create_compress(&cinfo);
-	jpeg_mem_dest(&cinfo, &outbuf, &outsize);
-
-	cinfo.image_width = width;
-	cinfo.image_height = height;
-	cinfo.input_components = raw_size / height / width;
-	cinfo.in_color_space = JCS_RGB;
-
-	jpeg_set_defaults(&cinfo);
-	jpeg_set_quality(&cinfo, quality, TRUE);
-	jpeg_start_compress(&cinfo, TRUE);
-
-	rowStride = width * 3;
-	while (cinfo.next_scanline < cinfo.image_height) {
-		row_ptr[0] = &image[cinfo.next_scanline * rowStride];
-		jpeg_write_scanlines(&cinfo, row_ptr, 1);
-	}
-
-	jpeg_finish_compress(&cinfo);
-	jpeg_destroy_compress(&cinfo);
-	*size = outsize;
-
-	return outbuf;
-}
-#endif
-
 /*****************************************************************************
  * cSoftHdDevice class
  ****************************************************************************/
@@ -547,6 +486,7 @@ void cSoftHdDevice::OnEnteringState(State state) {
 #endif
 			delete m_pAudioDecoder; // includes a Close()
 			delete m_pVideoStream;
+			delete m_pGrab;
 			delete m_pRender;
 			delete m_pAudio;
 
@@ -590,6 +530,7 @@ void cSoftHdDevice::OnLeavingState(State state) {
 		case DETACHED:
 			m_pAudio = new cSoftHdAudio(this);
 			m_pRender = new cVideoRender(this);
+			m_pGrab = new cSoftHdGrab(m_pRender);
 			m_pVideoStream = new cVideoStream(m_pRender, m_pRender->GetMainOutputBuffer(), m_pConfig, "main", std::bind(&cVideoRender::PushMainFrame, m_pRender, std::placeholders::_1));
 			m_pAudioDecoder = new cAudioDecoder(m_pAudio);
 			m_pRender->Init(); // starts display thread
@@ -1313,169 +1254,30 @@ int64_t cSoftHdDevice::GetFirstVideoPtsMsToPlay()
  * @param quality   JPEG quality
  * @param width     number of horizontal pixels in the frame
  * @param height    number of vertical pixels in the frame
- *
- * This works as follows:
- *    1. Trigger the grab in render thread which clones the buffers
- *       Because of the cloning, the render thread is just blocked until the data is copied
- *    2. Convert these buffers to rgb and free the cloned buffers afterwards
- *    3. Get video and osd data
- *    4. Blit the video into a full black screen if it is scaled
- *    5. Blend the osd over video
- *    6. Scale the result to the requested size
- *    7. Create the jpeg or pnm
  */
 uchar *cSoftHdDevice::GrabImage(int &size, bool jpeg, int quality, int width, int height)
 {
 	if (IsDetached())
 		return NULL;
 
-	if (m_grabActive) {
+	if (m_pGrab->Active()) {
 		LOGWARNING("device: %s: wait for the last grab to be finished - skip!", __FUNCTION__);
 		return NULL;
 	}
 
-	if (!width || !height) {
-		LOGERROR("device: %s: Width or height must be not 0!", __FUNCTION__);
-		return NULL;
-	}
-
-	if (quality < 0) {	// caller should care, but fix it
-		quality = 95;
-	}
-
 	LOGDEBUG2(L_GRAB, "device: %s: %d, %d, %d, %dx%d", __FUNCTION__, size, jpeg, quality, width, height);
 
-	// 1. Trigger grab in render thread and wait for the buffers to be cloned
-	m_grabActive = true;
-	// TriggerGrab does wait and return 0, if buffers are available,
-	// otherwise it returns != 0, if we ran into a timeout
-	if (m_pRender->TriggerGrab()) {
-		m_pRender->ClearGrab();
-		m_grabActive = false;
-		return NULL;
-	}
-
-	// 2. Convert the buffers to rgb and free the cloned buffers afterwards
-	m_pRender->ConvertOsdBufToRgb();
-	m_pRender->ConvertVideoBufToRgb();
-	m_pRender->ConvertPipBufToRgb();
-
-	// 3. get screen dimensions
 	int screenWidth = 0;
 	int screenHeight = 0;
 	double aspectRatio = 0.0f;
 	GetOsdSize(screenWidth, screenHeight, aspectRatio);
 
-	int screenSize = screenWidth * screenHeight * 3; // we want a RGB24
+	if (!m_pGrab->Start(jpeg, quality, width, height, screenWidth, screenHeight))
+		return NULL;
 
-	// 4. set grab dimensions
-	int grabWidth = width > 0 ? width : screenWidth;
-	int grabHeight = height > 0 ? height : screenHeight;
+	size = m_pGrab->Size();
 
-	int videoSize = 0;                // data size of the grabbed video
-	int videoWidth = screenWidth;     // width of the grabbed video
-	int videoHeight = screenHeight;   // height of the grabbed video
-	int videoX = 0, videoY = 0;      // x, y of the grabbed video
-
-	// 5. fetch video data
-	// Video comes as RGB, width and height is original screen dimension (video is maybe scaled)
-	cGrabBuffer *videoGrab = m_pRender->GetGrab(&videoSize, &videoWidth, &videoHeight, &videoX, &videoY, 0);
-	uint8_t *video = NULL;
-	if (videoGrab->GetSize())
-		video = videoGrab->GetData();
-	if (!video) {
-		LOGDEBUG2(L_GRAB, "device: %s: video is NULL, create black screen!", __FUNCTION__);
-		video = (uint8_t *)calloc(1, screenSize);
-	}
-
-	int pipSize = 0;                // data size of the grabbed pip video
-	int pipWidth = screenWidth;     // width of the grabbed pip video
-	int pipHeight = screenHeight;   // height of the grabbed pip video
-	int pipX = 0, pipY = 0;        // x, y of the grabbed pip video
-
-	// 6. fetch pip data
-	// Pip video comes as RGB, width and height is original screen dimension (video is maybe scaled)
-	cGrabBuffer *pipGrab = m_pRender->GetGrab(&pipSize, &pipWidth, &pipHeight, &pipX, &pipY, 2);
-	uint8_t *pip = NULL;
-	if (pipGrab->GetSize())
-		pip = pipGrab->GetData();
-	if (!pip)
-		LOGDEBUG2(L_GRAB, "device: %s: pip is NULL, skip it", __FUNCTION__);
-
-	// 7. fetch osd data
-	// OSD comes as ARGB, width and height is original screen dimension (osd is always fullscreen)
-	cGrabBuffer *osdGrab = m_pRender->GetGrab(NULL, NULL, NULL, NULL, NULL, 1);
-	uint8_t *osd = NULL;
-	if (osdGrab->GetSize())
-		osd = osdGrab->GetData();;
-	if (!osd)
-		LOGDEBUG2(L_GRAB, "device: %s: osd is NULL, skip it", __FUNCTION__);
-
-	int ret;
-	uint8_t *videoResult = NULL;
-	// 8. blit the video into a full black screen if scaled
-	if (videoWidth != screenWidth || videoHeight != screenHeight || videoX != 0 || videoY != 0) {
-		videoResult = (uint8_t *)calloc(1, screenSize);
-		ret = BlitVideo(videoResult, video, screenWidth, screenHeight, videoX, videoY, videoWidth, videoHeight);
-		if (ret) {
-			free(videoResult);
-			free(video);
-			return NULL;
-		}
-		free(video);
-	} else {
-		videoResult = video;
-	}
-
-	// 9. blit the pip video into the main video if available
-	if (pip) {
-		ret = BlitVideo(videoResult, pip, screenWidth, screenHeight, pipX, pipY, pipWidth, pipHeight);
-		if (ret) {
-			free(videoResult);
-			free(pip);
-			return NULL;
-		}
-		free(pip);
-	}
-
-	// 10. alphablend fullscreen video with osd if available
-	uint8_t *result;
-	if (!osd) {
-		result = videoResult;
-	} else {
-		result = (uint8_t *)malloc(screenSize);
-		AlphaBlend(result, osd, videoResult, screenWidth, screenHeight);
-		free(videoResult);
-		free(osd);
-	}
-
-	// 11. scale result to requested size width + height, if it differs from fullscreen
-	int scaledSize = screenSize;
-	uint8_t *scaledResult;
-	if (screenWidth != grabWidth || screenHeight != grabHeight) {
-		scaledResult = ScaleRgb24(result, &scaledSize, screenWidth, screenHeight, grabWidth, grabHeight);
-		free(result);
-	} else {
-		scaledResult = result;
-	}
-
-	// 12. make jpeg or pnm
-	uint8_t *grabbedImage;
-	if (jpeg) {
-		grabbedImage = CreateJpeg(scaledResult, &size, quality, grabWidth, grabHeight);
-	} else {  // add header to raw data
-		char buf[64];
-		int n = snprintf(buf, sizeof(buf), "P6\n%d\n%d\n255\n", grabWidth, grabHeight);
-		grabbedImage = (uint8_t *)malloc(scaledSize + n);
-		memcpy(grabbedImage, buf, n);
-		memcpy(grabbedImage + n, scaledResult, scaledSize);
-		size = scaledSize + n;
-	}
-	free(scaledResult);
-	LOGDEBUG2(L_GRAB, "device: %s: finished %s image (%dx%d, quality %d) at %p (size %d)", __FUNCTION__, jpeg ? "jpg" : "pnm", grabWidth, grabHeight, jpeg ? quality : 0, grabbedImage, size);
-
-	m_grabActive = false;
-	return grabbedImage;
+	return m_pGrab->Image();
 }
 
 /**
