@@ -45,8 +45,6 @@ extern "C"
 
 #include "misc.h"
 
-#include "iatomic.h"
-
 #include "ringbuffer.h"
 #include "audio.h"
 #include "videorender.h"

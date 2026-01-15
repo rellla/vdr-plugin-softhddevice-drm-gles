@@ -2,7 +2,7 @@
  * @file ringbuffer.h
  * Ringbuffer class header file
  *
- * @copyright (c) 2009, 2011 by Johns. All Rights Reserved.
+ * @copyright (c) 2009, 2011, 2014 by Johns. All Rights Reserved.
  * @copyright (c) 2025 by Andreas Baierl. All Rights Reserved.
  *
  * @license{AGPLv3
@@ -25,7 +25,17 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "iatomic.h"
+/**
+ * Atomic wrapper macros
+ */
+typedef volatile int atomic_t;  ///< atomic type, 24 bit useable
+
+#define atomic_set(ptr, val) __atomic_store_n(ptr, val, __ATOMIC_SEQ_CST)
+#define atomic_read(ptr) __atomic_load_n(ptr, __ATOMIC_SEQ_CST)
+#define atomic_inc(ptr) __atomic_add_fetch(ptr, 1, __ATOMIC_SEQ_CST)
+#define atomic_dec(ptr) __atomic_sub_fetch(ptr, 1, __ATOMIC_SEQ_CST)
+#define atomic_add(val, ptr) __atomic_add_fetch(ptr, val, __ATOMIC_SEQ_CST)
+#define atomic_sub(val, ptr) __atomic_sub_fetch(ptr, val, __ATOMIC_SEQ_CST)
 
 /**
  * cSoftHdRingbuffer - RingBuffer class

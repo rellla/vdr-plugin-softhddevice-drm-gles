@@ -25,7 +25,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "iatomic.h"
 #include "ringbuffer.h"
 
 #include "logger.h"

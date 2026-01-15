@@ -53,7 +53,7 @@ extern "C" {
 #include <libavutil/timestamp.h>
 
 }
-#include "iatomic.h"
+
 #include "videostream.h"
 #include "audio.h"
 #include "videorender.h"

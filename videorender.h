@@ -52,7 +52,6 @@ extern "C" {
 #include <atomic>
 
 #include "logger.h"
-#include "iatomic.h"
 #include "softhddevice.h"
 #include "videostream.h"
 #include "drmbuffer.h"

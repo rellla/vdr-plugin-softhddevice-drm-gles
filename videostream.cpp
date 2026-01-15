@@ -44,7 +44,6 @@ extern "C" {
 #include "logger.h"
 #include "h264parser.h"
 
-#include "iatomic.h"
 #include "videostream.h"
 #include "audio.h"
 #include "videorender.h"
