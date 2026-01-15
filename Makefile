@@ -135,7 +135,6 @@ override CFLAGS	  += $(_CFLAGS) $(DEFINES) $(INCLUDES) \
 
 OBJS = $(PLUGIN).o \
 	audio.o \
-	buf2rgb.o \
 	codec_audio.o \
 	codec_video.o \
 	config.o \

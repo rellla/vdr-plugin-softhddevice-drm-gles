@@ -39,7 +39,6 @@ extern "C" {
 
 #include <vdr/thread.h>
 
-#include "buf2rgb.h"
 #include "codec_video.h"
 #include "videorender.h"
 #include "logger.h"

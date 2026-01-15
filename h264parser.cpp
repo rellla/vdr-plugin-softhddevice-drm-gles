@@ -29,7 +29,6 @@ extern "C" {
 
 #include "h264parser.h"
 #include "logger.h"
-#include "buf2rgb.h"
 
 /*****************************************************************************
  * cH264Parser class
@@ -50,6 +49,23 @@ cH264Parser::cH264Parser(AVPacket *avpkt)
  */
 cH264Parser::~cH264Parser(void)
 {
+}
+
+/**
+ * Print raw stream data
+ *
+ * @param data        pointer to stream data
+ * @param size        data size
+ */
+static void PrintStreamData(const uint8_t *data, int size)
+{
+	LOGDEBUG("Stream: %02x %02x %02x %02x %02x %02x %02x %02x %02x "
+	         "%02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x "
+	         "%02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x size %d",
+	         data[0], data[1], data[2], data[3], data[4], data[5], data[6], data[7], data[8],
+	         data[9], data[10], data[11], data[12], data[13], data[14], data[15], data[16], data[17],
+	         data[18], data[19], data[20], data[21], data[22], data[23], data[24], data[25], data[26],
+	         data[27], data[28], data[29], data[30], data[31], data[32], data[33], data[34], size);
 }
 
 /**
@@ -74,7 +90,7 @@ void cH264Parser::GetDimensions(int *width, int *height)
 	}
 	if (!m_pStart) {
 		LOGERROR("H264Parser: %s: No m_pStart %p Pkt %p i %d", __FUNCTION__, m_pStart, m_pAvpkt, i);
-//		PrintStreamData(m_pAvpkt->data, m_pAvpkt->size);
+		PrintStreamData(m_pAvpkt->data, m_pAvpkt->size);
 		return;
 	}
 

@@ -57,7 +57,6 @@ extern "C" {
 }
 
 #include "misc.h"
-#include "buf2rgb.h"
 
 //#include "videorender.h"
 #include "audio.h"
