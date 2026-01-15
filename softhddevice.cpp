@@ -64,7 +64,6 @@ extern "C" {
 #include "pipreceiver.h"
 
 #define _(str) gettext(str)                    ///< gettext shortcut
-#define _N(str) str                            ///< gettext_noop shortcut
 
 /*****************************************************************************
  * cSoftHdDevice class
