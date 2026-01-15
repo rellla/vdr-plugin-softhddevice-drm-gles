@@ -37,7 +37,6 @@ extern "C" {
 #include <EGL/egl.h>
 #include <EGL/eglext.h>
 #include <EGL/eglplatform.h>
-#include "glhelpers.h"
 
 /* Hack:
  * xlib.h via eglplatform.h: #define Status int
@@ -62,6 +61,7 @@ extern "C" {
 #include "config.h"
 #include "event.h"
 #include "queue.h"
+#include "misc.h"
 
 // Hardware quirks, that are set depending on the hardware used
 #define QUIRK_NO_HW_DEINT               1 << 0     ///< set, if no hw deinterlacer available

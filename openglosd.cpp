@@ -24,8 +24,6 @@
 
 #define __STL_CONFIG_H
 #include <algorithm>
-#include "openglosd.h"
-#include "glhelpers.h"
 #include <inttypes.h>
 #include <assert.h>
 #include <stdio.h>
@@ -37,6 +35,8 @@
 #include <sys/ioctl.h>
 
 #include "logger.h"
+#include "misc.h"
+#include "openglosd.h"
 
 #ifdef WRITE_PNG
 #include <png.h>
