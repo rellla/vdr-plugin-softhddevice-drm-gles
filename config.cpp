@@ -33,13 +33,6 @@
  ****************************************************************************/
 
 /**
- * cSoftHdConfig destructor
- */
-cSoftHdConfig::~cSoftHdConfig(void)
-{
-}
-
-/**
  * Parse setup parameters
  *
  * @param name      paramter name (case sensetive)

@@ -27,7 +27,6 @@ class cSoftHdConfig
 {
 public:
 	cSoftHdConfig(void) = default;
-	virtual ~cSoftHdConfig(void);
 
 	bool SetupParse(const char *, const char *);
 
