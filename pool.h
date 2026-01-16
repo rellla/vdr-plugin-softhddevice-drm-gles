@@ -24,17 +24,17 @@
 template <typename T>
 class cPool {
 protected:
-    std::vector<std::unique_ptr<T>> buffer;
-    size_t currentIndex = 0;
+	std::vector<std::unique_ptr<T>> buffer;
+	size_t currentIndex = 0;
 
 public:
-    cPool(size_t size) {
-        buffer.reserve(size);
+	cPool(size_t size) {
+		buffer.reserve(size);
 
-        for (size_t i = 0; i < size; ++i) {
-            buffer.emplace_back(std::make_unique<T>());
-        }
-    }
+		for (size_t i = 0; i < size; ++i) {
+				buffer.emplace_back(std::make_unique<T>());
+		}
+	}
 };
 
 #endif

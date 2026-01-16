@@ -131,7 +131,7 @@ protected:
 	AVPacket *PopAvPacket(int);
 	AVCodecID m_codec = AV_CODEC_ID_NONE;          ///< detected codec ID
 	cPtsTrackingBuffer m_buffer;                   ///< fragmentation buffer
-	int64_t m_lastPoppedPts = AV_NOPTS_VALUE; 	   ///< PTS of the last popped AVPacket
+	int64_t m_lastPoppedPts = AV_NOPTS_VALUE;      ///< PTS of the last popped AVPacket
 };
 
 /**

@@ -67,7 +67,7 @@ public:
  */
 class cDummyOsd : public cOsd {
 private:
-	 cDummyPixmap *m_pixmap;
+	cDummyPixmap *m_pixmap;
 public:
 	cDummyOsd(int Left, int Top, uint Level) : cOsd(Left, Top, Level) {}
 	virtual ~cDummyOsd() {}

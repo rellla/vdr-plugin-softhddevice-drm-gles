@@ -60,16 +60,16 @@ struct PipEvent {
 };
 
 using Event = std::variant<
-    PlayEvent,
-    PauseEvent,
-    StopEvent,
-    TrickSpeedEvent,
-    StillPictureEvent,
-    DetachEvent,
-    AttachEvent,
-    BufferUnderrunEvent,
-    BufferingThresholdReachedEvent,
-    PipEvent
+	PlayEvent,
+	PauseEvent,
+	StopEvent,
+	TrickSpeedEvent,
+	StillPictureEvent,
+	DetachEvent,
+	AttachEvent,
+	BufferUnderrunEvent,
+	BufferingThresholdReachedEvent,
+	PipEvent
 >;
 
 class IEventReceiver

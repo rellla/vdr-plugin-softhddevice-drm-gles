@@ -684,12 +684,12 @@ void cPtsTrackingBuffer::Erase(size_t amount) {
 		smallestPts = it->second;
 	}
 
-    std::map<size_t, int64_t> adjusted_pts;
-    for (const auto& [pos, pts] : m_pts) {
-        if (pos >= amount) // erase all PTS entries for data that will be removed
-             adjusted_pts[pos - amount] = pts; // adjust remaining PTS entries to the new data indices
-    }
-    m_pts = std::move(adjusted_pts);
+	std::map<size_t, int64_t> adjusted_pts;
+	for (const auto& [pos, pts] : m_pts) {
+		if (pos >= amount) // erase all PTS entries for data that will be removed
+			adjusted_pts[pos - amount] = pts; // adjust remaining PTS entries to the new data indices
+	}
+	m_pts = std::move(adjusted_pts);
 
 	m_pts[0] = smallestPts;
 

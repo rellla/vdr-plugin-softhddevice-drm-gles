@@ -62,29 +62,29 @@ enum State {
 };
 
 inline const char* EventToString(const Event& e) {
-    return std::visit(overload{
-        [](const PlayEvent&) -> const char* { return "PlayEvent"; },
-        [](const PauseEvent&) -> const char* { return "PauseEvent"; },
-        [](const StopEvent&) -> const char* { return "StopEvent"; },
-        [](const TrickSpeedEvent&) -> const char* { return "TrickSpeedEvent"; },
-        [](const StillPictureEvent&) -> const char* { return "StillPictureEvent"; },
-        [](const DetachEvent&) -> const char* { return "DetachEvent"; },
-        [](const AttachEvent&) -> const char* { return "AttachEvent"; },
+	return std::visit(overload{
+		[](const PlayEvent&) -> const char* { return "PlayEvent"; },
+		[](const PauseEvent&) -> const char* { return "PauseEvent"; },
+		[](const StopEvent&) -> const char* { return "StopEvent"; },
+		[](const TrickSpeedEvent&) -> const char* { return "TrickSpeedEvent"; },
+		[](const StillPictureEvent&) -> const char* { return "StillPictureEvent"; },
+		[](const DetachEvent&) -> const char* { return "DetachEvent"; },
+		[](const AttachEvent&) -> const char* { return "AttachEvent"; },
 		[](const BufferUnderrunEvent& e) -> const char* { return e.type == AUDIO ? "BufferUnderrunEvent: Audio" : "BufferUnderrunEvent: Video"; },
 		[](const BufferingThresholdReachedEvent&) -> const char* { return "BufferingThresholdReachedEvent"; },
-        [](const PipEvent&) -> const char* { return "PipEvent"; },
-    }, e);
+		[](const PipEvent&) -> const char* { return "PipEvent"; },
+	}, e);
 }
 
 inline const char* StateToString(State s) {
-    switch(s) {
-        case State::STOP: return "STOP";
+	switch(s) {
+		case State::STOP: return "STOP";
 		case State::BUFFERING: return "BUFFERING";
-        case State::PLAY: return "PLAY";
-        case State::TRICK_SPEED: return "TRICK_SPEED";
-        case State::DETACHED: return "DETACHED";
-    }
-    return "Unknown";
+		case State::PLAY: return "PLAY";
+		case State::TRICK_SPEED: return "TRICK_SPEED";
+		case State::DETACHED: return "DETACHED";
+	}
+	return "Unknown";
 }
 
 enum PlaybackMode {

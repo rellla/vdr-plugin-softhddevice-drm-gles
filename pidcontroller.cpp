@@ -37,17 +37,16 @@
  * @param maxOutput     Max allowed output value (absolute)
  */
 cPidController::cPidController(double kp, double ki, double kd, double maxOutput)
-    : proportionalGain(kp),
-      integralGain(ki),
-      derivativeGain(kd),
-      maxOutput(maxOutput)
+	: proportionalGain(kp),
+	  integralGain(ki),
+	  derivativeGain(kd),
+	  maxOutput(maxOutput)
 {
-
-    // Calculate max integral so the I-term alone can never exceed the max output
-    if (integralGain > 0)
-        maxIntegral = maxOutput / integralGain;
-    else
-        maxIntegral = maxOutput;
+	// Calculate max integral so the I-term alone can never exceed the max output
+	if (integralGain > 0)
+		maxIntegral = maxOutput / integralGain;
+	else
+		maxIntegral = maxOutput;
 }
 
 /**
@@ -59,42 +58,42 @@ cPidController::cPidController(double kp, double ki, double kd, double maxOutput
  */
 double cPidController::Update(double currentValue, double dt)
 {
-    if (dt <= 0.0)
-        return 0.0;
+	if (dt <= 0.0)
+		return 0.0;
 
-    // Error > 0 means we are below target
-    double error = targetValue - currentValue;
+	// Error > 0 means we are below target
+	double error = targetValue - currentValue;
 
-    pTerm = proportionalGain * error;
+	pTerm = proportionalGain * error;
 
-    if (!firstRun) { // the dt value is not yet valid on the first run
-        integralSum += error * dt;
+	if (!firstRun) { // the dt value is not yet valid on the first run
+		integralSum += error * dt;
 
-        // Anti-Windup: Clamp the integrator
-        integralSum = std::min(integralSum, maxIntegral);
-        integralSum = std::max(integralSum, -maxIntegral);
+		// Anti-Windup: Clamp the integrator
+		integralSum = std::min(integralSum, maxIntegral);
+		integralSum = std::max(integralSum, -maxIntegral);
 
-        iTerm = integralGain * integralSum;
-        dTerm = derivativeGain * ((error - previousError) / dt);
-    }
+		iTerm = integralGain * integralSum;
+		dTerm = derivativeGain * ((error - previousError) / dt);
+	}
 
-    double output = pTerm + iTerm + dTerm;
+	double output = pTerm + iTerm + dTerm;
 
-    previousError = error;
-    firstRun = false;
+	previousError = error;
+	firstRun = false;
 
-    output = std::min(output, maxOutput);
-    output = std::max(output, -maxOutput);
+	output = std::min(output, maxOutput);
+	output = std::max(output, -maxOutput);
 
-    if (std::abs(output) >= maxOutput) {
-        LOGWARNING("pidcontroller: max output value exceeded. Resetting.");
-        Reset();
-    }
+	if (std::abs(output) >= maxOutput) {
+		LOGWARNING("pidcontroller: max output value exceeded. Resetting.");
+		Reset();
+	}
 #ifdef PID_CONTROLLER_TUNING_AID_ADDRESS
-    SendTuningAidData(pTerm, iTerm, dTerm, currentValue, output, targetValue);
+	SendTuningAidData(pTerm, iTerm, dTerm, currentValue, output, targetValue);
 #endif
 
-    return output;
+	return output;
 }
 
 /**
@@ -102,12 +101,12 @@ double cPidController::Update(double currentValue, double dt)
  */
 void cPidController::Reset()
 {
-    firstRun = true;
-    pTerm = 0;
-    iTerm = 0;
-    dTerm = 0;
-    integralSum = 0.0;
-    previousError = 0.0;
+	firstRun = true;
+	pTerm = 0;
+	iTerm = 0;
+	dTerm = 0;
+	integralSum = 0.0;
+	previousError = 0.0;
 }
 
 #ifdef PID_CONTROLLER_TUNING_AID_ADDRESS
@@ -122,27 +121,28 @@ void cPidController::Reset()
  * 2. Update the IP address in the implementation to match your receiving
  *    machine running PlotJuggler with UDP server.
  */
-void cPidController::SendTuningAidData(double pTerm, double iTerm, double dTerm, double input, double output, double targetValue) {
-    static int sock = -1;
-    static struct sockaddr_in dest_addr;
+void cPidController::SendTuningAidData(double pTerm, double iTerm, double dTerm, double input, double output, double targetValue)
+{
+	static int sock = -1;
+	static struct sockaddr_in dest_addr;
 
-    // One-time setup check
-    if (sock < 0) {
-        sock = socket(AF_INET, SOCK_DGRAM, 0);
+	// One-time setup check
+	if (sock < 0) {
+		sock = socket(AF_INET, SOCK_DGRAM, 0);
 
-        memset(&dest_addr, 0, sizeof(dest_addr));
-        dest_addr.sin_family = AF_INET;
-        dest_addr.sin_port = htons(9870); // PlotJuggler port
-        inet_pton(AF_INET, PID_CONTROLLER_TUNING_AID_ADDRESS, &dest_addr.sin_addr); // replace with your PC's IP
-    }
+		memset(&dest_addr, 0, sizeof(dest_addr));
+		dest_addr.sin_family = AF_INET;
+		dest_addr.sin_port = htons(9870); // PlotJuggler port
+		inet_pton(AF_INET, PID_CONTROLLER_TUNING_AID_ADDRESS, &dest_addr.sin_addr); // replace with your PC's IP
+	}
 
-    // Actual Payload
-    char payload[512];
-    int len = snprintf(payload, sizeof(payload),
-        "{\"bufferFillLevelMs\":%g,\"targetBufferFillLevelMs\":%g,\"pTerm\":%g,\"iTerm\":%g,\"dTerm\":%g,\"outputPpm\":%g}",
-        input, targetValue, pTerm, iTerm, dTerm, output);
+	// Actual Payload
+	char payload[512];
+	int len = snprintf(payload, sizeof(payload),
+		"{\"bufferFillLevelMs\":%g,\"targetBufferFillLevelMs\":%g,\"pTerm\":%g,\"iTerm\":%g,\"dTerm\":%g,\"outputPpm\":%g}",
+		input, targetValue, pTerm, iTerm, dTerm, output);
 
-    // Send (Non-blocking usually, very fast)
-    sendto(sock, payload, len, 0, (struct sockaddr*)&dest_addr, sizeof(dest_addr));
+	// Send (Non-blocking usually, very fast)
+	sendto(sock, payload, len, 0, (struct sockaddr*)&dest_addr, sizeof(dest_addr));
 }
 #endif

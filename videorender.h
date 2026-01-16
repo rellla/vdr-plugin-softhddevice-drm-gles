@@ -243,7 +243,7 @@ private:
 	cDrmBuffer *m_pCurrentlyDisplayed = nullptr;    ///< pointer to currently displayed DRM buffer
 	cDrmBuffer *m_pCurrentlyPipDisplayed = nullptr; ///< pointer to currently displayed DRM buffer
 	bool m_osdShown = false;            ///< set, if osd is shown currently
-	std::atomic<bool> m_videoPlaybackPaused = true;		                  ///< set, if playback is frozen (used for pause)
+	std::atomic<bool> m_videoPlaybackPaused = true;                       ///< set, if playback is frozen (used for pause)
 	std::atomic<bool> m_resumeAudioScheduled = false;                     ///< set, if audio resume is scheduled after a pause
 	std::atomic<bool> m_displayOneFrameThenPause = false;                 ///< set, if only one frame shall be displayed and then pause playback
 	std::atomic<int64_t> m_schedulePlaybackStartAtPtsMs = AV_NOPTS_VALUE; ///< if set, frames with PTS older than this will be dropped

@@ -25,9 +25,9 @@
  */
 void cBufferFillLevelLowPassFilter::Reset()
 {
-    m_state = UNINITIALIZED;
-    m_bufferFillLevelFramesAvg = 0;
-    m_frameCounter = 0;
+	m_state = UNINITIALIZED;
+	m_bufferFillLevelFramesAvg = 0;
+	m_frameCounter = 0;
 }
 
 
@@ -36,8 +36,8 @@ void cBufferFillLevelLowPassFilter::Reset()
  */
 void cBufferFillLevelLowPassFilter::ResetFramesCounters()
 {
-    m_receivedFrames = 0;
-    m_writtenToAlsaFrames = 0;
+	m_receivedFrames = 0;
+	m_writtenToAlsaFrames = 0;
 }
 
 /**
@@ -56,45 +56,45 @@ void cBufferFillLevelLowPassFilter::ResetFramesCounters()
  */
 void cBufferFillLevelLowPassFilter::UpdateAvgBufferFillLevel(int hardwareBufferFillLevelFrames)
 {
-    std::lock_guard<std::mutex> lock(m_mutex);
+	std::lock_guard<std::mutex> lock(m_mutex);
 
-    int bufferFillLevelFrames = m_receivedFrames - m_writtenToAlsaFrames + hardwareBufferFillLevelFrames;
+	int bufferFillLevelFrames = m_receivedFrames - m_writtenToAlsaFrames + hardwareBufferFillLevelFrames;
 
-    m_bufferFillLevelFramesAvg = m_bufferFillLevelFramesAvg * (1 - m_floatingAverageAlpha) + bufferFillLevelFrames * m_floatingAverageAlpha;
+	m_bufferFillLevelFramesAvg = m_bufferFillLevelFramesAvg * (1 - m_floatingAverageAlpha) + bufferFillLevelFrames * m_floatingAverageAlpha;
 
-    switch (m_state) {
-        case UNINITIALIZED:
-            m_floatingAverageAlpha = FLOATING_AVERAGE_ALPHA_SETTLING;
-            m_bufferFillLevelFramesAvg = bufferFillLevelFrames; // init with current value to speed up settling
-            m_frameCounter = 0;
-            m_state = SETTLING;
-            break;
-        case SETTLING:
-            if (m_frameCounter++ >= SETTLING_DURATION_PACKETS) {
-                m_floatingAverageAlpha = FLOATING_AVERAGE_ALPHA_NORMAL;
-                // fixate the current buffer fill level as target value, but guarantee a minimum buffer size
-                m_bufferFillLevelFramesTargetValue = std::max((double)m_minBufferSizeFrames, m_bufferFillLevelFramesAvg);
-                m_state = SETTLED;
-            }
-            break;
-        case SETTLED:
-            // nothing
-            break;
-    }
+	switch (m_state) {
+		case UNINITIALIZED:
+			m_floatingAverageAlpha = FLOATING_AVERAGE_ALPHA_SETTLING;
+			m_bufferFillLevelFramesAvg = bufferFillLevelFrames; // init with current value to speed up settling
+			m_frameCounter = 0;
+			m_state = SETTLING;
+			break;
+		case SETTLING:
+			if (m_frameCounter++ >= SETTLING_DURATION_PACKETS) {
+				m_floatingAverageAlpha = FLOATING_AVERAGE_ALPHA_NORMAL;
+				// fixate the current buffer fill level as target value, but guarantee a minimum buffer size
+				m_bufferFillLevelFramesTargetValue = std::max((double)m_minBufferSizeFrames, m_bufferFillLevelFramesAvg);
+				m_state = SETTLED;
+			}
+			break;
+		case SETTLED:
+			// nothing
+			break;
+	}
 }
 
 /**
  * Converts the filter state to a string representation.
  *
  * @param state     The state to convert
- * @return String representation of the state
+ * @returns String representation of the state
  */
 const char* cBufferFillLevelLowPassFilter::StateToString(State state)
 {
-    switch(state) {
-        case UNINITIALIZED: return "UNINITIALIZED";
-        case SETTLING: return "SETTLING";
-        case SETTLED: return "SETTLED";
-    }
-    return "Unknown";
+	switch(state) {
+		case UNINITIALIZED: return "UNINITIALIZED";
+		case SETTLING: return "SETTLING";
+		case SETTLED: return "SETTLED";
+	}
+	return "Unknown";
 }
