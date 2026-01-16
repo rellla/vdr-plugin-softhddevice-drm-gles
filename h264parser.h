@@ -30,8 +30,7 @@ extern "C" {
 class cH264Parser
 {
 public:
-	cH264Parser(AVPacket *);
-	virtual ~cH264Parser(void);
+	cH264Parser(AVPacket *avpkt) : m_pAvpkt(avpkt) {}
 	void GetDimensions(int *, int *);
 private:
 	AVPacket *m_pAvpkt;

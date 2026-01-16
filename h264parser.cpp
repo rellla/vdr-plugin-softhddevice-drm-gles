@@ -35,23 +35,6 @@ extern "C" {
  ****************************************************************************/
 
 /**
- * cH264Parser constructor
- *
- * @param avpkt     video stream AVPacket to analyze
- */
-cH264Parser::cH264Parser(AVPacket *avpkt)
-{
-	m_pAvpkt = avpkt;
-}
-
-/**
- * cH264Parser destructor
- */
-cH264Parser::~cH264Parser(void)
-{
-}
-
-/**
  * Print raw stream data
  *
  * @param data        pointer to stream data
