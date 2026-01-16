@@ -85,11 +85,11 @@ public:
 	void SetLogLevel(int level);
 
 private:
-	cSoftHdLogger(void);
+	cSoftHdLogger(void) = default;
 	cSoftHdLogger(const cSoftHdLogger &) = delete;
 	cSoftHdLogger& operator=(const cSoftHdLogger &) = delete;
 
-	int logLevel; ///< loglevel (see Logger flags above)
+	int logLevel = 0; ///< loglevel (see Logger flags above)
 };
 
 #endif

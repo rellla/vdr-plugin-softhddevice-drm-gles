@@ -28,14 +28,6 @@
  ****************************************************************************/
 
 /**
- * cSoftHdLogger constructor
- */
-cSoftHdLogger::cSoftHdLogger(void)
-{
-	logLevel = 0;
-}
-
-/**
  * Get an instance to the global logger
  *
  * @returns pointer to the logger instance
