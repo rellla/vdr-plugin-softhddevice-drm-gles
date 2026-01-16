@@ -48,7 +48,7 @@ class cPluginSoftHdDevice : public cPlugin
 {
 public:
 	cPluginSoftHdDevice(void);
-	virtual ~ cPluginSoftHdDevice(void);
+	virtual ~cPluginSoftHdDevice(void);
 	virtual const char *Version(void);
 	virtual const char *Description(void);
 	virtual const char *CommandLineHelp(void);
