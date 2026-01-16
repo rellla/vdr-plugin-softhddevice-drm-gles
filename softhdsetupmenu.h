@@ -33,7 +33,7 @@ class cSoftHdDevice;
 /**
  * cMenuSetupSoft - SoftHdDevice plugin menu setup page class
  */
-class cMenuSetupSoft:public cMenuSetupPage
+class cMenuSetupSoft : public cMenuSetupPage
 {
 public:
 	cMenuSetupSoft(cSoftHdDevice *);

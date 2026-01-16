@@ -272,11 +272,10 @@ eOSState cMenuSetupSoft::ProcessKey(eKeys key)
  * Import global config variables into setup
  */
 cMenuSetupSoft::cMenuSetupSoft(cSoftHdDevice *device)
+	: m_pDevice(device),
+	  m_pConfig(m_pDevice->Config()),
+	  m_pAudioDevice(m_pDevice->Audio())
 {
-	m_pDevice = device;
-	m_pAudioDevice = m_pDevice->Audio();
-	m_pConfig = m_pDevice->Config();
-
 	//
 	// General
 	//
