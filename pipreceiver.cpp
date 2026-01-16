@@ -30,13 +30,12 @@
 /**
  * pip receiver class constructor
  */
-cPipReceiver::cPipReceiver(const cChannel *channel, cSoftHdDevice *device) : cReceiver(NULL, MINPRIORITY)
+cPipReceiver::cPipReceiver(const cChannel *channel, cSoftHdDevice *device)
+	: cReceiver(NULL, MINPRIORITY),
+	  m_pDevice(device)
 {
 	LOGDEBUG("pipreceiver: %s", __FUNCTION__);
-	m_pDevice = device;
 	AddPid(channel->Vpid());
-	m_lastErrorReport = 0;
-	m_numLostPackets = 0;
 }
 
 /**

@@ -40,8 +40,8 @@ protected:
 private:
 	cSoftHdDevice *m_pDevice;
 	cTsToPes m_pTsToPesVideo;
-	uint64_t m_lastErrorReport;
-	int m_numLostPackets;
+	uint64_t m_lastErrorReport = 0;
+	int m_numLostPackets = 0;
 
 	int ParseTs(const uchar *, int);
 	int PlayTs(const uchar *, int);
