@@ -45,14 +45,11 @@ extern "C" {
  *
  * This thread decodes the video data
  ****************************************************************************/
-cDecodingThread::cDecodingThread(cVideoStream *stream, const char *name) : cThread(name)
+cDecodingThread::cDecodingThread(cVideoStream *stream, const char *name)
+	: cThread(name),
+	  m_pStream(stream)
 {
-	m_pStream = stream;
 	Start();
-}
-
-cDecodingThread::~cDecodingThread(void)
-{
 }
 
 void cDecodingThread::Action(void)
@@ -84,14 +81,11 @@ void cDecodingThread::Stop(void)
  *
  * This thread is responsible for displaying the video and osd
  ****************************************************************************/
-cDisplayThread::cDisplayThread(cVideoRender *render) : cThread("softhd display")
+cDisplayThread::cDisplayThread(cVideoRender *render)
+	: cThread("softhd display"),
+	  m_pRender(render)
 {
-	m_pRender = render;
 	Start();
-}
-
-cDisplayThread::~cDisplayThread(void)
-{
 }
 
 void cDisplayThread::Action(void)
@@ -128,14 +122,11 @@ void cDisplayThread::Stop(void)
  *
  * This thread is decodes the audio data and moves it to hardware
  ****************************************************************************/
-cAudioThread::cAudioThread(cSoftHdAudio *audio) : cThread("softhd audio")
+cAudioThread::cAudioThread(cSoftHdAudio *audio)
+	: cThread("softhd audio"),
+	  m_pAudio(audio)
 {
-	m_pAudio = audio;
 	Start();
-}
-
-cAudioThread::~cAudioThread(void)
-{
 }
 
 void cAudioThread::Action(void)
@@ -164,14 +155,11 @@ void cAudioThread::Stop(void)
  *
  * This thread handles video filters like deinterlacer or scale filter
  ****************************************************************************/
-cFilterThread::cFilterThread(cVideoRender *videoRender, cQueue<cDrmBuffer> *drmBufferQueue, const char *name, std::function<void(AVFrame *)> frameOutput) : cThread(name)
-{
-	m_pRender = videoRender;
-	m_pDrmBufferQueue = drmBufferQueue;
-	m_frameOutput = frameOutput;
-}
-
-cFilterThread::~cFilterThread(void)
+cFilterThread::cFilterThread(cVideoRender *videoRender, cQueue<cDrmBuffer> *drmBufferQueue, const char *name, std::function<void(AVFrame *)> frameOutput)
+	: cThread(name),
+	  m_pRender(videoRender),
+	  m_frameOutput(frameOutput),
+	  m_pDrmBufferQueue(drmBufferQueue)
 {
 }
 
