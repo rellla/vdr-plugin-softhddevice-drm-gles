@@ -46,18 +46,12 @@ extern "C" {
  * @param audio           audio module
  */
 cAudioDecoder::cAudioDecoder(cSoftHdAudio *audio)
+	: m_pAudio(audio),
+	  m_passthroughMask(m_pAudio->GetPassthrough() & (CODEC_AC3 | CODEC_EAC3 | CODEC_DTS))
 {
-	m_pAudio = audio;
-
-	int mask = m_pAudio->GetPassthrough();
-
 	if (!(m_pFrame = av_frame_alloc()))
 		LOGFATAL("audiocodec: %s: can't allocate audio decoder frame buffer", __FUNCTION__);
 
-	m_pAudioCtx = NULL;
-	m_lastPts = AV_NOPTS_VALUE;
-
-	m_passthroughMask = mask & (CODEC_AC3 | CODEC_EAC3 | CODEC_DTS);
 	LOGDEBUG2(L_CODEC, "audiocodec: %s: Set passthrough mask %d", __FUNCTION__, m_passthroughMask);
 }
 
