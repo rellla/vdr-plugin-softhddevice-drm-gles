@@ -153,13 +153,6 @@ cDrmBuffer::cDrmBuffer(int fdDrm, uint32_t width, uint32_t height, uint32_t pixF
 #endif
 
 /**
- * cDrmBuffer destructor
- */
-cDrmBuffer::~cDrmBuffer(void)
-{
-}
-
-/**
  * Clear and destroy the buffer object and its parameters
  */
 void cDrmBuffer::Destroy(void)

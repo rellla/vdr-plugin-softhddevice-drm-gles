@@ -58,7 +58,6 @@ public:
 #ifdef USE_GLES
 	cDrmBuffer(int, uint32_t, uint32_t, uint32_t, struct gbm_bo *);
 #endif
-	virtual ~cDrmBuffer(void);
 
 	void Setup(int, uint32_t, uint32_t, uint32_t, AVDRMFrameDescriptor *, bool);
 	void Destroy(void);
