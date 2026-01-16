@@ -57,9 +57,10 @@ extern "C"
  ****************************************************************************/
 
 cSoftHdPlayer::cSoftHdPlayer(const char *url, cSoftHdDevice *device)
-:cPlayer (pmAudioVideo)
+	: cPlayer(pmAudioVideo),
+	  m_pDevice(device),
+	  m_pAudio(m_pDevice->Audio())
 {
-//	m_pPlayer= this;
 	m_pSource = (char *) malloc(1 + strlen(url));
 	strcpy(m_pSource, url);
 	if (strcasestr(m_pSource, ".M3U") && !strcasestr(m_pSource, ".M3U8")) {
@@ -68,10 +69,6 @@ cSoftHdPlayer::cSoftHdPlayer(const char *url, cSoftHdDevice *device)
 	} else {
 		FirstEntry = CurrentEntry = NULL;
 	}
-	Pause = 0;
-	Random = 0;
-	m_pDevice = device;
-	m_pAudio = m_pDevice->Audio();
 //	LOGDEBUG2(L_MEDIA, "mediaplayer: %s: Player gestartet.", __FUNCTION__);
 }
 
@@ -330,13 +327,11 @@ cSoftHdPlayer *cSoftHdControl::m_pPlayer = NULL;
 **	Player control constructor.
 */
 cSoftHdControl::cSoftHdControl(const char *url, cSoftHdDevice *device)
-:cControl(m_pPlayer = new cSoftHdPlayer(url, device))
+	: cControl(m_pPlayer = new cSoftHdPlayer(url, device)),
+	  m_pDevice(device)
 {
-//	LOGDEBUG2(L_MEDIA, "cSoftHdControl: Player gestartet.");
 	m_pControl = this;
-	Close = false;
-	m_pOsd = NULL;
-	m_pDevice = device;
+//	LOGDEBUG2(L_MEDIA, "cSoftHdControl: Player gestartet.");
 }
 
 /**
