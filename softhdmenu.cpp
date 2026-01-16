@@ -58,12 +58,11 @@ extern "C"
  */
 cSoftHdMenu::cSoftHdMenu(const char *title, cSoftHdDevice *device,
                          int c0, int c1, int c2, int c3, int c4)
-:cOsdMenu(title, c0, c1, c2, c3, c4)
+	: cOsdMenu(title, c0, c1, c2, c3, c4),
+	  m_pDevice(device)
 {
 	pSoftHdMenu = this;
 	m_playlist.clear();
-	m_pDevice = device;
-	m_hotkeyState = HotkeyState::Initial;
 
 	if (cSoftHdControl::Control() && cSoftHdControl::Control()->Player()->FirstEntry) {
 		LOGDEBUG2(L_MEDIA, "mediaplayer: %s: pointer to cSoftHdControl exist.", __FUNCTION__);

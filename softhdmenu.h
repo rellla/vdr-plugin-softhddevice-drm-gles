@@ -48,7 +48,7 @@ public:
 private:
 	cSoftHdDevice *m_pDevice;
 
-	HotkeyState m_hotkeyState;
+	HotkeyState m_hotkeyState = HotkeyState::Initial;
 	void HandleHotKey(int);
 
 	// mediaplayer
