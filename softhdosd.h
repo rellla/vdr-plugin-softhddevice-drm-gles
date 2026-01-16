@@ -42,7 +42,7 @@ class cSoftOsd:public cOsd
 {
 public:
 	cSoftOsd(int, int, uint, cSoftHdDevice *);
-	virtual ~ cSoftOsd(void);
+	virtual ~cSoftOsd(void);
 
 	virtual eOsdError SetAreas(const tArea *, int);
 	virtual void Flush(void);
@@ -50,7 +50,7 @@ public:
 
 private:
 	cSoftHdDevice *m_pDevice;        ///< pointer to the cSoftHdDevice object
-	bool m_dirty;                    ///< flag to force redrawing everything
+	bool m_dirty = false;            ///< flag to force redrawing everything
 	int m_osdLevel;                  ///< current osd level
 };
 

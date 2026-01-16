@@ -46,13 +46,11 @@
  * @param device   pointer to cSoftHdDevice object
  */
 cSoftOsd::cSoftOsd(int left, int top, uint level, cSoftHdDevice *device)
-:cOsd(left, top, level)
+	: cOsd(left, top, level),
+	  m_pDevice(device),
+	  m_osdLevel(level)
 {
-	// FIXME: OsdWidth/OsdHeight not correct!
 	LOGDEBUG2(L_OSD, "osd: %s: %dx%d%+d%+d, %d", __FUNCTION__, OsdWidth(), OsdHeight(), left, top, level);
-
-	m_pDevice = device;
-	m_osdLevel = level;
 }
 
 /**
@@ -79,9 +77,9 @@ void cSoftOsd::SetActive(bool on)
 {
 	LOGDEBUG2(L_OSD, "osd: %s: %d level %d", __FUNCTION__, on, m_osdLevel);
 
-	if (Active() == on) {
-		return;				// already active, no action
-	}
+	if (Active() == on)
+		return;		// already active, no action
+
 	cOsd::SetActive(on);
 
 	if (on) {
@@ -90,9 +88,8 @@ void cSoftOsd::SetActive(bool on)
 		if (GetBitmap(0)) {
 			Flush();
 		}
-	} else {
+	} else
 		m_pDevice->OsdClose();
-	}
 }
 
 /**
@@ -129,9 +126,8 @@ void cSoftOsd::Flush(void)
 	LOGDEBUG2(L_OSD, "osd: %s: level %d active %d", __FUNCTION__, m_osdLevel,
 	Active());
 
-	if (!Active()) {	// this osd is not active
+	if (!Active())		// this osd is not active
 		return;
-	}
 
 	if (!IsTrueColor()) {
 		cBitmap *bitmap;
@@ -314,10 +310,11 @@ void cSoftOsd::Flush(void)
 /**
  * cOsdProvider constructor
  */
-cSoftOsdProvider::cSoftOsdProvider(cSoftHdDevice *device) : cOsdProvider()
+cSoftOsdProvider::cSoftOsdProvider(cSoftHdDevice *device)
+	: cOsdProvider(),
+	  m_pDevice(device)
 {
 	LOGDEBUG2(L_OSD, "osdprovider: %s:", __FUNCTION__);
-	m_pDevice = device;
 }
 
 /**
