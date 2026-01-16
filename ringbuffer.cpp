@@ -43,11 +43,11 @@
  * @param size    Size of the ring buffer
  */
 cSoftHdRingbuffer::cSoftHdRingbuffer(size_t size)
+	: m_size(size)
 {
 	if (!(m_pBuffer = (char *)malloc(size)))	// allocate buffer
-	LOGFATAL("ringbuffer: %s: can't allocate memory for ringbuffer", __FUNCTION__);
+		LOGFATAL("ringbuffer: %s: can't allocate memory for ringbuffer", __FUNCTION__);
 
-	m_Size = size;
 	m_pBufferEnd = m_pBuffer + size;
 	m_pReadPointer = m_pBuffer;
 	m_pWritePointer = m_pBuffer;
@@ -83,7 +83,7 @@ size_t cSoftHdRingbuffer::WriteAdvance(size_t cnt)
 {
 	size_t n;
 
-	n = m_Size - atomic_read(&m_filled);
+	n = m_size - atomic_read(&m_filled);
 	if (cnt > n) {		// not enough space
 		cnt = n;
 	}
@@ -120,7 +120,7 @@ size_t cSoftHdRingbuffer::Write(const void *buf, size_t cnt)
 {
 	size_t n;
 
-	n = m_Size - atomic_read(&m_filled);
+	n = m_size - atomic_read(&m_filled);
 	if (cnt > n) {			// not enough space
 		cnt = n;
 	}
@@ -163,7 +163,7 @@ size_t cSoftHdRingbuffer::GetWritePointer(void **wp)
 	size_t cnt;
 
 	//	Total free bytes available in ring buffer
-	cnt = m_Size - atomic_read(&m_filled);
+	cnt = m_size - atomic_read(&m_filled);
 
 	*wp = m_pWritePointer;
 
@@ -289,7 +289,7 @@ size_t cSoftHdRingbuffer::GetReadPointer(const void **rp)
  */
 size_t cSoftHdRingbuffer::FreeBytes(void)
 {
-	return m_Size - atomic_read(&m_filled);
+	return m_size - atomic_read(&m_filled);
 }
 
 /**

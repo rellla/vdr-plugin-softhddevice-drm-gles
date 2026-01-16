@@ -45,7 +45,7 @@ class cSoftHdRingbuffer
 {
 public:
 	cSoftHdRingbuffer(size_t);
-	virtual ~cSoftHdRingbuffer(void);
+	~cSoftHdRingbuffer(void);
 	void Reset(void);
 	size_t Write(const void *, size_t);
 	size_t GetWritePointer(void **);
@@ -59,7 +59,7 @@ public:
 private:
 	char *m_pBuffer;              ///< ring buffer data
 	const char *m_pBufferEnd;     ///< end of buffer
-	size_t m_Size;                ///< bytes in buffer (for faster calc)
+	size_t m_size;                ///< bytes in buffer (for faster calc)
 	const char *m_pReadPointer;   ///< only used by reader
 	char *m_pWritePointer;        ///< only used by writer
 
