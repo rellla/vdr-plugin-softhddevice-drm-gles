@@ -78,7 +78,6 @@ cSoftHdAudio::cSoftHdAudio(cSoftHdDevice *device)
 	SetStereoDescent(m_pConfig->ConfigAudioStereoDescent);
 	SetEq(m_pConfig->ConfigAudioEqBand, m_pConfig->ConfigAudioEq);
 
-	m_passthrough = m_pConfig->ConfigAudioPassthroughState ? m_pConfig->ConfigAudioPassthroughMask : 0;
 }
 
 /******************************************************************************

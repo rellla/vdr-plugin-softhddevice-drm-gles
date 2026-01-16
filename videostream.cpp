@@ -164,25 +164,19 @@ static int ReadHWPlatform(void)
  * cVideoStream constructor
  */
 cVideoStream::cVideoStream(cVideoRender *render, cQueue<cDrmBuffer> *drmBufferQueue, cSoftHdConfig *config, bool isPipStream, std::function<void(AVFrame *)> frameOutput)
+	: m_pDecoder(nullptr),
+	  m_pRender(render),
+	  m_identifier(isPipStream ? "PIP" : "main"),
+	  m_frameOutput(frameOutput),
+	  m_pDrmBufferQueue(drmBufferQueue),
+	  m_userDisabledDeinterlacer(config->ConfigDisableDeint),
+	  m_deinterlacerDeactivated(isPipStream ? true : false)
 {
-	m_identifier = isPipStream ? "PIP" : "main";
-	LOGDEBUG("videostream %s: %s", __FUNCTION__, m_identifier);
-
-	m_pRender = render;
-	m_pDrmBufferQueue = drmBufferQueue;
-	m_pDecoder = nullptr;
-	m_frameOutput = frameOutput;
-
-	m_codecId = AV_CODEC_ID_NONE;
-	m_newStream = false;
-	m_pPar = nullptr;
-
-	m_userDisabledDeinterlacer = config->ConfigDisableDeint;
-	m_deinterlacerDeactivated = isPipStream ? true : false;
-
 	m_filterThreadName = "shd " + std::string(m_identifier) + " filter";
 	m_pFilterThread = new cFilterThread(render, m_pDrmBufferQueue, m_filterThreadName.c_str(), frameOutput);
 	m_hardwareQuirks = ReadHWPlatform();
+
+	LOGDEBUG("videostream %s: %s", __FUNCTION__, m_identifier);
 }
 
 /**
