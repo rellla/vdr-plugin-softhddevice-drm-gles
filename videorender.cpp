@@ -77,31 +77,19 @@ extern "C" {
  * @param device         pointer to cSoftHdDevice
  */
 cVideoRender::cVideoRender(cSoftHdDevice *device)
+	: m_pDevice(device),
+	  m_pAudio(m_pDevice->Audio()),
+	  m_pConfig(m_pDevice->Config()),
+	  m_pDrmDevice(new cDrmDevice(this, m_pConfig->ConfigDisplayResolution)),
+	  m_pEventReceiver(device)
 {
-	m_pEventReceiver = device;
-	m_pDevice = device;
-	m_pConfig = m_pDevice->Config();
-	m_pAudio = m_pDevice->Audio();
-	m_pDrmDevice = new cDrmDevice(this, m_pConfig->ConfigDisplayResolution);
-
-	m_startgrab = false;
-	m_startCounter = 0;
-	m_videoIsScaled = false;
-
-	m_trickspeedFactor = 0;
-	m_forwardTrickspeed = true;
-
-	m_timebase = av_make_q(1, 90000);
-
-	m_pBufOsd = nullptr;
-	m_osdShown = false;
-
 #ifdef USE_GLES
 	m_disableOglOsd = m_pConfig->ConfigDisableOglOsd;
 	m_bo = nullptr;
 	m_pNextBo = nullptr;
 	m_pOldBo = nullptr;
 #endif
+	m_timebase = av_make_q(1, 90000);
 	SetPipSize(m_pConfig->ConfigPipUseAlt);
 }
 

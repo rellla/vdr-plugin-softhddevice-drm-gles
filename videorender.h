@@ -122,7 +122,7 @@ class cVideoRender
 {
 public:
 	cVideoRender(cSoftHdDevice *);
-	virtual ~cVideoRender(void);
+	~cVideoRender(void);
 
 	void Init(void);
 	void Exit(void);
@@ -209,21 +209,21 @@ private:
 
 	cQueue<cDrmBuffer> m_drmBufferQueue{VIDEO_SURFACES_MAX};     ///< queue for DRM buffers to be displayed (VIDEO_SURFACES_MAX is defined in thread.h)
 	cQueue<cDrmBuffer> m_pipDrmBufferQueue{VIDEO_SURFACES_MAX};  ///< queue for PIP DRM buffers to be displayed (VIDEO_SURFACES_MAX is defined in thread.h)
-	std::atomic<double> m_trickspeedFactor;   ///< current trick speed
-	std::atomic<bool> m_trickspeed = false;   ///< true, if trickspeed is active
-	std::atomic<bool> m_forwardTrickspeed;    ///< true, if trickspeed plays forward
-	std::atomic<bool> m_stillpicture = false; ///< true, if stillpicture is active
+	std::atomic<double> m_trickspeedFactor = 0;      ///< current trick speed
+	std::atomic<bool> m_trickspeed = false;          ///< true, if trickspeed is active
+	std::atomic<bool> m_forwardTrickspeed = true;    ///< true, if trickspeed plays forward
+	std::atomic<bool> m_stillpicture = false;        ///< true, if stillpicture is active
 	std::atomic<int> m_framePresentationCounter = 0; ///< number of times the current frame has to be shown (for slow-motion)
 	int m_numWrongProgressive;          ///< counter for progressive frames sent in an interlaced stream
 	                                    ///< (only used for logging)
 
-	bool m_startgrab;                   ///< internal flag to trigger grabbing
+	bool m_startgrab = false;           ///< internal flag to trigger grabbing
 	cCondVar m_grabCond;                ///< condition gets signalled, if renederer finished to clone the grabbed buffers
 	cGrabBuffer m_grabOsd;              ///< keeps the current grabbed osd
 	cGrabBuffer m_grabVideo;            ///< keeps the current grabbed video
 	cGrabBuffer m_grabPip;              ///< keeps the current grabbed pip video
 
-	int m_startCounter;                 ///< counter for displayed frames, indicates a video start
+	int m_startCounter = 0;             ///< counter for displayed frames, indicates a video start
 	int m_framesDuped = 0;              ///< number of frames duplicated
 	int m_framesDropped = 0;            ///< number of frames dropped
 	bool m_lastFrameWasDropped = false; ///< true, if the last frame was dropped
@@ -232,17 +232,17 @@ private:
 	int64_t m_pts = AV_NOPTS_VALUE;     ///< current video PTS
 
 	cRect m_videoRect;                  ///< rect of the currently displayed video
-	bool m_videoIsScaled;               ///< true, if the currently displayed video is scaled
+	bool m_videoIsScaled = false;       ///< true, if the currently displayed video is scaled
 	int m_pipScalePercent;              ///< scale factor for pip
 	int m_pipLeftPercent;               ///< left margin for pip
 	int m_pipTopPercent;                ///< top margin for pip
 
 	cDrmDevice *m_pDrmDevice;           ///< pointer cDrmDevice object
-	cDrmBuffer *m_pBufOsd;              ///< pointer to osd drm buffer object
+	cDrmBuffer *m_pBufOsd = nullptr;    ///< pointer to osd drm buffer object
 	cDrmBuffer m_bufBlack;              ///< black drm buffer object
 	cDrmBuffer *m_pCurrentlyDisplayed = nullptr;    ///< pointer to currently displayed DRM buffer
 	cDrmBuffer *m_pCurrentlyPipDisplayed = nullptr; ///< pointer to currently displayed DRM buffer
-	bool m_osdShown;                    ///< set, if osd is shown currently
+	bool m_osdShown = false;            ///< set, if osd is shown currently
 	std::atomic<bool> m_videoPlaybackPaused = true;		                  ///< set, if playback is frozen (used for pause)
 	std::atomic<bool> m_resumeAudioScheduled = false;                     ///< set, if audio resume is scheduled after a pause
 	std::atomic<bool> m_displayOneFrameThenPause = false;                 ///< set, if only one frame shall be displayed and then pause playback
