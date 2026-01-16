@@ -355,6 +355,13 @@ cSoftHdGrab::~cSoftHdGrab(void)
 
 /**
  * Start a grab in the video renderer
+ *
+ * @param jpeg            flag true, create JPEG data
+ * @param quality         JPEG quality
+ * @param width           width of requested grab image
+ * @param height          height of requested grab image
+ * @param screenWidth     current screen width
+ * @param screenHeight    current screen height
  */
 bool cSoftHdGrab::Start(bool jpeg, int quality, int width, int height, int screenWidth, int screenHeight)
 {
@@ -388,7 +395,17 @@ bool cSoftHdGrab::Start(bool jpeg, int quality, int width, int height, int scree
 }
 
 /**
- * Return a pointer to the grabbed data and get dimensions
+ * Convert the cloned drm buffer data to RGB(void, pip) or ARGB (osd)
+ * and returns a pointer to the raw data.
+ *
+ * @param[out] size            size of the grabbed buffer
+ * @param[out] width           width of the grabbed buffer
+ * @param[out] height          height of the grabbed buffer
+ * @param[out] x               x offset of the grabbed buffer
+ * @param[out] y               y offset of the grabbed buffer
+ * @param[in]  buffer type     buffer type (Grabtype)
+ *
+ * @returns pointer to the raw buffer data
  */
 uint8_t *cSoftHdGrab::GetGrab(int *size, int *width, int *height, int *x, int *y, Grabtype type)
 {
@@ -453,6 +470,16 @@ extern "C" uint8_t * CreateJpeg(uint8_t * image, int *size, int quality,
 
 /**
  * Start the conversion
+ *
+ * This does the following:
+ * 1) Get grabbed video data if available, otherwise create a black screen for video
+ * 2) Get grabbed pip data if available
+ * 3) Get grabbed osd data if available
+ * 4) Blit the video data into a black background image if it is scaled
+ * 5) If available, blit the pip data onto it
+ * 6) If available, blit the osd data onto it respecting alpha values
+ * 7) Scale the result to the user requested size
+ * 8) Create a jpg or pnm image as requested
  */
 bool cSoftHdGrab::ProcessGrab(void)
 {

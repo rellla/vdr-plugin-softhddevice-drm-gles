@@ -46,7 +46,7 @@ class cVideoRender;
  * cGrabBuffer - Grab buffer class
  *
  * Class to hold the data for a grabbed buffer.
- * Grab is triggered by VDR/ cSoftHdDevice, data is set by the renderer
+ * The grab is triggered by VDR/ cSoftHdDevice, data is set by the renderer
  * and composed by cSoftHdDevice again.
  */
 class cGrabBuffer

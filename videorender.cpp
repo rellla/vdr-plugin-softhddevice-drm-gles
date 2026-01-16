@@ -1066,14 +1066,14 @@ int cVideoRender::GetFramePresentationCount(int64_t interFrameGapMs)
  */
 int cVideoRender::TriggerGrab(void)
 {
-	int timeout = 50;
+	int timeoutMs = 50;
 	cMutex mutex;
 	mutex.Lock();
 	m_startgrab = true;
 	int err = 0;
 
-	if (!m_grabCond.TimedWait(mutex, timeout)) {
-		LOGWARNING("videorender: %s: timed out after %dms", __FUNCTION__, timeout);
+	if (!m_grabCond.TimedWait(mutex, timeoutMs)) {
+		LOGWARNING("videorender: %s: timed out after %dms", __FUNCTION__, timeoutMs);
 		err = 1;
 	}
 
