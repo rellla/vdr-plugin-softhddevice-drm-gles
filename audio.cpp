@@ -62,44 +62,23 @@ extern "C"
  * cSoftHdAudio constructor
  */
 cSoftHdAudio::cSoftHdAudio(cSoftHdDevice *device)
+	: m_pDevice(device),
+	  m_pConfig(m_pDevice->Config()),
+	  m_pEventReceiver(device),
+	  m_downmix(m_pConfig->ConfigAudioDownmix),
+	  m_softVolume(m_pConfig->ConfigAudioSoftvol),
+	  m_passthrough(m_pConfig->ConfigAudioPassthroughState ? m_pConfig->ConfigAudioPassthroughMask : 0),
+	  m_pPCMDevice(m_pConfig->ConfigAudioPCMDevice),
+	  m_pPassthroughDevice(m_pConfig->ConfigAudioPassthroughDevice),
+	  m_appendAES(m_pConfig->ConfigAudioAutoAES),
+	  m_pMixerChannel(m_pConfig->ConfigAudioMixerChannel)
 {
-	m_pDevice = device;
-	m_pEventReceiver = device;
-	m_pConfig = m_pDevice->Config();
-
-	m_pPassthroughDevice = m_pConfig->ConfigAudioPassthroughDevice;
-	m_pPCMDevice = m_pConfig->ConfigAudioPCMDevice;
-
-	m_pFilterGraph = nullptr;
-
-	m_pAlsaMixer = nullptr;
-	m_pMixerDevice = nullptr;
-	m_pMixerChannel = m_pConfig->ConfigAudioMixerChannel;
-	m_pAlsaMixerElem = nullptr;
-
-	m_compressionFactor = 0;
-	m_hwSampleRate = 0;
-	m_hwNumChannels = 0;
-
-	m_downmix = m_pConfig->ConfigAudioDownmix;
-	m_softVolume = m_pConfig->ConfigAudioSoftvol;
 	SetNormalize(m_pConfig->ConfigAudioNormalize, m_pConfig->ConfigAudioMaxNormalize);
 	SetCompression(m_pConfig->ConfigAudioCompression, m_pConfig->ConfigAudioMaxCompression);
 	SetStereoDescent(m_pConfig->ConfigAudioStereoDescent);
-	m_appendAES = m_pConfig->ConfigAudioAutoAES;
 	SetEq(m_pConfig->ConfigAudioEqBand, m_pConfig->ConfigAudioEq);
-	m_passthrough = 0;
-	if (m_pConfig->ConfigAudioPassthroughState)
-		m_passthrough = m_pConfig->ConfigAudioPassthroughMask;
 
-	m_inputPts = AV_NOPTS_VALUE;
-}
-
-/**
- * cSoftHdAudio denstructor
- */
-cSoftHdAudio::~cSoftHdAudio(void)
-{
+	m_passthrough = m_pConfig->ConfigAudioPassthroughState ? m_pConfig->ConfigAudioPassthroughMask : 0;
 }
 
 /******************************************************************************

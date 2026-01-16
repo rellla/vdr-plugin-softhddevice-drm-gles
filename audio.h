@@ -48,7 +48,6 @@ class cSoftHdDevice;
 class cSoftHdAudio {
 public:
 	cSoftHdAudio(cSoftHdDevice *);
-	virtual ~cSoftHdAudio(void);
 
 	void LazyInit(void);
 	void Exit(void);
@@ -103,8 +102,8 @@ private:
 	// common audio, alsa
 	bool m_initialized = false;             ///< class initialized
 	const int m_bytesPerSample = 2;         ///< number of bytes per sample
-	unsigned int m_hwSampleRate;            ///< hardware sample rate in Hz
-	unsigned int m_hwNumChannels;           ///< number of hardware channels
+	unsigned int m_hwSampleRate = 0;        ///< hardware sample rate in Hz
+	unsigned int m_hwNumChannels = 0;       ///< number of hardware channels
 	AVRational *m_pTimebase;                ///< pointer to AVCodecContext pkts_timebase
 	std::mutex m_mutex;                     ///< mutex for thread safety
 	std::mutex m_pauseMutex;                ///< mutex for a safe thread pausing
@@ -114,7 +113,7 @@ private:
 
 	int m_downmix;                          ///< set stereo downmix
 
-	int64_t m_inputPts;                     ///< pts clock (last pts in ringbuffer)
+	int64_t m_inputPts = AV_NOPTS_VALUE;    ///< pts clock (last pts in ringbuffer)
 	std::atomic<bool> m_paused = true;      ///< audio is paused
 
 	bool m_softVolume;                      ///< flag to use soft volume
@@ -136,7 +135,7 @@ private:
 
 	// Compressor
 	bool m_compression;                     ///< flag to use compress volume
-	int m_compressionFactor;                ///< current compression factor
+	int m_compressionFactor = 0;            ///< current compression factor
 	int m_compressionMaxFactor;             ///< max. compression factor
 
 	// Amplifier
@@ -149,13 +148,13 @@ private:
 	float m_equalizerBand[18];              ///< equalizer band
 
 	// mixer
-	const char *m_pMixerDevice;             ///< mixer device name (not used)
+	const char *m_pMixerDevice = nullptr;   ///< mixer device name (not used)
 	const char *m_pMixerChannel;            ///< mixer channel name
 
 	// filter
 	int m_filterChanged = 0;                ///< filter has changed
 	int m_filterReady = 0;                  ///< filter is ready
-	AVFilterGraph *m_pFilterGraph;
+	AVFilterGraph *m_pFilterGraph = nullptr;
 	AVFilterContext *m_pBuffersrcCtx;
 	AVFilterContext *m_pBuffersinkCtx;
 	AVFrame *FilterGetFrame(void);
@@ -174,8 +173,8 @@ private:
 
 	// alsa
 	snd_pcm_t *m_pAlsaPCMHandle;         ///< alsa pcm handle
-	snd_mixer_t *m_pAlsaMixer;           ///< alsa mixer handle
-	snd_mixer_elem_t *m_pAlsaMixerElem;  ///< alsa mixer element
+	snd_mixer_t *m_pAlsaMixer = nullptr; ///< alsa mixer handle
+	snd_mixer_elem_t *m_pAlsaMixerElem = nullptr; ///< alsa mixer element
 	int m_alsaRatio;                     ///< internal -> mixer ratio * 1000
 	bool m_alsaUseMmap;                  ///< use mmap
 
