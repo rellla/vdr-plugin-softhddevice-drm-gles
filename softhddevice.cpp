@@ -77,16 +77,11 @@ extern "C" {
  * @param config       pointer to cSoftHdConfig class
  */
 cSoftHdDevice::cSoftHdDevice(cSoftHdConfig *config)
+	: m_pSpuDecoder(new cDvbSpuDecoder()),
+	  m_pConfig(config),
+	  m_pipUseAlt(m_pConfig->ConfigPipUseAlt)
 {
 //	LOGDEBUG("device: %s:", __FUNCTION__);
-
-	m_pSpuDecoder = new cDvbSpuDecoder();
-	m_pConfig = config;
-	m_pAudioDecoder = nullptr;
-	m_audioChannelID = -1;
-	m_pOsdProvider = nullptr;
-	m_pipActive = false;
-	m_pipUseAlt = m_pConfig->ConfigPipUseAlt;
 }
 
 /**

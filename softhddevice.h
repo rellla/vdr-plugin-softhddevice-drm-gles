@@ -233,23 +233,23 @@ private:
 	std::atomic<State> m_state = DETACHED; ///< current plugin state, normal plugin start sets detached state
 	std::mutex m_eventMutex;         ///< mutex to protect event queue
 	bool m_needsMakePrimary = false;
-	cDvbSpuDecoder *m_pSpuDecoder;   ///< pointer to spu decoder
-	cSoftHdConfig *m_pConfig;        ///< pointer to cSoftHdConfig object
-	cVideoRender *m_pRender;         ///< pointer to cVideoRender object
-	cVideoStream *m_pVideoStream;    ///< pointer to main video stream
-	cSoftHdAudio *m_pAudio;          ///< pointer to cSoftHdAudio object
-	cAudioDecoder *m_pAudioDecoder;  ///< pointer to cAudioDecoder object
-	cSoftOsdProvider *m_pOsdProvider; ///< pointer to cSoftOsdProvider object
+	cDvbSpuDecoder *m_pSpuDecoder;                  ///< pointer to spu decoder
+	cSoftHdConfig *m_pConfig;                       ///< pointer to cSoftHdConfig object
+	cVideoRender *m_pRender;                        ///< pointer to cVideoRender object
+	cVideoStream *m_pVideoStream;                   ///< pointer to main video stream
+	cSoftHdAudio *m_pAudio;                         ///< pointer to cSoftHdAudio object
+	cAudioDecoder *m_pAudioDecoder = nullptr;       ///< pointer to cAudioDecoder object
+	cSoftOsdProvider *m_pOsdProvider = nullptr;     ///< pointer to cSoftOsdProvider object
 	cReassemblyBufferVideo m_videoReassemblyBuffer; ///< video pes reassembly buffer
 	cReassemblyBufferAudio m_audioReassemblyBuffer; ///< audio pes reassembly buffer
 	cJitterTracker m_audioJitterTracker{"audio"};   ///< audio jitter tracker
 	cJitterTracker m_videoJitterTracker{"video"};   ///< video jitter tracker
 
 	std::atomic<PlaybackMode> m_playbackMode = NONE; ///< current playback mode
-	int m_audioChannelID;            ///< current audio channel ID
+	int m_audioChannelID = -1;       ///< current audio channel ID
 	cSoftHdGrab *m_pGrab;            ///< pointer to grabber object
 
-	bool m_pipActive;                ///< true, if pip is active
+	bool m_pipActive = false;        ///< true, if pip is active
 	int m_pipChannelNum;             ///< current pip channel number
 	const cChannel *m_pPipChannel;   ///< current pip channel
 	cPipReceiver *m_pPipReceiver;    ///< cReceiver for pip stream
