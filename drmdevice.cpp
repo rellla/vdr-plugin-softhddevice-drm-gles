@@ -72,14 +72,11 @@ extern "C" {
  * cDrmDevice constructor
  *
  * @param render         pointer to cVideoRender object
+ * @param resolution     display resolution string set by user
  */
 cDrmDevice::cDrmDevice(cVideoRender *render, const char* resolution)
+	: m_pRender(render)
 {
-	m_pRender = render;
-	m_useZpos = false;
-	m_userReqDisplayWidth = 0;
-	m_fdDrm = -1;
-
 	if (resolution)
 		sscanf(resolution, "%dx%d@%d", &m_userReqDisplayWidth, &m_userReqDisplayHeight, &m_userReqDisplayRefreshRate);
 }

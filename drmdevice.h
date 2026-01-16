@@ -75,7 +75,7 @@ class cDrmDevice
 {
 public:
 	cDrmDevice(cVideoRender *, const char *);
-	virtual ~cDrmDevice(void);
+	~cDrmDevice(void);
 
 	int Init(void);
 	int Fd(void) { return m_fdDrm; };
@@ -116,7 +116,7 @@ public:
 private:
 	cVideoRender *m_pRender;               ///< pointer to cVideoRender object
 
-	int m_fdDrm;                           ///< drm file descriptor
+	int m_fdDrm = -1;                      ///< drm file descriptor
 	uint32_t m_connectorId;                ///< connector id
 	drmModeModeInfo m_drmModeInfo;         ///< mode info
 	uint32_t m_crtcId;                     ///< current crtc ID
@@ -124,11 +124,11 @@ private:
 	drmModeCrtc *m_drmModeCrtcSaved;       ///< saved CRTC infos
 	drmEventContext m_drmEventCtx;         ///< drm event context
 
-	int m_userReqDisplayWidth;             ///< user requested display width
+	int m_userReqDisplayWidth = 0;         ///< user requested display width
 	int m_userReqDisplayHeight;            ///< user requested display height
 	uint32_t m_userReqDisplayRefreshRate;  ///< user requested display refresh rate
 
-	bool m_useZpos;                        ///< is set, if drm hardware can use zpos
+	bool m_useZpos = false;                ///< is set, if drm hardware can use zpos
 	uint64_t m_zposOverlay = 0;            ///< zpos of overlay plane
 	uint64_t m_zposPrimary = 0;            ///< zpos of primary plane
 	cDrmPlane m_videoPlane;                ///< the video drm plane
