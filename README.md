@@ -229,13 +229,13 @@ Setup: /etc/vdr/setup.conf
 		delay audio or delay video
 
 	softhddevice-drm-gles.AudioPassthrough = 0
-		0 = none, 1 = AC-3, 2 = EAC-3, 4 = DTS -X disable
+		0 = none, 4 = AC-3, 8 = EAC-3, 16 = DTS
 
-		for AC-3/EAC-3/DTS the pass-through device is used and the audio
+		For AC-3/EAC-3/DTS the passthrough device is used and the audio
 		stream is passed undecoded to the output device.
-		e.g. 3 = AC-3+EAC-3, 7 = AC-3+EAC-3+DTS
-		note: TrueHD... isnn't supported yet
-		negative values disable passthrough
+		Add the values above: e.g. 12 = AC-3 + EAC-3
+		negating the value disables passthrough but remembers the setting
+		(note: TrueHD... isn't supported yet)
 
 	softhddevice-drm-gles.AudioDownmix = 0
 		0 = none, 1 = downmix

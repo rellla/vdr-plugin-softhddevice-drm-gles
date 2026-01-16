@@ -27,10 +27,12 @@ extern "C" {
 
 /**
  * bits used for the passthrough mask
+ *
+ * 0x01 and 0x02 are kept unused for compatibility with an existing setup.conf
  */
-#define CODEC_AC3  0x01      ///< AC-3 bit mask
-#define CODEC_EAC3 0x02      ///< E-AC-3 bit mask
-#define CODEC_DTS  0x04      ///< DTS bit mask
+#define CODEC_AC3  0x04      ///< AC-3 bit mask
+#define CODEC_EAC3 0x08      ///< E-AC-3 bit mask
+#define CODEC_DTS  0x10      ///< DTS bit mask
 
 /**
  * IEC Data type enumeration
