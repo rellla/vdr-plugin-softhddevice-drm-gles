@@ -29,8 +29,8 @@
  */
 class cDrmPlane {
 public:
-	cDrmPlane(void);
-	virtual ~cDrmPlane(void);
+	cDrmPlane(void) = default;
+
 	void SetParams(uint64_t, uint64_t,
 	               uint64_t, uint64_t, uint64_t, uint64_t,
 	               uint64_t, uint64_t, uint64_t, uint64_t);

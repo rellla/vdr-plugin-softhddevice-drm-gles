@@ -32,16 +32,6 @@
  * cDrmPlane class
  ****************************************************************************/
 
-cDrmPlane::cDrmPlane(void)
-{
-	m_planeId = 0;
-	m_zpos = 0;
-}
-
-cDrmPlane::~cDrmPlane(void)
-{
-}
-
 /**
  * Fill the plane properties
  *
