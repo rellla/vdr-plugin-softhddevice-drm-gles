@@ -34,7 +34,6 @@ extern "C" {
 class cVideoDecoder {
 public:
 	cVideoDecoder(int, const char *);
-	virtual ~cVideoDecoder(void);
 	int Open(enum AVCodecID, AVCodecParameters *, AVRational, int, int, int);
 	void Close(void);
 	int SendPacket(const AVPacket *);

@@ -181,25 +181,18 @@ static const AVCodec *FindDecoder(enum AVCodecID codecId, int forceSoftwareDecod
  * cVideoDecoder constructor
  *
  * @param hardwareQuirks     hardware specific quirks for decoder
+ * @param identifier         string to identify decoder for video or pip stream
+ *                           (used within logging only)
  */
 cVideoDecoder::cVideoDecoder(int hardwareQuirks, const char *identifier)
+	: m_identifier(identifier),
+	  m_hardwareQuirks(hardwareQuirks)
 {
-	m_hardwareQuirks = hardwareQuirks;
-	m_pVideoCtx = nullptr;
-	m_identifier = identifier;
-
 	av_log_set_callback(CodecLogCallback);
 
 #if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(58,18,100)
 	avcodec_register_all();		// register all formats and codecs
 #endif
-}
-
-/**
- * cVideoDecoder destructor
- */
-cVideoDecoder::~cVideoDecoder(void)
-{
 }
 
 /**
