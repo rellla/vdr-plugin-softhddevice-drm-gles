@@ -29,6 +29,8 @@ extern "C" {
 #include <gbm.h>
 #endif
 
+#include <vdr/osd.h>
+
 #include "pool.h"
 #include "misc.h"
 
@@ -102,11 +104,15 @@ public:
 	AVFrame *frame = nullptr;	///< associated AVFrame
 	void SetDestroyAfterUse(bool val) { m_destroyAfterUse = val; };
 	void PresentationFinished(void);
+	void SetSizeOnScreen(int x, int y, int w, int h) { m_rectOnScreen.Set(x, y, w, h); };
+	cRect GetScreenRect(void) { return m_rectOnScreen; };
 
 private:
 	uint32_t m_width;           ///< buffer width
 	uint32_t m_height;          ///< buffer height
 	uint32_t m_pixFmt;          ///< buffer pixel format
+
+	cRect m_rectOnScreen;       ///< dimensions on screen - set at pageflip, needed for grab
 
 	bool m_dirty;               ///< true, if the buffer is dirty (it was written to)
 

@@ -58,13 +58,14 @@ cDrmBuffer::cDrmBuffer(void)
  * @returns       a new cDrmBuffer object cloned from src
  */
 cDrmBuffer::cDrmBuffer(cDrmBuffer *src)
+	: m_width(src->m_width),
+	  m_height(src->m_height),
+	  m_pixFmt(src->m_pixFmt),
+	  m_rectOnScreen(src->GetScreenRect()),
+	  m_fbId(src->m_fbId),
+	  m_numPlanes(src->m_numPlanes),
+	  m_numObjects(src->m_numObjects)
 {
-	m_width = src->m_width;
-	m_height = src->m_height;
-	m_fbId = src->m_fbId;
-	m_pixFmt = src->m_pixFmt;
-	m_numPlanes = src->m_numPlanes;
-	m_numObjects = src->m_numObjects;
 	m_dirty = false;
 
 	for (int object = 0; object < m_numObjects; object++) {
@@ -133,12 +134,12 @@ cDrmBuffer::cDrmBuffer(cDrmBuffer *src)
  * @returns              a new cDrmBuffer object from a gbm buffer object
  */
 cDrmBuffer::cDrmBuffer(int fdDrm, uint32_t width, uint32_t height, uint32_t pixFmt, struct gbm_bo *bo)
+	: m_width(width),
+	  m_height(height),
+	  m_pixFmt(pixFmt),
+	  m_drmDeviceFd(fdDrm),
+	  m_pBo(bo)
 {
-	m_drmDeviceFd = fdDrm;
-	m_width = width;
-	m_height = height;
-	m_pixFmt = pixFmt;
-	m_pBo = bo;
 	m_numPlanes = 0;
 	for (int i = 0; i < 4; i++) {
 		m_pPlane[i] = nullptr;

@@ -220,8 +220,6 @@ private:
 	cGrabBuffer m_grabOsd;              ///< keeps the current grabbed osd
 	cGrabBuffer m_grabVideo;            ///< keeps the current grabbed video
 	cGrabBuffer m_grabPip;              ///< keeps the current grabbed pip video
-	cRect m_lastVideoGrab;              ///< crtc rect of the last shown video frame
-	cRect m_lastPipGrab;                ///< crtc rect of the last shown pip frame
 
 	int m_startCounter;                 ///< counter for displayed frames, indicates a video start
 	int m_framesDuped = 0;              ///< number of frames duplicated

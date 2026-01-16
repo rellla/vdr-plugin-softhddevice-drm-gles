@@ -236,8 +236,7 @@ int cVideoRender::SetVideoBuffer(cDrmBuffer *buf)
 		fittedRect.x, fittedRect.y, fittedRect.w, fittedRect.h,
 		0, 0, buf->Width(), buf->Height());
 
-	// set dimensions for grab early, because we might skip this at the next frame
-	m_lastVideoGrab.Set(fittedRect.x, fittedRect.y, fittedRect.w, fittedRect.h);
+	buf->SetSizeOnScreen(fittedRect.x, fittedRect.y, fittedRect.w, fittedRect.h); // remember for grab
 
 	return 0;
 }
@@ -275,6 +274,8 @@ int cVideoRender::SetOsdBuffer(drmModeAtomicReqPtr modeReq)
 	osdPlane->SetParams(m_pDrmDevice->CrtcId(), m_pBufOsd->Id(),
 		0, 0, crtcW, crtcH,
 		0, 0, crtcW, crtcH);
+
+	m_pBufOsd->SetSizeOnScreen(0, 0, crtcW, crtcH); // remember for grab
 
 	m_pBufOsd->MarkClean();
 	return 0;
@@ -336,8 +337,7 @@ int cVideoRender::SetPipBuffer(cDrmBuffer *buf)
 		crtcX, crtcY, crtcW, crtcH,
 		0, 0, buf->Width(), buf->Height());
 
-	// set dimensions for grab early, because we might skip this at the next frame
-	m_lastPipGrab.Set(crtcX, crtcY, crtcW, crtcH);
+	buf->SetSizeOnScreen(crtcX, crtcY, crtcW, crtcH); // remember for grab
 
 	return 0;
 }
@@ -1094,8 +1094,6 @@ void cVideoRender::CreateGrabBuffers(bool grabPip)
 	if (m_pBufOsd && m_osdShown) {
 		LOGDEBUG2(L_GRAB, "videorender: %s: Trigger osd grab arrived", __FUNCTION__);
 		cDrmBuffer *osdBuf = new cDrmBuffer(m_pBufOsd);
-		// dimensions should be the size on screen
-		m_grabOsd.SetRect(0, 0, m_pBufOsd->Width(), m_pBufOsd->Height());
 		m_grabOsd.SetDrmBuf(osdBuf);
 	}
 
@@ -1103,8 +1101,6 @@ void cVideoRender::CreateGrabBuffers(bool grabPip)
 	if (pbuf) {
 		LOGDEBUG2(L_GRAB, "videorender: %s: Trigger video grab arrived", __FUNCTION__);
 		cDrmBuffer *videoBuf = new cDrmBuffer(pbuf);
-		// use dimensions which have been set earlier
-		m_grabVideo.SetRect(m_lastVideoGrab.X(), m_lastVideoGrab.Y(), m_lastVideoGrab.Width(), m_lastVideoGrab.Height());
 		m_grabVideo.SetDrmBuf(videoBuf);
 	}
 
@@ -1112,8 +1108,6 @@ void cVideoRender::CreateGrabBuffers(bool grabPip)
 	if (pipBuf && grabPip) {
 		LOGDEBUG2(L_GRAB, "videorender: %s: Trigger pip grab arrived", __FUNCTION__);
 		cDrmBuffer *pipVideoBuf = new cDrmBuffer(pipBuf);
-		// use dimensions which have been set earlier
-		m_grabPip.SetRect(m_lastPipGrab.X(), m_lastPipGrab.Y(), m_lastPipGrab.Width(), m_lastPipGrab.Height());
 		m_grabPip.SetDrmBuf(pipVideoBuf);
 	}
 

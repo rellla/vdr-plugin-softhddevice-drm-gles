@@ -325,6 +325,15 @@ void cGrabBuffer::FreeDrmBuf(void)
 	m_pBuf = nullptr;
 }
 
+/**
+ * Set the grab buffer and the dimensions how it is presented on the screen
+ */
+void cGrabBuffer::SetDrmBuf(cDrmBuffer *buf)
+{
+	m_pBuf = buf;
+	m_rect.Set(buf->GetScreenRect().Point(), buf->GetScreenRect().Size());
+}
+
 /*****************************************************************************
  * cSoftHdGrab class
  ****************************************************************************/

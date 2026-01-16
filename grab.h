@@ -55,12 +55,11 @@ public:
 	cGrabBuffer(void);
 	virtual ~cGrabBuffer(void);
 	void FreeDrmBuf(void);
+	void SetDrmBuf(cDrmBuffer *);
 
 	// setters and getters
-	void SetRect(int x, int y, int width, int height) { m_rect.Set(x, y, width, height); };
 	void SetData(uint8_t *result) { m_pResult = result; };
 	void SetSize(int size) { m_size = size; };
-	void SetDrmBuf(cDrmBuffer *buf) { m_pBuf = buf; };
 
 	int GetX(void) { return m_rect.X(); };
 	int GetY(void) { return m_rect.Y(); };
