@@ -139,6 +139,8 @@ public:
 	void ProcessEvents(void);
 	void ResetBufferReuseStrategy() { delete m_bufferReuseStrategy; m_bufferReuseStrategy = nullptr; };
 	void ResetDecodingStrategy() { delete m_decodingStrategy; m_decodingStrategy = nullptr; };
+	void ResetPipBufferReuseStrategy() { delete m_pipBufferReuseStrategy; m_pipBufferReuseStrategy = nullptr; };
+	void ResetPipDecodingStrategy() { delete m_pipDecodingStrategy; m_pipDecodingStrategy = nullptr; };
 
 	// OSD
 	void OsdClear(void);

@@ -163,23 +163,24 @@ static int ReadHWPlatform(void)
 /**
  * cVideoStream constructor
  */
-cVideoStream::cVideoStream(cVideoRender *render, cQueue<cDrmBuffer> *drmBufferQueue, cSoftHdConfig *config, const char *identifier, std::function<void(AVFrame *)> frameOutput)
+cVideoStream::cVideoStream(cVideoRender *render, cQueue<cDrmBuffer> *drmBufferQueue, cSoftHdConfig *config, bool isPipStream, std::function<void(AVFrame *)> frameOutput)
 {
-	LOGDEBUG("videostream %s: %s", __FUNCTION__, identifier);
+	m_identifier = isPipStream ? "PIP" : "main";
+	LOGDEBUG("videostream %s: %s", __FUNCTION__, m_identifier);
 
 	m_pRender = render;
 	m_pDrmBufferQueue = drmBufferQueue;
 	m_pDecoder = nullptr;
 	m_frameOutput = frameOutput;
-	m_identifier = identifier;
 
 	m_codecId = AV_CODEC_ID_NONE;
 	m_newStream = false;
 	m_pPar = nullptr;
 
 	m_userDisabledDeinterlacer = config->ConfigDisableDeint;
+	m_deinterlacerDeactivated = isPipStream ? true : false;
 
-	m_filterThreadName = "shd " + std::string(identifier) + " filter";
+	m_filterThreadName = "shd " + std::string(m_identifier) + " filter";
 	m_pFilterThread = new cFilterThread(render, m_pDrmBufferQueue, m_filterThreadName.c_str(), frameOutput);
 	m_hardwareQuirks = ReadHWPlatform();
 }
@@ -433,7 +434,7 @@ void cVideoStream::CancelFilterThread(void) {
 		m_pFilterThread->Stop();
 
 	m_checkFilterThreadNeeded = true;
-	m_deinterlacerDeactivated = false;
+	SetDeinterlacerDeactivated(false);
 }
 
 /**

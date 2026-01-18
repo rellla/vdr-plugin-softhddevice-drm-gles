@@ -50,7 +50,6 @@ class cVideoRender;
 class cVideoStream
 {
 public:
-	cVideoStream(cVideoRender *, cQueue<cDrmBuffer> *, cSoftHdConfig *, const char *, std::function<void(AVFrame *)>);
 	virtual ~cVideoStream(void);
 
 	void DecodeInput(void);
@@ -86,10 +85,13 @@ public:
 	void CancelFilterThread(void);
 	void ResetFilterThreadNeededCheck() { m_checkFilterThreadNeeded = true; };
 
-	void SetDeinterlacerDeactivated(bool deactivate) { m_deinterlacerDeactivated = deactivate; };
+	virtual void SetDeinterlacerDeactivated(bool deactivate) { m_deinterlacerDeactivated = deactivate; };
 	bool IsDeinterlacerDeactivated(void) { return m_deinterlacerDeactivated; };
 	int HardwareQuirks(void) { return m_hardwareQuirks; };
 	void DisableDeint(bool disable) { m_userDisabledDeinterlacer = disable; };
+
+protected:
+	cVideoStream(cVideoRender *, cQueue<cDrmBuffer> *, cSoftHdConfig *, bool, std::function<void(AVFrame *)>);
 
 private:
 	cVideoDecoder *m_pDecoder;          ///< video decoder
@@ -104,7 +106,7 @@ private:
 	bool m_checkFilterThreadNeeded;                 ///< set, if we have to check, if filter thread is needed at start of playback
 	int m_hardwareQuirks;                           ///< hardware specific quirks
 	bool m_userDisabledDeinterlacer = false;        ///< set, if the user configured the deinterlace to be disabled
-	bool m_deinterlacerDeactivated = false;         ///< set, if the deinterlacer shall be deactivated temporarily (used for trick speed and still picture)
+	bool m_deinterlacerDeactivated;                 ///< set, if the deinterlacer should be disabled temporarily (trickspeed, stillpicture, pip)
 
 	cQueue<AVPacket> m_packets{VIDEO_PACKET_MAX};   ///< AVPackets queue
 
@@ -120,6 +122,27 @@ private:
 	int64_t m_inputPts = AV_NOPTS_VALUE;   ///< PTS of the first packet in the input buffer
 
 	void RenderFrame(AVFrame *);
+};
+
+/**
+ * cMainVideoStream - Main video stream class
+ */
+class cMainVideoStream : public cVideoStream
+{
+public:
+	cMainVideoStream(cVideoRender *render, cQueue<cDrmBuffer> *buf, cSoftHdConfig *config, std::function<void(AVFrame *)> fn)
+		: cVideoStream(render, buf, config, false, fn) {};
+};
+
+/**
+ * cPipVideoStream - Pip video stream class
+ */
+class cPipVideoStream : public cVideoStream
+{
+public:
+	cPipVideoStream(cVideoRender *render, cQueue<cDrmBuffer> *buf, cSoftHdConfig *config, std::function<void(AVFrame *)> fn)
+		: cVideoStream(render, buf, config, true, fn) {};
+	void SetDeinterlacerDeactivated(bool) override {}; // deinterlacing is permanently disabled
 };
 
 #endif

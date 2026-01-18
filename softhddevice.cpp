@@ -528,11 +528,11 @@ void cSoftHdDevice::OnLeavingState(State state) {
 			m_pAudio = new cSoftHdAudio(this);
 			m_pRender = new cVideoRender(this);
 			m_pGrab = new cSoftHdGrab(m_pRender);
-			m_pVideoStream = new cVideoStream(m_pRender, m_pRender->GetMainOutputBuffer(), m_pConfig, "main", std::bind(&cVideoRender::PushMainFrame, m_pRender, std::placeholders::_1));
+			m_pVideoStream = new cMainVideoStream(m_pRender, m_pRender->GetMainOutputBuffer(), m_pConfig, std::bind(&cVideoRender::PushMainFrame, m_pRender, std::placeholders::_1));
 			m_pAudioDecoder = new cAudioDecoder(m_pAudio);
 			m_pRender->Init(); // starts display thread
 			m_pVideoStream->StartDecoder(); // starts decoding thread
-			m_pPipStream = new cVideoStream(m_pRender, m_pRender->GetPipOutputBuffer(), m_pConfig, "PIP", std::bind(&cVideoRender::PushPipFrame, m_pRender, std::placeholders::_1));
+			m_pPipStream = new cPipVideoStream(m_pRender, m_pRender->GetPipOutputBuffer(), m_pConfig, std::bind(&cVideoRender::PushPipFrame, m_pRender, std::placeholders::_1));
 			m_pPipStream->StartDecoder(); // starts decoding thread
 			// Audio is init lazily (includes starting thread)
 
@@ -1903,6 +1903,8 @@ void cSoftHdDevice::DelPip(void)
 	m_pipReassemblyBuffer.Reset();
 	m_pPipStream->ClearVdrCoreToDecoderQueue();
 	m_pRender->ClearPipDecoderToDisplayQueue();
+	m_pRender->ResetPipDecodingStrategy();
+	m_pRender->ResetPipBufferReuseStrategy();
 	m_pPipStream->CloseDecoder();
 	m_pPipStream->DecodingThreadResume();
 
