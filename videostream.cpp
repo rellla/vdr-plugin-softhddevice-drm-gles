@@ -142,8 +142,8 @@ static int ReadHWPlatform(void)
 		if (strstr(read_ptr, "amlogic")) {
 			LOGDEBUG2(L_DRM, "videostream: %s: amlogic found, disable HW deinterlacer", __FUNCTION__);
 			hardwareQuirks |= QUIRK_CODEC_NEEDS_EXT_INIT
-					   |  QUIRK_CODEC_SKIP_FIRST_FRAMES
-					   |  QUIRK_NO_HW_DEINT;
+			               |  QUIRK_CODEC_SKIP_FIRST_FRAMES
+			               |  QUIRK_NO_HW_DEINT;
 			break;
 		}
 
