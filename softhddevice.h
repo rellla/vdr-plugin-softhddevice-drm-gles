@@ -106,6 +106,7 @@ class cVideoRender;
 class cSoftHdAudio;
 class cSoftHdConfig;
 class cPipReceiver;
+class cPipHandler;
 
 class cSoftHdDevice : public cDevice, public IEventReceiver
 {
@@ -214,18 +215,24 @@ public:
 
 	bool IsBufferingThresholdReached(void);
 
-	// pip
+	// pip wrapper functions
+	bool PipIsEnabled(void);
 	void PipEnable(void);
 	void PipDisable(void);
 	void PipToggle(void);
 	void PipChannelChange(int);
 	void PipChannelSwap(void);
-	bool PipIsEnabled(void);
-	int PlayPipVideo(const uchar *, int);
-	void PipSetSize(void);
 	void PipSwapPosition(void);
+	void PipSetSize(void);
+	void SetRenderPipSize(void);
+	void SetRenderPipActive(bool);
+
+	// pip functions
+	int PlayPipVideo(const uchar *, int);
 	void SetDrmCanDisplayPip(bool canDisplay) { m_drmCanDisplayPip = canDisplay; };
-	bool UsePip(void) { return m_drmCanDisplayPip && !m_disablePip; };
+	bool UsePip(void) { return m_drmCanDisplayPip && !m_disablePip && m_pPipHandler; };
+	void ResetPipStream(void);
+	void ToggleRenderPipPosition(void) { m_pipUseAlt = !m_pipUseAlt; };
 
 private:
 	static constexpr int MIN_BUFFER_FILL_LEVEL_THRESHOLD_MS = 450; ///< min buffering threshold in ms
@@ -249,12 +256,9 @@ private:
 	int m_audioChannelID = -1;       ///< current audio channel ID
 	cSoftHdGrab *m_pGrab;            ///< pointer to grabber object
 
-	bool m_pipActive = false;        ///< true, if pip is active
-	int m_pipChannelNum;             ///< current pip channel number
-	const cChannel *m_pPipChannel;   ///< current pip channel
-	cPipReceiver *m_pPipReceiver;    ///< cReceiver for pip stream
 	cVideoStream *m_pPipStream;      ///< pointer to pip video stream
 	cReassemblyBufferVideo m_pipReassemblyBuffer; ///< pip pes reassembly buffer
+	cPipHandler *m_pPipHandler = nullptr; ///< pointer to pip handler
 	mutable std::mutex m_mutex;      ///< mutex to lock the state machine
 	std::mutex m_sizeMutex;          ///< mutex to lock screen size (which is accessed by different threads)
 	std::atomic<bool> m_receivedAudio = false; ///< flag if audio packets have been received
@@ -282,17 +286,6 @@ private:
 	void SetState(State);
 	void OnEnteringState(State);
 	void OnLeavingState(State);
-
-	// PIP
-	void SetEnablePip(bool);
-	void TogglePip(void);
-	void ChangePipChannel(int);
-	void ResetPipChannel(void);
-	void DelPip(void);
-	void NewPip(int);
-	void HandlePip(enum PipState);
-	void SetPipSize(void);
-	void SwapPipPosition(void);
 };
 
 #endif

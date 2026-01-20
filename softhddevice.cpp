@@ -242,7 +242,7 @@ void cSoftHdDevice::OnEventReceived(const Event& event)
 					HandleStillPicture(s.data, s.size);
 				},
 				[this, &needsResume](const DetachEvent&) {
-					HandlePip(PIPSTOP);
+					m_pPipHandler->HandleEvent(PIPSTOP);
 					SetState(DETACHED);
 					needsResume = false;
 				},
@@ -250,7 +250,7 @@ void cSoftHdDevice::OnEventReceived(const Event& event)
 				[&invalid](const BufferUnderrunEvent&) { invalid(); },
 				[&invalid](const BufferingThresholdReachedEvent&) { invalid(); },
 				[this](const PipEvent& p) {
-					HandlePip(p.state);
+					m_pPipHandler->HandleEvent(p.state);
 				},
 			}, event);
 			break;
@@ -305,7 +305,7 @@ void cSoftHdDevice::OnEventReceived(const Event& event)
 					SetState(PLAY);
 				},
 				[this](const PipEvent& p) {
-					HandlePip(p.state);
+					m_pPipHandler->HandleEvent(p.state);
 				},
 			}, event);
 			break;
@@ -351,7 +351,7 @@ void cSoftHdDevice::OnEventReceived(const Event& event)
 					HandleStillPicture(s.data, s.size);
 				},
 				[this, &needsResume](const DetachEvent&) {
-					HandlePip(PIPSTOP);
+					m_pPipHandler->HandleEvent(PIPSTOP);
 					SetState(DETACHED);
 					needsResume = false;
 				},
@@ -363,7 +363,7 @@ void cSoftHdDevice::OnEventReceived(const Event& event)
 					// ignore
 				},
 				[this](const PipEvent& p) {
-					HandlePip(p.state);
+					m_pPipHandler->HandleEvent(p.state);
 				},
 			}, event);
 			break;
@@ -388,7 +388,7 @@ void cSoftHdDevice::OnEventReceived(const Event& event)
 					HandleStillPicture(s.data, s.size);
 				},
 				[this, &needsResume](const DetachEvent&) {
-					HandlePip(PIPSTOP);
+					m_pPipHandler->HandleEvent(PIPSTOP);
 					SetState(DETACHED);
 					needsResume = false;
 				},
@@ -398,7 +398,7 @@ void cSoftHdDevice::OnEventReceived(const Event& event)
 				},
 				[&invalid](const BufferingThresholdReachedEvent&) { invalid(); },
 				[this](const PipEvent& p) {
-					HandlePip(p.state);
+					m_pPipHandler->HandleEvent(p.state);
 				},
 			}, event);
 			break;
@@ -462,6 +462,9 @@ void cSoftHdDevice::OnEnteringState(State state) {
 
 			break;
 		case DETACHED:
+			delete m_pPipHandler;
+			m_pPipHandler = nullptr;
+
 			// resume the previously stopped threads
 			m_pVideoStream->DecodingThreadResume();
 			m_pRender->DisplayThreadResume();
@@ -529,6 +532,7 @@ void cSoftHdDevice::OnLeavingState(State state) {
 			m_pVideoStream->StartDecoder(); // starts decoding thread
 			m_pPipStream = new cPipVideoStream(m_pRender, m_pRender->GetPipOutputBuffer(), m_pConfig, std::bind(&cVideoRender::PushPipFrame, m_pRender, std::placeholders::_1));
 			m_pPipStream->StartDecoder(); // starts decoding thread
+			m_pPipHandler = new cPipHandler(this);
 			// Audio is init lazily (includes starting thread)
 
 			break;
@@ -1641,259 +1645,12 @@ int cSoftHdDevice::GetBufferFillLevelThresholdMs() {
 }
 
 /**
- * Start picture-in-picture
+ * Resets pip stream and render pipeline
  */
-void cSoftHdDevice::PipEnable(void)
+void cSoftHdDevice::ResetPipStream(void)
 {
-	OnEventReceived(PipEvent{PIPSTART});
-}
-
-/**
- * Stop picture-in-picture
- */
-void cSoftHdDevice::PipDisable(void)
-{
-	OnEventReceived(PipEvent{PIPSTOP});
-}
-
-/**
- * Toggle picture-in-picture
- */
-void cSoftHdDevice::PipToggle(void)
-{
-	OnEventReceived(PipEvent{PIPTOGGLE});
-}
-
-/**
- * Returns true, if picture-in-picture is running
- */
-bool cSoftHdDevice::PipIsEnabled(void)
-{
-	std::lock_guard<std::mutex> lock(m_mutex);
-	return m_pipActive;
-}
-
-/**
- * Change the pip channel
- *
- * @param direction      1: channel up, -1: channel down
- */
-void cSoftHdDevice::PipChannelChange(int direction)
-{
-	if (direction > 0)
-		OnEventReceived(PipEvent{PIPCHANUP});
-	else
-		OnEventReceived(PipEvent{PIPCHANDOWN});
-}
-
-/**
- * Swap the pip channel with main live channel
- *
- * The channel switch of the main stream must be done out of OnEventReceived()
- * because it triggers a SetPlayMode() which end in a deadlock otherwise.
- */
-void cSoftHdDevice::PipChannelSwap(void)
-{
-	const cChannel *channel = m_pPipChannel;
-	if (!channel)
-		return;
-
-	OnEventReceived(PipEvent{PIPCHANSWAP}); // resets the pip channel to the current channel
-
-	if (channel) {
-		LOCK_CHANNELS_READ;
-		LOGDEBUG("pip: %s: switch main stream to %d", __FUNCTION__, channel->Number());
-		Channels->SwitchTo(channel->Number());
-	}
-}
-
-/**
- * Set size and position for the pip window
- */
-void cSoftHdDevice::PipSetSize(void)
-{
-	OnEventReceived(PipEvent{PIPSIZECHANGE});
-}
-
-/**
- * Swap pip between normal and alternative position
- */
-void cSoftHdDevice::PipSwapPosition(void)
-{
-	OnEventReceived(PipEvent{PIPSWAPPOSITION});
-}
-
-/**
- * Handle the pip event
- */
-void cSoftHdDevice::HandlePip(enum PipState event)
-{
-	switch (event) {
-		case PIPSTART:
-			SetEnablePip(true);
-			break;
-		case PIPSTOP:
-			SetEnablePip(false);
-			break;
-		case PIPTOGGLE:
-			TogglePip();
-			break;
-		case PIPCHANUP:
-			ChangePipChannel(1);
-			break;
-		case PIPCHANDOWN:
-			ChangePipChannel(-1);
-			break;
-		case PIPCHANSWAP:
-			ResetPipChannel();
-			break;
-		case PIPSIZECHANGE:
-			SetPipSize();
-			break;
-		case PIPSWAPPOSITION:
-			SwapPipPosition();
-			break;
-		default:
-			break;
-	}
-}
-
-/**
- * Enable/ disable picture-in-picture
- *
- * @param on       true, if pip should be enabled
- *
- * @note This function is called from HandlePip() within the state change
- */
-void cSoftHdDevice::SetEnablePip(bool on)
-{
-	if (m_pipActive && on) {
-		LOGDEBUG("device: %s: pip is already enabled", __FUNCTION__);
-		return;
-	}
-
-	if (!m_pipActive && !on) {
-		LOGDEBUG("device: %s: pip is already disabled", __FUNCTION__);
-		return;
-	}
-
-	if (!m_pipActive) {
-		LOGDEBUG("device: %s: enabling pip (channel %d)", __FUNCTION__, m_pipChannelNum);
-		NewPip(0);
-		m_pRender->SetPipActive(true);
-	} else {
-		LOGDEBUG("device: %s: disabling pip", __FUNCTION__);
-		m_pRender->SetPipActive(false);
-		DelPip();
-	}
-
-	m_pipActive = on;
-}
-
-/**
- * Toggle picture-in-picture
- *
- * @note This function is called from HandlePip() within the state change
- */
-void cSoftHdDevice::TogglePip(void)
-{
-	SetEnablePip(!m_pipActive);
-}
-
-/**
- * Change the pip channel
- *
- * @param direction      1: channel up, -1: channel down
- *
- * @note This function is called from HandlePip() within the state change
- */
-void cSoftHdDevice::ChangePipChannel(int direction)
-{
-	if (!m_pipActive)
-		return;
-
-	const cChannel *channel;
-	const cChannel *first;
-
-	channel = m_pPipChannel;
-	first = channel;
-
-	DelPip();
-
-	LOCK_CHANNELS_READ;
-	while (channel) {
-		bool ndr;
-		cDevice *device;
-
-		channel = direction > 0 ? Channels->Next(channel) : Channels->Prev(channel);
-		if (!channel && Setup.ChannelsWrap)
-			channel = direction > 0 ? Channels->First() : Channels->Last();
-
-		if (channel && !channel->GroupSep() && (device = cDevice::GetDevice(channel, 0, false, true)) &&
-			device->ProvidesChannel(channel, 0, &ndr) && !ndr) {
-				NewPip(channel->Number());
-				return;
-		}
-
-		if (channel == first) {
-			Skins.Message(mtError, tr("Channel not available!"));
-			break;
-		}
-	}
-}
-
-/**
- * Resets the pip channel to the current live stream channel
- *
- * @note This function is called from HandlePip() within the state change
- */
-void cSoftHdDevice::ResetPipChannel(void)
-{
-	if (!m_pipActive)
-		return;
-
-	DelPip();
-	NewPip(0);
-}
-
-/**
- * Set size and position for the pip window
- *
- * @note This function is called from HandlePip() within the state change
- */
-void cSoftHdDevice::SetPipSize(void)
-{
-	m_pRender->SetPipSize(m_pipUseAlt);
-}
-
-/**
- * Swap pip between normal and alternative position
- *
- * @note This function is called from HandlePip() within the state change
- */
-void cSoftHdDevice::SwapPipPosition(void)
-{
-	m_pipUseAlt = !m_pipUseAlt;
-	m_pRender->SetPipSize(m_pipUseAlt);
-}
-
-/**
- * Delete the pip receiver, clear decoder and display buffers
- * and disable rendering the pip window.
- *
- * We do not need to halt main stream decoder and display thread for this,
- * so only halt the pip decoding thread here - not in OnEventReceived().
- *
- * The last viewed pip channel is remembered and will be used when opening a new pip window.
- */
-void cSoftHdDevice::DelPip(void)
-{
-	if (!m_pPipReceiver)
-		return;
-
-	LOGDEBUG("pip: %s: deleting receiver for channel (%d) %s", __FUNCTION__, m_pPipChannel->Number(), m_pPipChannel->Name());
-
 	m_pPipStream->DecodingThreadHalt();
+
 	m_pPipStream->CancelFilterThread();
 	m_pipReassemblyBuffer.Reset();
 	m_pPipStream->ClearVdrCoreToDecoderQueue();
@@ -1901,39 +1658,28 @@ void cSoftHdDevice::DelPip(void)
 	m_pRender->ResetPipDecodingStrategy();
 	m_pRender->ResetPipBufferReuseStrategy();
 	m_pPipStream->CloseDecoder();
-	m_pPipStream->DecodingThreadResume();
 
-	delete m_pPipReceiver;
-	m_pPipReceiver = nullptr;
-	m_pPipChannel = nullptr;
+	m_pPipStream->DecodingThreadResume();
 }
 
 /**
- * Create a new pip receiver and render the pip stream
- *
- * @param channelNum    number of the channel to be switched to
- *                      0 switches to the current main stream channel
+ * Returns true, if pip is currently enabled
  */
-void cSoftHdDevice::NewPip(int channelNum)
+bool cSoftHdDevice::PipIsEnabled(void)
 {
-	if (!channelNum)
-		channelNum = CurrentChannel();
-
-	LOCK_CHANNELS_READ;
-	const cChannel *channel;
-	cDevice *device;
-	cPipReceiver *receiver;
-
-	if (channelNum && (channel = Channels->GetByNumber(channelNum)) &&
-	   (device = GetDevice(channel, 0, false, false))) {
-		DelPip();
-		device->SwitchChannel(channel, false);
-		receiver = new cPipReceiver(channel, this);
-		device->AttachReceiver(receiver);
-		m_pPipReceiver = receiver;
-		m_pPipChannel = channel;
-		m_pipChannelNum = channelNum;
-
-		LOGDEBUG("pip: %s: New receiver for channel (%d) %s", __FUNCTION__, channel->Number(), channel->Name());
-	}
+	std::lock_guard<std::mutex> lock(m_mutex);
+	return m_pPipHandler->IsEnabled();
 }
+
+/**
+ * Wrapper functions for cVideoRender and cPipHandler
+ */
+void cSoftHdDevice::SetRenderPipSize(void) { m_pRender->SetPipSize(m_pipUseAlt); };
+void cSoftHdDevice::SetRenderPipActive(bool active) { m_pRender->SetPipActive(active); };
+void cSoftHdDevice::PipEnable(void) { m_pPipHandler->Enable(); };
+void cSoftHdDevice::PipDisable(void) { m_pPipHandler->Disable(); };
+void cSoftHdDevice::PipToggle(void) { m_pPipHandler->Toggle(); };
+void cSoftHdDevice::PipChannelChange(int dir) { m_pPipHandler->ChannelChange(dir); };
+void cSoftHdDevice::PipChannelSwap(void) { m_pPipHandler->ChannelSwap(); };
+void cSoftHdDevice::PipSwapPosition(void) { m_pPipHandler->SwapPosition(); };
+void cSoftHdDevice::PipSetSize(void) { m_pPipHandler->SetSize(); };
