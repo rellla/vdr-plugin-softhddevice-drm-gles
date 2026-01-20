@@ -1102,6 +1102,13 @@ int cSoftHdDevice::PlayPipVideo(const uchar *data, int size)
 {
 //	LOGDEBUG("device: %s: %p %d", __FUNCTION__, data, size);
 
+	// This is a bit hacky:
+	// Because we do no sync with the pip stream, we simply drop data
+	// if the input buffer is full -> this prevents us from having a buffer overflow
+	// caused by the pip stream.
+	if (m_pPipStream->IsInputBufferFull())
+		return size;
+
 	return PlayVideoInternal(m_pPipStream, &m_pipReassemblyBuffer, data, size, false);
 }
 
