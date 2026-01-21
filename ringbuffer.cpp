@@ -21,13 +21,13 @@
  * GNU Affero General Public License for more details.}
  */
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-
-#include "ringbuffer.h"
+#include <cstdio>
+#include <cstdint>
+#include <cstdlib>
+#include <cstring>
 
 #include "logger.h"
+#include "ringbuffer.h"
 
 /******************************************************************************
  * cSoftHdRingbuffer class

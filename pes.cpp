@@ -15,17 +15,16 @@
  * GNU Affero General Public License for more details.}
  */
 
-#include <stdexcept>
-#include <map>
 #include <functional>
+#include <map>
+#include <stdexcept>
 
 #include "pes.h"
 #include "logger.h"
 
 #include "vdr/remux.h"
 
-extern "C"
-{
+extern "C" {
 #include <libavutil/avutil.h>
 }
 

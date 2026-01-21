@@ -21,6 +21,18 @@
  * GNU Affero General Public License for more details.}
  */
 
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <memory>
+
+#include <stdarg.h>
+#include <syslog.h>
+#include <sys/syscall.h>
+#include <unistd.h>
+
+#include <vdr/tools.h>
+
 #include "logger.h"
 
 /*****************************************************************************

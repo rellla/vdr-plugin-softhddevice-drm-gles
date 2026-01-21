@@ -20,7 +20,7 @@
 #ifndef __GRAB_H
 #define __GRAB_H
 
-#include "drmbuffer.h"
+#include <cstdint>
 
 #include <vdr/osd.h>
 

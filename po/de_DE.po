@@ -25,26 +25,6 @@ msgstr "HD Device mit software und GPU Unterstützung"
 msgid "Softhddevice"
 msgstr ""
 
-#, c-format
-msgid "Workaround '%s' unsupported\n"
-msgstr ""
-
-#, c-format
-msgid "We need no long options\n"
-msgstr ""
-
-#, c-format
-msgid "Missing argument for option '%c'\n"
-msgstr ""
-
-#, c-format
-msgid "Unknown option '%c'\n"
-msgstr ""
-
-#, c-format
-msgid "Unhandled argument '%s'\n"
-msgstr ""
-
 msgid " Toggle"
 msgstr " Ein/Aus"
 

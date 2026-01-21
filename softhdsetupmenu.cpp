@@ -22,8 +22,11 @@
  * GNU Affero General Public License for more details.}
  */
 
-#include <vdr/plugin.h>
+#include <vdr/menuitems.h>
 
+#include "audio.h"
+#include "codec_audio.h"
+#include "config.h"
 #include "logger.h"
 #include "softhddevice.h"
 #include "softhdsetupmenu.h"

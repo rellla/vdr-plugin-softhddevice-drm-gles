@@ -25,26 +25,21 @@
 #error "C++17 or higher is required"
 #endif
 
-#include <mutex>
 #include <atomic>
-
-#include <vdr/dvbspu.h>
+#include <mutex>
 
 extern "C"
 {
 #include <libavcodec/avcodec.h>
 }
 
+#include <vdr/device.h>
+#include <vdr/osd.h>
+
 #include "config.h"
-#include "codec_audio.h"
-#include "videostream.h"
-#include "audio.h"
-#include "videorender.h"
-#include "softhdosd.h"
-#include "pipreceiver.h"
 #include "event.h"
 #include "jittertracker.h"
-#include "grab.h"
+#include "pes.h"
 
 // State machine definitions
 // Implementing C++17 visitor pattern
@@ -95,18 +90,19 @@ enum PlaybackMode {
 };
 
 class cAudioDecoder;
-
+class cDvbSpuDecoder;
+class cPipHandler;
+class cPipReceiver;
+class cSpuDecoder;
+class cSoftHdAudio;
+class cSoftHdGrab;
+class cSoftOsdProvider;
+class cVideoRender;
+class cVideoStream;
 
 /*****************************************************************************
  * cSoftHdDevice - cDevice class
  ****************************************************************************/
-
-class cAudioDecoder;
-class cVideoRender;
-class cSoftHdAudio;
-class cSoftHdConfig;
-class cPipReceiver;
-class cPipHandler;
 
 class cSoftHdDevice : public cDevice, public IEventReceiver
 {

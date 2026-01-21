@@ -24,18 +24,12 @@
 
 #include "vdr/plugin.h"
 
-#ifdef USE_GLES
-#include "openglosd.h"
-#endif
-
-#include "softhddevice.h"
-#include "config.h"
-
 #ifndef GIT_DESCRIBE
 #define GIT_DESCRIBE "-unknown"
 #endif
 
 class cSoftHdDevice;
+class cSoftHdConfig;
 
 /*****************************************************************************
  * Plugin
@@ -60,7 +54,7 @@ public:
 	virtual cOsdObject *MainMenuAction(void);
 	virtual cMenuSetupPage *SetupMenu(void);
 	virtual bool SetupParse(const char *, const char *);
-	virtual bool Service(const char *, void * = NULL);
+	virtual bool Service(const char *, void * = nullptr);
 	virtual const char **SVDRPHelpPages(void);
 	virtual cString SVDRPCommand(const char *, const char *, int &);
 private:

@@ -22,19 +22,17 @@
  * GNU Affero General Public License for more details.}
  */
 
-#include <stdint.h>
-#include <stdlib.h>
-#include <stddef.h>
+#include <cstdint>
+#include <unistd.h>
 
 extern "C" {
 #include <libavcodec/avcodec.h>
 }
 
-#include "misc.h"
-
 #include "audio.h"
 #include "codec_audio.h"
 #include "logger.h"
+#include "misc.h"
 
 /*****************************************************************************
  * cAudioDecoder class

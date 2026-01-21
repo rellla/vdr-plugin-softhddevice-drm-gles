@@ -20,19 +20,16 @@
 #ifndef __DRMBUFFER_H
 #define __DRMBUFFER_H
 
+#include <cstdint>
+
 extern "C" {
-#include <libavfilter/avfilter.h>
+#include <libavutil/frame.h>
 #include <libavutil/hwcontext_drm.h>
 }
-
-#ifdef USE_GLES
-#include <gbm.h>
-#endif
 
 #include <vdr/osd.h>
 
 #include "pool.h"
-#include "misc.h"
 
 #define RENDERBUFFERS 36    ///< number of render video buffers
 
@@ -61,7 +58,6 @@ public:
 
 	void Setup(int, uint32_t, uint32_t, uint32_t, AVDRMFrameDescriptor *, bool);
 	void Destroy(void);
-	void InitBo(int, uint32_t, uint32_t, uint32_t, struct gbm_bo *);
 	void FillBlack(void);
 
 	// setter and getter methods

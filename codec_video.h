@@ -21,7 +21,6 @@
 #ifndef __CODEC_VIDEO_H
 #define __CODEC_VIDEO_H
 
-#include <pthread.h>
 #include <vdr/thread.h>
 
 extern "C" {

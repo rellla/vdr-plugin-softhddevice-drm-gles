@@ -23,34 +23,22 @@
  */
 
 #include <cstdlib>
-#include <sys/stat.h>
-
-#include <string>
-using std::string;
 #include <fstream>
-using std::ifstream;
-#include <sys/stat.h>
+#include <string>
 
-#include <vdr/interface.h>
-#include <vdr/player.h>
-#include <vdr/plugin.h>
-#include <vdr/videodir.h>
-
-#include "mediaplayer.h"
-#include "softhdmenu.h"
-#include "softhddevice.h"
-#include "logger.h"
-
-extern "C"
-{
+extern "C" {
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
 }
 
-#include "misc.h"
+#include <vdr/player.h>
 
-#include "videostream.h"
 #include "audio.h"
+#include "logger.h"
+#include "misc.h"
+#include "mediaplayer.h"
+#include "softhddevice.h"
+#include "softhdmenu.h"
 
 /*****************************************************************************
  * cSoftHdPlayer (cPlayer mediaplayer)
@@ -131,7 +119,7 @@ void cSoftHdPlayer::Action(void)
 
 void cSoftHdPlayer::ReadPL(const char *Playlist)
 {
-	ifstream f;
+	std::ifstream f;
 	PLEntry *last_entry = NULL;
 	m_Entries = 0;
 
@@ -142,20 +130,20 @@ void cSoftHdPlayer::ReadPL(const char *Playlist)
 	}
 
 	while (!f.eof()) {
-		string s;
+		std::string s;
 		getline(f, s);
 		if (s.size() && s.compare(0, 1, "#")) {
 			PLEntry *entry = new PLEntry;
 			entry->NextEntry = NULL;
 
 			entry->Path = s;
-			entry->File = entry->Path.substr(entry->Path.find_last_of("/") +1, string::npos);
+			entry->File = entry->Path.substr(entry->Path.find_last_of("/") +1, std::string::npos);
 
-			string SubString = entry->Path.substr(0, entry->Path.find_last_of("/"));
-			entry->SubFolder = SubString.substr(SubString.find_last_of("/") +1, string::npos);
+			std::string SubString = entry->Path.substr(0, entry->Path.find_last_of("/"));
+			entry->SubFolder = SubString.substr(SubString.find_last_of("/") +1, std::string::npos);
 
-			string FolderString = entry->Path.substr(0, SubString.find_last_of("/"));
-			entry->Folder = FolderString.substr(FolderString.find_last_of("/") +1, string::npos);
+			std::string FolderString = entry->Path.substr(0, SubString.find_last_of("/"));
+			entry->Folder = FolderString.substr(FolderString.find_last_of("/") +1, std::string::npos);
 
 			if (!last_entry) {
 				FirstEntry = entry;

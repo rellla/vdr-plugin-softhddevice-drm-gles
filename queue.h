@@ -18,9 +18,9 @@
 #ifndef __SOFTHDQUEUE_H
 #define __SOFTHDQUEUE_H
 
+#include <cstdint>
 #include <deque>
 #include <mutex>
-#include <cstdint>
 
 /**
  * Thread-safe queue class

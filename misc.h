@@ -21,31 +21,15 @@
 #ifndef __MISC_H
 #define __MISC_H
 
-#include <syslog.h>
-#include <stdarg.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <time.h>	// clock_gettime
-#include <unistd.h>
-#include <sys/syscall.h>
-#include <string.h>
-#include <inttypes.h>
-#include <stdint.h>
+#include <cstdio>
+#include <cstdint>
 
 extern "C" {
-#include <libavcodec/avcodec.h>
+#include <libavutil/frame.h>
 }
 
 #ifdef USE_GLES
 #include <EGL/egl.h>
-/* Hack:
- * xlib.h via eglplatform.h: #define Status int
- * X.h via eglplatform.h: #define CurrentTime 0L
- *
- * revert it, because it conflicts with vdr variables.
- */
-#undef Status
-#undef CurrentTime
 #include <GLES2/gl2.h>
 
 #include "logger.h"

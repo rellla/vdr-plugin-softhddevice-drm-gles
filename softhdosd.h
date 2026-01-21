@@ -23,13 +23,15 @@
 #define __SOFTOSD_H
 
 #ifdef USE_GLES
-#include "openglosd.h"
+#include <memory>
 #endif
 
-#include "softhddevice.h"
+#include <vdr/osd.h>
 
-class cSoftHdDevice;
+#ifdef USE_GLES
 class cOglThread;
+#endif
+class cSoftHdDevice;
 
 /*****************************************************************************
  * OSD (software)

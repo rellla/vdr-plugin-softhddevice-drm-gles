@@ -23,24 +23,28 @@
 
 #include <atomic>
 #include <functional>
-#include <vector>
+#include <string>
 
 extern "C" {
-#include <libavfilter/avfilter.h>
 #include <libavcodec/avcodec.h>
-#include <libavutil/avutil.h>
 }
 
-#include "codec_video.h"
-#include "videorender.h"
-#include "pes.h"
-#include "threads.h"
-#include "drmbuffer.h"
 #include "queue.h"
+#include "threads.h"
 
 #define VIDEO_BUFFER_SIZE (512 * 1024)  ///< video PES buffer default size
 #define VIDEO_PACKET_MAX 192            ///< max number of video packets held in the buffer
 
+// Hardware quirks, that are set depending on the hardware used
+#define QUIRK_NO_HW_DEINT               1 << 0     ///< set, if no hw deinterlacer available
+#define QUIRK_CODEC_FLUSH_WORKAROUND    1 << 1     ///< set, if we have to close and reopen the codec instead of avcodec_flush_buffers (rpi)
+#define QUIRK_CODEC_NEEDS_EXT_INIT      1 << 2     ///< set, if codec needs some infos for init (coded_width and coded_height)
+#define QUIRK_CODEC_SKIP_FIRST_FRAMES   1 << 3     ///< set, if codec should skip first I-Frames
+#define QUIRK_CODEC_SKIP_NUM_FRAMES     2          ///< skip QUIRK_CODEC_SKIP_NUM_FRAMES, in case QUIRK_CODEC_SKIP_FIRST_FRAMES is set
+#define QUIRK_CODEC_DISABLE_MPEG_HW     1 << 4     ///< set, if disable mpeg hardware decoder
+#define QUIRK_CODEC_DISABLE_H264_HW     1 << 5     ///< set, if disable h264 hardware decoder
+
+class cSoftHdConfig;
 class cVideoDecoder;
 class cVideoRender;
 

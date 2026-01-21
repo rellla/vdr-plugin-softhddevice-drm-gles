@@ -18,11 +18,9 @@
 #ifndef __SOFTHDDEVICE_PES_H
 #define __SOFTHDDEVICE_PES_H
 
-#include <vector>
+#include <cstdint>
 #include <map>
-
-#include <stdint.h>
-#include <stddef.h>
+#include <vector>
 
 extern "C"
 {

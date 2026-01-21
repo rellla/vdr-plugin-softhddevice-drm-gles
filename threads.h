@@ -23,13 +23,20 @@
 #include <mutex>
 #include <functional>
 
-#include "vdr/thread.h"
-#include "queue.h"
+extern "C"
+{
+#include <libavcodec/avcodec.h>
+#include <libavfilter/avfilter.h>
+}
+
+#include <vdr/thread.h>
+
 #include "misc.h"
-#include "drmbuffer.h"
 #include "queue.h"
 
-class cSoftHdDevice;
+class cDrmBuffer;
+class cSoftHdAudio;
+class cVideoRender;
 class cVideoStream;
 
 /**
@@ -50,8 +57,6 @@ private:
 protected:
 	virtual void Action(void);
 };
-
-class cVideoRender;
 
 /**
  * Display thread class
@@ -75,8 +80,6 @@ protected:
 /**
  * Audio thread class
  */
-class cSoftHdAudio;
-
 class cAudioThread : public cThread
 {
 public:

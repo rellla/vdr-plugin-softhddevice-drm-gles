@@ -22,28 +22,9 @@
 #ifndef __SOFTHDDEVICE_OPENGLOSD_H
 #define __SOFTHDDEVICE_OPENGLOSD_H
 
-#include <EGL/egl.h>
-#include <EGL/eglext.h>
-#include <EGL/eglplatform.h>
-/*
- * Hack:
- * xlib.h via eglplatform.h: #define Status int
- * X.h via eglplatform.h: #define CurrentTime 0L
- *
- * revert it, because it conflicts with vdr variables.
- */
-#undef Status
-#undef CurrentTime
-
-#include <GLES2/gl2.h>
-#include <GLES2/gl2ext.h>
-#include <gbm.h>
-#include <drm_fourcc.h>
-
-#include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
-#include <glm/gtc/type_ptr.hpp>
-#include <math.h>
+#include <cstdio>
+#include <memory>
+#include <queue>
 
 #include <ft2build.h>
 #include FT_FREETYPE_H
@@ -60,24 +41,11 @@ const struct {
 } FT_Errors[] =
 #include FT_ERRORS_H
 
-#include <memory>
-#include <queue>
+#include <GLES2/gl2.h>
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
 
-#include <vdr/plugin.h>
 #include <vdr/osd.h>
-#include <vdr/thread.h>
-
-#include <stdint.h>
-extern "C"
-{
-#include <libavcodec/avcodec.h>
-}
-
-#include "audio.h"
-#include "videorender.h"
-#include "videostream.h"
-
-#include "softhddevice.h"
 
 struct sOglImage {
 	GLuint texture;
@@ -85,6 +53,9 @@ struct sOglImage {
 	GLint height;
 	bool used;
 };
+
+class cVideoRender;
+class cSoftHdDevice;
 
 /****************************************************************************************
 * Helpers

@@ -18,8 +18,8 @@
 #ifndef __SOFTHDPOOL_H
 #define __SOFTHDPOOL_H
 
-#include <vector>
 #include <memory>
+#include <vector>
 
 template <typename T>
 class cPool {

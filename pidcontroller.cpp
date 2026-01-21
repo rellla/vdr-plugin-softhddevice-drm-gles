@@ -17,15 +17,15 @@
 
 #include <cmath>
 
-#include "pidcontroller.h"
 #include "logger.h"
+#include "pidcontroller.h"
 
 #ifdef PID_CONTROLLER_TUNING_AID_ADDRESS
 #include <arpa/inet.h>
-#include <sys/socket.h>
-#include <unistd.h>
 #include <cstdio>
 #include <cstring>
+#include <sys/socket.h>
+#include <unistd.h>
 #endif
 
 /**

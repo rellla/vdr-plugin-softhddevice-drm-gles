@@ -22,16 +22,8 @@
  * GNU Affero General Public License for more details.}
  */
 
+#include <functional>
 #include <string>
-
-#include <assert.h>
-#include <unistd.h>
-
-#include <libintl.h>
-
-#include <pthread.h>
-#include <sys/types.h>
-#include <sys/wait.h>
 
 extern "C" {
 #include <libavcodec/avcodec.h>
@@ -39,19 +31,15 @@ extern "C" {
 #include <libavutil/timestamp.h>
 }
 
-#include "softhddevice-drm-gles.h"
-#include "softhddevice.h"
-#include "logger.h"
-#include "h264parser.h"
-
-#include "videostream.h"
-#include "audio.h"
-#include "videorender.h"
-#include "codec_audio.h"
 #include "codec_video.h"
-
-#include "queue.h"
+#include "config.h"
+#include "h264parser.h"
+#include "logger.h"
 #include "misc.h"
+#include "queue.h"
+#include "threads.h"
+#include "videostream.h"
+#include "videorender.h"
 
 /**
  * Helper function to read a line from a given file

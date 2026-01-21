@@ -18,36 +18,17 @@
  * GNU Affero General Public License for more details.}
  */
 
-#include <cstdlib>
-#include <sys/stat.h>
-
 #include <string>
-using std::string;
-#include <fstream>
-using std::ifstream;
-#include <sys/stat.h>
 
 #include <vdr/interface.h>
-#include <vdr/player.h>
+#include <vdr/osdbase.h>
 #include <vdr/plugin.h>
 #include <vdr/videodir.h>
 
-#include "mediaplayer.h"
-#include "softhdmenu.h"
-#include "softhddevice.h"
 #include "logger.h"
-
-extern "C"
-{
-#include <libavcodec/avcodec.h>
-#include <libavformat/avformat.h>
-
-#include "misc.h"
-}
-
-#include "videostream.h"
-#include "audio.h"
-
+#include "mediaplayer.h"
+#include "softhddevice.h"
+#include "softhdmenu.h"
 
 /*****************************************************************************
  * cSoftHdMenu
@@ -268,7 +249,7 @@ eOSState cSoftHdMenu::ProcessKey(eKeys key)
 	switch (key) {
 		case kOk:
 			if (strcasestr(item->Text(), "[..]")) {
-				string newPath = m_path.substr(0 ,m_path.find_last_of("/"));
+				std::string newPath = m_path.substr(0 ,m_path.find_last_of("/"));
 
 				if (!m_lastItem.empty())
 					m_lastItem.clear();
@@ -287,7 +268,7 @@ eOSState cSoftHdMenu::ProcessKey(eKeys key)
 				PlayMedia(item->Text());
 				return osEnd;
 			} else {
-				string newPath = m_path + "/" + item->Text();
+				std::string newPath = m_path + "/" + item->Text();
 				struct stat sb;
 				if (stat(newPath.c_str(), &sb) == 0 && S_ISDIR(sb.st_mode)) {
 					m_path = newPath;
@@ -360,7 +341,7 @@ void cSoftHdMenu::PlayListMenu(void)
 	struct PLEntry *entry = cSoftHdControl::Control()->Player()->FirstEntry;
 	Clear();
 	while (1) {
-		string p_string = entry->Folder
+		std::string p_string = entry->Folder
 			+ " - " + entry->SubFolder
 			+ " - " + entry->File;
 		Add(new cOsdItem(p_string.c_str()), (entry == cSoftHdControl::Control()->Player()->CurrentEntry));
@@ -405,7 +386,7 @@ void cSoftHdMenu::SelectPL(void)
  * @param SearchPath     path to start search mediafile
  * @param playlist       if there is a play list write to play list else make a new menu
  */
-void cSoftHdMenu::FindFile(string searchPath, FILE *playlist)
+void cSoftHdMenu::FindFile(std::string searchPath, FILE *playlist)
 {
 	struct dirent **dirList;
 	int n, i;
@@ -426,7 +407,7 @@ void cSoftHdMenu::FindFile(string searchPath, FILE *playlist)
 	} else {
 		struct stat fileAttributs;
 		for (i = 0; i < n; i++) {
-			string str = searchPath + "/" + dirList[i]->d_name;
+			std::string str = searchPath + "/" + dirList[i]->d_name;
 			if (stat(str.c_str(), &fileAttributs) == -1) {
 				LOGERROR("mediaplayer: %s: stat on %s failed (%d): %m", __FUNCTION__, str.c_str(), errno);
 			} else {
@@ -441,7 +422,7 @@ void cSoftHdMenu::FindFile(string searchPath, FILE *playlist)
 			}
 		}
 		for (i = 0; i < n; i++) {
-			string str = searchPath + "/" + dirList[i]->d_name;
+			std::string str = searchPath + "/" + dirList[i]->d_name;
 			if (stat(str.c_str(), &fileAttributs) == -1) {
 				LOGERROR("mediaplayer: %s: stat on %s failed (%d): %m", __FUNCTION__, str.c_str(), errno);
 			} else {
@@ -477,7 +458,7 @@ void cSoftHdMenu::MakePlayList(const char * target, const char * mode)
 	if (m_playlist.empty())
 		m_playlist = "/default.m3u";		// if (!Playlist) ???
 
-	string plPath = cPlugin::ConfigDirectory("softhddevice-drm-gles");
+	std::string plPath = cPlugin::ConfigDirectory("softhddevice-drm-gles");
 	plPath.append(m_playlist.c_str());
 	FILE *playlist = fopen(plPath.c_str(), mode);
 
@@ -485,7 +466,7 @@ void cSoftHdMenu::MakePlayList(const char * target, const char * mode)
 		if (TestMedia(target)) {
 			fprintf(playlist, "%s/%s\n", m_path.c_str(), target);
 		} else {
-			string str = m_path + "/" + target;
+			std::string str = m_path + "/" + target;
 			FindFile(str.c_str(), playlist);
 		}
 	fclose (playlist);
@@ -499,7 +480,7 @@ void cSoftHdMenu::MakePlayList(const char * target, const char * mode)
  */
 void cSoftHdMenu::PlayMedia(const char *name)
 {
-	string aim = m_path + "/" + name;
+	std::string aim = m_path + "/" + name;
 	if (!cSoftHdControl::Control()) {
 		cControl::Launch(new cSoftHdControl(aim.c_str(), m_pDevice));
 	} else {

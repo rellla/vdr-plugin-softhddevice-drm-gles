@@ -20,17 +20,7 @@
 #ifndef __LOGGER_H
 #define __LOGGER_H
 
-#include <cstdio>
-#include <cstring>
-#include <string>
 #include <memory>
-
-#include <stdarg.h>
-#include <syslog.h>
-#include <sys/syscall.h>
-#include <unistd.h>
-
-#include "vdr/tools.h"
 
 /**
  * Logger macros

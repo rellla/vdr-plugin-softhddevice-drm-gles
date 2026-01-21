@@ -25,9 +25,6 @@
 #ifndef __DUMMYOSD_H
 #define __DUMMYOSD_H
 
-#include <vdr/config.h>
-#include <vdr/device.h>
-
 #include <vdr/osd.h>
 
 /**

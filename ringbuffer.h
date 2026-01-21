@@ -21,9 +21,7 @@
 #ifndef __SOFTHDRINGBUFFER_H
 #define __SOFTHDRINGBUFFER_H
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include <cstddef>
 
 /**
  * Atomic wrapper macros

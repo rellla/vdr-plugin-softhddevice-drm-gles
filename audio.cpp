@@ -23,18 +23,15 @@
  * GNU Affero General Public License for more details.}
  */
 
- #include <algorithm>
+#include <chrono>
+#include <cmath>
+#include <cstdint>
+#include <mutex>
+#include <vector>
 
-#include <stdint.h>
-#include <math.h>
-
-#include <libintl.h>
 #include <alsa/asoundlib.h>
 
-#include <pthread.h>
-
-extern "C"
-{
+extern "C" {
 #include <libavcodec/avcodec.h>
 #include <libavfilter/avfilter.h>
 #include <libavfilter/buffersink.h>
@@ -43,15 +40,15 @@ extern "C"
 #include <libavutil/opt.h>
 }
 
-#include "misc.h"
-
-#include "ringbuffer.h"
 #include "audio.h"
-#include "videorender.h"
-#include "codec_audio.h"
-#include "videostream.h"
-
+#include "config.h"
+#include "event.h"
+#include "filllevel.h"
 #include "logger.h"
+#include "misc.h"
+#include "pidcontroller.h"
+#include "ringbuffer.h"
+#include "softhddevice.h"
 #include "threads.h"
 
 /******************************************************************************

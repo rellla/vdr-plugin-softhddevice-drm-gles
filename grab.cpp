@@ -26,13 +26,13 @@ extern "C" {
 }
 
 #include <sys/mman.h>
+
 #include <drm_fourcc.h>
 
-#include "logger.h"
-#include "grab.h"
-#include "videorender.h"
 #include "drmbuffer.h"
-
+#include "grab.h"
+#include "logger.h"
+#include "videorender.h"
 
 /****************************************************************************************
  * Image data conversion helpers

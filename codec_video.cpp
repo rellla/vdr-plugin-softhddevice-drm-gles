@@ -22,30 +22,29 @@
  * GNU Affero General Public License for more details.}
  */
 
-#include <pthread.h>
-#include <stdlib.h>
-#include <string.h>
-#include <stdarg.h>
-#include <cassert>
+#ifdef FFMPEG_DEBUG
+#include <sys/syscall.h>
+#include <syslog.h>
+#include <unistd.h>
+#endif
 
 extern "C" {
 #include <libavcodec/avcodec.h>
 #include <libavcodec/bsf.h>
-#include <libavutil/opt.h>
+//#include <libavutil/opt.h>
 #include <libavutil/pixdesc.h>
 }
-
-#include "misc.h"
 
 #include <vdr/thread.h>
 
 #include "codec_video.h"
-#include "videorender.h"
 #include "logger.h"
+#include "misc.h"
+#include "videostream.h"
 
-#define NUM_CAPTURE_BUFFERS 10
-#define NUM_OUTPUT_BUFFERS 10
 
+//#define NUM_CAPTURE_BUFFERS 10
+//#define NUM_OUTPUT_BUFFERS 10
 #define AV_LOGLEVEL AV_LOG_TRACE
 
 /******************************************************************************

@@ -23,60 +23,43 @@
 #define __VIDEORENDER_H
 
 #include <atomic>
+#include <cstdint>
 #include <vector>
 
-#include <xf86drm.h>
 #include <xf86drmMode.h>
 
 extern "C" {
+#include <libavutil/frame.h>
 #include <libavutil/hwcontext_drm.h>
 }
 
 #ifdef USE_GLES
 #include <gbm.h>
 #include <EGL/egl.h>
-#include <EGL/eglext.h>
-#include <EGL/eglplatform.h>
-
-/* Hack:
- * xlib.h via eglplatform.h: #define Status int
- * X.h via eglplatform.h: #define CurrentTime 0L
- *
- * revert it, because it conflicts with vdr variables.
- */
-#undef Status
-#undef CurrentTime
 #endif
 
-#include <atomic>
+#include <vdr/osd.h>
+#include <vdr/thread.h>
 
-#include "logger.h"
-#include "softhddevice.h"
-#include "videostream.h"
 #include "drmbuffer.h"
+#ifdef USE_GLES
 #include "drmdevice.h"
-#include "threads.h"
-#include "grab.h"
-#include "drmplane.h"
-#include "config.h"
+#endif
 #include "event.h"
-#include "queue.h"
+#include "grab.h"
 #include "misc.h"
+#include "queue.h"
+#include "threads.h"
 
-// Hardware quirks, that are set depending on the hardware used
-#define QUIRK_NO_HW_DEINT               1 << 0     ///< set, if no hw deinterlacer available
-#define QUIRK_CODEC_FLUSH_WORKAROUND    1 << 1     ///< set, if we have to close and reopen the codec instead of avcodec_flush_buffers (rpi)
-#define QUIRK_CODEC_NEEDS_EXT_INIT      1 << 2     ///< set, if codec needs some infos for init (coded_width and coded_height)
-#define QUIRK_CODEC_SKIP_FIRST_FRAMES   1 << 3     ///< set, if codec should skip first I-Frames
-#define QUIRK_CODEC_SKIP_NUM_FRAMES     2          ///< skip QUIRK_CODEC_SKIP_NUM_FRAMES, in case QUIRK_CODEC_SKIP_FIRST_FRAMES is set
-#define QUIRK_CODEC_DISABLE_MPEG_HW     1 << 4     ///< set, if disable mpeg hardware decoder
-#define QUIRK_CODEC_DISABLE_H264_HW     1 << 5     ///< set, if disable h264 hardware decoder
+#ifndef USE_GLES
+class cDrmDevice;
+#endif
+class cSoftHdDevice;
+class cSoftHdConfig;
+class cSoftHdAudio;
 
 #define AV_SYNC_THRESHOLD_AUDIO_BEHIND_VIDEO_MS 35 ///< threshold in ms, when to duplicate video frames to keep audio and video in sync
 #define AV_SYNC_THRESHOLD_AUDIO_AHEAD_VIDEO_MS 5   ///< threshold in ms, when to drop video frames to keep audio and video in sync
-
-class cDrmDevice;
-class cGrabBuffer;
 
 class cBufferStrategy {
 public:

@@ -22,8 +22,10 @@
 #ifndef __SOFTHDSETUPMENU_H
 #define __SOFTHDSETUPMENU_H
 
-#include "softhddevice.h"
+#include <vdr/menuitems.h>
 
+class cSoftHdAudio;
+class cSoftHdConfig;
 class cSoftHdDevice;
 
 /*****************************************************************************

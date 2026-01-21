@@ -22,9 +22,20 @@
  * GNU Affero General Public License for more details.}
  */
 
+#include <cstdint>
 #include <fcntl.h>
+#include <sys/mman.h>
 
-#include "drmdevice.h"
+extern "C" {
+#include <libavutil/frame.h>
+#include <libavutil/hwcontext_drm.h>
+}
+
+#include <drm/drm_fourcc.h>
+#include <xf86drm.h>
+#include <xf86drmMode.h>
+
+#include "drmbuffer.h"
 #include "logger.h"
 #include "pool.h"
 

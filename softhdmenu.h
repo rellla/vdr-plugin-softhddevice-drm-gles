@@ -21,7 +21,11 @@
 #ifndef __SOFTHDMENU_H
 #define __SOFTHDMENU_H
 
-#include "softhddevice.h"
+#include <string>
+
+#include <vdr/osdbase.h>
+
+class cSoftHdDevice;
 
 /*****************************************************************************
  * cSoftHdMenu
@@ -54,13 +58,13 @@ private:
 	// mediaplayer
 	void MainMenu(void);
 	void SelectPL(void);
-	void FindFile(string, FILE *);
+	void FindFile(std::string, FILE *);
 	void MakePlayList(const char *, const char *);
 	int TestMedia(const char *);
 	void PlayMedia(const char *);
-	string m_path;
-	string m_lastItem;
-	string m_playlist;
+	std::string m_path;
+	std::string m_lastItem;
+	std::string m_playlist;
 };
 
 #endif

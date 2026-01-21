@@ -21,9 +21,13 @@
  * GNU Affero General Public License for more details.\
  */
 
+#include <cerrno>
+#include <cinttypes>
+#include <cstdlib>
+#include <cstring>
+
 #include <xf86drm.h>
 #include <xf86drmMode.h>
-#include <cinttypes>
 
 #include "drmplane.h"
 #include "logger.h"

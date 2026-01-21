@@ -18,7 +18,6 @@
 #ifndef JITTERTRACKER_H
 #define JITTERTRACKER_H
 
-#include <stdint.h>
 #include <chrono>
 
 class cJitterTracker {

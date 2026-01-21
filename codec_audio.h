@@ -21,6 +21,8 @@
 #ifndef __CODEC_AUDIO_H
 #define __CODEC_AUDIO_H
 
+#include <cstdint>
+
 extern "C" {
 #include <libavcodec/avcodec.h>
 }

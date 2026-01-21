@@ -20,6 +20,7 @@
 #include <vdr/remux.h>
 #include <vdr/skins.h>
 
+#include "event.h"
 #include "logger.h"
 #include "pipreceiver.h"
 #include "softhddevice.h"

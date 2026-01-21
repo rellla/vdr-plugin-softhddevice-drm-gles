@@ -23,47 +23,30 @@
  * GNU Affero General Public License for more details.}
  */
 
-#ifndef __USE_GNU
-#define __USE_GNU
-#endif
-
-#include <functional>
 #include <mutex>
 #include <variant>
-#include <algorithm>
-
-#include <assert.h>
-#include <unistd.h>
-
 #include <libintl.h>
-
-#include <pthread.h>
-#include <sys/types.h>
-#include <sys/wait.h>
-
-#include "softhddevice-drm-gles.h"
-#include "softhdosd.h"
-
-#include "softhddevice.h"
-#include "logger.h"
 
 extern "C" {
 #include <libavcodec/avcodec.h>
-#include <libavformat/avformat.h>
-#include <libavutil/timestamp.h>
-
 }
 
-#include "videostream.h"
-#include "audio.h"
-#include "videorender.h"
-#include "codec_audio.h"
-#include "codec_video.h"
-#include "pes.h"
-#include "misc.h"
-#include "pipreceiver.h"
+#include <vdr/dvbspu.h>
+#include <vdr/skins.h>
 
-#define _(str) gettext(str)                    ///< gettext shortcut
+#include "audio.h"
+#include "codec_audio.h"
+#include "config.h"
+#include "event.h"
+#include "grab.h"
+#include "jittertracker.h"
+#include "logger.h"
+#include "pes.h"
+#include "pipreceiver.h"
+#include "softhddevice.h"
+#include "softhdosd.h"
+#include "videorender.h"
+#include "videostream.h"
 
 /*****************************************************************************
  * cSoftHdDevice class
@@ -1374,7 +1357,7 @@ int cSoftHdDevice::ProcessArgs(int argc, char *argv[])
 				SetDisableOglOsd();
 #endif
 			} else {
-				fprintf(stderr, _("Workaround '%s' unsupported\n"),
+				fprintf(stderr, gettext("Workaround '%s' unsupported\n"),
 				optarg);
 				return 0;
 			}
@@ -1382,20 +1365,20 @@ int cSoftHdDevice::ProcessArgs(int argc, char *argv[])
 		case EOF:
 			break;
 		case '-':
-			fprintf(stderr, _("We need no long options\n"));
+			fprintf(stderr, gettext("We need no long options\n"));
 			return 0;
 		case ':':
-			fprintf(stderr, _("Missing argument for option '%c'\n"), optopt);
+			fprintf(stderr, gettext("Missing argument for option '%c'\n"), optopt);
 			return 0;
 		default:
-			fprintf(stderr, _("Unknown option '%c'\n"), optopt);
+			fprintf(stderr, gettext("Unknown option '%c'\n"), optopt);
 			return 0;
 		}
 		break;
 	}
 
 	while (optind < argc) {
-		fprintf(stderr, _("Unhandled argument '%s'\n"), argv[optind++]);
+		fprintf(stderr, gettext("Unhandled argument '%s'\n"), argv[optind++]);
 	}
 
 	return 1;

@@ -21,15 +21,20 @@
 #ifndef __MEDIAPLAYER_H
 #define __MEDIAPLAYER_H
 
-#include "softhddevice.h"
+#include <string>
+
+#include <vdr/player.h>
 
 struct PLEntry {
-	string Path;
-	string File;
-	string Folder;
-	string SubFolder;
+	std::string Path;
+	std::string File;
+	std::string Folder;
+	std::string SubFolder;
 	struct PLEntry *NextEntry;
 };
+
+class cSoftHdAudio;
+class cSoftHdDevice;
 
 /*****************************************************************************
  * cSoftHdPlayer (cPlayer mediaplayer)

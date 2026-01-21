@@ -22,50 +22,39 @@
  * GNU Affero General Public License for more details.}
  */
 
-#ifndef __USE_GNU
-#define __USE_GNU
-#endif
-
-#include <algorithm>
-#include <atomic>
-#include <functional>
-
-#include <stdbool.h>
-#include <unistd.h>
-
-#include <inttypes.h>
-
-#include <libintl.h>
+#include <cerrno>
+#include <cinttypes>
+#include <cstdint>
+#include <vector>
 
 #ifdef USE_GLES
 #include <assert.h>
+#include <gbm.h>
+#include <EGL/egl.h>
 #endif
-#include <pthread.h>
-#include <errno.h>
-#include <fcntl.h>
-#include <string.h>
-#include <sys/mman.h>
-#include <drm_fourcc.h>
-
-#include "logger.h"
 
 extern "C" {
 #include <libavcodec/avcodec.h>
 #include <libavutil/hwcontext_drm.h>
-#include <libavutil/pixdesc.h>
-#include <libavfilter/buffersink.h>
-#include <libavfilter/buffersrc.h>
-#include <libavutil/opt.h>
 }
 
-#include "misc.h"
+#include <drm_fourcc.h>
+#include <vdr/osd.h>
+#include <vdr/thread.h>
+#include <xf86drmMode.h>
 
-#include "videorender.h"
 #include "audio.h"
-#include "drm.h"
-#include "threads.h"
-#include "grab.h"
+#include "config.h"
 #include "drmdevice.h"
+#include "event.h"
+#include "grab.h"
+#include "logger.h"
+#include "misc.h"
+#include "queue.h"
+#include "softhddevice.h"
+#include "threads.h"
+#include "videorender.h"
+#include "videostream.h"
 
 /*****************************************************************************
  * cVideoRender class

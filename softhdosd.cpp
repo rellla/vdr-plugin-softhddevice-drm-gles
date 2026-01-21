@@ -23,13 +23,13 @@
  * GNU Affero General Public License for more details.}
  */
 
+#include "dummyosd.h"
 #include "logger.h"
 #ifdef USE_GLES
 #include "openglosd.h"
 #endif
 #include "softhddevice.h"
 #include "softhdosd.h"
-#include "dummyosd.h"
 
 /*****************************************************************************
  * OSD (software)

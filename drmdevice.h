@@ -18,54 +18,25 @@
  * GNU Affero General Public License for more details.}
  */
 
-// @todo: sort out header includes
-
 #ifndef __DRMDEVICE_H
 #define __DRMDEVICE_H
 
-#ifndef __USE_GNU
-#define __USE_GNU
-#endif
-
-#include <stdbool.h>
-#include <unistd.h>
-
-#include <inttypes.h>
-
-#include <libintl.h>
+#include <cstdint>
 
 #ifdef USE_GLES
-#include <assert.h>
 #include <EGL/egl.h>
 #endif
-#include <pthread.h>
-#include <errno.h>
-#include <fcntl.h>
-#include <string.h>
-#include <sys/mman.h>
-#include <drm_fourcc.h>
 
-#include "logger.h"
+#include <xf86drm.h>
+#include <xf86drmMode.h>
 
-extern "C" {
-#include <libavcodec/avcodec.h>
-#include <libavutil/hwcontext_drm.h>
-#include <libavutil/pixdesc.h>
-#include <libavfilter/buffersink.h>
-#include <libavfilter/buffersrc.h>
-#include <libavutil/opt.h>
-}
-
-#include "misc.h"
-
-//#include "videorender.h"
-#include "audio.h"
-#include "drm.h"
-#include "threads.h"
-#include "grab.h"
-
-// save!
 #include "drmplane.h"
+
+#ifdef USE_GLES
+class cDrmBuffer;
+#endif
+
+class cVideoRender;
 
 /*****************************************************************************
  * cDrmDevice class

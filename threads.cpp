@@ -32,13 +32,14 @@ extern "C" {
 #include <libavutil/opt.h>
 }
 
-#include "logger.h"
 #include "vdr/thread.h"
+
+#include "audio.h"
+#include "logger.h"
+#include "misc.h"
 #include "threads.h"
 #include "videorender.h"
-#include "audio.h"
 #include "videostream.h"
-#include "misc.h"
 
 /*****************************************************************************
  * cDecodingThread class

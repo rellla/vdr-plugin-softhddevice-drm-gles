@@ -20,12 +20,11 @@
 #ifndef __PIPRECEIVER_H
 #define __PIPRECEIVER_H
 
-#include <vector>
-
 #include <vdr/receiver.h>
 
 #include "event.h"
-#include "softhddevice.h"
+
+class cSoftHdDevice;
 
 /**
  * cPipReceiver - receiver class for pip

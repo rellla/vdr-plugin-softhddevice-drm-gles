@@ -22,24 +22,26 @@
 #define __AUDIO_H
 
 #include <atomic>
-#include <vector>
 #include <chrono>
+#include <mutex>
+#include <vector>
 
-extern "C"
-{
+extern "C" {
+#include <libavcodec/avcodec.h>
 #include <libavfilter/avfilter.h>
 }
 
 #include <alsa/asoundlib.h>
-#include "ringbuffer.h"
-#include "threads.h"
+
 #include "event.h"
-#include "config.h"
 #include "filllevel.h"
 #include "pidcontroller.h"
+#include "ringbuffer.h"
 
 #define NORMALIZE_MAX_INDEX 128		///< number of average values
 
+class cAudioThread;
+class cSoftHdConfig;
 class cSoftHdDevice;
 
 /**

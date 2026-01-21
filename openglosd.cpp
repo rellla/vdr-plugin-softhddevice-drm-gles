@@ -22,25 +22,34 @@
  * GNU Affero General Public License for more details.}
  */
 
-#define __STL_CONFIG_H
 #include <algorithm>
-#include <inttypes.h>
-#include <assert.h>
-#include <stdio.h>
-#include <stdlib.h>
+#include <cinttypes>
+#include <cstdio>
+#include <cstdlib>
+#include <vector>
+
 #ifdef GRIDPOINTS
 #include <string>
 #endif
-#include <vector>
-#include <sys/ioctl.h>
-
-#include "logger.h"
-#include "misc.h"
-#include "openglosd.h"
 
 #ifdef WRITE_PNG
 #include <png.h>
 #endif
+
+#include <sys/ioctl.h>
+
+#include <GLES2/gl2.h>
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/type_ptr.hpp>
+
+#include <vdr/osd.h>
+
+#include "logger.h"
+#include "misc.h"
+#include "openglosd.h"
+#include "softhddevice.h"
+#include "videorender.h"
 
 // This is needed for the GLES2 GL_CLAMP_TO_BORDER workaround
 #define BORDERCOLOR         0x00000000
