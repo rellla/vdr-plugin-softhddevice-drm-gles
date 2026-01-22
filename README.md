@@ -41,7 +41,10 @@ Both, video and OSD are rendered directly on seperate drm planes with kms.
 When the video is hardware decoded, we don't need much CPU, because everything is done
 with a zero-copy approach. That's the same for OpenGL/ES OSD.
 
-[See developer page](DEVELOPER.md)
+[See developer page](DEVELOPER/README.md)
+
+The doxygen documentation is available [here](https://vdr.imkreisrum.de/docs)
+
 
 Supported Hardware:
 -------------------
