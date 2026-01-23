@@ -1151,8 +1151,6 @@ void cVideoRender::SetScreenSize(int width, int height, double refreshRateHz)
  */
 void cVideoRender::Init(void)
 {
-	m_pDisplayThread = new cDisplayThread(this);
-
 	if (m_pDrmDevice->Init())
 		LOGFATAL("videorender: %s: failed", __FUNCTION__);
 
@@ -1250,6 +1248,8 @@ void cVideoRender::Init(void)
 
 	// init variables page flip
 	m_pDrmDevice->InitEvent();
+
+	m_pDisplayThread = new cDisplayThread(this);
 }
 
 /**
