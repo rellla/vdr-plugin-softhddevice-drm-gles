@@ -17,3 +17,5 @@ tests/test_runner
 tests/test-results.xml
 tests/coverage.info
 tests/coverage-html/
+
+git-version.h

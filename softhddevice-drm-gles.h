@@ -24,6 +24,8 @@
 
 #include "vdr/plugin.h"
 
+#include "git-version.h"
+
 #ifndef GIT_DESCRIBE
 #define GIT_DESCRIBE "-unknown"
 #endif

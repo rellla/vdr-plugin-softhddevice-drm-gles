@@ -44,7 +44,8 @@ VERSION = $(shell grep 'static const char \*const VERSION *=' $(PLUGIN).cpp | aw
 # On a tag with clean tree: empty string
 # On a tag with dirty tree: show hash with -dirty (prefixed with dash)
 # Not on a tag: show hash (with -dirty if dirty, prefixed with dash)
-GIT_DESCRIBE ?= $(shell git describe --exact-match HEAD 2>/dev/null >/dev/null && git diff --quiet && git diff --cached --quiet && echo "" || (HASH=$$(git describe --always --dirty --exclude "*" 2>/dev/null || echo "unknown"); echo "-$$HASH"))
+GIT_DESCRIBE := $(shell git describe --exact-match HEAD 2>/dev/null >/dev/null && git diff --quiet && git diff --cached --quiet && echo "" || (HASH=$$(git describe --always --dirty --exclude "*" 2>/dev/null || echo "unknown"); echo "-$$HASH"))
+GIT_VERSION_FILE := git-version.h
 
 ### The directory environment:
 
@@ -122,7 +123,7 @@ endif
 
 INCLUDES +=
 
-DEFINES += -DPLUGIN_NAME_I18N='"$(PLUGIN)"' -D_GNU_SOURCE $(CONFIG) -DGIT_DESCRIBE='"$(GIT_DESCRIBE)"'
+DEFINES += -DPLUGIN_NAME_I18N='"$(PLUGIN)"' -D_GNU_SOURCE $(CONFIG)
 
 ### Make it standard
 
@@ -163,7 +164,7 @@ ifeq ($(GLES),1)
 OBJS += openglosd.o
 endif
 
-SRCS = $(wildcard $(OBJS:.o=.c)) $(PLUGIN).cpp
+SRCS = $(wildcard *.c *.cpp) $(PLUGIN).cpp
 
 ### The main target:
 
@@ -210,9 +211,19 @@ install-i18n: $(I18Nmsgs)
 
 $(OBJS): Makefile
 
-# Force rebuild of main plugin object to update GIT_DESCRIBE
 .PHONY: force
-$(PLUGIN).o: force
+$(GIT_VERSION_FILE): force
+	@echo "building softhddevice-drm-gles version $(VERSION)$(GIT_DESCRIBE)"; \
+	tmp=$@.tmp; \
+	echo "/* auto-generated */" > $$tmp; \
+	echo "#define GIT_DESCRIBE \"$(GIT_DESCRIBE)\"" >> $$tmp; \
+	if ! cmp -s $$tmp $@; then \
+		mv $$tmp $@; \
+	else \
+		rm $$tmp; \
+	fi
+
+$(PLUGIN).o: $(GIT_VERSION_FILE)
 
 $(SOFILE): $(OBJS)
 	$(CXX) $(CXXFLAGS) $(LDFLAGS) -shared $(OBJS) $(LIBS) -o $@
@@ -234,6 +245,7 @@ clean:
 	@-rm -f $(PODIR)/*.mo $(PODIR)/*.pot
 	@-rm -f $(DEPFILE) *.o *.so *.tgz core* *~
 	@-rm -rf srcdoc
+	@-rm -f $(GIT_VERSION_FILE)
 	@$(MAKE) -C tests clean 2>/dev/null || true
 
 # Unit tests:
