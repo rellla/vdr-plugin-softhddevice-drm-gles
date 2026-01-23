@@ -43,7 +43,7 @@ with a zero-copy approach. That's the same for OpenGL/ES OSD.
 
 [See developer page](DEVELOPER/README.md)
 
-The doxygen documentation is available [here](https://vdr.imkreisrum.de/docs)
+A doxygen documentation is available [here](https://vdr.imkreisrum.de/docs)
 
 
 Supported Hardware:
@@ -65,11 +65,60 @@ SW = Device does not support hardware decoding. Software decoding is used.
 
 In general, any device that provides a DRM/KMS output and is supported by FFmpeg should work.
 
+
 Known Bugs/ TODO:
 -----------------
 - amlogic trickspeed is broken
-- rpi avcodec_flush_buffers is broken in ffmpeg, use a workaround for now
+- rpi avcodec_flush_buffers is broken in [rpi-ffmpeg](https://github.com/jc-kynesim/rpi-ffmpeg) (used in LibreELEC), use a workaround for now
 - see https://github.com/rellla/vdr-plugin-softhddevice-drm-gles/issues
+
+
+Requirements:
+-------------
+
+- No running X!
+
+- vdr (version >=2.6.6)
+
+	Video Disk Recorder - turns a pc into a powerful set top box
+	for DVB (http://www.tvdr.de/).
+
+- ffmpeg
+
+	Depending on upstreaming efforts a patched ffmpeg version may be needed (WIP LE version)
+
+	Have a look at https://github.com/LibreELEC/LibreELEC.tv/tree/master/packages/multimedia/ffmpeg
+	and choose the ffmpeg source and patches which matches your platform.
+	Most of them have not yet been upstreamed, so you probably need to build ffmpeg on your own.
+	LibreELEC supports Rockchip, Allwinner, Raspberry PI and (kind of) Amlogic.
+	Have a look at https://github.com/LibreELEC/LibreELEC.tv/tree/master/projects to find platform
+	specific patches.
+	https://github.com/jc-kynesim/rpi-ffmpeg is a very recent version for RPI4/RPI5 and probably amlogic.
+
+- kernel
+
+	Depending on upstreaming efforts a patched kernel may be needed (WIP LE version)
+
+	Have a look at https://github.com/LibreELEC/LibreELEC.tv/tree/master/packages/linux
+	and choose the linux source and patches which matches your platform.
+	Some of the needed patches have not yet been upstreamed, so you probably need to build the kernel on your own.
+	LibreELEC supports Rockchip, Allwinner, Raspberry PI and (kind of) Amlogic.
+	Have a look at https://github.com/LibreELEC/LibreELEC.tv/tree/master/projects to find platform
+	specific patches.
+
+- alsa-lib
+
+	Advanced Linux Sound Architecture Library
+	http://www.alsa-project.org
+
+- For OpenGL/ES support:
+
+	- gles2 (Mesa)
+	- egl (Mesa)
+	- gbm (Mesa)
+	- freetype2
+	- glm - OpenGL Mathematics (GLM)
+	- libpng (to write debug OSD pngs)
 
 
 Install:
@@ -113,75 +162,21 @@ When using the -d switch, make sure you use the syntax of "widthXheight@refreshr
 so for example: "-d 3840x2160@50" for 4K at 50Hz.
 
 
-Raspberry Pi 4/5:
-----------
-It is highly recommended to use the kms driver with Raspberry Pi 4/5 and not the outdated
-fkms driver. Be sure you have the following dtoverlay activated in your /boot/config.txt:
+Picture-in-Picture (PiP):
+-------------------------
+The plugins supports the picture-in-picture feature. This allows you to move your current
+stream into a small overlay window and continue watching TV as usual. You can change channels
+on the main and in the pip window. It's also possible to swap both windows. Audio is only
+available in the main stream. The pip window is always opened with the current channel and does
+not remember the last pip channel.
+You can define your individual pip window size and position and an alternative window. It's possible
+to swap between the two positions.
+PiP can be controlled via SVDRP, menu or via remote control keys, which are defined as hotkeys in
+the keymacros.conf.
+If your VDR has enough devices assigned, you can watch channels on different transponders. On one-tuner
+systems, pip should only show the channels like if you are doing a concurrent recording.
 
-	dtoverlay=vc4-kms-v3d,cma-512
-
-vc4-kms-v3d enables the new kms driver, cma-512 sets a custom cma size of 512MB.
-This is the recommended size. Only change it when you exactly know what you are doing.
-
-While using the outdated fkms driver still works with this plugin, there might be
-some problems when viewing interlaced material and displaying the OSD.
-
-To enable 4k resolution at 50Hz or 60Hz you have to set "hdmi_enable_4kp60=1" in
-/boot/config.txt. Otherwise the Raspberry Pi is only capable of displaying 4K at
-30Hz and the plugin will use 1080p at 50Hz according to the algorithm described above.
-
-In case of permission problems under Raspberry Pi OS 5 with VDR installed via apt,
-you might need to add the vdr user to the audio and render groups:
-
-	usermod -a -G audio vdr
-	usermod -a -G render vdr
-
-
-Requirements:
--------------
-
-- No running X!
-
-- vdr (version >=2.6.6)
-
-	Video Disk Recorder - turns a pc into a powerful set top box
-	for DVB (http://www.tvdr.de/).
-
-- ffmpeg
-
-	Patched ffmpeg version needed (WIP LE version)
-
-	Have a look at https://github.com/LibreELEC/LibreELEC.tv/tree/master/packages/multimedia/ffmpeg
-	and choose the ffmpeg source and patches which matches your platform.
-	Most of them have not yet been upstreamed, so you probably need to build ffmpeg on your own.
-	LibreELEC supports Rockchip, Allwinner, Raspberry PI and (kind of) Amlogic.
-	Have a look at https://github.com/LibreELEC/LibreELEC.tv/tree/master/projects to find platform
-	specific patches.
-
-- kernel
-
-	Patched kernel needed (WIP LE version)
-
-	Have a look at https://github.com/LibreELEC/LibreELEC.tv/tree/master/packages/linux
-	and choose the linux source and patches which matches your platform.
-	Some of the needed patches have not yet been upstreamed, so you probably need to build the kernel on your own.
-	LibreELEC supports Rockchip, Allwinner, Raspberry PI and (kind of) Amlogic.
-	Have a look at https://github.com/LibreELEC/LibreELEC.tv/tree/master/projects to find platform
-	specific patches.
-
-- alsa-lib
-
-	Advanced Linux Sound Architecture Library
-	http://www.alsa-project.org
-
-- For OpenGL/ES support:
-
-	- gles2 (Mesa)
-	- egl (Mesa)
-	- gbm (Mesa)
-	- freetype2
-	- glm - OpenGL Mathematics (GLM)
-	- libpng (to write debug OSD pngs)
+Note: Be aware, that the pip feature works in general but is still a little bit experimental.
 
 
 Commandline arguments:
@@ -372,6 +367,30 @@ Currently supported:
 	@softhddevice-drm-gles Blue 5      Swap pip position
 	@softhddevice-drm-gles Red 1       Detach device
 	@softhddevice-drm-gles Red 2       Attach device
+
+
+Raspberry Pi 4/5 hints:
+----------
+It is highly recommended to use the kms driver with Raspberry Pi 4/5 and not the outdated
+fkms driver. Be sure you have the following dtoverlay activated in your /boot/config.txt:
+
+	dtoverlay=vc4-kms-v3d,cma-512
+
+vc4-kms-v3d enables the new kms driver, cma-512 sets a custom cma size of 512MB.
+This is the recommended size. Only change it when you exactly know what you are doing.
+
+While using the outdated fkms driver still works with this plugin, there might be
+some problems when viewing interlaced material and displaying the OSD.
+
+To enable 4k resolution at 50Hz or 60Hz you have to set "hdmi_enable_4kp60=1" in
+/boot/config.txt. Otherwise the Raspberry Pi is only capable of displaying 4K at
+30Hz and the plugin will use 1080p at 50Hz according to the algorithm described above.
+
+In case of permission problems under Raspberry Pi OS 5 with VDR installed via apt,
+you might need to add the vdr user to the audio and render groups:
+
+	usermod -a -G audio vdr
+	usermod -a -G render vdr
 
 
 Copyright:
