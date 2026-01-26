@@ -217,7 +217,7 @@ public:
 	void PipDisable(void);
 	void PipToggle(void);
 	void PipChannelChange(int);
-	void PipChannelSwap(void);
+	void PipChannelSwap(bool);
 	void PipSwapPosition(void);
 	void PipSetSize(void);
 	void SetRenderPipSize(void);

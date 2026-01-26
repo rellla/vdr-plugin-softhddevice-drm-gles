@@ -1670,6 +1670,6 @@ void cSoftHdDevice::PipEnable(void) { m_pPipHandler->Enable(); };
 void cSoftHdDevice::PipDisable(void) { m_pPipHandler->Disable(); };
 void cSoftHdDevice::PipToggle(void) { m_pPipHandler->Toggle(); };
 void cSoftHdDevice::PipChannelChange(int dir) { m_pPipHandler->ChannelChange(dir); };
-void cSoftHdDevice::PipChannelSwap(void) { m_pPipHandler->ChannelSwap(); };
+void cSoftHdDevice::PipChannelSwap(bool closePip) { m_pPipHandler->ChannelSwap(closePip); };
 void cSoftHdDevice::PipSwapPosition(void) { m_pPipHandler->SwapPosition(); };
 void cSoftHdDevice::PipSetSize(void) { m_pPipHandler->SetSize(); };

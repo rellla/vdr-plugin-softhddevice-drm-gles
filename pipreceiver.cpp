@@ -401,8 +401,10 @@ void cPipHandler::ChannelChange(int direction)
  *
  * The channel switch of the main stream must be done out of OnEventReceived()
  * because it triggers a SetPlayMode() which end in a deadlock otherwise.
+ *
+ * @param closePip      close the pip window after the channel swap
  */
-void cPipHandler::ChannelSwap(void)
+void cPipHandler::ChannelSwap(bool closePip)
 {
 	if (!m_active)
 		return;
@@ -411,7 +413,10 @@ void cPipHandler::ChannelSwap(void)
 	if (!channel)
 		return;
 
-	m_pEventReceiver->OnEventReceived(PipEvent{PIPCHANSWAP}); // resets the pip channel to the current channel
+	if (closePip)
+		m_pEventReceiver->OnEventReceived(PipEvent{PIPSTOP});
+	else
+		m_pEventReceiver->OnEventReceived(PipEvent{PIPCHANSWAP}); // resets the pip channel to the current channel
 
 	LOCK_CHANNELS_READ;
 	LOGDEBUG("piphandler: %s: switch main stream to %d", __FUNCTION__, channel->Number());

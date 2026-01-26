@@ -97,22 +97,23 @@ void cSoftHdMenu::MainMenu(void)
 		Add(new cOsdItem(hk(tr(" Toggle")), osUser1));
 		Add(new cOsdItem(hk(tr(" Channel +")), osUser2));
 		Add(new cOsdItem(hk(tr(" Channel -")), osUser3));
-		Add(new cOsdItem(hk(tr(" Swap Channel")), osUser4));
-		Add(new cOsdItem(hk(tr(" Swap Position")), osUser5));
+		Add(new cOsdItem(hk(tr(" Swap channel")), osUser4));
+		Add(new cOsdItem(hk(tr(" Swap position")), osUser5));
+		Add(new cOsdItem(hk(tr(" Switch to pip channel")), osUser6));
 	}
 
 	Add(SeparatorSpace());
 
 	// detach
 	Add(SeparatorName("Detach"));
-	Add(new cOsdItem(hk(tr(" Detach device")), osUser6));
+	Add(new cOsdItem(hk(tr(" Detach device")), osUser7));
 
 	Add(SeparatorSpace());
 
 	// mediaplayer
 	Add(SeparatorName("Mediaplayer"));
-	Add(new cOsdItem(hk(tr(" play file / make play list")), osUser7));
-	Add(new cOsdItem(hk(tr(" select play list")), osUser8));
+	Add(new cOsdItem(hk(tr(" play file / make play list")), osUser8));
+	Add(new cOsdItem(hk(tr(" select play list")), osUser9));
 
 	SetCurrent(Get(current));          // restore selected menu entry
 	Display();
@@ -125,6 +126,7 @@ enum Hotkeys {
 	PIPCHANNELDOWN,
 	PIPCHANNELSWAP,
 	PIPPOSITIONSWAP,
+	PIPCHANNELSWITCHBACK,
 	DETACHKEYBASE = 110,
 	DETACHDEVICE,
 	ATTACHDEVICE
@@ -146,10 +148,13 @@ void cSoftHdMenu::HandleHotKey(int code) {
 			m_pDevice->PipChannelChange(-1);
 			break;
 		case PIPCHANNELSWAP:
-			m_pDevice->PipChannelSwap();
+			m_pDevice->PipChannelSwap(false);
 			break;
 		case PIPPOSITIONSWAP:
 			m_pDevice->PipSwapPosition();
+			break;
+		case PIPCHANNELSWITCHBACK:
+			m_pDevice->PipChannelSwap(true);
 			break;
 		// detach/ attach
 		case DETACHDEVICE:
@@ -222,23 +227,26 @@ eOSState cSoftHdMenu::ProcessKey(eKeys key)
 			m_pDevice->PipChannelChange(-1);
 			return osEnd;
 		case osUser4:                   // pip channel swap
-			m_pDevice->PipChannelSwap();
+			m_pDevice->PipChannelSwap(false);
 			return osEnd;
 		case osUser5:                   // pip position swap
 			m_pDevice->PipSwapPosition();
 			return osEnd;
+		case osUser6:                   // pip switch main stream back to pip stream and close pip
+			m_pDevice->PipChannelSwap(true);
+			return osEnd;
 
 		// detach
-		case osUser6:                   // detach device
+		case osUser7:                   // detach device
 			m_pDevice->Detach();
 			return osEnd;
 
 		// mediaplayer
-		case osUser7:                   // play file / make play list
+		case osUser8:                   // play file / make play list
 			m_path = cVideoDirectory::Name();
 			FindFile(m_path, NULL);
 			return osContinue;
-		case osUser8:                   // select play list
+		case osUser9:                   // select play list
 			m_path = cPlugin::ConfigDirectory("softhddevice-drm-gles");
 			SelectPL();
 			return osContinue;

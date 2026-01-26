@@ -350,6 +350,8 @@ SVDRP:
 
 	PIPC         Swap pip with main stream.
 
+	PIPS         Switch main stream to pip stream and close the pip window.
+
 	PIPP         Swap pip position between normal and alternative.
 
 Keymacros:
@@ -365,6 +367,7 @@ Currently supported:
 	@softhddevice-drm-gles Blue 3      Pip channel -
 	@softhddevice-drm-gles Blue 4      Swap pip and live stream
 	@softhddevice-drm-gles Blue 5      Swap pip position
+	@softhddevice-drm-gles Blue 6      Switch main stream to pip channel and close pip
 	@softhddevice-drm-gles Red 1       Detach device
 	@softhddevice-drm-gles Red 2       Attach device
 

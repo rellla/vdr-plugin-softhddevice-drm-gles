@@ -63,7 +63,7 @@ public:
 	void Disable(void);
 	void Toggle(void);
 	void ChannelChange(int);
-	void ChannelSwap(void);
+	void ChannelSwap(bool);
 	void SetSize(void);
 	void SwapPosition(void);
 	void HandleEvent(enum PipState);

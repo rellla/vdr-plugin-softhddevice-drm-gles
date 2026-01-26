@@ -241,6 +241,7 @@ static const char *SVDRPHelpText[] = {
 	"PIPU\n" "        Pip channel up.\n",
 	"PIPD\n" "        Pip channel down.\n",
 	"PIPC\n" "        Pip swap channels.\n",
+	"PIPS\n" "        Pip switch main stream to pip channel and close pip.\n",
 	"PIIP\n" "        Pip swap positions.\n",
 	NULL
 };
@@ -349,8 +350,16 @@ cString cPluginSoftHdDevice::SVDRPCommand(const char *command, const char *optio
 			if (!m_pDevice->PipIsEnabled())
 				return "Pip isn't enabled";
 
-			m_pDevice->PipChannelSwap();
+			m_pDevice->PipChannelSwap(false);
 			return "Pip swap channels";
+		}
+		if (!strcasecmp(command, "PIPS")) {
+			LOGDEBUG("plugin: %s: SVDRPCommand: %s %s", __FUNCTION__, command, option);
+			if (!m_pDevice->PipIsEnabled())
+				return "Pip isn't enabled";
+
+			m_pDevice->PipChannelSwap(true);
+			return "Pip switch main stream to pip channel and close pip";
 		}
 		if (!strcasecmp(command, "PIPP")) {
 			LOGDEBUG("plugin: %s: SVDRPCommand: %s %s", __FUNCTION__, command, option);
