@@ -102,6 +102,7 @@ void cMenuSetupSoft::Create(void)
 #else
 		Add(new cOsdItem(cString::sprintf(tr(" OSD: Using software rendering")), osUnknown, false));
 #endif
+		Add(new cOsdItem(cString::sprintf(tr(" Video decoder: %s (%s)"), m_pConfig->CurrentDecoderName, m_pConfig->CurrentDecoderType), osUnknown, false));
 	}
 
 #ifdef USE_GLES

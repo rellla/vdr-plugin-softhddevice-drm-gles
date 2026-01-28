@@ -77,6 +77,10 @@ public:
 	const char *ConfigAudioMixerChannel = nullptr;      ///< audio mixer channel name
 	const char *ConfigDisplayResolution = nullptr;      ///< display resolution (syntax: "1920x1080@50")
 
+	// stats
+	const char *CurrentDecoderName = "unknown";
+	const char *CurrentDecoderType = "unknown";
+
 	void PrintLogLevel(int);
 };
 

@@ -98,6 +98,7 @@ protected:
 	cVideoStream(cVideoRender *, cQueue<cDrmBuffer> *, cSoftHdConfig *, bool, std::function<void(AVFrame *)>);
 
 private:
+	cSoftHdConfig *m_pConfig;           ///< plugin config
 	cVideoDecoder *m_pDecoder;          ///< video decoder
 	cVideoRender *m_pRender;            ///< video renderer
 	cFilterThread *m_pFilterThread;     ///< pointer to deinterlace filter thread

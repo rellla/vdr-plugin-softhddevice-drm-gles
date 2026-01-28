@@ -152,7 +152,8 @@ static int ReadHWPlatform(void)
  * cVideoStream constructor
  */
 cVideoStream::cVideoStream(cVideoRender *render, cQueue<cDrmBuffer> *drmBufferQueue, cSoftHdConfig *config, bool isPipStream, std::function<void(AVFrame *)> frameOutput)
-	: m_pDecoder(nullptr),
+	: m_pConfig(config),
+	  m_pDecoder(nullptr),
 	  m_pRender(render),
 	  m_identifier(isPipStream ? "PIP" : "main"),
 	  m_frameOutput(frameOutput),
@@ -311,8 +312,11 @@ void cVideoStream::DecodeInput(void)
 			LOGDEBUG2(L_CODEC, "videostream %s: %s: Parsed width %d height %d", m_identifier, __FUNCTION__, width, height);
 		}
 
-		if (m_pDecoder->Open(m_codecId, m_pPar, m_timebase, 0, width, height))
+		if (m_pDecoder->Open(m_codecId, m_pPar, m_timebase, false, width, height))
 			LOGFATAL("videostream %s: %s: Could not open the decoder!", m_identifier, __FUNCTION__);
+
+		m_pConfig->CurrentDecoderType = m_pDecoder->IsHardwareDecoder() ? "hardware" : "software";
+		m_pConfig->CurrentDecoderName = m_pDecoder->Name();
 		m_newStream = false;
 	}
 

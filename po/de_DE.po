@@ -87,6 +87,10 @@ msgstr " OSD: Benutze %s rendering"
 msgid " OSD: Using software rendering"
 msgstr " OSD: Benutze software rendering"
 
+#, c-format
+msgid " Video decoder: %s (%s)"
+msgstr " Video Dekodierer: %s (%s)"
+
 msgid "Debug"
 msgstr "Debug"
 
