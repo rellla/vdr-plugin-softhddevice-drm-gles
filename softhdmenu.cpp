@@ -97,7 +97,7 @@ void cSoftHdMenu::MainMenu(void)
 		Add(new cOsdItem(hk(tr(" Toggle")), osUser1));
 		Add(new cOsdItem(hk(tr(" Channel +")), osUser2));
 		Add(new cOsdItem(hk(tr(" Channel -")), osUser3));
-		Add(new cOsdItem(hk(tr(" Swap channel")), osUser4));
+		Add(new cOsdItem(hk(tr(" Swap channels")), osUser4));
 		Add(new cOsdItem(hk(tr(" Swap position")), osUser5));
 		Add(new cOsdItem(hk(tr(" Switch to pip channel")), osUser6));
 	}
