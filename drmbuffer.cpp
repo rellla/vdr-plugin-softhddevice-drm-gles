@@ -31,7 +31,7 @@ extern "C" {
 #include <libavutil/hwcontext_drm.h>
 }
 
-#include <drm/drm_fourcc.h>
+#include <drm_fourcc.h>
 #include <xf86drm.h>
 #include <xf86drmMode.h>
 
