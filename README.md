@@ -192,6 +192,7 @@ Use vdr -h to see the command line arguments supported by the plugin.
 		disable-ogl-osd (to disable HW accelerated OSD)
 		disable-pip (to force disabling the pip feature)
 
+
 Setup:	environment
 -------------------
 
@@ -320,14 +321,10 @@ SVDRP:
 	PLAY Url    Play the media from the given url.
 		Tested extension: *.mp3, *.mp4, *.m3u, *.m3u8
 
-	Play a local file:
-		svdrpsend plug softhddevice-drm-gles PLAY /path_to_file/media_file.mp4
-
-	Play a playlist inside ConfigDirectory:
-		svdrpsend plug softhddevice-drm-gles PLAY playlist_name.m3u
-
-	Play a media file from web:
-		svdrpsend plug softhddevice-drm-gles PLAY http://www.media-server/path_to_file/media_file.mp4
+		Url can be a
+			- local file: /path_to_file/media_file.mp4
+			- playlist: playlist_name.m3u
+			- link: http://www.media-server/path_to_file/media_file.mp4
 
 	DETA         Detach the plugin.
 		An "ATTA" is needed in order to exit a detached state and to continue playback.
@@ -370,6 +367,25 @@ Currently supported:
 	@softhddevice-drm-gles Blue 6      Switch main stream to pip channel and close pip
 	@softhddevice-drm-gles Red 1       Detach device
 	@softhddevice-drm-gles Red 2       Attach device
+
+
+Mediaplayer:
+------------
+
+The plugin has an integrated mediaplayer reduced to the most important player functions.
+Playback can be started with svdrp or via the main menu. If the mediaplayer is called via
+the main menu, you can either choose a previously created playlist, create a new playlist or
+simply play a single file.
+
+In replay mode, you can control playback with the following keys:
+
+	OK:       Show/ Hide replay menu
+	Play:     Play if paused
+	Pause:    Pause if playing, play again if paused
+	Green:    Jump 60s backwards
+	Yellow:   Jump 60s forward
+	Blue:     Stop replay and end player
+	Next:     Continue with next file in playlist if available
 
 
 Raspberry Pi 4/5 hints:
