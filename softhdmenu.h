@@ -57,10 +57,10 @@ private:
 
 	// mediaplayer
 	void MainMenu(void);
-	void SelectPL(void);
-	void FindFile(std::string, FILE *);
+	void SelectPlaylistMenu(void);
+	void FindFileMenu(std::string, FILE *);
 	void MakePlayList(const char *, const char *);
-	int TestMedia(const char *);
+	int IsValidMediaFile(const char *);
 	void PlayMedia(const char *);
 	std::string m_path;
 	std::string m_lastItem;

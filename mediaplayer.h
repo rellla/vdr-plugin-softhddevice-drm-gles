@@ -21,6 +21,7 @@
 #ifndef __MEDIAPLAYER_H
 #define __MEDIAPLAYER_H
 
+#include <atomic>
 #include <string>
 
 #include <vdr/player.h>
@@ -49,15 +50,17 @@ public:
 
 	struct PLEntry *FirstEntry;
 	struct PLEntry *CurrentEntry;
+
 	void SetEntry(int);
 	const char * GetTitle(void);
-	int Jump;
-	int Pause = 0;
-	int StopPlay;
-	int Random = 0;
-	int NoModify;
-	int CurrentTime;
-	int Duration;
+	void JumpSec(int seconds) { m_jumpSec = seconds; };
+	void Pause(bool pause) { m_paused = pause; };
+	bool IsPaused(void) { return m_paused; };
+	void Stop(void) { m_stopped = true; };
+	void ToggleRandomPlay(void) { m_random = !m_random; }
+	bool IsRandomPlayActive(void) { return m_random; }
+	int CurrentTime(void) { return m_currentTime; }
+	int Duration(void) { return m_duration; };
 
 protected:
 	virtual void Activate(bool On);
@@ -65,12 +68,19 @@ protected:
 
 private:
 	void Player(const char *);
-	void ReadPL(const char *);
+	void ReadPlaylist(const char *);
 
 	char *m_pSource;
 	int m_Entries;
 	cSoftHdDevice *m_pDevice;
 	cSoftHdAudio *m_pAudio;
+	std::atomic<int> m_jumpSec = 0;
+	std::atomic<bool> m_paused = false;
+	std::atomic<bool> m_stopped = false;
+	std::atomic<bool> m_random = false;
+	bool m_noModify = false;
+	int m_currentTime = 0;
+	int m_duration = 0;
 };
 
 /*****************************************************************************
@@ -89,7 +99,7 @@ public:
 	virtual eOSState ProcessKey(eKeys);
 	static cSoftHdControl *Control() { return m_pControl; }
 	static cSoftHdPlayer *Player() { return m_pPlayer; }
-	bool Close = false;
+	void Close(void) { m_closing = true; };
 
 private:
 	void ShowProgress();
@@ -98,6 +108,8 @@ private:
 	static cSoftHdPlayer *m_pPlayer;
 	cSkinDisplayReplay *m_pOsd = NULL;
 	cSoftHdDevice *m_pDevice;
+
+	bool m_closing = false;
 };
 
 #endif
