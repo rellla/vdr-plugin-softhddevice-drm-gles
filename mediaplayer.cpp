@@ -41,6 +41,35 @@ extern "C" {
 #include "softhdmenu.h"
 
 /*****************************************************************************
+ * cPlaylistEntry
+ ****************************************************************************/
+
+/**
+ * Playlist entry constructor
+ *
+ * @param path    full path name to the file
+ */
+cPlaylistEntry::cPlaylistEntry(std::string path)
+	: m_path(path)
+{
+	m_file = m_path.substr(m_path.find_last_of("/") +1, std::string::npos);
+
+	std::string subString = m_path.substr(0, m_path.find_last_of("/"));
+	m_subFolder = subString.substr(subString.find_last_of("/") +1, std::string::npos);
+
+	std::string folderString = m_path.substr(0, subString.find_last_of("/"));
+	m_folder = folderString.substr(folderString.find_last_of("/") +1, std::string::npos);
+}
+
+/**
+ * Compose folder, subfolder and filename to a string for the OSD entry
+ */
+std::string cPlaylistEntry::OsdItemString(void)
+{
+	return (m_folder + " - " + m_subFolder + " - " + m_file);
+}
+
+/*****************************************************************************
  * cSoftHdPlayer (cPlayer mediaplayer)
  ****************************************************************************/
 
@@ -55,7 +84,7 @@ static bool IsM3UPlaylist(char *source)
 }
 
 /**
- * Player  constructor
+ * Player constructor
  *
  * @param url             file or playlist to be played
  * @param device          pointer to device
@@ -70,9 +99,9 @@ cSoftHdPlayer::cSoftHdPlayer(const char *url, cSoftHdDevice *device)
 
 	if (IsM3UPlaylist(m_pSource)) {
 		ReadPlaylist(m_pSource);
-		CurrentEntry = FirstEntry;
+		m_pCurrentEntry = m_pFirstEntry;
 	} else
-		FirstEntry = CurrentEntry = NULL;
+		m_pFirstEntry = m_pCurrentEntry = nullptr;
 
 	LOGDEBUG2(L_MEDIA, "mediaplayer: %s: player started", __FUNCTION__);
 }
@@ -86,13 +115,12 @@ cSoftHdPlayer::~cSoftHdPlayer()
 {
 	m_stopped = true;
 	free(m_pSource);
-	if (FirstEntry) {
-		while(FirstEntry) {
-			PLEntry *entry = FirstEntry;
-			FirstEntry = entry->NextEntry;
-			delete entry;
-			m_Entries--;
-		}
+
+	while (m_pFirstEntry) {
+		cPlaylistEntry *entry = m_pFirstEntry;
+		m_pFirstEntry = entry->NextEntry();
+		delete entry;
+		m_entries--;
 	}
 
 	LOGDEBUG2(L_MEDIA, "mediaplayer: %s: player stopped", __FUNCTION__);
@@ -103,10 +131,10 @@ cSoftHdPlayer::~cSoftHdPlayer()
  *
  * Called right after the player has been attached
  */
-void cSoftHdPlayer::Activate(bool On)
+void cSoftHdPlayer::Activate(bool on)
 {
-	LOGDEBUG2(L_MEDIA, "mediaplayer: %s: %s", __FUNCTION__, On ? "On" : "Off");
-	if (On)
+	LOGDEBUG2(L_MEDIA, "mediaplayer: %s: %s", __FUNCTION__, on ? "On" : "Off");
+	if (on)
 		Start();
 }
 
@@ -121,16 +149,16 @@ void cSoftHdPlayer::Action(void)
 	m_noModify = false;
 
 	if (IsM3UPlaylist(m_pSource)) {
-		while(CurrentEntry) {
+		while(m_pCurrentEntry) {
 			m_jumpSec = 0;
-			Player(CurrentEntry->Path.c_str());
+			Play(m_pCurrentEntry->Path().c_str());
 
 			if (!m_noModify) {
-				CurrentEntry = CurrentEntry->NextEntry;
+				m_pCurrentEntry = m_pCurrentEntry->NextEntry();
 
 				if (m_random) {
 					srand (time (NULL));
-					SetEntry(std::rand() % (m_Entries));
+					SetEntry(std::rand() % (m_entries));
 				}
 			}
 			m_noModify = 0;
@@ -139,7 +167,7 @@ void cSoftHdPlayer::Action(void)
 				cSoftHdMenu::Menu()->PlayListMenu();
 		}
 	} else
-		Player(m_pSource);
+		Play(m_pSource);
 
 	while(m_pAudio->GetHardwareOutputPtsMs() != AV_NOPTS_VALUE)
 		usleep(5000);
@@ -152,45 +180,35 @@ void cSoftHdPlayer::Action(void)
  *
  * and fill the list
  */
-void cSoftHdPlayer::ReadPlaylist(const char *Playlist)
+void cSoftHdPlayer::ReadPlaylist(const char *playlist)
 {
-	std::ifstream f;
-	PLEntry *last_entry = NULL;
-	m_Entries = 0;
+	std::ifstream inputFile;
+	cPlaylistEntry *lastEntry = nullptr;
+	m_entries = 0;
 
-	f.open(Playlist);
-	if (!f.good()) {
-		LOGERROR("mediaplayer: %s: open PL %s failed", __FUNCTION__, Playlist);
+	inputFile.open(playlist);
+	if (!inputFile.good()) {
+		LOGERROR("mediaplayer: %s: open PL %s failed", __FUNCTION__, playlist);
 		return;
 	}
 
-	while (!f.eof()) {
+	while (!inputFile.eof()) {
 		std::string s;
-		getline(f, s);
+		getline(inputFile, s);
 		if (s.size() && s.compare(0, 1, "#")) {
-			PLEntry *entry = new PLEntry;
-			entry->NextEntry = NULL;
+			cPlaylistEntry *entry = new cPlaylistEntry(s);
 
-			entry->Path = s;
-			entry->File = entry->Path.substr(entry->Path.find_last_of("/") +1, std::string::npos);
-
-			std::string SubString = entry->Path.substr(0, entry->Path.find_last_of("/"));
-			entry->SubFolder = SubString.substr(SubString.find_last_of("/") +1, std::string::npos);
-
-			std::string FolderString = entry->Path.substr(0, SubString.find_last_of("/"));
-			entry->Folder = FolderString.substr(FolderString.find_last_of("/") +1, std::string::npos);
-
-			if (!last_entry)
-				FirstEntry = entry;
+			if (!lastEntry)
+				m_pFirstEntry = entry;
 			else
-				last_entry->NextEntry = entry;
+				lastEntry->SetNextEntry(entry);
 
-			last_entry = entry;
-			m_Entries++;
+			lastEntry = entry;
+			m_entries++;
 		}
 	}
 
-	f.close();
+	inputFile.close();
 }
 
 /**
@@ -200,13 +218,14 @@ void cSoftHdPlayer::ReadPlaylist(const char *Playlist)
  */
 void cSoftHdPlayer::SetEntry(int index)
 {
-	PLEntry *entry;
-	entry = FirstEntry;
+	cPlaylistEntry *entry;
+	entry = m_pFirstEntry;
 
 	for (int i = 0; i < index ; i++) {
-		entry = entry->NextEntry;
+		entry = entry->NextEntry();
 	}
-	CurrentEntry = entry;
+
+	m_pCurrentEntry = entry;
 	m_noModify = true;
 	m_stopped = true;
 }
@@ -216,18 +235,18 @@ void cSoftHdPlayer::SetEntry(int index)
  *
  * @param url       file to play
  */
-void cSoftHdPlayer::Player(const char *url)
+void cSoftHdPlayer::Play(const char *url)
 {
 #if LIBAVFORMAT_VERSION_INT < AV_VERSION_INT(59,0,100)
-	AVCodec *video_codec;
+	AVCodec *videoCodec;
 #else
-	const AVCodec *video_codec;
+	const AVCodec *videoCodec;
 #endif
 	int err = 0;
-	int audio_stream_index = 0;
-	int video_stream_index;
-	int jump_stream_index = 0;
-	int start_time;
+	int audioStreamIdx = 0;
+	int videoStreamIdx;
+	int jumpStreamIdx = 0;
+	int startTime;
 
 	m_stopped = false;
 	m_jumpSec = 0;
@@ -249,25 +268,24 @@ void cSoftHdPlayer::Player(const char *url)
 		if (format->streams[i]->codecpar->codec_type == AVMEDIA_TYPE_AUDIO) {
 			m_pDevice->SetAudioCodec(format->streams[i]->codecpar->codec_id,
 				format->streams[i]->codecpar, format->streams[i]->time_base);
-			audio_stream_index = jump_stream_index = i;
+			audioStreamIdx = jumpStreamIdx = i;
 			break;
 		}
 	}
 
-	video_stream_index = av_find_best_stream(format, AVMEDIA_TYPE_VIDEO,
-		-1, -1, &video_codec, 0);
+	videoStreamIdx = av_find_best_stream(format, AVMEDIA_TYPE_VIDEO, -1, -1, &videoCodec, 0);
 
-	if (video_stream_index < 0) {
+	if (videoStreamIdx < 0) {
 		LOGDEBUG2(L_MEDIA, "mediaplayer: %s: stream does not seem to contain video", __FUNCTION__);
 	} else {
-		m_pDevice->SetVideoCodec(video_codec->id,
-			format->streams[video_stream_index]->codecpar,
-			format->streams[video_stream_index]->time_base);
-		jump_stream_index = video_stream_index;
+		m_pDevice->SetVideoCodec(videoCodec->id,
+			format->streams[videoStreamIdx]->codecpar,
+			format->streams[videoStreamIdx]->time_base);
+		jumpStreamIdx = videoStreamIdx;
 	}
 
 	m_duration = format->duration / AV_TIME_BASE;
-	start_time = format->start_time / AV_TIME_BASE;
+	startTime = format->start_time / AV_TIME_BASE;
 
 	AVPacket *packet = nullptr;
 	while (!m_stopped) {
@@ -288,19 +306,19 @@ void cSoftHdPlayer::Player(const char *url)
 			}
 		}
 
-		if (audio_stream_index == packet->stream_index) {
+		if (audioStreamIdx == packet->stream_index) {
 			if (!m_pDevice->PlayAudioPkts(packet)) {
 				usleep(packet->duration * AV_TIME_BASE *
-					av_q2d(format->streams[audio_stream_index]->time_base));
+					av_q2d(format->streams[audioStreamIdx]->time_base));
 			} else {
-				m_currentTime = m_pAudio->GetHardwareOutputPtsMs() / 1000 - start_time;
+				m_currentTime = m_pAudio->GetHardwareOutputPtsMs() / 1000 - startTime;
 				av_packet_free(&packet);
 				packet = nullptr;
 			}
-		} else if (video_stream_index == packet->stream_index) {
+		} else if (videoStreamIdx == packet->stream_index) {
 			if (!m_pDevice->PlayVideoPkts(packet)) {
 				usleep(packet->duration * AV_TIME_BASE *
-					av_q2d(format->streams[video_stream_index]->time_base));
+					av_q2d(format->streams[videoStreamIdx]->time_base));
 			} else {
 				packet = nullptr;
 			}
@@ -313,9 +331,9 @@ void cSoftHdPlayer::Player(const char *url)
 			sleep(1);
 
 		if (m_jumpSec && format->pb->seekable) {
-			av_seek_frame(format, format->streams[jump_stream_index]->index,
+			av_seek_frame(format, format->streams[jumpStreamIdx]->index,
 				packet->pts + (int64_t)(m_jumpSec /		// - BufferOffset
-				av_q2d(format->streams[jump_stream_index]->time_base)), 0);
+				av_q2d(format->streams[jumpStreamIdx]->time_base)), 0);
 			m_pDevice->Clear();
 			m_jumpSec = 0;
 
@@ -339,17 +357,6 @@ void cSoftHdPlayer::Player(const char *url)
 
 	avformat_close_input(&format);
 	avformat_free_context(format);
-}
-
-/**
- * Get the title of the currently played file
- */
-const char * cSoftHdPlayer::GetTitle(void)
-{
-	if (CurrentEntry)
-		return CurrentEntry->Path.c_str();
-
-	return m_pSource;
 }
 
 /*****************************************************************************
@@ -404,7 +411,7 @@ void cSoftHdControl::ShowProgress(void)
 		m_pOsd = Skins.Current()->DisplayReplay(false);
 	}
 
-	m_pOsd->SetTitle(m_pPlayer->GetTitle());
+	m_pOsd->SetTitle(m_pPlayer->CurrentPlaylistEntry() ? m_pPlayer->CurrentPlaylistEntry()->Path().c_str() : m_pPlayer->Source());
 	m_pOsd->SetProgress(m_pPlayer->CurrentTime(), m_pPlayer->Duration());
 	m_pOsd->SetCurrent(IndexToHMSF(m_pPlayer->CurrentTime(), false, 1));
 	m_pOsd->SetTotal(IndexToHMSF(m_pPlayer->Duration(), false, 1));

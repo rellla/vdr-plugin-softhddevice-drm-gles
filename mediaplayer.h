@@ -26,16 +26,30 @@
 
 #include <vdr/player.h>
 
-struct PLEntry {
-	std::string Path;
-	std::string File;
-	std::string Folder;
-	std::string SubFolder;
-	struct PLEntry *NextEntry;
-};
-
 class cSoftHdAudio;
 class cSoftHdDevice;
+
+/*****************************************************************************
+ * cPlaylistEntry
+ *
+ * class for a playlist entry
+ ****************************************************************************/
+class cPlaylistEntry
+{
+public:
+	cPlaylistEntry(std::string);
+
+	std::string OsdItemString(void);
+	cPlaylistEntry* NextEntry(void) { return m_pNextEntry; };
+	void SetNextEntry(cPlaylistEntry *entry) { m_pNextEntry = entry; };
+	std::string Path(void) { return m_path; };
+private:
+	std::string m_path;
+	std::string m_file;
+	std::string m_subFolder;
+	std::string m_folder;
+	cPlaylistEntry *m_pNextEntry = nullptr;
+};
 
 /*****************************************************************************
  * cSoftHdPlayer (cPlayer mediaplayer)
@@ -48,11 +62,9 @@ public:
 	cSoftHdPlayer(const char *, cSoftHdDevice *);
 	virtual ~cSoftHdPlayer();
 
-	struct PLEntry *FirstEntry;
-	struct PLEntry *CurrentEntry;
-
 	void SetEntry(int);
-	const char * GetTitle(void);
+	const char *Source(void) { return m_pSource; };
+
 	void JumpSec(int seconds) { m_jumpSec = seconds; };
 	void Pause(bool pause) { m_paused = pause; };
 	bool IsPaused(void) { return m_paused; };
@@ -61,17 +73,22 @@ public:
 	bool IsRandomPlayActive(void) { return m_random; }
 	int CurrentTime(void) { return m_currentTime; }
 	int Duration(void) { return m_duration; };
+	cPlaylistEntry *FirstPlaylistEntry(void) { return m_pFirstEntry; };
+	cPlaylistEntry *CurrentPlaylistEntry(void) { return m_pCurrentEntry; };
 
 protected:
 	virtual void Activate(bool On);
 	virtual void Action(void);
 
 private:
-	void Player(const char *);
+	void Play(const char *);
 	void ReadPlaylist(const char *);
 
+	cPlaylistEntry *m_pFirstEntry = nullptr;
+	cPlaylistEntry *m_pCurrentEntry = nullptr;
+
 	char *m_pSource;
-	int m_Entries;
+	int m_entries;
 	cSoftHdDevice *m_pDevice;
 	cSoftHdAudio *m_pAudio;
 	std::atomic<int> m_jumpSec = 0;
@@ -95,7 +112,6 @@ public:
 	virtual ~cSoftHdControl();
 
 	virtual void Hide(void);
-	virtual cOsdObject *GetLOGINFO(void) { return NULL; };
 	virtual eOSState ProcessKey(eKeys);
 	static cSoftHdControl *Control() { return m_pControl; }
 	static cSoftHdPlayer *Player() { return m_pPlayer; }
@@ -106,9 +122,8 @@ private:
 
 	static cSoftHdControl *m_pControl;
 	static cSoftHdPlayer *m_pPlayer;
-	cSkinDisplayReplay *m_pOsd = NULL;
+	cSkinDisplayReplay *m_pOsd = nullptr;
 	cSoftHdDevice *m_pDevice;
-
 	bool m_closing = false;
 };
 

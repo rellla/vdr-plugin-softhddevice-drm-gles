@@ -45,7 +45,7 @@ cSoftHdMenu::cSoftHdMenu(const char *title, cSoftHdDevice *device,
 	pSoftHdMenu = this;
 	m_playlist.clear();
 
-	if (cSoftHdControl::Control() && cSoftHdControl::Control()->Player()->FirstEntry) {
+	if (cSoftHdControl::Control() && cSoftHdControl::Control()->Player()->FirstPlaylistEntry()) {
 		LOGDEBUG2(L_MEDIA, "mediaplayer: %s: pointer to cSoftHdControl exist.", __FUNCTION__);
 		PlayListMenu();		// Test if PL!!!
 	} else {
@@ -267,7 +267,7 @@ eOSState cSoftHdMenu::ProcessKey(eKeys key)
 				FindFileMenu(m_path.c_str(), NULL);
 				break;
 			}
-			if (cSoftHdControl::Control() && cSoftHdControl::Control()->Player()->CurrentEntry) {
+			if (cSoftHdControl::Control() && cSoftHdControl::Control()->Player()->CurrentPlaylistEntry()) {
 				cSoftHdControl::Control()->Player()->SetEntry(Current());
 //				PlayListMenu();
 				break;
@@ -285,7 +285,7 @@ eOSState cSoftHdMenu::ProcessKey(eKeys key)
 			}
 			break;
 		case kRed:
-			if (cSoftHdControl::Control() && cSoftHdControl::Control()->Player()->CurrentEntry) {
+			if (cSoftHdControl::Control() && cSoftHdControl::Control()->Player()->CurrentPlaylistEntry()) {
 				cSoftHdControl::Control()->Player()->ToggleRandomPlay();
 				PlayListMenu();
 				break;
@@ -350,18 +350,16 @@ eOSState cSoftHdMenu::ProcessKey(eKeys key)
  */
 void cSoftHdMenu::PlayListMenu(void)
 {
-	struct PLEntry *entry = cSoftHdControl::Control()->Player()->FirstEntry;
+	cPlaylistEntry *entry = cSoftHdControl::Control()->Player()->FirstPlaylistEntry();
 	Clear();
 	while (1) {
-		std::string p_string = entry->Folder
-			+ " - " + entry->SubFolder
-			+ " - " + entry->File;
-		Add(new cOsdItem(p_string.c_str()), (entry == cSoftHdControl::Control()->Player()->CurrentEntry));
+		std::string p_string = entry->OsdItemString();
+		Add(new cOsdItem(p_string.c_str()), (entry == cSoftHdControl::Control()->Player()->CurrentPlaylistEntry()));
 
-		if (!entry->NextEntry)
+		if (!entry->NextEntry())
 			break;
 
-		entry = entry->NextEntry;
+		entry = entry->NextEntry();
 	}
 	SetHelp(cSoftHdControl::Control()->Player()->IsRandomPlayActive() ? "Random Play" : " No Random Play",
 		"Jump -1 min", "Jump +1 min", "End player");
