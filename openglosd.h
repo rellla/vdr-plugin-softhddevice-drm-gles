@@ -382,9 +382,8 @@ private:
 	GLint bcolor;
 	int active;
 	cSoftHdDevice *Device;
-	cVideoRender *Render;
 public:
-	cOglCmdCopyBufferToOutputFb(cOglFb *fb, cOglOutputFb *oFb, GLint x, GLint y, int active, cSoftHdDevice *device, cVideoRender *render);
+	cOglCmdCopyBufferToOutputFb(cOglFb *fb, cOglOutputFb *oFb, GLint x, GLint y, int active, cSoftHdDevice *device);
 	virtual ~cOglCmdCopyBufferToOutputFb(void) {};
 	virtual const char* Description(void) { return "Copy buffer to OutputFramebuffer"; }
 	virtual bool Execute(void);
@@ -605,27 +604,28 @@ public:
 /******************************************************************************
 * cOglOsd
 ******************************************************************************/
-class cOglOsd : public cOsd {
-private:
-	cOglFb *bFb;
-	std::shared_ptr<cOglThread> oglThread;
-	cVector<cOglPixmap *> oglPixmaps;
-	bool isSubtitleOsd;
-	cSize maxPixmapSize;
-	cRect *dirtyViewport;
-	cSoftHdDevice *Device;
-	cVideoRender *Render;
-protected:
+class cOglOsd : public cOsd
+{
 public:
-	cOglOsd(int Left, int Top, uint Level, std::shared_ptr<cOglThread> oglThread, cSoftHdDevice *device);
+	cOglOsd(int, int, uint, std::shared_ptr<cOglThread>, cSoftHdDevice *);
 	virtual ~cOglOsd();
-	virtual eOsdError SetAreas(const tArea *Areas, int NumAreas);
-	virtual cPixmap *CreatePixmap(int Layer, const cRect &ViewPort, const cRect &DrawPort = cRect::Null);
-	virtual void DestroyPixmap(cPixmap *Pixmap);
+
+	virtual eOsdError SetAreas(const tArea *, int);
+	virtual cPixmap *CreatePixmap(int, const cRect &, const cRect &DrawPort = cRect::Null);
+	virtual void DestroyPixmap(cPixmap *);
 	virtual void Flush(void);
-	virtual const cSize &MaxPixmapSize(void) const;
-	virtual void DrawScaledBitmap(int x, int y, const cBitmap &Bitmap, double FactorX, double FactorY, bool AntiAlias = false);
-	static cOglOutputFb *oFb;
+	virtual const cSize &MaxPixmapSize(void) const { return m_maxPixmapSize; };
+	virtual void DrawScaledBitmap(int, int, const cBitmap &, double, double, bool AntiAlias = false);
+
+	static cOglOutputFb *OutputFramebuffer;        ///< main OSD output framebuffer - this keeps our finished "OSD"
+private:
+	cOglFb *m_pBufferFramebuffer = nullptr;        ///< pointer to framebuffer, where all pixmaps are blit in before the real flush
+	std::shared_ptr<cOglThread> m_pOglThread;      ///< pointer to thread, which executes the commands
+	cVector<cOglPixmap *> m_pOglPixmaps;           ///< pixmap array
+	bool m_isSubtitleOsd;                          ///< is this a subtitle osd?
+	cSize m_maxPixmapSize;                         ///< maximum allowed size of a pixmap
+	cRect m_pDirtyViewport;                        ///< the dirty viewport
+	cSoftHdDevice *m_pDevice;                      ///< pointer to cSofthdDevice
 };
 
-#endif //__SOFTHDDEVICE_OPENGLOSD_H
+#endif
