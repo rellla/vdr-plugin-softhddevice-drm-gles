@@ -270,35 +270,37 @@ enum eVertexBufferType {
 	vbCount
 };
 
-class cOglVb {
-private:
-	eVertexBufferType type;
-	eShaderType shader;
-	GLuint vao;
-	GLuint vbo;
-	GLuint positionLoc;
-	GLuint texCoordsLoc;
-	int sizeVertex1;
-	int sizeVertex2;
-	int numVertices;
-	GLuint drawMode;
+class cOglVb
+{
 public:
-	cOglVb(int type);
-	virtual ~cOglVb(void);
+	cOglVb(int type) : m_type((eVertexBufferType)type) {};
+	virtual ~cOglVb(void) {};
+
 	bool Init(void);
 	void Bind(void);
 	void Unbind(void);
 	void ActivateShader(void);
 	void EnableBlending(void);
 	void DisableBlending(void);
-	void SetShaderColor(GLint color);
-	void SetShaderBorderColor(GLint bcolor);
-	void SetShaderTexture(GLint value);
-	void SetShaderAlpha(GLint alpha);
-	void SetShaderProjectionMatrix(GLint width, GLint height);
-	void SetVertexSubData(GLfloat *vertices, int count = 0);
-	void SetVertexData(GLfloat *vertices, int count = 0);
+	void SetShaderColor(GLint);
+	void SetShaderBorderColor(GLint);
+	void SetShaderTexture(GLint);
+	void SetShaderAlpha(GLint);
+	void SetShaderProjectionMatrix(GLint, GLint);
+	void SetVertexSubData(GLfloat *, int count = 0);
+	void SetVertexData(GLfloat *, int count = 0);
 	void DrawArrays(int count = 0);
+private:
+	eVertexBufferType m_type;
+	eShaderType m_shader;
+	GLuint m_vao;
+	GLuint m_vbo = 0;
+	GLuint m_positionLoc = 0;
+	GLuint m_texCoordsLoc = 1;
+	int m_sizeVertex1 = 0;
+	int m_sizeVertex2 = 0;
+	int m_numVertices = 0;
+	GLuint m_drawMode = 0;
 };
 
 /****************************************************************************************
