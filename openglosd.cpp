@@ -52,10 +52,7 @@
 #include "softhddevice.h"
 #include "videorender.h"
 
-// This is needed for the GLES2 GL_CLAMP_TO_BORDER workaround
-#define BORDERCOLOR         0x00000000
-
-// This maybe useful for skin developing
+// This maybe useful for skin developing and marks the rects of the single draws
 #ifdef GRIDPOINTS
 #define GRIDPOINTSTEXT      1
 #define GRIDRECT            1
@@ -68,8 +65,8 @@
 #endif
 
 /****************************************************************************************
-* Helpers
-****************************************************************************************/
+ * Helpers
+ ***************************************************************************************/
 #ifdef WRITE_PNG
 static int writeImage(char* filename, int width, int height, void *buffer, char* title)
 {
@@ -166,7 +163,7 @@ static void writePng(int x, int y, int w, int h, bool oFb) {
 }
 #endif
 
-void ConvertColor(const GLint &colARGB, glm::vec4 &col) {
+static void ConvertColor(const GLint &colARGB, glm::vec4 &col) {
 	col.a = ((colARGB & 0xFF000000) >> 24) / 255.0;
 	col.r = ((colARGB & 0x00FF0000) >> 16) / 255.0;
 	col.g = ((colARGB & 0x0000FF00) >> 8 ) / 255.0;
@@ -174,8 +171,8 @@ void ConvertColor(const GLint &colARGB, glm::vec4 &col) {
 }
 
 /****************************************************************************************
-* cOglShader
-****************************************************************************************/
+ * cOglShader
+ ***************************************************************************************/
 static cOglShader *Shaders[stCount];
 
 void cOglShader::Use(void)
@@ -282,7 +279,7 @@ bool cOglShader::Compile(const char *vertexCode, const char *fragmentCode)
 	if (!CheckCompileErrors(m_id, true))
 		return false;
 
-	// delete the shaders as they're linked into our program now and no longer necessery
+	// delete the shaders as they're linked into our program now and no longer necessary
 	GL_CHECK(glDeleteShader(sVertex));
 	GL_CHECK(glDeleteShader(sFragment));
 	return true;
@@ -311,8 +308,8 @@ bool cOglShader::CheckCompileErrors(GLuint object, bool program) {
 
 #define KERNING_UNKNOWN  (-10000)
 /****************************************************************************************
-* cOglGlyph
-****************************************************************************************/
+ * cOglGlyph
+ ***************************************************************************************/
 cOglGlyph::cOglGlyph(FT_ULong charCode, FT_BitmapGlyph ftGlyph)
 	: m_charCode(charCode),
 	  m_bearingLeft(ftGlyph->left),
@@ -377,21 +374,9 @@ void cOglGlyph::LoadTexture(void)
 	GL_CHECK(glPixelStorei(GL_UNPACK_ALIGNMENT, 4));
 }
 
-
 /****************************************************************************************
-* cOglAtlasGlyph
-****************************************************************************************/
-cOglAtlasGlyph::cOglAtlasGlyph(FT_ULong charCode, FT_BitmapGlyph ftGlyph, float offsetX, float offsetY)
-	: cOglGlyph(charCode, ftGlyph),
-	  m_advanceY(ftGlyph->root.advance.y >> 16),   // value in 1/2^16 pixel
-	  m_offsetX(offsetX),
-	  m_offsetY(offsetY)
-{
-}
-
-/****************************************************************************************
-* cOglFontAtlas
-****************************************************************************************/
+ * cOglFontAtlas
+ ***************************************************************************************/
 cOglFontAtlas::cOglFontAtlas(FT_Face face, int height)
 {
 	int maxAtlasWidth;
@@ -403,7 +388,7 @@ cOglFontAtlas::cOglFontAtlas(FT_Face face, int height)
 	int rowW = 0;
 	int rowH = 0;
 
-	/* Find the minimum size for the texture holding all visible ASCII characters */
+	// Find the minimum size for the texture holding all visible ASCII characters
 	for (int i = MIN_CHARCODE; i <= MAX_CHARCODE; i++) {
 		if (FT_Load_Char(face, i, FT_LOAD_NO_BITMAP)) {
 			LOGDEBUG2(L_OPENGL, "openglosd: %s: Loading char %d failed!", __FUNCTION__, i);
@@ -456,7 +441,7 @@ cOglFontAtlas::cOglFontAtlas(FT_Face face, int height)
 	m_width = std::max(m_width, rowW);
 	m_height += rowH;
 
-	/* Create a texture that will be used to hold all ASCII glyphs */
+	// Create a texture that will be used to hold all ASCII glyphs
 	GL_CHECK(glGenTextures(1, &m_texture));
 	GL_CHECK(glBindTexture(GL_TEXTURE_2D, m_texture));
 	LOGDEBUG2(L_OPENGL, "openglosd: %s: Try creating font atlas texture with w %d h %d (max %d)", __FUNCTION__, m_width, m_height, maxAtlasWidth);
@@ -576,8 +561,8 @@ void cOglFontAtlas::BindTexture(void) {
 }
 
 /****************************************************************************************
-* cOglFont
-****************************************************************************************/
+ * cOglFont
+ ***************************************************************************************/
 FT_Library cOglFont::s_ftLib = 0;
 cList<cOglFont> *cOglFont::s_pFonts = 0;
 bool cOglFont::s_initiated = false;
@@ -736,8 +721,8 @@ int cOglFont::Kerning(cOglGlyph *glyph, FT_ULong prevSym) const
 }
 
 /****************************************************************************************
-* cOglFb
-****************************************************************************************/
+ * cOglFb
+ ***************************************************************************************/
 cOglFb::cOglFb(GLint width, GLint height, GLint viewPortWidth, GLint viewPortHeight)
 	: m_width(width),
 	  m_height(height),
@@ -804,8 +789,8 @@ bool cOglFb::BindTexture(void)
 }
 
 /****************************************************************************************
-* cOglOutputFb
-****************************************************************************************/
+ * cOglOutputFb
+ ***************************************************************************************/
 bool cOglOutputFb::Init(void)
 {
 	GL_CHECK(glGenTextures(1, &m_texture));
@@ -839,8 +824,8 @@ void cOglOutputFb::Unbind(void)
 }
 
 /****************************************************************************************
-* cOglVb
-****************************************************************************************/
+ * cOglVb
+ ***************************************************************************************/
 static cOglVb *VertexBuffers[vbCount];
 
 bool cOglVb::Init(void)
@@ -889,7 +874,6 @@ bool cOglVb::Init(void)
 			m_shader = stText;
 			break;
 		default:
-			
 			break;
 	}
 
@@ -998,8 +982,8 @@ void cOglVb::DrawArrays(int count)
 }
 
 /****************************************************************************************
-* cOpenGLCmd
-****************************************************************************************/
+ * cOpenGLCmd
+ ***************************************************************************************/
 
 //------------------ cOglCmdInitOutputFb --------------------
 bool cOglCmdInitOutputFb::Execute(void)
@@ -1090,7 +1074,7 @@ bool cOglCmdRenderFbToBufferFb::Execute(void)
 	return true;
 }
 
-//------------------ cOglCmdCopyBufferToOutputFb --------------------
+//------------------ cOglCmdCopyBufferToOutputFb ------------
 bool cOglCmdCopyBufferToOutputFb::Execute(void)
 {
 	GLfloat x1 = m_x;
@@ -1146,7 +1130,7 @@ bool cOglCmdCopyBufferToOutputFb::Execute(void)
 	return true;
 }
 
-//------------------ cOglCmdFill --------------------
+//------------------ cOglCmdFill ----------------------------
 bool cOglCmdFill::Execute(void)
 {
 	glm::vec4 col;
@@ -1159,7 +1143,7 @@ bool cOglCmdFill::Execute(void)
 	return true;
 }
 
-//------------------ cOglCmdBufferFill --------------------
+//------------------ cOglCmdBufferFill ----------------------
 bool cOglCmdBufferFill::Execute(void)
 {
 	glm::vec4 col;
@@ -1170,7 +1154,7 @@ bool cOglCmdBufferFill::Execute(void)
 	return true;
 }
 
-//------------------ cOglCmdDrawRectangle --------------------
+//------------------ cOglCmdDrawRectangle -------------------
 bool cOglCmdDrawRectangle::Execute(void)
 {
 	if (m_width <= 0 || m_height <= 0)
@@ -1204,12 +1188,13 @@ bool cOglCmdDrawRectangle::Execute(void)
 	return true;
 }
 
-//------------------ cOglCmdDrawEllipse --------------------
-// quadrants:
+//------------------ cOglCmdDrawEllipse ---------------------
+//  quadrants:
 // 0       draws the entire ellipse
 // 1..4    draws only the first, second, third or fourth quadrant, respectively
 // 5..8    draws the right, top, left or bottom half, respectively
 // -1..-4  draws the inverted part of the given quadrant
+//-----------------------------------------------------------
 bool cOglCmdDrawEllipse::Execute(void)
 {
 	if (m_width <= 0 || m_height <= 0)
@@ -1398,7 +1383,7 @@ GLfloat *cOglCmdDrawEllipse::CreateVerticesHalf(int &numVertices)
 	return vertices;
 }
 
-//------------------ cOglCmdDrawSlope --------------------
+//------------------ cOglCmdDrawSlope -----------------------
 // type:
 // 0: horizontal, rising,  lower
 // 1: horizontal, rising,  upper
@@ -1408,6 +1393,7 @@ GLfloat *cOglCmdDrawEllipse::CreateVerticesHalf(int &numVertices)
 // 5: vertical,   rising,  upper
 // 6: vertical,   falling, lower
 // 7: vertical,   falling, upper
+//-----------------------------------------------------------
 bool cOglCmdDrawSlope::Execute(void)
 {
 	if (m_width <= 0 || m_height <= 0)
@@ -1480,7 +1466,7 @@ bool cOglCmdDrawSlope::Execute(void)
 	return true;
 }
 
-//------------------ cOglCmdDrawText --------------------
+//------------------ cOglCmdDrawText ------------------------
 bool cOglCmdDrawText::Execute(void)
 {
 	cOglFont *f = cOglFont::Get(*m_fontName, m_fontSize);
@@ -1537,7 +1523,6 @@ bool cOglCmdDrawText::Execute(void)
 				break;
 
 			kerning = f->Kerning(g, prevSym);
-//			kerning = f->AtlasKerning(g, prevSym);
 			prevSym = sym;
 
 			GLfloat x2 = xGlyph + kerning + g->BearingLeft();
@@ -1602,10 +1587,10 @@ bool cOglCmdDrawText::Execute(void)
 			kerning = f->Kerning(g, prevSym);
 			prevSym = sym;
 
-			GLfloat x1 = xGlyph + kerning + g->BearingLeft();            //left
-			GLfloat y1 = m_y + (fontHeight - bottom - g->BearingTop());  //top
-			GLfloat x2 = x1 + g->Width();                                //right
-			GLfloat y2 = y1 + g->Height();                               //bottom
+			GLfloat x1 = xGlyph + kerning + g->BearingLeft();            // left
+			GLfloat y1 = m_y + (fontHeight - bottom - g->BearingTop());  // top
+			GLfloat x2 = x1 + g->Width();                                // right
+			GLfloat y2 = y1 + g->Height();                               // bottom
 
 			GLfloat vertices[] = {
 				x1, y2,   0.0, 1.0,     // left bottom
@@ -1634,7 +1619,7 @@ bool cOglCmdDrawText::Execute(void)
 	return true;
 }
 
-//------------------ cOglCmdDrawImage --------------------
+//------------------ cOglCmdDrawImage -----------------------
 bool cOglCmdDrawImage::Execute(void)
 {
 	if (m_width <= 0 || m_height <= 0)
@@ -1660,10 +1645,10 @@ bool cOglCmdDrawImage::Execute(void)
 	GL_CHECK(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR));
 	GL_CHECK(glBindTexture(GL_TEXTURE_2D, 0));
 
-	GLfloat x1 = m_x;                       //left
-	GLfloat y1 = m_y;                       //top
-	GLfloat x2 = m_x + m_width * m_scaleX;  //right
-	GLfloat y2 = m_y + m_height * m_scaleY; //bottom
+	GLfloat x1 = m_x;                       // left
+	GLfloat y1 = m_y;                       // top
+	GLfloat x2 = m_x + m_width * m_scaleX;  // right
+	GLfloat y2 = m_y + m_height * m_scaleY; // bottom
 
 	GLfloat quadVertices[] = {
 		x1, y2,   0.0, 1.0,     // left bottom
@@ -1697,7 +1682,7 @@ bool cOglCmdDrawImage::Execute(void)
 	return true;
 }
 
-//------------------ cOglCmdDrawTexture --------------------
+//------------------ cOglCmdDrawTexture ---------------------
 bool cOglCmdDrawTexture::Execute(void)
 {
 	if (m_pImageRef->width <= 0 || m_pImageRef->height <= 0)
@@ -1735,8 +1720,7 @@ bool cOglCmdDrawTexture::Execute(void)
 	return true;
 }
 
-
-//------------------ cOglCmdStoreImage --------------------
+//------------------ cOglCmdStoreImage ----------------------
 bool cOglCmdStoreImage::Execute(void) {
 	GL_CHECK(glGenTextures(1, &m_pImageRef->texture));
 	GL_CHECK(glBindTexture(GL_TEXTURE_2D, m_pImageRef->texture));
@@ -1759,7 +1743,7 @@ bool cOglCmdStoreImage::Execute(void) {
 	return true;
 }
 
-//------------------ cOglCmdDropImage --------------------
+//------------------ cOglCmdDropImage -----------------------
 bool cOglCmdDropImage::Execute(void) {
 	if (m_pImageRef->texture != GL_NONE)
 		GL_CHECK(glDeleteTextures(1, &m_pImageRef->texture));
@@ -1768,8 +1752,8 @@ bool cOglCmdDropImage::Execute(void) {
 }
 
 /******************************************************************************
-* cOglThread
-******************************************************************************/
+ * cOglThread
+ *****************************************************************************/
 cOglThread::cOglThread(cCondWait *startWait, int maxCacheSize, cSoftHdDevice *device)
 	: cThread("oglThread"),
 	  m_startWait(startWait),
@@ -2013,7 +1997,7 @@ bool cOglThread::InitOpenGL(void)
 		usleep(20000);
 	}
 
-	eglAcquireContext(); /* eglMakeCurrent with new eglSurface */
+	eglAcquireContext(); // eglMakeCurrent with new eglSurface
 
 	GL_CHECK(LOGDEBUG2(L_OPENGL, "  GL Version: \"%s\"", glGetString(GL_VERSION)));
 	GL_CHECK(LOGDEBUG2(L_OPENGL, "  GL Vendor: \"%s\"", glGetString(GL_VENDOR)));
@@ -2075,10 +2059,9 @@ void cOglThread::Cleanup(void)
 	cOglFont::Cleanup();
 }
 
-/****************************************************************************************
-* cOglPixmap
-****************************************************************************************/
-
+/******************************************************************************
+ * cOglPixmap
+ *****************************************************************************/
 cOglPixmap::cOglPixmap(std::shared_ptr<cOglThread> oglThread, int layer, const cRect &viewPort, const cRect &drawPort)
 	: cPixmap(layer, viewPort, drawPort),
 	  m_pOglThread(oglThread)
@@ -2214,13 +2197,13 @@ void cOglPixmap::DrawScaledImage(const cPoint &point, int imageHandle, double fa
 		return;
 
 	if (imageHandle < 0 && m_pOglThread->GetImageRef(imageHandle)) {
-			sOglImage *img = m_pOglThread->GetImageRef(imageHandle);
-			m_pOglThread->DoCmd(new cOglCmdDrawTexture(m_pFramebuffer, img, point.X(), point.Y(), factorX, factorY));
+		sOglImage *img = m_pOglThread->GetImageRef(imageHandle);
+		m_pOglThread->DoCmd(new cOglCmdDrawTexture(m_pFramebuffer, img, point.X(), point.Y(), factorX, factorY));
 #ifdef GRIDRECT
-			DrawGridRect(cRect(point.X(), point.Y(), img->width * factorX, img->height * factorY), GRIDPOINTOFFSET, GRIDPOINTSIZE, GRIDPOINTCLR, GRIDPOINTBG, m_pTinyfont);
+		DrawGridRect(cRect(point.X(), point.Y(), img->width * factorX, img->height * factorY), GRIDPOINTOFFSET, GRIDPOINTSIZE, GRIDPOINTCLR, GRIDPOINTBG, m_pTinyfont);
 #endif
-			SetDirty();
-			MarkDrawPortDirty(cRect(point, cSize(img->width * factorX, img->height * factorY)).Intersected(DrawPort().Size()));
+		SetDirty();
+		MarkDrawPortDirty(cRect(point, cSize(img->width * factorX, img->height * factorY)).Intersected(DrawPort().Size()));
 	}
 }
 
@@ -2309,35 +2292,36 @@ void cOglPixmap::DrawTextInternal(const cPoint &point, const char *s, tColor col
 	if (colorBg != clrTransparent)
 		m_pOglThread->DoCmd(new cOglCmdDrawRectangle(m_pFramebuffer, r.X(), r.Y(), r.Width(), r.Height(), colorBg));
 
-	if (width || height) {
+	if (width || height)
 		limitX = x + cw;
-		if (width) {
-			if ((alignment & taLeft) != 0) {
-				if ((alignment & taBorder) != 0)
-					x += std::max(h / TEXT_ALIGN_BORDER, 1);
-			} else if ((alignment & taRight) != 0) {
-				if (w < width)
-					x += width - w;
-				if ((alignment & taBorder) != 0)
-					x -= std::max(h / TEXT_ALIGN_BORDER, 1);
-			} else { // taCentered
-				if (w < width)
-					x += (width - w) / 2;
-			}
-		}
 
-		if (height) {
-			if ((alignment & taTop) != 0)
-				;
-			else if ((alignment & taBottom) != 0) {
-				if (h < height)
-					y += height - h;
-			} else { // taCentered
-				if (h < height)
-				y += (height - h) / 2;
-			}
+	if (width) {
+		if ((alignment & taLeft) != 0) {
+			if ((alignment & taBorder) != 0)
+				x += std::max(h / TEXT_ALIGN_BORDER, 1);
+		} else if ((alignment & taRight) != 0) {
+			if (w < width)
+				x += width - w;
+			if ((alignment & taBorder) != 0)
+				x -= std::max(h / TEXT_ALIGN_BORDER, 1);
+		} else { // taCentered
+			if (w < width)
+				x += (width - w) / 2;
 		}
 	}
+
+	if (height) {
+		if ((alignment & taTop) != 0)
+			;
+		else if ((alignment & taBottom) != 0) {
+			if (h < height)
+				y += height - h;
+		} else { // taCentered
+			if (h < height)
+				y += (height - h) / 2;
+		}
+	}
+
 	m_pOglThread->DoCmd(new cOglCmdDrawText(m_pFramebuffer, x, y, symbols, limitX, font->FontName(), font->Size(), colorFg, len));
 
 #ifdef GRIDTEXT
@@ -2448,8 +2432,8 @@ void cOglPixmap::DrawGridRect(const cRect &rect, int offset, int size, tColor cl
 #endif
 
 /******************************************************************************
-* cOglOsd
-******************************************************************************/
+ * cOglOsd
+ *****************************************************************************/
 cOglOutputFb *cOglOsd::OutputFramebuffer = NULL;
 
 cOglOsd::cOglOsd(int left, int top, uint level, std::shared_ptr<cOglThread> oglThread, cSoftHdDevice *device)
@@ -2600,7 +2584,7 @@ void cOglOsd::Flush(void)
 			if (!m_isSubtitleOsd && !m_pDirtyViewport.Intersects(m_pOglPixmaps[i]->ViewPort()))
 				continue;
 
-			bool alphablending = layer == 0 ? false : true; // Decide wether to render (with alpha) or copy a pixmap
+			bool alphablending = layer == 0 ? false : true; // decide wether to render (with alpha) or copy a pixmap
 			m_pOglThread->DoCmd(new cOglCmdRenderFbToBufferFb(m_pOglPixmaps[i]->Framebuffer(),
 			                                                  m_pBufferFramebuffer,
 			                                                  m_isSubtitleOsd ? 0 : m_pOglPixmaps[i]->ViewPort().X(),

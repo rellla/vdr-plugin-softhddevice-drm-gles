@@ -57,17 +57,14 @@ struct sOglImage {
 	bool used;
 };
 
-class cVideoRender;
 class cSoftHdDevice;
+class cVideoRender;
 
 /****************************************************************************************
-* Helpers
-****************************************************************************************/
-void ConvertColor(const GLint &colARGB, glm::vec4 &col);
-
-/****************************************************************************************
-* cOglShader
-****************************************************************************************/
+ * cOglShader
+ *
+ * Represents a shader and keeps everything we need to set variable within the shader.
+ ***************************************************************************************/
 enum eShaderType {
 	stRect,
 	stTexture,
@@ -99,8 +96,10 @@ private:
 };
 
 /****************************************************************************************
-* cOglGlyph
-****************************************************************************************/
+ * cOglGlyph
+ *
+ * Represents a single glyph of a font.
+ ***************************************************************************************/
 class cOglGlyph : public cListObject
 {
 public:
@@ -139,12 +138,18 @@ protected:
 };
 
 /****************************************************************************************
-* cOglAtlasGlyph
-****************************************************************************************/
+ * cOglAtlasGlyph
+ *
+ * A glyph a font-atlas (texture-atlas) needs some more infos like offset on the texture.
+ ***************************************************************************************/
 class cOglAtlasGlyph : public cOglGlyph
 {
 public:
-	cOglAtlasGlyph(FT_ULong, FT_BitmapGlyph, float, float);
+	cOglAtlasGlyph(FT_ULong charCode, FT_BitmapGlyph ftGlyph, float offsetX, float offsetY)
+		: cOglGlyph(charCode, ftGlyph),
+		  m_advanceY(ftGlyph->root.advance.y >> 16),   // value in 1/2^16 pixel
+		  m_offsetX(offsetX),
+		  m_offsetY(offsetY) {};
 
 	int AdvanceY(void) { return m_advanceY; }
 	float OffsetX(void) const { return m_offsetX; }
@@ -156,8 +161,17 @@ private:
 };
 
 /****************************************************************************************
-* cOglFontAtlas
-****************************************************************************************/
+ * cOglFontAtlas
+ *
+ * Represents a texture atlas keeping a range of glyphs on one texture per font and size
+ * instead of having one texture per glyph. This technique makes dealing with huge
+ * amounts of glyphs faster, because the bottleneck (texture up-/download/binding) is
+ * reduced at a minimum. Its faster to deal with one single bigger texture than many
+ * smaller ones.
+ *
+ * The font atlas is prepared once at the time the new font or sized is accessed for the
+ * first time. We may have a little delay at startup, which is negligible.
+ ****************************************************************************************/
 #define MIN_CHARCODE 32
 #define MAX_CHARCODE 255
 class cOglFontAtlas
@@ -177,20 +191,22 @@ private:
 };
 
 /****************************************************************************************
-* cOglFont
-****************************************************************************************/
+ * cOglFont
+ *
+ * Represents a OSD font (one per size and font family)
+ ***************************************************************************************/
 class cOglFont : public cListObject
 {
 public:
 	virtual ~cOglFont(void);
-	static cOglFont *Get(const char *name, int charHeight);
+	static cOglFont *Get(const char *, int);
 	cOglFontAtlas *Atlas(void) { return m_pAtlas; };
 	static void Cleanup(void);
 	const char *Name(void) { return *m_name; };
 	int Size(void) { return m_size; };
 	int Bottom(void) {return m_bottom; };
 	int Height(void) {return m_height; };
-	cOglGlyph* Glyph(FT_ULong charCode) const;
+	cOglGlyph* Glyph(FT_ULong) const;
 	int Kerning(cOglGlyph *glyph, FT_ULong prevSym) const;
 private:
 	static bool s_initiated;
@@ -205,14 +221,15 @@ private:
 	mutable cList<cOglGlyph> m_glyphCache;
 	cOglFontAtlas *m_pAtlas;
 
-	cOglFont(const char *fontName, int charHeight);
+	cOglFont(const char *, int);
 	static void Init(void);
 };
 
 /****************************************************************************************
-* cOglFb
-* Framebuffer Object - OpenGL part of a Pixmap
-****************************************************************************************/
+ * cOglFb
+ *
+ * A framebuffer object which can be rendered onto (pixmap)
+ ****************************************************************************************/
 class cOglFb
 {
 public:
@@ -241,9 +258,10 @@ private:
 };
 
 /****************************************************************************************
-* cOglOutputFb
-* Output Framebuffer Object - holds texture which is our "output framebuffer"
-****************************************************************************************/
+ * cOglOutputFb
+ *
+ * Output Framebuffer Object - holds the texture which is our "OSD output framebuffer"
+ ***************************************************************************************/
 class cOglOutputFb : public cOglFb
 {
 public:
@@ -257,9 +275,10 @@ private:
 };
 
 /****************************************************************************************
-* cOglVb
-* Vertex Buffer - OpenGl Vertices for the different drawing commands
-****************************************************************************************/
+ * cOglVb
+ *
+ * Describes and handles the OpenGL vertices for the different drawing commands
+ ***************************************************************************************/
 enum eVertexBufferType {
 	vbRect,
 	vbEllipse,
@@ -304,8 +323,11 @@ private:
 };
 
 /****************************************************************************************
-* cOpenGLCmd
-****************************************************************************************/
+ * cOglCmd and derived classes
+ *
+ * Every draw action is transposed to one of the following cOglCmd* methods,
+ * which are sent to the command queue, executed by cOglThread.
+ ***************************************************************************************/
 class cOglCmd
 {
 public:
@@ -605,8 +627,15 @@ private:
 };
 
 /******************************************************************************
-* cOglThread
-******************************************************************************/
+ * cOglThread
+ *
+ * Every OSD draw or flush which is invoked by VDR is transposed into an
+ * OpenGL command.
+ * cOglThread holds a fifo-queue of these commands. It continuosly checks
+ * for commands on the queue, pops them and sends them to the hardware.
+ *
+ * On startup it initiates all necessary OpenGL bits.
+ *****************************************************************************/
 #define OGL_MAX_OSDIMAGES 512
 #define OGL_CMDQUEUE_SIZE 200
 
@@ -648,8 +677,10 @@ private:
 };
 
 /****************************************************************************************
-* cOglPixmap
-****************************************************************************************/
+ * cOglPixmap
+ *
+ * OpenGL implementation of a cPixmap
+ ***************************************************************************************/
 class cOglPixmap : public cPixmap
 {
 public:
@@ -685,9 +716,9 @@ public:
 	virtual void MarkViewPortDirty(const cRect &);
 	virtual void SetClean(void);
 private:
-	cOglFb *m_pFramebuffer;
+	cOglFb *m_pFramebuffer;    ///< everything is drawn onto this framebuffer (one per pixmap)
 	std::shared_ptr<cOglThread> m_pOglThread;
-	bool m_dirty = true;
+	bool m_dirty = true;       ///< true, if there was draw activity on the pixmap
 #ifdef GRIDPOINTS
 	cFont *m_pTinyfont;
 
@@ -698,8 +729,10 @@ private:
 };
 
 /******************************************************************************
-* cOglOsd
-******************************************************************************/
+ * cOglOsd
+ *
+ * OpenGL implementation of a cOsd
+ *****************************************************************************/
 class cOglOsd : public cOsd
 {
 public:
@@ -713,13 +746,14 @@ public:
 	virtual const cSize &MaxPixmapSize(void) const { return m_maxPixmapSize; };
 	virtual void DrawScaledBitmap(int, int, const cBitmap &, double, double, bool AntiAlias = false);
 
-	static cOglOutputFb *OutputFramebuffer;        ///< main OSD output framebuffer - this keeps our finished "OSD"
+	static cOglOutputFb *OutputFramebuffer;        ///< main OSD output framebuffer - this keeps our finished "OSD" (one per OSD)
 private:
-	cOglFb *m_pBufferFramebuffer = nullptr;        ///< pointer to framebuffer, where all pixmaps are blit in before the real flush
+	cOglFb *m_pBufferFramebuffer = nullptr;        ///< all pixmaps are composed onto this framebuffer after each other,
+	                                               ///< before this one is blit onto the OSD output framebuffer
 	std::shared_ptr<cOglThread> m_pOglThread;      ///< pointer to thread, which executes the commands
-	cVector<cOglPixmap *> m_pOglPixmaps;           ///< pixmap array
-	bool m_isSubtitleOsd;                          ///< is this a subtitle osd?
-	cSize m_maxPixmapSize;                         ///< maximum allowed size of a pixmap
+	cVector<cOglPixmap *> m_pOglPixmaps;           ///< array of pixmaps
+	bool m_isSubtitleOsd;                          ///< true, if this is a subtitle osd
+	cSize m_maxPixmapSize;                         ///< maximum allowed size of a pixmap (depends on the maximum OpenGL texture size)
 	cRect m_pDirtyViewport;                        ///< the dirty viewport
 	cSoftHdDevice *m_pDevice;                      ///< pointer to cSofthdDevice
 };
