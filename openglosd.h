@@ -47,6 +47,9 @@ const struct {
 
 #include <vdr/osd.h>
 
+// This is needed for the GLES2 GL_CLAMP_TO_BORDER workaround
+#define BORDERCOLOR         0x00000000
+
 struct sOglImage {
 	GLuint texture;
 	GLint width;
@@ -298,202 +301,302 @@ public:
 /****************************************************************************************
 * cOpenGLCmd
 ****************************************************************************************/
-class cOglCmd {
-protected:
-	cOglFb *fb;
+class cOglCmd
+{
 public:
-	cOglCmd(cOglFb *fb) { this->fb = fb; };
+	cOglCmd(cOglFb *fb)
+		: m_pFramebuffer(fb) {};
 	virtual ~cOglCmd(void) {};
 	virtual const char* Description(void) = 0;
 	virtual bool Execute(void) = 0;
+protected:
+	cOglFb *m_pFramebuffer;
 };
 
-class cOglCmdInitOutputFb : public cOglCmd {
-private:
-	cOglOutputFb *oFb;
+class cOglCmdInitOutputFb : public cOglCmd
+{
 public:
-	cOglCmdInitOutputFb(cOglOutputFb *oFb);
+	cOglCmdInitOutputFb(cOglOutputFb *oFb)
+		: cOglCmd(NULL),
+		  m_pOutputFramebuffer(oFb) {};
 	virtual ~cOglCmdInitOutputFb(void) {};
 	virtual const char* Description(void) { return "InitOutputFramebuffer"; }
 	virtual bool Execute(void);
+private:
+	cOglOutputFb *m_pOutputFramebuffer;
 };
 
-class cOglCmdInitFb : public cOglCmd {
-private:
-	cCondWait *wait;
+class cOglCmdInitFb : public cOglCmd
+{
 public:
-	cOglCmdInitFb(cOglFb *fb, cCondWait *wait = NULL);
+	cOglCmdInitFb(cOglFb *fb, cCondWait *wait = NULL)
+		: cOglCmd(fb),
+		  m_wait(wait) {};
 	virtual ~cOglCmdInitFb(void) {};
 	virtual const char* Description(void) { return "InitFramebuffer"; }
 	virtual bool Execute(void);
+private:
+	cCondWait *m_wait;
 };
 
-class cOglCmdDeleteFb : public cOglCmd {
+class cOglCmdDeleteFb : public cOglCmd
+{
 public:
-	cOglCmdDeleteFb(cOglFb *fb);
+	cOglCmdDeleteFb(cOglFb *fb)
+		: cOglCmd(fb) {};
 	virtual ~cOglCmdDeleteFb(void) {};
 	virtual const char* Description(void) { return "DeleteFramebuffer"; }
 	virtual bool Execute(void);
 };
 
-class cOglCmdRenderFbToBufferFb : public cOglCmd {
-private:
-	cOglFb *buffer;
-	GLfloat x, y;
-	GLfloat drawPortX, drawPortY;
-	GLint transparency;
-	GLint bcolor;
-	GLint dirtyX;
-	GLint dirtyTop;
-	GLint dirtyWidth;
-	GLint dirtyHeight;
-	bool alphablending;
-	cSoftHdDevice *Device;
+class cOglCmdRenderFbToBufferFb : public cOglCmd
+{
 public:
-	cOglCmdRenderFbToBufferFb(cOglFb *fb, cOglFb *buffer, GLint x, GLint y, GLint transparency, GLint drawPortX, GLint drawPortY, GLint dirtyX, GLint dirtyTop, GLint dirtyWidth, GLint dirtyHeight, bool alphablending, cSoftHdDevice *device);
+	cOglCmdRenderFbToBufferFb(cOglFb *fb, cOglFb *buffer, GLint x, GLint y, GLint transparency, GLint drawPortX, GLint drawPortY, GLint dirtyX, GLint dirtyTop, GLint dirtyWidth, GLint dirtyHeight, bool alphablending, cSoftHdDevice *device)
+		: cOglCmd(fb),
+		  m_pBuffer(buffer),
+		  m_x((GLfloat)x),
+		  m_y((GLfloat)y),
+		  m_drawPortX((GLfloat)drawPortX),
+		  m_drawPortY((GLfloat)drawPortY),
+		  m_transparency((alphablending ? transparency : ALPHA_OPAQUE)),
+		  m_bcolor(BORDERCOLOR),
+		  m_dirtyX(dirtyX),
+		  m_dirtyTop(dirtyTop),
+		  m_dirtyWidth(dirtyWidth),
+		  m_dirtyHeight(dirtyHeight),
+		  m_alphablending(alphablending),
+		  m_pDevice(device) {};
 	virtual ~cOglCmdRenderFbToBufferFb(void) {};
 	virtual const char* Description(void) { return "Render Framebuffer to Buffer"; }
 	virtual bool Execute(void);
+private:
+	cOglFb *m_pBuffer;
+	GLfloat m_x, m_y;
+	GLfloat m_drawPortX, m_drawPortY;
+	GLint m_transparency;
+	GLint m_bcolor;
+	GLint m_dirtyX;
+	GLint m_dirtyTop;
+	GLint m_dirtyWidth;
+	GLint m_dirtyHeight;
+	bool m_alphablending;
+	cSoftHdDevice *m_pDevice;
 };
 
-class cOglCmdCopyBufferToOutputFb : public cOglCmd {
-private:
-	cOglOutputFb *oFb;
-	GLfloat x, y;
-	GLint bcolor;
-	int active;
-	cSoftHdDevice *Device;
+class cOglCmdCopyBufferToOutputFb : public cOglCmd
+{
 public:
-	cOglCmdCopyBufferToOutputFb(cOglFb *fb, cOglOutputFb *oFb, GLint x, GLint y, int active, cSoftHdDevice *device);
+	cOglCmdCopyBufferToOutputFb(cOglFb *fb, cOglOutputFb *oFb, GLint x, GLint y, int active, cSoftHdDevice *device)
+		: cOglCmd(fb),
+		  m_pOutputFramebuffer(oFb),
+		  m_x((GLfloat)x),
+		  m_y((GLfloat)y),
+		  m_borderColor(BORDERCOLOR),
+		  m_active(active),
+		  m_pDevice(device) {};
 	virtual ~cOglCmdCopyBufferToOutputFb(void) {};
 	virtual const char* Description(void) { return "Copy buffer to OutputFramebuffer"; }
 	virtual bool Execute(void);
+private:
+	cOglOutputFb *m_pOutputFramebuffer;
+	GLfloat m_x, m_y;
+	GLint m_borderColor;
+	int m_active;
+	cSoftHdDevice *m_pDevice;
 };
 
-class cOglCmdFill : public cOglCmd {
-private:
-	GLint color;
+class cOglCmdFill : public cOglCmd
+{
 public:
-	cOglCmdFill(cOglFb *fb, GLint color);
+	cOglCmdFill(cOglFb *fb, GLint color)
+		: cOglCmd(fb),
+		  m_color(color) {};
 	virtual ~cOglCmdFill(void) {};
 	virtual const char* Description(void) { return "Fill"; }
 	virtual bool Execute(void);
+private:
+	GLint m_color;
 };
 
-class cOglCmdBufferFill : public cOglCmd {
-private:
-	GLint color;
+class cOglCmdBufferFill : public cOglCmd
+{
 public:
-	cOglCmdBufferFill(cOglFb *fb, GLint color);
+	cOglCmdBufferFill(cOglFb *fb, GLint color)
+		: cOglCmd(fb),
+		  m_color(color) {};
 	virtual ~cOglCmdBufferFill(void) {};
 	virtual const char* Description(void) { return "Fill Buffer  "; }
 	virtual bool Execute(void);
+private:
+	GLint m_color;
 };
 
-class cOglCmdDrawRectangle : public cOglCmd {
-private:
-	GLint x, y;
-	GLint width, height;
-	GLint color;
+class cOglCmdDrawRectangle : public cOglCmd
+{
 public:
-	cOglCmdDrawRectangle(cOglFb *fb, GLint x, GLint y, GLint width, GLint height, GLint color);
+	cOglCmdDrawRectangle( cOglFb *fb, GLint x, GLint y, GLint width, GLint height, GLint color)
+		: cOglCmd(fb),
+		  m_x(x),
+		  m_y(y),
+		  m_width(width),
+		  m_height(height),
+		  m_color(color) {};
 	virtual ~cOglCmdDrawRectangle(void) {};
 	virtual const char* Description(void) { return "DrawRectangle"; }
 	virtual bool Execute(void);
+private:
+	GLint m_x, m_y;
+	GLint m_width, m_height;
+	GLint m_color;
 };
 
-class cOglCmdDrawEllipse : public cOglCmd {
-private:
-	GLint x, y;
-	GLint width, height;
-	GLint color;
-	GLint quadrants;
-	GLfloat *CreateVerticesFull(int &numVertices);
-	GLfloat *CreateVerticesQuadrant(int &numVertices);
-	GLfloat *CreateVerticesHalf(int &numVertices);
+class cOglCmdDrawEllipse : public cOglCmd
+{
 public:
-	cOglCmdDrawEllipse(cOglFb *fb, GLint x, GLint y, GLint width, GLint height, GLint color, GLint quadrants);
+	cOglCmdDrawEllipse( cOglFb *fb, GLint x, GLint y, GLint width, GLint height, GLint color, GLint quadrants)
+		: cOglCmd(fb),
+		  m_x(x),
+		  m_y(y),
+		  m_width(width),
+		  m_height(height),
+		  m_color(color),
+		  m_quadrants(quadrants) {};
 	virtual ~cOglCmdDrawEllipse(void) {};
 	virtual const char* Description(void) { return "DrawEllipse  "; }
 	virtual bool Execute(void);
+private:
+	GLint m_x, m_y;
+	GLint m_width, m_height;
+	GLint m_color;
+	GLint m_quadrants;
+
+	GLfloat *CreateVerticesFull(int &);
+	GLfloat *CreateVerticesQuadrant(int &);
+	GLfloat *CreateVerticesHalf(int &);
 };
 
-class cOglCmdDrawSlope : public cOglCmd {
-private:
-	GLint x, y;
-	GLint width, height;
-	GLint color;
-	GLint type;
+class cOglCmdDrawSlope : public cOglCmd
+{
 public:
-	cOglCmdDrawSlope(cOglFb *fb, GLint x, GLint y, GLint width, GLint height, GLint color, GLint type);
+	cOglCmdDrawSlope( cOglFb *fb, GLint x, GLint y, GLint width, GLint height, GLint color, GLint type)
+		: cOglCmd(fb),
+		  m_x(x),
+		  m_y(y),
+		  m_width(width),
+		  m_height(height),
+		  m_color(color),
+		  m_type(type) {};
 	virtual ~cOglCmdDrawSlope(void) {};
 	virtual const char* Description(void) { return "DrawSlope    "; }
 	virtual bool Execute(void);
+private:
+	GLint m_x, m_y;
+	GLint m_width, m_height;
+	GLint m_color;
+	GLint m_type;
 };
 
-class cOglCmdDrawText : public cOglCmd {
-private:
-	GLint x, y;
-	GLint limitX;
-	GLint colorText;
-	int length;
-	cString fontName;
-	int fontSize;
-	unsigned int *symbols;
+class cOglCmdDrawText : public cOglCmd
+{
 public:
-	cOglCmdDrawText(cOglFb *fb, GLint x, GLint y, unsigned int *symbols, GLint limitX, const char *name, int fontSize, tColor colorText, int length);
-	virtual ~cOglCmdDrawText(void);
+	cOglCmdDrawText(cOglFb *fb, GLint x, GLint y, unsigned int *symbols, GLint limitX, const char *name, int fontSize, tColor colorText, int length)
+		: cOglCmd(fb),
+		  m_x(x),
+		  m_y(y),
+		  m_limitX(limitX),
+		  m_colorText(colorText),
+		  m_length(length),
+		  m_fontName(name),
+		  m_fontSize(fontSize),
+		  m_pSymbols(symbols) {};
+	virtual ~cOglCmdDrawText(void) { free(m_pSymbols); };
 	virtual const char* Description(void) { return "DrawText     "; }
 	virtual bool Execute(void);
+private:
+	GLint m_x, m_y;
+	GLint m_limitX;
+	GLint m_colorText;
+	int m_length;
+	cString m_fontName;
+	int m_fontSize;
+	unsigned int *m_pSymbols;
 };
 
-class cOglCmdDrawImage : public cOglCmd {
-private:
-	tColor *argb;
-	GLint x, y, width, height;
-	bool overlay;
-	GLfloat scaleX, scaleY;
-	GLint bcolor;
+class cOglCmdDrawImage : public cOglCmd
+{
 public:
-	cOglCmdDrawImage(cOglFb *fb, tColor *argb, GLint width, GLint height, GLint x, GLint y, bool overlay = true, double scaleX = 1.0f, double scaleY = 1.0f);
-	virtual ~cOglCmdDrawImage(void);
+	cOglCmdDrawImage(cOglFb *fb, tColor *argb, GLint width, GLint height, GLint x, GLint y, bool overlay = true, double scaleX = 1.0f, double scaleY = 1.0f)
+		: cOglCmd(fb),
+		  m_argb(argb),
+		  m_x(x),
+		  m_y(y),
+		  m_width(width),
+		  m_height(height),
+		  m_overlay(overlay),
+		  m_scaleX(scaleX),
+		  m_scaleY(scaleY),
+		  m_borderColor(BORDERCOLOR) {};
+	virtual ~cOglCmdDrawImage(void) { free(m_argb); };
 	virtual const char* Description(void) { return "Draw Image"; }
 	virtual bool Execute(void);
+private:
+	tColor *m_argb;
+	GLint m_x, m_y, m_width, m_height;
+	bool m_overlay;
+	GLfloat m_scaleX, m_scaleY;
+	GLint m_borderColor;
 };
 
-class cOglCmdDrawTexture : public cOglCmd {
-private:
-	sOglImage *imageRef;
-	GLint x, y;
-	GLfloat scaleX, scaleY;
-	GLint bcolor;
+class cOglCmdDrawTexture : public cOglCmd
+{
 public:
-	cOglCmdDrawTexture(cOglFb *fb, sOglImage *imageRef, GLint x, GLint y, double scaleX = 1.0f, double scaleY = 1.0f);
+	cOglCmdDrawTexture(cOglFb *fb, sOglImage *imageRef, GLint x, GLint y, double scaleX = 1.0f, double scaleY = 1.0f)
+		: cOglCmd(fb),
+		  m_pImageRef(imageRef),
+		  m_x(x),
+		  m_y(y),
+		  m_scaleX(scaleX),
+		  m_scaleY(scaleY),
+		  m_borderColor(BORDERCOLOR) {};
 	virtual ~cOglCmdDrawTexture(void) {};
 	virtual const char* Description(void) { return "Draw Texture"; }
 	virtual bool Execute(void);
+private:
+	sOglImage *m_pImageRef;
+	GLint m_x, m_y;
+	GLfloat m_scaleX, m_scaleY;
+	GLint m_borderColor;
 };
 
-class cOglCmdStoreImage : public cOglCmd {
-private:
-	sOglImage *imageRef;
-	tColor *data;
+class cOglCmdStoreImage : public cOglCmd
+{
 public:
-	cOglCmdStoreImage(sOglImage *imageRef, tColor *argb);
-	virtual ~cOglCmdStoreImage(void);
+	cOglCmdStoreImage(sOglImage *imageRef, tColor *argb)
+		: cOglCmd(NULL),
+		  m_pImageRef(imageRef),
+		  m_pData(argb) {};
+	virtual ~cOglCmdStoreImage(void) { free(m_pData); };
 	virtual const char* Description(void) { return "Store Image"; }
 	virtual bool Execute(void);
+private:
+	sOglImage *m_pImageRef;
+	tColor *m_pData;
 };
 
-class cOglCmdDropImage : public cOglCmd {
-private:
-	sOglImage *imageRef;
-	cCondWait *wait;
+class cOglCmdDropImage : public cOglCmd
+{
 public:
-	cOglCmdDropImage(sOglImage *imageRef, cCondWait *wait);
+	cOglCmdDropImage(sOglImage *imageRef, cCondWait *wait)
+		: cOglCmd(NULL),
+		  m_pImageRef(imageRef),
+		  m_pWait(wait) {};
 	virtual ~cOglCmdDropImage(void) {};
 	virtual const char* Description(void) { return "Drop Image"; }
 	virtual bool Execute(void);
+private:
+	sOglImage *m_pImageRef;
+	cCondWait *m_pWait;
 };
 
 /******************************************************************************

@@ -1038,99 +1038,79 @@ void cOglVb::DrawArrays(int count) {
 /****************************************************************************************
 * cOpenGLCmd
 ****************************************************************************************/
+
 //------------------ cOglCmdInitOutputFb --------------------
-cOglCmdInitOutputFb::cOglCmdInitOutputFb(cOglOutputFb *oFb) : cOglCmd(NULL) {
-	this->oFb = oFb;
-}
-
-bool cOglCmdInitOutputFb::Execute(void) {
-	bool ok = oFb->Init();
-	oFb->Unbind();
+bool cOglCmdInitOutputFb::Execute(void)
+{
+	bool ok = m_pOutputFramebuffer->Init();
+	m_pOutputFramebuffer->Unbind();
 	return ok;
 }
 
-//------------------ cOglCmdInitFb --------------------
-cOglCmdInitFb::cOglCmdInitFb(cOglFb *fb, cCondWait *wait) : cOglCmd(fb) {
-	this->wait = wait;
-}
-
-bool cOglCmdInitFb::Execute(void) {
-	bool ok = fb->Init();
-	fb->Unbind();
-	if (wait)
-		wait->Signal();
+//------------------ cOglCmdInitFb --------------------------
+bool cOglCmdInitFb::Execute(void)
+{
+	bool ok = m_pFramebuffer->Init();
+	m_pFramebuffer->Unbind();
+	if (m_wait)
+		m_wait->Signal();
 	return ok;
 }
 
-//------------------ cOglCmdDeleteFb --------------------
-cOglCmdDeleteFb::cOglCmdDeleteFb(cOglFb *fb) : cOglCmd(fb) {
-}
-
-bool cOglCmdDeleteFb::Execute(void) {
+//------------------ cOglCmdDeleteFb ------------------------
+bool cOglCmdDeleteFb::Execute(void)
+{
 	GL_CHECK(glFinish());
-	if (fb)
-		delete fb;
+	if (m_pFramebuffer)
+		delete m_pFramebuffer;
 	return true;
 }
 
-//------------------ cOglCmdRenderFbToBufferFb --------------------
-cOglCmdRenderFbToBufferFb::cOglCmdRenderFbToBufferFb(cOglFb *fb, cOglFb *buffer, GLint x, GLint y, GLint transparency, GLint drawPortX, GLint drawPortY, GLint dirtyX, GLint dirtyTop, GLint dirtyWidth, GLint dirtyHeight, bool alphablending, cSoftHdDevice *device) : cOglCmd(fb) {
-	this->dirtyX = dirtyX;
-	this->dirtyTop = dirtyTop;
-	this->dirtyWidth = dirtyWidth;
-	this->dirtyHeight = dirtyHeight;
-	this->buffer = buffer;
-	this->x = (GLfloat)x;
-	this->y = (GLfloat)y;
-	this->drawPortX = (GLfloat)drawPortX;
-	this->drawPortY = (GLfloat)drawPortY;
-	this->transparency = (alphablending ? transparency : ALPHA_OPAQUE);
-	this->bcolor = BORDERCOLOR;
-	this->alphablending = alphablending;
-	Device = device;
-}
+//------------------ cOglCmdRenderFbToBufferFb --------------
+bool cOglCmdRenderFbToBufferFb::Execute(void)
+{
+	GLfloat x1 = m_x; // left
+	GLfloat y1 = m_y; // top
+	GLfloat x2 = m_x + m_pFramebuffer->ViewportWidth();  // right
+	GLfloat y2 = m_y + m_pFramebuffer->ViewportHeight(); // bottom
 
-bool cOglCmdRenderFbToBufferFb::Execute(void) {
-	GLfloat x2 = x + fb->ViewportWidth();  //right
-	GLfloat y2 = y + fb->ViewportHeight(); //bottom
-
-	GLfloat texX1 = drawPortX / (GLfloat)fb->Width();
+	GLfloat texX1 = m_drawPortX / (GLfloat)m_pFramebuffer->Width();
 	GLfloat texX2 = texX1 + 1.0f;
-	GLfloat texY1 = drawPortY / (GLfloat)fb->Height();
+	GLfloat texY1 = m_drawPortY / (GLfloat)m_pFramebuffer->Height();
 	GLfloat texY2 = texY1 + 1.0f;
 
-	if (fb->Scrollable()) {
-		GLfloat pageHeight = (GLfloat)fb->ViewportHeight() / (GLfloat)fb->Height();
-		texX1 = abs(drawPortX) / (GLfloat)fb->Width();
-		texY1 = 1.0f - pageHeight - abs(drawPortY) / (GLfloat)fb->Height();
-		texX2 = texX1 + (GLfloat)fb->ViewportWidth() / (GLfloat)fb->Width();
+	if (m_pFramebuffer->Scrollable()) {
+		GLfloat pageHeight = (GLfloat)m_pFramebuffer->ViewportHeight() / (GLfloat)m_pFramebuffer->Height();
+		texX1 = abs(m_drawPortX) / (GLfloat)m_pFramebuffer->Width();
+		texY1 = 1.0f - pageHeight - abs(m_drawPortY) / (GLfloat)m_pFramebuffer->Height();
+		texX2 = texX1 + (GLfloat)m_pFramebuffer->ViewportWidth() / (GLfloat)m_pFramebuffer->Width();
 		texY2 = texY1 + pageHeight;
 	}
 
 	GLfloat quadVertices[] = {
 		// Pos    // TexCoords
-		x ,  y ,  texX1, texY2,          //left top
-		x ,  y2,  texX1, texY1,          //left bottom
-		x2,  y2,  texX2, texY1,          //right bottom
+		x1,  y1,  texX1, texY2,          // left top
+		x1,  y2,  texX1, texY1,          // left bottom
+		x2,  y2,  texX2, texY1,          // right bottom
 
-		x ,  y ,  texX1, texY2,          //left top
-		x2,  y2,  texX2, texY1,          //right bottom
-		x2,  y ,  texX2, texY2           //right top
+		x1,  y1,  texX1, texY2,          // left top
+		x2,  y2,  texX2, texY1,          // right bottom
+		x2,  y1,  texX2, texY2           // right top
 	};
 
 	VertexBuffers[vbTexture]->ActivateShader();
-	VertexBuffers[vbTexture]->SetShaderAlpha(transparency);
-	VertexBuffers[vbTexture]->SetShaderProjectionMatrix(buffer->Width(), buffer->Height());
-	VertexBuffers[vbTexture]->SetShaderBorderColor(bcolor);
+	VertexBuffers[vbTexture]->SetShaderAlpha(m_transparency);
+	VertexBuffers[vbTexture]->SetShaderProjectionMatrix(m_pBuffer->Width(), m_pBuffer->Height());
+	VertexBuffers[vbTexture]->SetShaderBorderColor(m_bcolor);
 
-	buffer->Bind();
-	if (!fb->BindTexture())
+	m_pBuffer->Bind();
+	if (!m_pFramebuffer->BindTexture())
 		return false;
-	if (!alphablending)
+	if (!m_alphablending)
 		VertexBuffers[vbTexture]->DisableBlending();
 	VertexBuffers[vbTexture]->Bind();
 	GL_CHECK(glEnable(GL_SCISSOR_TEST));
-	GL_CHECK(glScissor(dirtyX, buffer->Height() - dirtyTop - dirtyHeight, dirtyWidth, dirtyHeight));
+	GL_CHECK(glScissor(m_dirtyX, m_pBuffer->Height() - m_dirtyTop - m_dirtyHeight, m_dirtyWidth, m_dirtyHeight));
 	VertexBuffers[vbTexture]->SetVertexSubData(quadVertices);
 	VertexBuffers[vbTexture]->DrawArrays();
 	GL_CHECK(glDisable(GL_SCISSOR_TEST));
@@ -1141,26 +1121,20 @@ bool cOglCmdRenderFbToBufferFb::Execute(void) {
 //	if (Device->WritePngs())
 //		writePng(0, 0, buffer->Width(), buffer->Height(), false);
 #endif
-	if (!alphablending)
+	if (!m_alphablending)
 		VertexBuffers[vbTexture]->EnableBlending();
-	buffer->Unbind();
+	m_pBuffer->Unbind();
 
 	return true;
 }
 
 //------------------ cOglCmdCopyBufferToOutputFb --------------------
-cOglCmdCopyBufferToOutputFb::cOglCmdCopyBufferToOutputFb(cOglFb *fb, cOglOutputFb *oFb, GLint x, GLint y, int active, cSoftHdDevice *device) : cOglCmd(fb) {
-	this->oFb = oFb;
-	this->x = (GLfloat)x;
-	this->y = (GLfloat)y;
-	this->bcolor = BORDERCOLOR;
-	this->active = active;
-	Device = device;
-}
-
-bool cOglCmdCopyBufferToOutputFb::Execute(void) {
-	GLfloat x2 = x + (GLfloat)fb->Width();
-	GLfloat y2 = y + (GLfloat)fb->Height();
+bool cOglCmdCopyBufferToOutputFb::Execute(void)
+{
+	GLfloat x1 = m_x;
+	GLfloat y1 = m_y;
+	GLfloat x2 = m_x + (GLfloat)m_pFramebuffer->Width();
+	GLfloat y2 = m_y + (GLfloat)m_pFramebuffer->Height();
 
 	GLfloat texX1 = 0.0f;
 	GLfloat texX2 = 1.0f;
@@ -1169,23 +1143,23 @@ bool cOglCmdCopyBufferToOutputFb::Execute(void) {
 
 	GLfloat quadVertices[] = {
 		// Pos    // TexCoords
-		x ,  y ,  texX1, texY1,          //left top
-		x ,  y2,  texX1, texY2,          //left bottom
+		x1,  y1,  texX1, texY1,          //left top
+		x1,  y2,  texX1, texY2,          //left bottom
 		x2,  y2,  texX2, texY2,          //right bottom
 
-		x ,  y ,  texX1, texY1,          //left top
+		x1,  y1,  texX1, texY1,          //left top
 		x2,  y2,  texX2, texY2,          //right bottom
-		x2,  y ,  texX2, texY1           //right top
+		x2,  y1,  texX2, texY1           //right top
 	};
 
 	VertexBuffers[vbTexture]->ActivateShader();
 	VertexBuffers[vbTexture]->SetShaderAlpha(255);
-	VertexBuffers[vbTexture]->SetShaderProjectionMatrix(oFb->Width(), oFb->Height());
-	VertexBuffers[vbTexture]->SetShaderBorderColor(bcolor);
+	VertexBuffers[vbTexture]->SetShaderProjectionMatrix(m_pOutputFramebuffer->Width(), m_pOutputFramebuffer->Height());
+	VertexBuffers[vbTexture]->SetShaderBorderColor(m_borderColor);
 
-	oFb->Bind();
-	GL_CHECK(glViewport(0, 0, oFb->Width(), oFb->Height()));
-	if (!fb->BindTexture())
+	m_pOutputFramebuffer->Bind();
+	GL_CHECK(glViewport(0, 0, m_pOutputFramebuffer->Width(), m_pOutputFramebuffer->Height()));
+	if (!m_pFramebuffer->BindTexture())
 		return false;
 
 	VertexBuffers[vbTexture]->Bind();
@@ -1195,120 +1169,111 @@ bool cOglCmdCopyBufferToOutputFb::Execute(void) {
 
 	GL_CHECK(glFinish());
 	// eglSwapBuffers and gbm_surface_lock_front_buffer in OsdDrawARGB()
-	if (active)
-		Device->OsdDrawARGB(0, 0, oFb->Width(), oFb->Height(), 0, 0, 0, 0);
+	if (m_active)
+		m_pDevice->OsdDrawARGB(0, 0, m_pOutputFramebuffer->Width(), m_pOutputFramebuffer->Height(), 0, 0, 0, 0);
 	else
-		Device->OsdClose();
+		m_pDevice->OsdClose();
 
 #ifdef WRITE_PNG
 	// Read back oFb framebuffer
-	if (Device->WritePngs())
-		writePng(0, 0, oFb->Width(), oFb->Height(), true);
+	if (m_pDevice->WritePngs())
+		writePng(0, 0, m_pOutputFramebuffer->Width(), m_pOutputFramebuffer->Height(), true);
 #endif
-	oFb->Unbind();
+	m_pOutputFramebuffer->Unbind();
 
 	return true;
 }
 
 //------------------ cOglCmdFill --------------------
-cOglCmdFill::cOglCmdFill(cOglFb *fb, GLint color) : cOglCmd(fb) {
-	this->color = color;
-}
-
-bool cOglCmdFill::Execute(void) {
+bool cOglCmdFill::Execute(void)
+{
 	glm::vec4 col;
-	ConvertColor(color, col);
-	fb->Bind();
+	ConvertColor(m_color, col);
+	m_pFramebuffer->Bind();
 	GL_CHECK(glClearColor(col.r, col.g, col.b, col.a));
 	GL_CHECK(glClear(GL_COLOR_BUFFER_BIT));
-	fb->Unbind();
+	m_pFramebuffer->Unbind();
+
 	return true;
 }
 
 //------------------ cOglCmdBufferFill --------------------
-cOglCmdBufferFill::cOglCmdBufferFill(cOglFb *fb, GLint color) : cOglCmd(fb) {
-	this->color = color;
-}
-
-bool cOglCmdBufferFill::Execute(void) {
+bool cOglCmdBufferFill::Execute(void)
+{
 	glm::vec4 col;
-	ConvertColor(color, col);
+	ConvertColor(m_color, col);
 	GL_CHECK(glClearColor(col.r, col.g, col.b, col.a));
 	GL_CHECK(glClear(GL_COLOR_BUFFER_BIT));
+
 	return true;
 }
 
 //------------------ cOglCmdDrawRectangle --------------------
-cOglCmdDrawRectangle::cOglCmdDrawRectangle( cOglFb *fb, GLint x, GLint y, GLint width, GLint height, GLint color)  : cOglCmd(fb) {
-	this->x = x;
-	this->y = y;
-	this->width = width;
-	this->height = height;
-	this->color = color;
-}
-
-bool cOglCmdDrawRectangle::Execute(void) {
-	if (width <= 0 || height <= 0)
+bool cOglCmdDrawRectangle::Execute(void)
+{
+	if (m_width <= 0 || m_height <= 0)
 		return false;
 
-	GLfloat x1 = x;
-	GLfloat y1 = y;
-	GLfloat x2 = x + width;
-	GLfloat y2 = y + height;
+	GLfloat x1 = m_x;
+	GLfloat y1 = m_y;
+	GLfloat x2 = m_x + m_width;
+	GLfloat y2 = m_y + m_height;
 
 	GLfloat vertices[] = {
-		x1, y1,    //left top
-		x2, y1,    //right top
-		x2, y2,    //right bottom
-		x1, y2     //left bottom
+		x1, y1,    // left top
+		x2, y1,    // right top
+		x2, y2,    // right bottom
+		x1, y2     // left bottom
 	};
 
 	VertexBuffers[vbRect]->ActivateShader();
-	VertexBuffers[vbRect]->SetShaderColor(color);
-	VertexBuffers[vbRect]->SetShaderProjectionMatrix(fb->Width(), fb->Height());
+	VertexBuffers[vbRect]->SetShaderColor(m_color);
+	VertexBuffers[vbRect]->SetShaderProjectionMatrix(m_pFramebuffer->Width(), m_pFramebuffer->Height());
 
-	fb->Bind();
+	m_pFramebuffer->Bind();
 	VertexBuffers[vbRect]->DisableBlending();
 	VertexBuffers[vbRect]->Bind();
 	VertexBuffers[vbRect]->SetVertexSubData(vertices);
 	VertexBuffers[vbRect]->DrawArrays();
 	VertexBuffers[vbRect]->Unbind();
 	VertexBuffers[vbRect]->EnableBlending();
-	fb->Unbind();
+	m_pFramebuffer->Unbind();
 
 	return true;
 }
 
 //------------------ cOglCmdDrawEllipse --------------------
-///quadrants:
-///< 0       draws the entire ellipse
-///< 1..4    draws only the first, second, third or fourth quadrant, respectively
-///< 5..8    draws the right, top, left or bottom half, respectively
-///< -1..-4  draws the inverted part of the given quadrant
-cOglCmdDrawEllipse::cOglCmdDrawEllipse( cOglFb *fb, GLint x, GLint y, GLint width, GLint height, GLint color, GLint quadrants)  : cOglCmd(fb) {
-	this->x = x;
-	this->y = y;
-	this->width = width;
-	this->height = height;
-	this->color = color;
-	this->quadrants = quadrants;
-}
-
-bool cOglCmdDrawEllipse::Execute(void) {
-	if (width <= 0 || height <= 0)
+// quadrants:
+// 0       draws the entire ellipse
+// 1..4    draws only the first, second, third or fourth quadrant, respectively
+// 5..8    draws the right, top, left or bottom half, respectively
+// -1..-4  draws the inverted part of the given quadrant
+bool cOglCmdDrawEllipse::Execute(void)
+{
+	if (m_width <= 0 || m_height <= 0)
 		return false;
 
 	int numVertices = 0;
 	GLfloat *vertices = NULL;
 
-	switch (quadrants) {
+	switch (m_quadrants) {
 		case 0:
 			vertices = CreateVerticesFull(numVertices);
 			break;
-		case 1: case 2: case 3: case 4: case -1: case -2: case -3: case -4:
+		case 1:
+		case 2:
+		case 3:
+		case 4:
+		case -1:
+		case -2:
+		case -3:
+		case -4:
 			vertices = CreateVerticesQuadrant(numVertices);
 			break;
-		case 5: case 6: case 7: case 8:
+		case 5:
+		case 6:
+		case 7:
+		case 8:
 			vertices = CreateVerticesHalf(numVertices);
 			break;
 		default:
@@ -1316,145 +1281,148 @@ bool cOglCmdDrawEllipse::Execute(void) {
 	}
 
 	VertexBuffers[vbEllipse]->ActivateShader();
-	VertexBuffers[vbEllipse]->SetShaderColor(color);
-	VertexBuffers[vbEllipse]->SetShaderProjectionMatrix(fb->Width(), fb->Height());
+	VertexBuffers[vbEllipse]->SetShaderColor(m_color);
+	VertexBuffers[vbEllipse]->SetShaderProjectionMatrix(m_pFramebuffer->Width(), m_pFramebuffer->Height());
 
-	//not antialiased
-	fb->Bind();
+	// not antialiased
+	m_pFramebuffer->Bind();
 	VertexBuffers[vbEllipse]->DisableBlending();
 	VertexBuffers[vbEllipse]->Bind();
 	VertexBuffers[vbEllipse]->SetVertexSubData(vertices, numVertices);
 	VertexBuffers[vbEllipse]->DrawArrays(numVertices);
 	VertexBuffers[vbEllipse]->Unbind();
 	VertexBuffers[vbEllipse]->EnableBlending();
-	fb->Unbind();
+	m_pFramebuffer->Unbind();
 
 	delete[] vertices;
 	return true;
 }
 
-GLfloat *cOglCmdDrawEllipse::CreateVerticesFull(int &numVertices) {
+GLfloat *cOglCmdDrawEllipse::CreateVerticesFull(int &numVertices)
+{
 	int size = 364;
 	numVertices = size/2;
-	GLfloat radiusX = (GLfloat)width/2;
-	GLfloat radiusY = (GLfloat)height/2;
+	GLfloat radiusX = (GLfloat)m_width / 2;
+	GLfloat radiusY = (GLfloat)m_height / 2;
 	GLfloat *vertices = new GLfloat[size];
-	vertices[0] = x + radiusX;
-	vertices[1] = y + radiusY;
+	vertices[0] = m_x + radiusX;
+	vertices[1] = m_y + radiusY;
 	for (int i=0; i <= 180; i++) {
-		vertices[2*i+2] = x + radiusX + (GLfloat)cos(2*i * M_PI / 180.0f)*radiusX;
-		vertices[2*i+3] = y + radiusY - (GLfloat)sin(2*i * M_PI / 180.0f)*radiusY;
+		vertices[2 * i + 2] = m_x + radiusX + (GLfloat)cos(2 * i * M_PI / 180.0f) * radiusX;
+		vertices[2 * i + 3] = m_y + radiusY - (GLfloat)sin(2 * i * M_PI / 180.0f) * radiusY;
 	}
 	return vertices;
 }
 
-GLfloat *cOglCmdDrawEllipse::CreateVerticesQuadrant(int &numVertices) {
+GLfloat *cOglCmdDrawEllipse::CreateVerticesQuadrant(int &numVertices)
+{
 	int size = 94;
-	numVertices = size/2;
-	GLfloat radiusX = (GLfloat)width;
-	GLfloat radiusY = (GLfloat)height;
+	numVertices = size / 2;
+	GLfloat radiusX = (GLfloat)m_width;
+	GLfloat radiusY = (GLfloat)m_height;
 	GLint transX = 0;
 	GLint transY = 0;
 	GLint startAngle = 0;
 	GLfloat *vertices = new GLfloat[size];
-	switch (quadrants) {
+	switch (m_quadrants) {
 		case 1:
-			vertices[0] = x;
-			vertices[1] = y + height;
+			vertices[0] = m_x;
+			vertices[1] = m_y + m_height;
 			transY = radiusY;
 			break;
 		case 2:
-			vertices[0] = x + width;
-			vertices[1] = y + height;
+			vertices[0] = m_x + m_width;
+			vertices[1] = m_y + m_height;
 			transX = radiusX;
 			transY = radiusY;
 			startAngle = 90;
 			break;
 		case 3:
-			vertices[0] = x + width;
-			vertices[1] = y;
+			vertices[0] = m_x + m_width;
+			vertices[1] = m_y;
 			transX = radiusX;
 			startAngle = 180;
 			break;
 		case 4:
-			vertices[0] = x;
-			vertices[1] = y;
+			vertices[0] = m_x;
+			vertices[1] = m_y;
 			startAngle = 270;
 			break;
 		case -1:
-			vertices[0] = x + width;
-			vertices[1] = y;
+			vertices[0] = m_x + m_width;
+			vertices[1] = m_y;
 			transY = radiusY;
 			break;
 		case -2:
-			vertices[0] = x;
-			vertices[1] = y;
+			vertices[0] = m_x;
+			vertices[1] = m_y;
 			transX = radiusX;
 			transY = radiusY;
 			startAngle = 90;
 			break;
 		case -3:
-			vertices[0] = x;
-			vertices[1] = y + height;
+			vertices[0] = m_x;
+			vertices[1] = m_y + m_height;
 			transX = radiusX;
 			startAngle = 180;
 			break;
 		case -4:
-			vertices[0] = x + width;
-			vertices[1] = y + height;
+			vertices[0] = m_x + m_width;
+			vertices[1] = m_y + m_height;
 			startAngle = 270;
 			break;
 		default:
 			break;
 	}
-	for (int i=0; i <= 45; i++) {
-		vertices[2*i+2] = x + transX + (GLfloat)cos((2*i + startAngle) * M_PI / 180.0f)*radiusX;
-		vertices[2*i+3] = y + transY - (GLfloat)sin((2*i + startAngle) * M_PI / 180.0f)*radiusY;
+	for (int i = 0; i <= 45; i++) {
+		vertices[2 * i + 2] = m_x + transX + (GLfloat)cos((2 * i + startAngle) * M_PI / 180.0f) * radiusX;
+		vertices[2 * i + 3] = m_y + transY - (GLfloat)sin((2 * i + startAngle) * M_PI / 180.0f) * radiusY;
 	}
 	return vertices;
 }
 
-GLfloat *cOglCmdDrawEllipse::CreateVerticesHalf(int &numVertices) {
+GLfloat *cOglCmdDrawEllipse::CreateVerticesHalf(int &numVertices)
+{
 	int size = 184;
-	numVertices = size/2;
+	numVertices = size / 2;
 	GLfloat radiusX = 0.0f;
 	GLfloat radiusY = 0.0f;
 	GLint transX = 0;
 	GLint transY = 0;
 	GLint startAngle = 0;
 	GLfloat *vertices = new GLfloat[size];
-	switch (quadrants) {
+	switch (m_quadrants) {
 		case 5:
-			radiusX = (GLfloat)width;
-			radiusY = (GLfloat)height/2;
-			vertices[0] = x;
-			vertices[1] = y + radiusY;
+			radiusX = (GLfloat)m_width;
+			radiusY = (GLfloat)m_height / 2;
+			vertices[0] = m_x;
+			vertices[1] = m_y + radiusY;
 			startAngle = 270;
 			transY = radiusY;
 			break;
 		case 6:
-			radiusX = (GLfloat)width/2;
-			radiusY = (GLfloat)height;
-			vertices[0] = x + radiusX;
-			vertices[1] = y + radiusY;
+			radiusX = (GLfloat)m_width / 2;
+			radiusY = (GLfloat)m_height;
+			vertices[0] = m_x + radiusX;
+			vertices[1] = m_y + radiusY;
 			startAngle = 0;
 			transX = radiusX;
 			transY = radiusY;
 			break;
 		case 7:
-			radiusX = (GLfloat)width;
-			radiusY = (GLfloat)height/2;
-			vertices[0] = x + radiusX;
-			vertices[1] = y + radiusY;
+			radiusX = (GLfloat)m_width;
+			radiusY = (GLfloat)m_height / 2;
+			vertices[0] = m_x + radiusX;
+			vertices[1] = m_y + radiusY;
 			startAngle = 90;
 			transX = radiusX;
 			transY = radiusY;
 			break;
 		case 8:
-			radiusX = (GLfloat)width/2;
-			radiusY = (GLfloat)height;
-			vertices[0] = x + radiusX;
-			vertices[1] = y;
+			radiusX = (GLfloat)m_width / 2;
+			radiusY = (GLfloat)m_height;
+			vertices[0] = m_x + radiusX;
+			vertices[1] = m_y;
 			startAngle = 180;
 			transX = radiusX;
 			break;
@@ -1462,64 +1430,60 @@ GLfloat *cOglCmdDrawEllipse::CreateVerticesHalf(int &numVertices) {
 			break;
 	}
 	for (int i=0; i <= 90; i++) {
-		vertices[2*i+2] = x + transX + (GLfloat)cos((2*i + startAngle) * M_PI / 180.0f)*radiusX;
-		vertices[2*i+3] = y + transY - (GLfloat)sin((2*i + startAngle) * M_PI / 180.0f)*radiusY;
+		vertices[2 * i + 2] = m_x + transX + (GLfloat)cos((2 * i + startAngle) * M_PI / 180.0f) * radiusX;
+		vertices[2 * i + 3] = m_y + transY - (GLfloat)sin((2 * i + startAngle) * M_PI / 180.0f) * radiusY;
 	}
 	return vertices;
 }
 
 //------------------ cOglCmdDrawSlope --------------------
-///type:
-///< 0: horizontal, rising,  lower
-///< 1: horizontal, rising,  upper
-///< 2: horizontal, falling, lower
-///< 3: horizontal, falling, upper
-///< 4: vertical,   rising,  lower
-///< 5: vertical,   rising,  upper
-///< 6: vertical,   falling, lower
-///< 7: vertical,   falling, upper
-cOglCmdDrawSlope::cOglCmdDrawSlope( cOglFb *fb, GLint x, GLint y, GLint width, GLint height, GLint color, GLint type)  : cOglCmd(fb) {
-	this->x = x;
-	this->y = y;
-	this->width = width;
-	this->height = height;
-	this->color = color;
-	this->type = type;
-}
-
-bool cOglCmdDrawSlope::Execute(void) {
-	if (width <= 0 || height <= 0)
+// type:
+// 0: horizontal, rising,  lower
+// 1: horizontal, rising,  upper
+// 2: horizontal, falling, lower
+// 3: horizontal, falling, upper
+// 4: vertical,   rising,  lower
+// 5: vertical,   rising,  upper
+// 6: vertical,   falling, lower
+// 7: vertical,   falling, upper
+bool cOglCmdDrawSlope::Execute(void)
+{
+	if (m_width <= 0 || m_height <= 0)
 		return false;
 
-	bool falling  = type & 0x02;
-	bool vertical = type & 0x04;
+	bool falling  = m_type & 0x02;
+	bool vertical = m_type & 0x04;
 
 	int steps = 100;
-	if (width < 100)
+	if (m_width < 100)
 		steps = 25;
 	int numVertices = steps + 2;
-	GLfloat *vertices = new GLfloat[numVertices*2];
+	GLfloat *vertices = new GLfloat[numVertices * 2];
 
-	switch (type) {
-		case 0: case 4:
-			vertices[0] = (GLfloat)(x + width);
-			vertices[1] = (GLfloat)(y + height);
+	switch (m_type) {
+		case 0:
+		case 4:
+			vertices[0] = (GLfloat)(m_x + m_width);
+			vertices[1] = (GLfloat)(m_y + m_height);
 			break;
-		case 1: case 5:
-			vertices[0] = (GLfloat)x;
-			vertices[1] = (GLfloat)y;
+		case 1:
+		case 5:
+			vertices[0] = (GLfloat)m_x;
+			vertices[1] = (GLfloat)m_y;
 			break;
-		case 2: case 6:
-			vertices[0] = (GLfloat)x;
-			vertices[1] = (GLfloat)(y + height);
+		case 2:
+		case 6:
+			vertices[0] = (GLfloat)m_x;
+			vertices[1] = (GLfloat)(m_y + m_height);
 			break;
-		case 3: case 7:
-			vertices[0] = (GLfloat)(x + width);
-			vertices[1] = (GLfloat)y;
+		case 3:
+		case 7:
+			vertices[0] = (GLfloat)(m_x + m_width);
+			vertices[1] = (GLfloat)m_y;
 			break;
 		default:
-			vertices[0] = (GLfloat)(x);
-			vertices[1] = (GLfloat)(y);
+			vertices[0] = (GLfloat)(m_x);
+			vertices[1] = (GLfloat)(m_y);
 			break;
 	}
 
@@ -1528,66 +1492,51 @@ bool cOglCmdDrawSlope::Execute(void) {
 		if (falling)
 			c = -c;
 		if (vertical) {
-			vertices[2*i+2] = (GLfloat)x + (GLfloat)width / 2.0f + (GLfloat)width * c / 2.0f;
-			vertices[2*i+3] = (GLfloat)y + (GLfloat)i * ((GLfloat)height) / steps ;
+			vertices[2 * i + 2] = (GLfloat)m_x + (GLfloat)m_width / 2.0f + (GLfloat)m_width * c / 2.0f;
+			vertices[2 * i + 3] = (GLfloat)m_y + (GLfloat)i * ((GLfloat)m_height) / steps ;
 		} else {
-			vertices[2*i+2] = (GLfloat)x + (GLfloat)i * ((GLfloat)width) / steps ;
-			vertices[2*i+3] = (GLfloat)y + (GLfloat)height / 2.0f + (GLfloat)height * c / 2.0f;
+			vertices[2 * i + 2] = (GLfloat)m_x + (GLfloat)i * ((GLfloat)m_width) / steps ;
+			vertices[2 * i + 3] = (GLfloat)m_y + (GLfloat)m_height / 2.0f + (GLfloat)m_height * c / 2.0f;
 		}
 	}
 
 	VertexBuffers[vbSlope]->ActivateShader();
-	VertexBuffers[vbSlope]->SetShaderColor(color);
-	VertexBuffers[vbSlope]->SetShaderProjectionMatrix(fb->Width(), fb->Height());
+	VertexBuffers[vbSlope]->SetShaderColor(m_color);
+	VertexBuffers[vbSlope]->SetShaderProjectionMatrix(m_pFramebuffer->Width(), m_pFramebuffer->Height());
 
-	//not antialiased
-	fb->Bind();
+	// not antialiased
+	m_pFramebuffer->Bind();
 	VertexBuffers[vbSlope]->DisableBlending();
 	VertexBuffers[vbSlope]->Bind();
 	VertexBuffers[vbSlope]->SetVertexSubData(vertices, numVertices);
 	VertexBuffers[vbSlope]->DrawArrays(numVertices);
 	VertexBuffers[vbSlope]->Unbind();
 	VertexBuffers[vbSlope]->EnableBlending();
-	fb->Unbind();
+	m_pFramebuffer->Unbind();
 
 	delete[] vertices;
 	return true;
 }
 
 //------------------ cOglCmdDrawText --------------------
-cOglCmdDrawText::cOglCmdDrawText(cOglFb *fb, GLint x, GLint y, unsigned int *symbols, GLint limitX,
-                                 const char *name, int fontSize, tColor colorText, int length) : cOglCmd(fb), fontName(name)  {
-	this->x = x;
-	this->y = y;
-	this->limitX = limitX;
-	this->colorText = colorText;
-	this->fontSize = fontSize;
-	this->symbols = symbols;
-	this->fontName = name;
-	this->length = length;
-}
-
-cOglCmdDrawText::~cOglCmdDrawText(void) {
-	free(symbols);
-}
-
-bool cOglCmdDrawText::Execute(void) {
-	cOglFont *f = cOglFont::Get(*fontName, fontSize);
+bool cOglCmdDrawText::Execute(void)
+{
+	cOglFont *f = cOglFont::Get(*m_fontName, m_fontSize);
 	if (!f)
 		return false;
 
-	if (!length)
+	if (!m_length)
 		return false;
 
 	VertexBuffers[vbText]->ActivateShader();
-	VertexBuffers[vbText]->SetShaderColor(colorText);
-	VertexBuffers[vbText]->SetShaderProjectionMatrix(fb->Width(), fb->Height());
+	VertexBuffers[vbText]->SetShaderColor(m_colorText);
+	VertexBuffers[vbText]->SetShaderProjectionMatrix(m_pFramebuffer->Width(), m_pFramebuffer->Height());
 
-	fb->Bind();
+	m_pFramebuffer->Bind();
 	VertexBuffers[vbText]->Bind();
 
-	int xGlyph = x;
-	int yGlyph = y;
+	int xGlyph = m_x;
+	int yGlyph = m_y;
 	int fontHeight = f->Height();
 	int bottom = f->Bottom();
 	FT_ULong sym = 0;
@@ -1596,10 +1545,10 @@ bool cOglCmdDrawText::Execute(void) {
 
 	// Check, if we only have symbols, which are in our atlas
 	int unknown_char = 0;
-	for (int i = 0; symbols[i]; i++) {
-		if ((symbols[i] < MIN_CHARCODE) || (symbols[i] > MAX_CHARCODE)) {
-			if (symbols[i]) {
-				unknown_char = symbols[i];
+	for (int i = 0; m_pSymbols[i]; i++) {
+		if ((m_pSymbols[i] < MIN_CHARCODE) || (m_pSymbols[i] > MAX_CHARCODE)) {
+			if (m_pSymbols[i]) {
+				unknown_char = m_pSymbols[i];
 				break;
 			}
 		}
@@ -1608,10 +1557,10 @@ bool cOglCmdDrawText::Execute(void) {
 	if (!unknown_char) {
 		cOglFontAtlas *fa = f->Atlas();
 		std::vector<GLfloat> vertices;
-		vertices.reserve( 4 * 6 * length);
+		vertices.reserve( 4 * 6 * m_length);
 
-		for (int i = 0; symbols[i]; i++) {
-			sym = symbols[i];
+		for (int i = 0; m_pSymbols[i]; i++) {
+			sym = m_pSymbols[i];
 
 			cOglAtlasGlyph *g;
 			// Get the glyph from the font atlas for ASCII code MIN_CHARCODE-MAX_CHARCODE
@@ -1622,14 +1571,14 @@ bool cOglCmdDrawText::Execute(void) {
 				continue;
 			}
 
-			if ( limitX && xGlyph + g->AdvanceX() > limitX )
+			if ( m_limitX && xGlyph + g->AdvanceX() > m_limitX )
 				break;
 
 			kerning = f->AtlasKerning(g, prevSym);
 			prevSym = sym;
 
 			GLfloat x2 = xGlyph + kerning + g->BearingLeft();
-			GLfloat y2 = y + (fontHeight - bottom - g->BearingTop());  //top
+			GLfloat y2 = m_y + (fontHeight - bottom - g->BearingTop());  //top
 			GLfloat w = g->Width();
 			GLfloat h = g->Height();
 
@@ -1667,7 +1616,7 @@ bool cOglCmdDrawText::Execute(void) {
 			yGlyph += kerning + g->AdvanceY();
 
 
-			if ( xGlyph > fb->Width() - 1 )
+			if ( xGlyph > m_pFramebuffer->Width() - 1 )
 				break;
 		}
 
@@ -1676,24 +1625,24 @@ bool cOglCmdDrawText::Execute(void) {
 		VertexBuffers[vbText]->DrawArrays(vertices.size() / 4);
 	} else {
 		LOGDEBUG2(L_OPENGL, "openglosd: %s: char %d is not on the texture atlas, use single draw", __FUNCTION__, unknown_char);
-		for (int i = 0; symbols[i]; i++) {
-			sym = symbols[i];
+		for (int i = 0; m_pSymbols[i]; i++) {
+			sym = m_pSymbols[i];
 			cOglGlyph *g = f->Glyph(sym);
 			if (!g) {
 				LOGWARNING("openglosd: %s: could not load glyph %lx", __FUNCTION__, sym);
 				continue;
 			}
 
-			if ( limitX && xGlyph + g->AdvanceX() > limitX )
+			if ( m_limitX && xGlyph + g->AdvanceX() > m_limitX )
 				break;
 
 			kerning = f->Kerning(g, prevSym);
 			prevSym = sym;
 
-			GLfloat x1 = xGlyph + kerning + g->BearingLeft();          //left
-			GLfloat y1 = y + (fontHeight - bottom - g->BearingTop());  //top
-			GLfloat x2 = x1 + g->Width();                              //right
-			GLfloat y2 = y1 + g->Height();                             //bottom
+			GLfloat x1 = xGlyph + kerning + g->BearingLeft();            //left
+			GLfloat y1 = m_y + (fontHeight - bottom - g->BearingTop());  //top
+			GLfloat x2 = x1 + g->Width();                                //right
+			GLfloat y2 = y1 + g->Height();                               //bottom
 
 			GLfloat vertices[] = {
 				x1, y2,   0.0, 1.0,     // left bottom
@@ -1711,36 +1660,21 @@ bool cOglCmdDrawText::Execute(void) {
 
 			xGlyph += kerning + g->AdvanceX();
 
-			if ( xGlyph > fb->Width() - 1 )
+			if ( xGlyph > m_pFramebuffer->Width() - 1 )
 				break;
 		}
 	}
 
 	GL_CHECK(glBindTexture(GL_TEXTURE_2D, 0));
 	VertexBuffers[vbText]->Unbind();
-	fb->Unbind();
+	m_pFramebuffer->Unbind();
 	return true;
 }
 
 //------------------ cOglCmdDrawImage --------------------
-cOglCmdDrawImage::cOglCmdDrawImage(cOglFb *fb, tColor *argb, GLint width, GLint height, GLint x, GLint y, bool overlay, double scaleX, double scaleY): cOglCmd(fb) {
-	this->argb = argb;
-	this->x = x;
-	this->y = y;
-	this->width = width;
-	this->height = height;
-	this->overlay = overlay;
-	this->scaleX = scaleX;
-	this->scaleY = scaleY;
-	this->bcolor = BORDERCOLOR;
-}
-
-cOglCmdDrawImage::~cOglCmdDrawImage(void) {
-	free(argb);
-}
-
-bool cOglCmdDrawImage::Execute(void) {
-	if (width <= 0 || height <= 0)
+bool cOglCmdDrawImage::Execute(void)
+{
+	if (m_width <= 0 || m_height <= 0)
 		return false;
 
 	GLuint texture;
@@ -1750,12 +1684,12 @@ bool cOglCmdDrawImage::Execute(void) {
 		GL_TEXTURE_2D,
 		0,
 		GL_RGBA,
-		width,
-		height,
+		m_width,
+		m_height,
 		0,
 		GL_RGBA,
 		GL_UNSIGNED_BYTE,
-		argb
+		m_argb
 	));
 	GL_CHECK(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE));
 	GL_CHECK(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE));
@@ -1763,10 +1697,10 @@ bool cOglCmdDrawImage::Execute(void) {
 	GL_CHECK(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR));
 	GL_CHECK(glBindTexture(GL_TEXTURE_2D, 0));
 
-	GLfloat x1 = x;                   //left
-	GLfloat y1 = y;                   //top
-	GLfloat x2 = x + width * scaleX;  //right
-	GLfloat y2 = y + height * scaleY; //bottom
+	GLfloat x1 = m_x;                       //left
+	GLfloat y1 = m_y;                       //top
+	GLfloat x2 = m_x + m_width * m_scaleX;  //right
+	GLfloat y2 = m_y + m_height * m_scaleY; //bottom
 
 	GLfloat quadVertices[] = {
 		x1, y2,   0.0, 1.0,     // left bottom
@@ -1780,20 +1714,20 @@ bool cOglCmdDrawImage::Execute(void) {
 
 	VertexBuffers[vbTextureSwapBR]->ActivateShader();
 	VertexBuffers[vbTextureSwapBR]->SetShaderAlpha(255);
-	VertexBuffers[vbTextureSwapBR]->SetShaderProjectionMatrix(fb->Width(), fb->Height());
-	VertexBuffers[vbTextureSwapBR]->SetShaderBorderColor(bcolor);
+	VertexBuffers[vbTextureSwapBR]->SetShaderProjectionMatrix(m_pFramebuffer->Width(), m_pFramebuffer->Height());
+	VertexBuffers[vbTextureSwapBR]->SetShaderBorderColor(m_borderColor);
 
-	fb->Bind();
+	m_pFramebuffer->Bind();
 	GL_CHECK(glBindTexture(GL_TEXTURE_2D, texture));
-	if (overlay)
+	if (m_overlay)
 		VertexBuffers[vbTextureSwapBR]->DisableBlending();
 	VertexBuffers[vbTextureSwapBR]->Bind();
 	VertexBuffers[vbTextureSwapBR]->SetVertexSubData(quadVertices);
 	VertexBuffers[vbTextureSwapBR]->DrawArrays();
 	VertexBuffers[vbTextureSwapBR]->Unbind();
-	if (overlay)
+	if (m_overlay)
 		VertexBuffers[vbTextureSwapBR]->EnableBlending();
-	fb->Unbind();
+	m_pFramebuffer->Unbind();
 	GL_CHECK(glBindTexture(GL_TEXTURE_2D, 0));
 	GL_CHECK(glDeleteTextures(1, &texture));
 
@@ -1801,75 +1735,58 @@ bool cOglCmdDrawImage::Execute(void) {
 }
 
 //------------------ cOglCmdDrawTexture --------------------
-cOglCmdDrawTexture::cOglCmdDrawTexture(cOglFb *fb, sOglImage *imageRef, GLint x, GLint y, double scaleX, double scaleY): cOglCmd(fb) {
-	this->imageRef = imageRef;
-	this->x = x;
-	this->y = y;
-	this->scaleX = scaleX;
-	this->scaleY = scaleY;
-	this->bcolor = BORDERCOLOR;
-}
-
-bool cOglCmdDrawTexture::Execute(void) {
-	if (imageRef->width <= 0 || imageRef->height <= 0)
+bool cOglCmdDrawTexture::Execute(void)
+{
+	if (m_pImageRef->width <= 0 || m_pImageRef->height <= 0)
 		return false;
 
-	GLfloat x1 = x;                             //top
-	GLfloat y1 = y;                             //left
-	GLfloat x2 = x + imageRef->width * scaleX;  //right
-	GLfloat y2 = y + imageRef->height * scaleY; //bottom
+	GLfloat x1 = m_x;                                  // top
+	GLfloat y1 = m_y;                                  // left
+	GLfloat x2 = m_x + m_pImageRef->width * m_scaleX;  // right
+	GLfloat y2 = m_y + m_pImageRef->height * m_scaleY; // bottom
 
 	GLfloat quadVertices[] = {
 		// Pos    // TexCoords
-		x1,  y1,  0.0f, 0.0f,          //left bottom
-		x1,  y2,  0.0f, 1.0f,          //left top
-		x2,  y2,  1.0f, 1.0f,          //right top
+		x1,  y1,  0.0f, 0.0f,          // left bottom
+		x1,  y2,  0.0f, 1.0f,          // left top
+		x2,  y2,  1.0f, 1.0f,          // right top
 
-		x1,  y1,  0.0f, 0.0f,          //left bottom
-		x2,  y2,  1.0f, 1.0f,          //right top
-		x2,  y1,  1.0f, 0.0f           //right bottom
+		x1,  y1,  0.0f, 0.0f,          // left bottom
+		x2,  y2,  1.0f, 1.0f,          // right top
+		x2,  y1,  1.0f, 0.0f           // right bottom
 	};
 
 	VertexBuffers[vbTextureSwapBR]->ActivateShader();
 	VertexBuffers[vbTextureSwapBR]->SetShaderAlpha(255);
-	VertexBuffers[vbTextureSwapBR]->SetShaderProjectionMatrix(fb->Width(), fb->Height());
-	VertexBuffers[vbTextureSwapBR]->SetShaderBorderColor(bcolor);
+	VertexBuffers[vbTextureSwapBR]->SetShaderProjectionMatrix(m_pFramebuffer->Width(), m_pFramebuffer->Height());
+	VertexBuffers[vbTextureSwapBR]->SetShaderBorderColor(m_borderColor);
 
-	fb->Bind();
-	GL_CHECK(glBindTexture(GL_TEXTURE_2D, imageRef->texture));
+	m_pFramebuffer->Bind();
+	GL_CHECK(glBindTexture(GL_TEXTURE_2D, m_pImageRef->texture));
 	VertexBuffers[vbTextureSwapBR]->Bind();
 	VertexBuffers[vbTextureSwapBR]->SetVertexSubData(quadVertices);
 	VertexBuffers[vbTextureSwapBR]->DrawArrays();
 	VertexBuffers[vbTextureSwapBR]->Unbind();
-	fb->Unbind();
+	m_pFramebuffer->Unbind();
 
 	return true;
 }
 
 
 //------------------ cOglCmdStoreImage --------------------
-cOglCmdStoreImage::cOglCmdStoreImage(sOglImage *imageRef, tColor *argb) : cOglCmd(NULL) {
-	this->imageRef = imageRef;
-	data = argb;
-}
-
-cOglCmdStoreImage::~cOglCmdStoreImage(void) {
-	free(data);
-}
-
 bool cOglCmdStoreImage::Execute(void) {
-	GL_CHECK(glGenTextures(1, &imageRef->texture));
-	GL_CHECK(glBindTexture(GL_TEXTURE_2D, imageRef->texture));
+	GL_CHECK(glGenTextures(1, &m_pImageRef->texture));
+	GL_CHECK(glBindTexture(GL_TEXTURE_2D, m_pImageRef->texture));
 	GL_CHECK(glTexImage2D(
 		GL_TEXTURE_2D,
 		0,
 		GL_RGBA,
-		imageRef->width,
-		imageRef->height,
+		m_pImageRef->width,
+		m_pImageRef->height,
 		0,
 		GL_RGBA,
 		GL_UNSIGNED_BYTE,
-		data
+		m_pData
 	));
 	GL_CHECK(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE));
 	GL_CHECK(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE));
@@ -1880,15 +1797,10 @@ bool cOglCmdStoreImage::Execute(void) {
 }
 
 //------------------ cOglCmdDropImage --------------------
-cOglCmdDropImage::cOglCmdDropImage(sOglImage *imageRef, cCondWait *wait) : cOglCmd(NULL) {
-	this->imageRef = imageRef;
-	this->wait = wait;
-}
-
 bool cOglCmdDropImage::Execute(void) {
-	if (imageRef->texture != GL_NONE)
-		GL_CHECK(glDeleteTextures(1, &imageRef->texture));
-	wait->Signal();
+	if (m_pImageRef->texture != GL_NONE)
+		GL_CHECK(glDeleteTextures(1, &m_pImageRef->texture));
+	m_pWait->Signal();
 	return true;
 }
 
