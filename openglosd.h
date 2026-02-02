@@ -558,47 +558,51 @@ public:
 /****************************************************************************************
 * cOglPixmap
 ****************************************************************************************/
-class cOglPixmap : public cPixmap {
-private:
-	cOglFb *fb;
-	std::shared_ptr<cOglThread> oglThread;
-	bool dirty;
-#ifdef GRIDPOINTS
-	cFont *tinyfont;
-	void DrawGridRect(const cRect &Rect, int offset, int size, tColor clr, tColor bg, const cFont *Font);
-	void DrawGridText(const cPoint &Point, const char *s, tColor ColorFg, tColor ColorBg, const cFont *Font, int Width = 0, int Height = 0, int Alignment = taDefault);
-#endif
+class cOglPixmap : public cPixmap
+{
 public:
-	cOglPixmap(std::shared_ptr<cOglThread> oglThread, int Layer, const cRect &ViewPort, const cRect &DrawPort = cRect::Null);
+	cOglPixmap(std::shared_ptr<cOglThread>, int, const cRect &, const cRect &DrawPort = cRect::Null);
 	virtual ~cOglPixmap(void);
-	cOglFb *Fb(void) { return fb; };
+
+	cOglFb *Framebuffer(void) { return m_pFramebuffer; };
 	int X(void) { return ViewPort().X(); };
 	int Y(void) { return ViewPort().Y(); };
-	virtual bool IsDirty(void) { return dirty; }
-	virtual void SetDirty(bool dirty = true) { this->dirty = dirty; }
-	virtual void SetLayer(int Layer);
-	virtual void SetAlpha(int Alpha);
-	virtual void SetTile(bool Tile);
-	virtual void SetViewPort(const cRect &Rect);
-	virtual void SetDrawPortPoint(const cPoint &Point, bool Dirty = true);
+	virtual bool IsDirty(void) { return m_dirty; }
+	virtual void SetDirty(bool dirty = true) { m_dirty = dirty; }
+	virtual void SetLayer(int);
+	virtual void SetAlpha(int);
+	virtual void SetTile(bool);
+	virtual void SetViewPort(const cRect &);
+	virtual void SetDrawPortPoint(const cPoint &, bool Dirty = true);
 	virtual void Clear(void);
-	virtual void Fill(tColor Color);
-	virtual void DrawImage(const cPoint &Point, const cImage &Image);
-	virtual void DrawImage(const cPoint &Point, int ImageHandle);
-	virtual void DrawScaledImage(const cPoint &Point, const cImage &Image, double FactorX = 1.0f, double FactorY = 1.0f, bool AntiAlias = false);
-	virtual void DrawScaledImage(const cPoint &Point, int ImageHandle, double FactorX = 1.0f, double FactorY = 1.0f, bool AntiAlias = false);
-	virtual void DrawPixel(const cPoint &Point, tColor Color);
-	virtual void DrawBitmap(const cPoint &Point, const cBitmap &Bitmap, tColor ColorFg = 0, tColor ColorBg = 0, bool Overlay = false);
-	virtual void DrawText(const cPoint &Point, const char *s, tColor ColorFg, tColor ColorBg, const cFont *Font, int Width = 0, int Height = 0, int Alignment = taDefault);
-	virtual void DrawRectangle(const cRect &Rect, tColor Color);
-	virtual void DrawEllipse(const cRect &Rect, tColor Color, int Quadrants = 0);
-	virtual void DrawSlope(const cRect &Rect, tColor Color, int Type);
-	virtual void Render(const cPixmap *Pixmap, const cRect &Source, const cPoint &Dest);
-	virtual void Copy(const cPixmap *Pixmap, const cRect &Source, const cPoint &Dest);
-	virtual void Scroll(const cPoint &Dest, const cRect &Source = cRect::Null);
-	virtual void Pan(const cPoint &Dest, const cRect &Source = cRect::Null);
-	virtual void MarkViewPortDirty(const cRect &Rect);
+	virtual void Fill(tColor);
+	virtual void DrawImage(const cPoint &, const cImage &);
+	virtual void DrawImage(const cPoint &, int);
+	virtual void DrawScaledImage(const cPoint &, const cImage &, double FactorX = 1.0f, double FactorY = 1.0f, bool AntiAlias = false);
+	virtual void DrawScaledImage(const cPoint &, int, double FactorX = 1.0f, double FactorY = 1.0f, bool AntiAlias = false);
+	virtual void DrawPixel(const cPoint &, tColor);
+	virtual void DrawBitmap(const cPoint &, const cBitmap &, tColor ColorFg = 0, tColor ColorBg = 0, bool Overlay = false);
+	virtual void DrawText(const cPoint &, const char *, tColor, tColor, const cFont *, int Width = 0, int Height = 0, int Alignment = taDefault);
+	virtual void DrawRectangle(const cRect &, tColor);
+	virtual void DrawEllipse(const cRect &, tColor, int Quadrants = 0);
+	virtual void DrawSlope(const cRect &, tColor, int);
+	virtual void Render(const cPixmap *, const cRect &, const cPoint &);
+	virtual void Copy(const cPixmap *, const cRect &, const cPoint &);
+	virtual void Scroll(const cPoint &, const cRect &Source = cRect::Null);
+	virtual void Pan(const cPoint &, const cRect &Source = cRect::Null);
+	virtual void MarkViewPortDirty(const cRect &);
 	virtual void SetClean(void);
+private:
+	cOglFb *m_pFramebuffer;
+	std::shared_ptr<cOglThread> m_pOglThread;
+	bool m_dirty = true;
+#ifdef GRIDPOINTS
+	cFont *m_pTinyfont;
+
+	void DrawGridRect(const cRect &, int, int, tColor, tColor, const cFont *);
+	void DrawGridText(const cPoint &, const char *, tColor, tColor, const cFont *, int Width = 0, int Height = 0, int Alignment = taDefault);
+#endif
+	void DrawTextInternal(const cPoint &, const char *, tColor, tColor, const cFont *, int Width = 0, int Height = 0, int Alignment = taDefault, bool isGridText = false);
 };
 
 /******************************************************************************
