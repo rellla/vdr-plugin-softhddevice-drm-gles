@@ -48,6 +48,7 @@
 #include "logger.h"
 #include "misc.h"
 #include "openglosd.h"
+#include "openglshader.h"
 #include "softhddevice.h"
 #include "videorender.h"
 
@@ -143,9 +144,7 @@ finalise:
 
 	return code;
 }
-#endif
 
-#ifdef WRITE_PNG
 static void writePng(int x, int y, int w, int h, bool oFb) {
 	GL_CHECK(glFinish());
 	GLubyte result[w * h * 4];
@@ -177,154 +176,20 @@ void ConvertColor(const GLint &colARGB, glm::vec4 &col) {
 /****************************************************************************************
 * cShader
 ****************************************************************************************/
-const char *rectVertexShader =
-"#version 100 \n\
-\
-attribute vec2 position; \
-varying vec4 rectCol; \
-uniform vec4 inColor; \
-uniform mat4 projection; \
-\
-void main() \
-{ \
-	gl_Position = projection * vec4(position.x, position.y, 0.0, 1.0); \
-	rectCol = inColor; \
-} \
-";
-
-const char *rectFragmentShader =
-"#version 100 \n\
-precision mediump float; \
-varying vec4 rectCol; \
-\
-void main() \
-{ \
-	gl_FragColor = rectCol; \
-} \
-";
-
-const char *textureVertexShader =
-"#version 100 \n\
-\
-attribute vec2 position; \
-attribute vec2 texCoords; \
-\
-varying vec2 TexCoords; \
-varying vec4 alphaValue;\
-varying vec4 bColorValue;\
-\
-uniform vec4 bColor; \
-uniform mat4 projection; \
-uniform vec4 alpha; \
-\
-void main() \
-{ \
-	gl_Position = projection * vec4(position.x, position.y, 0.0, 1.0); \
-	TexCoords = texCoords; \
-	alphaValue = alpha; \
-	bColorValue = bColor; \
-} \
-";
-
-const char *textureFragmentShader =
-"#version 100 \n\
-precision mediump float; \
-varying vec2 TexCoords; \
-varying vec4 alphaValue; \
-varying vec4 bColorValue; \
-\
-uniform sampler2D screenTexture; \
-\
-float clamp_to_border_factor (vec2 coords) \
-{ \
-	bvec2 out1 = greaterThan (coords, vec2 (1,1)); \
-	bvec2 out2 = lessThan (coords, vec2 (0,0)); \
-	bool do_clamp = (any (out1) || any (out2)); \
-	return float (!do_clamp); \
-} \
-\
-void main() \
-{ \
-	vec4 color = texture2D(screenTexture, TexCoords) * alphaValue; \
-	float f = clamp_to_border_factor (TexCoords); \
-	gl_FragColor = mix (bColorValue, color, f); \
-} \
-";
-
-const char *textureFragmentShaderSwapBR =
-"#version 100 \n\
-precision mediump float; \
-varying vec2 TexCoords; \
-varying vec4 alphaValue; \
-varying vec4 bColorValue; \
-\
-uniform sampler2D screenTexture; \
-\
-float clamp_to_border_factor (vec2 coords) \
-{ \
-	bvec2 out1 = greaterThan (coords, vec2 (1,1)); \
-	bvec2 out2 = lessThan (coords, vec2 (0,0)); \
-	bool do_clamp = (any (out1) || any (out2)); \
-	return float (!do_clamp); \
-} \
-\
-void main() \
-{ \
-	vec4 color = texture2D(screenTexture, TexCoords) * alphaValue; \
-	vec4 color_swapped = vec4(color.b, color.g, color.r, color.a); \
-	float f = clamp_to_border_factor (TexCoords); \
-	gl_FragColor = mix (bColorValue, color_swapped, f); \
-} \
-";
-
-const char *textVertexShader =
-"#version 100 \n\
-\
-attribute vec2 position; \
-attribute vec2 texCoords; \
-\
-varying vec2 TexCoords; \
-varying vec4 textColor; \
-\
-uniform mat4 projection; \
-uniform vec4 inColor; \
-\
-void main() \
-{ \
-	gl_Position = projection * vec4(position.x, position.y, 0.0, 1.0); \
-	TexCoords = texCoords; \
-	textColor = inColor; \
-} \
-";
-
-const char *textFragmentShader =
-"#version 100 \n\
-precision mediump float; \
-varying vec2 TexCoords; \
-varying vec4 textColor; \
-\
-uniform sampler2D glyphTexture; \
-\
-void main() \
-{  \
-	vec4 sampled = vec4(1.0, 1.0, 1.0, texture2D(glyphTexture, TexCoords).r); \
-	gl_FragColor = textColor * sampled; \
-} \
-";
-
 static cShader *Shaders[stCount];
 
-void cShader::Use(void) {
-	GL_CHECK(glUseProgram(id));
+void cShader::Use(void)
+{
+	GL_CHECK(glUseProgram(m_id));
 }
 
-bool cShader::Load(eShaderType type) {
-	this->type = type;
-
+bool cShader::Load(eShaderType type)
+{
 	const char *vertexCode = NULL;
 	const char *fragmentCode = NULL;
 
-	switch (type) {
+	m_type = type;
+	switch (m_type) {
 		case stRect:
 			vertexCode = rectVertexShader;
 			fragmentCode = rectFragmentShader;
@@ -355,57 +220,69 @@ bool cShader::Load(eShaderType type) {
 		LOGERROR("openglosd: %s: error compiling shader", __FUNCTION__);
 		return false;
 	}
+
 	return true;
 }
 
-void cShader::SetFloat(const GLchar *name, GLfloat value) {
-	GL_CHECK(glUniform1f(glGetUniformLocation(id, name), value));
+void cShader::SetFloat(const GLchar *name, GLfloat value)
+{
+	GL_CHECK(glUniform1f(glGetUniformLocation(m_id, name), value));
 }
 
-void cShader::SetInteger(const GLchar *name, GLint value) {
-	GL_CHECK(glUniform1i(glGetUniformLocation(id, name), value));
+void cShader::SetInteger(const GLchar *name, GLint value)
+{
+	GL_CHECK(glUniform1i(glGetUniformLocation(m_id, name), value));
 }
 
-void cShader::SetVector2f(const GLchar *name, GLfloat x, GLfloat y) {
-	GL_CHECK(glUniform2f(glGetUniformLocation(id, name), x, y));
+void cShader::SetVector2f(const GLchar *name, GLfloat x, GLfloat y)
+{
+	GL_CHECK(glUniform2f(glGetUniformLocation(m_id, name), x, y));
 }
 
-void cShader::SetVector3f(const GLchar *name, GLfloat x, GLfloat y, GLfloat z) {
-	GL_CHECK(glUniform3f(glGetUniformLocation(id, name), x, y, z));
+void cShader::SetVector3f(const GLchar *name, GLfloat x, GLfloat y, GLfloat z)
+{
+	GL_CHECK(glUniform3f(glGetUniformLocation(m_id, name), x, y, z));
 }
 
-void cShader::SetVector4f(const GLchar *name, GLfloat x, GLfloat y, GLfloat z, GLfloat w) {
-	GL_CHECK(glUniform4f(glGetUniformLocation(id, name), x, y, z, w));
+void cShader::SetVector4f(const GLchar *name, GLfloat x, GLfloat y, GLfloat z, GLfloat w)
+{
+	GL_CHECK(glUniform4f(glGetUniformLocation(m_id, name), x, y, z, w));
 }
 
-void cShader::SetMatrix4(const GLchar *name, const glm::mat4 &matrix) {
-	GL_CHECK(glUniformMatrix4fv(glGetUniformLocation(id, name), 1, GL_FALSE, glm::value_ptr(matrix)));
+void cShader::SetMatrix4(const GLchar *name, const glm::mat4 &matrix)
+{
+	GL_CHECK(glUniformMatrix4fv(glGetUniformLocation(m_id, name), 1, GL_FALSE, glm::value_ptr(matrix)));
 }
 
-bool cShader::Compile(const char *vertexCode, const char *fragmentCode) {
+bool cShader::Compile(const char *vertexCode, const char *fragmentCode)
+{
 	GLuint sVertex, sFragment;
-	// Vertex Shader
+
+	// vertex shader
 	GL_CHECK(sVertex = glCreateShader(GL_VERTEX_SHADER));
 	GL_CHECK(glShaderSource(sVertex, 1, &vertexCode, NULL));
 	GL_CHECK(glCompileShader(sVertex));
 	if (!CheckCompileErrors(sVertex))
 		return false;
-	// Fragment Shader
+
+	// fragment shader
 	GL_CHECK(sFragment = glCreateShader(GL_FRAGMENT_SHADER));
 	GL_CHECK(glShaderSource(sFragment, 1, &fragmentCode, NULL));
 	GL_CHECK(glCompileShader(sFragment));
 	if (!CheckCompileErrors(sFragment))
 		return false;
-	// link Program
-	GL_CHECK(id = glCreateProgram());
-	GL_CHECK(glAttachShader(id, sVertex));
-	GL_CHECK(glAttachShader(id, sFragment));
-	GL_CHECK(glBindAttribLocation(id, 0, "position"));
-	GL_CHECK(glBindAttribLocation(id, 1, "texCoords"));
-	GL_CHECK(glLinkProgram(id));
-	if (!CheckCompileErrors(id, true))
+
+	// link program
+	GL_CHECK(m_id = glCreateProgram());
+	GL_CHECK(glAttachShader(m_id, sVertex));
+	GL_CHECK(glAttachShader(m_id, sFragment));
+	GL_CHECK(glBindAttribLocation(m_id, 0, "position"));
+	GL_CHECK(glBindAttribLocation(m_id, 1, "texCoords"));
+	GL_CHECK(glLinkProgram(m_id));
+	if (!CheckCompileErrors(m_id, true))
 		return false;
-	// Delete the shaders as they're linked into our program now and no longer necessery
+
+	// delete the shaders as they're linked into our program now and no longer necessery
 	GL_CHECK(glDeleteShader(sVertex));
 	GL_CHECK(glDeleteShader(sFragment));
 	return true;
@@ -418,14 +295,14 @@ bool cShader::CheckCompileErrors(GLuint object, bool program) {
 		GL_CHECK(glGetShaderiv(object, GL_COMPILE_STATUS, &success));
 		if (!success) {
 			GL_CHECK(glGetShaderInfoLog(object, 1024, NULL, infoLog));
-			LOGERROR("openglosd: %s: Compile-time error: Type: %d - %s", __FUNCTION__, type, infoLog);
+			LOGERROR("openglosd: %s: Compile-time error: Type: %d - %s", __FUNCTION__, m_type, infoLog);
 			return false;
 		}
 	} else {
 		GL_CHECK(glGetProgramiv(object, GL_LINK_STATUS, &success));
 		if (!success) {
 			GL_CHECK(glGetProgramInfoLog(object, 1024, NULL, infoLog));
-			LOGERROR("openglosd: %s: Link-time error: Type: %d - %s", __FUNCTION__, type, infoLog);
+			LOGERROR("openglosd: %s: Link-time error: Type: %d - %s", __FUNCTION__, m_type, infoLog);
 			return false;
 		}
 	}

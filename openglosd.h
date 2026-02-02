@@ -60,7 +60,6 @@ class cSoftHdDevice;
 /****************************************************************************************
 * Helpers
 ****************************************************************************************/
-
 void ConvertColor(const GLint &colARGB, glm::vec4 &col);
 
 /****************************************************************************************
@@ -74,23 +73,26 @@ enum eShaderType {
 	stCount
 };
 
-class cShader {
-private:
-	eShaderType type;
-	GLuint id;
-	bool Compile(const char *vertexCode, const char *fragmentCode);
-	bool CheckCompileErrors(GLuint object, bool program = false);
+class cShader
+{
 public:
 	cShader(void) {};
-	virtual ~cShader(void) {};
-	bool Load(eShaderType type);
+
+	bool Load(eShaderType);
 	void Use(void);
-	void SetFloat    (const GLchar *name, GLfloat value);
-	void SetInteger  (const GLchar *name, GLint value);
-	void SetVector2f (const GLchar *name, GLfloat x, GLfloat y);
-	void SetVector3f (const GLchar *name, GLfloat x, GLfloat y, GLfloat z);
-	void SetVector4f (const GLchar *name, GLfloat x, GLfloat y, GLfloat z, GLfloat w);
-	void SetMatrix4  (const GLchar *name, const glm::mat4 &matrix);
+	void SetFloat    (const GLchar *, GLfloat);
+	void SetInteger  (const GLchar *, GLint);
+	void SetVector2f (const GLchar *, GLfloat, GLfloat);
+	void SetVector3f (const GLchar *, GLfloat, GLfloat, GLfloat);
+	void SetVector4f (const GLchar *, GLfloat, GLfloat, GLfloat, GLfloat);
+	void SetMatrix4  (const GLchar *, const glm::mat4 &);
+
+private:
+	eShaderType m_type;
+	GLuint m_id;
+
+	bool Compile(const char *, const char *);
+	bool CheckCompileErrors(GLuint, bool program = false);
 };
 
 /****************************************************************************************
