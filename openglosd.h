@@ -96,8 +96,23 @@ public:
 /****************************************************************************************
 * cOglGlyph
 ****************************************************************************************/
-class cOglGlyph : public cListObject {
-private:
+class cOglGlyph : public cListObject
+{
+public:
+	cOglGlyph(FT_ULong, FT_BitmapGlyph);
+	virtual ~cOglGlyph();
+
+	FT_ULong CharCode(void) { return m_charCode; }
+	int AdvanceX(void) { return m_advanceX; }
+	int BearingLeft(void) const { return m_bearingLeft; }
+	int BearingTop(void) const { return m_bearingTop; }
+	int Width(void) const { return m_width; }
+	int Height(void) const { return m_height; }
+	int GetKerningCache(FT_ULong);
+	void SetKerningCache(FT_ULong, int);
+	void LoadTexture(void);
+	void BindTexture(void);
+protected:
 	struct tKerning {
 		public:
 			tKerning(FT_ULong prevSym, GLfloat kerning = 0.0f)  {
@@ -107,67 +122,32 @@ private:
 			FT_ULong prevSym;
 			GLfloat kerning;
 	};
-	FT_ULong charCode;
-	int bearingLeft;
-	int bearingTop;
-	int width;
-	int height;
-	int advanceX;
-	cVector<tKerning> kerningCache;
-	GLuint texture;
-	void LoadTexture(FT_BitmapGlyph ftGlyph);
-public:
-	cOglGlyph(FT_ULong charCode, FT_BitmapGlyph ftGlyph);
-	virtual ~cOglGlyph();
-	FT_ULong CharCode(void) { return charCode; }
-	int AdvanceX(void) { return advanceX; }
-	int BearingLeft(void) const { return bearingLeft; }
-	int BearingTop(void) const { return bearingTop; }
-	int Width(void) const { return width; }
-	int Height(void) const { return height; }
-	int GetKerningCache(FT_ULong prevSym);
-	void SetKerningCache(FT_ULong prevSym, int kerning);
-	void BindTexture(void);
+	FT_ULong m_charCode;
+	int m_bearingLeft;
+	int m_bearingTop;
+	int m_width;
+	int m_height;
+	unsigned char *m_pBuffer;
+	int m_advanceX;
+	cVector<tKerning> m_pKerningCache;
+	GLuint m_texture = 0;
 };
 
 /****************************************************************************************
 * cOglAtlasGlyph
 ****************************************************************************************/
-class cOglAtlasGlyph : public cListObject {
-private:
-	struct tKerning {
-		public:
-			tKerning(FT_ULong prevSym, GLfloat kerning = 0.0f)  {
-				this->prevSym = prevSym;
-				this->kerning = kerning;
-			}
-			FT_ULong prevSym;
-			GLfloat kerning;
-	};
-	FT_ULong charCode;
-	int bearingLeft;
-	int bearingTop;
-	int width;
-	int height;
-	int advanceX;
-	int advanceY;
-	float xoffset;
-	float yoffset;
-	cVector<tKerning> kerningCache;
+class cOglAtlasGlyph : public cOglGlyph
+{
 public:
-	cOglAtlasGlyph(FT_ULong charCode, float advanceX, float advanceY, float width, float height, float bearingLeft, float bearingTop, float xoffset, float yoffset);
-	virtual ~cOglAtlasGlyph();
-	FT_ULong CharCode(void) { return charCode; }
-	int AdvanceX(void) { return advanceX; }
-	int AdvanceY(void) { return advanceY; }
-	int BearingLeft(void) const { return bearingLeft; }
-	int BearingTop(void) const { return bearingTop; }
-	int Width(void) const { return width; }
-	int Height(void) const { return height; }
-	float XOffset(void) const { return xoffset; }
-	float YOffset(void) const { return yoffset; }
-	int GetKerningCache(FT_ULong prevSym);
-	void SetKerningCache(FT_ULong prevSym, int kerning);
+	cOglAtlasGlyph(FT_ULong, FT_BitmapGlyph, float, float);
+
+	int AdvanceY(void) { return m_advanceY; }
+	float OffsetX(void) const { return m_offsetX; }
+	float OffsetY(void) const { return m_offsetY; }
+private:
+	int m_advanceY;
+	float m_offsetX;
+	float m_offsetY;
 };
 
 /****************************************************************************************
@@ -175,21 +155,20 @@ public:
 ****************************************************************************************/
 #define MIN_CHARCODE 32
 #define MAX_CHARCODE 255
-class cOglFontAtlas {
-private:
-	GLuint tex;
-	int w;
-	int h;
-	int fontheight;
-	cOglAtlasGlyph* Glyph[MAX_CHARCODE - MIN_CHARCODE + 1];
+class cOglFontAtlas
+{
 public:
-	cOglFontAtlas(FT_Face face, int height);
+	cOglFontAtlas(FT_Face, int);
 	virtual ~cOglFontAtlas(void);
-	cOglAtlasGlyph* GetGlyph(int sym) const;
-	int FontHeight(void) const { return fontheight; }
-	int Height(void) const { return h; }
-	int Width(void) const { return w; }
+	cOglAtlasGlyph* GetGlyph(int) const;
+	int Height(void) const { return m_height; }
+	int Width(void) const { return m_width; }
 	void BindTexture(void);
+private:
+	GLuint m_texture = 0;
+	int m_width = 0;
+	int m_height = 0;
+	cOglAtlasGlyph* m_pGlyph[MAX_CHARCODE - MIN_CHARCODE + 1];
 };
 
 /****************************************************************************************
