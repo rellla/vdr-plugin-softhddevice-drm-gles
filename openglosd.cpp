@@ -843,76 +843,66 @@ void cOglOutputFb::Unbind(void)
 ****************************************************************************************/
 static cOglVb *VertexBuffers[vbCount];
 
-cOglVb::cOglVb(int type) {
-	this->type = (eVertexBufferType)type;
-	positionLoc = 0;
-	texCoordsLoc = 1;
-	vbo = 0;
-	sizeVertex1 = 0;
-	sizeVertex2 = 0;
-	numVertices = 0;
-	drawMode = 0;
-}
-
-cOglVb::~cOglVb(void) {
-}
-
-bool cOglVb::Init(void) {
-
-	if (type == vbTexture) {
-		//Texture VBO definition
-		sizeVertex1 = 2;
-		sizeVertex2 = 2;
-		numVertices = 6;
-		drawMode = GL_TRIANGLES;
-		shader = stTexture;
-	} else if (type == vbTextureSwapBR) {
-		//Texture VBO definition, BR swapped
-		sizeVertex1 = 2;
-		sizeVertex2 = 2;
-		numVertices = 6;
-		drawMode = GL_TRIANGLES;
-		shader = stTextureSwapBR;
-	} else if (type == vbRect) {
-		//Rectangle VBO definition
-		sizeVertex1 = 2;
-		sizeVertex2 = 0;
-		numVertices = 4;
-		drawMode = GL_TRIANGLE_FAN;
-		shader = stRect;
-	} else if (type == vbEllipse) {
-		//Ellipse VBO definition
-		sizeVertex1 = 2;
-		sizeVertex2 = 0;
-		numVertices = 182;
-		drawMode = GL_TRIANGLE_FAN;
-		shader = stRect;
-	} else if (type == vbSlope) {
-		//Slope VBO definition
-		sizeVertex1 = 2;
-		sizeVertex2 = 0;
-		numVertices = 102;
-		drawMode = GL_TRIANGLE_FAN;
-		shader = stRect;
-	} else if (type == vbText) {
-		//Text VBO definition
-		sizeVertex1 = 2;
-		sizeVertex2 = 2;
-		numVertices = 6;
-		drawMode = GL_TRIANGLES;
-		shader = stText;
+bool cOglVb::Init(void)
+{
+	switch (m_type) {
+		case vbTexture:                // Texture VBO definition
+			m_sizeVertex1 = 2;
+			m_sizeVertex2 = 2;
+			m_numVertices = 6;
+			m_drawMode = GL_TRIANGLES;
+			m_shader = stTexture;
+			break;
+		case vbTextureSwapBR:          // Texture VBO definition, BR swapped
+			m_sizeVertex1 = 2;
+			m_sizeVertex2 = 2;
+			m_numVertices = 6;
+			m_drawMode = GL_TRIANGLES;
+			m_shader = stTextureSwapBR;
+			break;
+		case vbRect:                   // Rectangle VBO definition
+			m_sizeVertex1 = 2;
+			m_sizeVertex2 = 0;
+			m_numVertices = 4;
+			m_drawMode = GL_TRIANGLE_FAN;
+			m_shader = stRect;
+			break;
+		case vbEllipse:                // Ellipse VBO definition
+			m_sizeVertex1 = 2;
+			m_sizeVertex2 = 0;
+			m_numVertices = 182;
+			m_drawMode = GL_TRIANGLE_FAN;
+			m_shader = stRect;
+			break;
+		case vbSlope:                  // Slope VBO definition
+			m_sizeVertex1 = 2;
+			m_sizeVertex2 = 0;
+			m_numVertices = 102;
+			m_drawMode = GL_TRIANGLE_FAN;
+			m_shader = stRect;
+			break;
+		case vbText:                   // Text VBO definition
+			m_sizeVertex1 = 2;
+			m_sizeVertex2 = 2;
+			m_numVertices = 6;
+			m_drawMode = GL_TRIANGLES;
+			m_shader = stText;
+			break;
+		default:
+			
+			break;
 	}
 
-	GL_CHECK(glGenBuffers(1, &vbo));
-	GL_CHECK(glBindBuffer(GL_ARRAY_BUFFER, vbo));
+	GL_CHECK(glGenBuffers(1, &m_vbo));
+	GL_CHECK(glBindBuffer(GL_ARRAY_BUFFER, m_vbo));
 
-	GL_CHECK(glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat) * (sizeVertex1 + sizeVertex2) * numVertices, NULL, GL_DYNAMIC_DRAW));
+	GL_CHECK(glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat) * (m_sizeVertex1 + m_sizeVertex2) * m_numVertices, NULL, GL_DYNAMIC_DRAW));
 
-	GL_CHECK(glEnableVertexAttribArray(positionLoc));
-	GL_CHECK(glVertexAttribPointer(positionLoc, sizeVertex1, GL_FLOAT, GL_FALSE, (sizeVertex1 + sizeVertex2) * sizeof(GLfloat), (GLvoid*)0));
-	if (sizeVertex2 > 0) {
-		GL_CHECK(glEnableVertexAttribArray(texCoordsLoc));
-		GL_CHECK(glVertexAttribPointer(texCoordsLoc, sizeVertex2, GL_FLOAT, GL_FALSE, (sizeVertex1 + sizeVertex2) * sizeof(GLfloat), (GLvoid*)(sizeVertex1 * sizeof(GLfloat))));
+	GL_CHECK(glEnableVertexAttribArray(m_positionLoc));
+	GL_CHECK(glVertexAttribPointer(m_positionLoc, m_sizeVertex1, GL_FLOAT, GL_FALSE, (m_sizeVertex1 + m_sizeVertex2) * sizeof(GLfloat), (GLvoid*)0));
+	if (m_sizeVertex2 > 0) {
+		GL_CHECK(glEnableVertexAttribArray(m_texCoordsLoc));
+		GL_CHECK(glVertexAttribPointer(m_texCoordsLoc, m_sizeVertex2, GL_FLOAT, GL_FALSE, (m_sizeVertex1 + m_sizeVertex2) * sizeof(GLfloat), (GLvoid*)(m_sizeVertex1 * sizeof(GLfloat))));
 	}
 
 	GL_CHECK(glBindBuffer(GL_ARRAY_BUFFER, 0));
@@ -920,78 +910,91 @@ bool cOglVb::Init(void) {
 	return true;
 }
 
-void cOglVb::Bind(void) {
-	GL_CHECK(glBindBuffer(GL_ARRAY_BUFFER, vbo));
-	GL_CHECK(glEnableVertexAttribArray(positionLoc));
-	GL_CHECK(glVertexAttribPointer(positionLoc, sizeVertex1, GL_FLOAT, GL_FALSE, (sizeVertex1 + sizeVertex2) * sizeof(GLfloat), (GLvoid*)0));
-	if (sizeVertex2 > 0) {
-		GL_CHECK(glEnableVertexAttribArray(texCoordsLoc));
-		GL_CHECK(glVertexAttribPointer(texCoordsLoc, sizeVertex2, GL_FLOAT, GL_FALSE, (sizeVertex1 + sizeVertex2) * sizeof(GLfloat), (GLvoid*)(sizeVertex1 * sizeof(GLfloat))));
+void cOglVb::Bind(void)
+{
+	GL_CHECK(glBindBuffer(GL_ARRAY_BUFFER, m_vbo));
+	GL_CHECK(glEnableVertexAttribArray(m_positionLoc));
+	GL_CHECK(glVertexAttribPointer(m_positionLoc, m_sizeVertex1, GL_FLOAT, GL_FALSE, (m_sizeVertex1 + m_sizeVertex2) * sizeof(GLfloat), (GLvoid*)0));
+	if (m_sizeVertex2 > 0) {
+		GL_CHECK(glEnableVertexAttribArray(m_texCoordsLoc));
+		GL_CHECK(glVertexAttribPointer(m_texCoordsLoc, m_sizeVertex2, GL_FLOAT, GL_FALSE, (m_sizeVertex1 + m_sizeVertex2) * sizeof(GLfloat), (GLvoid*)(m_sizeVertex1 * sizeof(GLfloat))));
 	}
 }
 
-void cOglVb::Unbind(void) {
+void cOglVb::Unbind(void)
+{
 	GL_CHECK(glBindBuffer(GL_ARRAY_BUFFER, 0));
 }
 
-void cOglVb::ActivateShader(void) {
-	Shaders[shader]->Use();
+void cOglVb::ActivateShader(void)
+{
+	Shaders[m_shader]->Use();
 }
 
-void cOglVb::EnableBlending(void) {
+void cOglVb::EnableBlending(void)
+{
 	GL_CHECK(glEnable(GL_BLEND));
 	GL_CHECK(glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE_MINUS_SRC_ALPHA));
 }
 
-void cOglVb::DisableBlending(void) {
+void cOglVb::DisableBlending(void)
+{
 	GL_CHECK(glDisable(GL_BLEND));
 }
 
-void cOglVb::SetShaderColor(GLint color) {
+void cOglVb::SetShaderColor(GLint color)
+{
 	glm::vec4 col;
 	ConvertColor(color, col);
-	Shaders[shader]->SetVector4f("inColor", col.r, col.g, col.b, col.a);
+	Shaders[m_shader]->SetVector4f("inColor", col.r, col.g, col.b, col.a);
 }
 
-void cOglVb::SetShaderBorderColor(GLint color) {
+void cOglVb::SetShaderBorderColor(GLint color)
+{
 	glm::vec4 col;
 	ConvertColor(color, col);
-	Shaders[shader]->SetVector4f("bColor", col.r, col.g, col.b, col.a);
+	Shaders[m_shader]->SetVector4f("bColor", col.r, col.g, col.b, col.a);
 }
 
-void cOglVb::SetShaderTexture(GLint value) {
-	Shaders[shader]->SetInteger("screenTexture", value);
+void cOglVb::SetShaderTexture(GLint value)
+{
+	Shaders[m_shader]->SetInteger("screenTexture", value);
 }
 
-void cOglVb::SetShaderAlpha(GLint alpha) {
-	Shaders[shader]->SetVector4f("alpha", 1.0f, 1.0f, 1.0f, (GLfloat)(alpha) / 255.0f);
+void cOglVb::SetShaderAlpha(GLint alpha)
+{
+	Shaders[m_shader]->SetVector4f("alpha", 1.0f, 1.0f, 1.0f, (GLfloat)(alpha) / 255.0f);
 }
 
-void cOglVb::SetShaderProjectionMatrix(GLint width, GLint height) {
+void cOglVb::SetShaderProjectionMatrix(GLint width, GLint height)
+{
 	glm::mat4 projection = glm::ortho(0.0f, (GLfloat)width, (GLfloat)height, 0.0f, -1.0f, 1.0f);
-	Shaders[shader]->SetMatrix4("projection", projection);
+	Shaders[m_shader]->SetMatrix4("projection", projection);
 }
 
-void cOglVb::SetVertexSubData(GLfloat *vertices, int count) {
+void cOglVb::SetVertexSubData(GLfloat *vertices, int count)
+{
 	if (count == 0)
-		count = numVertices;
-	GL_CHECK(glBindBuffer(GL_ARRAY_BUFFER, vbo));
-	GL_CHECK(glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(GLfloat) * (sizeVertex1 + sizeVertex2) * count, vertices));
+		count = m_numVertices;
+	GL_CHECK(glBindBuffer(GL_ARRAY_BUFFER, m_vbo));
+	GL_CHECK(glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(GLfloat) * (m_sizeVertex1 + m_sizeVertex2) * count, vertices));
 	GL_CHECK(glBindBuffer(GL_ARRAY_BUFFER, 0));
 }
 
-void cOglVb::SetVertexData(GLfloat *vertices, int count) {
+void cOglVb::SetVertexData(GLfloat *vertices, int count)
+{
 	if (count == 0)
-		count = numVertices;
-	GL_CHECK(glBindBuffer(GL_ARRAY_BUFFER, vbo));
-	GL_CHECK(glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat) * (sizeVertex1 + sizeVertex2) * count, vertices, GL_DYNAMIC_DRAW));
+		count = m_numVertices;
+	GL_CHECK(glBindBuffer(GL_ARRAY_BUFFER, m_vbo));
+	GL_CHECK(glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat) * (m_sizeVertex1 + m_sizeVertex2) * count, vertices, GL_DYNAMIC_DRAW));
 	GL_CHECK(glBindBuffer(GL_ARRAY_BUFFER, 0));
 }
 
-void cOglVb::DrawArrays(int count) {
+void cOglVb::DrawArrays(int count)
+{
 	if (count == 0)
-		count = numVertices;
-	GL_CHECK(glDrawArrays(drawMode, 0, count));
+		count = m_numVertices;
+	GL_CHECK(glDrawArrays(m_drawMode, 0, count));
 }
 
 /****************************************************************************************
