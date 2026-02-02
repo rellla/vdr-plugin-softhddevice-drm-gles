@@ -22,6 +22,9 @@
 #ifndef __SOFTHDDEVICE_OPENGLSHADER_H
 #define __SOFTHDDEVICE_OPENGLSHADER_H
 
+/***********************************************************************
+ * Rectangle shaders
+ **********************************************************************/
 const char *rectVertexShader =
 "#version 100 \n\
 \
@@ -48,6 +51,9 @@ void main() \
 } \
 ";
 
+/***********************************************************************
+ * Texture shaders
+ **********************************************************************/
 const char *textureVertexShader =
 "#version 100 \n\
 \
@@ -96,6 +102,10 @@ void main() \
 } \
 ";
 
+/**
+ * In difference to the textureFragmentShader this one does
+ * a blue/red color component swap
+ */
 const char *textureFragmentShaderSwapBR =
 "#version 100 \n\
 precision mediump float; \
@@ -122,6 +132,9 @@ void main() \
 } \
 ";
 
+/***********************************************************************
+ * Text shaders
+ **********************************************************************/
 const char *textVertexShader =
 "#version 100 \n\
 \
