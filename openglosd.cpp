@@ -738,129 +738,102 @@ int cOglFont::Kerning(cOglGlyph *glyph, FT_ULong prevSym) const
 /****************************************************************************************
 * cOglFb
 ****************************************************************************************/
-cOglFb::cOglFb(GLint width, GLint height, GLint viewPortWidth, GLint viewPortHeight) {
-	initiated = false;
-	fb = 0;
-	texture = 0;
-	this->width = width;
-	this->height = height;
-	this->viewPortWidth = viewPortWidth;
-	this->viewPortHeight = viewPortHeight;
-	if (width != viewPortWidth || height != viewPortHeight)
-		scrollable = true;
-	else
-		scrollable = false;
+cOglFb::cOglFb(GLint width, GLint height, GLint viewPortWidth, GLint viewPortHeight)
+	: m_width(width),
+	  m_height(height),
+	  m_viewPortWidth(viewPortWidth),
+	  m_viewPortHeight(viewPortHeight)
+{
+	if (m_width != m_viewPortWidth || m_height != m_viewPortHeight)
+		m_scrollable = true;
 }
 
-cOglFb::~cOglFb(void) {
-	if (texture)
-		GL_CHECK(glDeleteTextures(1, &texture));
-	if (fb)
-		GL_CHECK(glDeleteFramebuffers(1, &fb));
+cOglFb::~cOglFb(void)
+{
+	if (m_texture)
+		GL_CHECK(glDeleteTextures(1, &m_texture));
+	if (m_framebuffer)
+		GL_CHECK(glDeleteFramebuffers(1, &m_framebuffer));
 }
 
-bool cOglFb::Init(void) {
-	initiated = true;
-	GL_CHECK(glGenTextures(1, &texture));
-	GL_CHECK(glBindTexture(GL_TEXTURE_2D, texture));
-	GL_CHECK(glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL));
+bool cOglFb::Init(void)
+{
+	GL_CHECK(glGenTextures(1, &m_texture));
+	GL_CHECK(glBindTexture(GL_TEXTURE_2D, m_texture));
+	GL_CHECK(glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, m_width, m_height, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL));
 	GL_CHECK(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR));
 	GL_CHECK(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR));
 	GL_CHECK(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE));
 	GL_CHECK(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE));
-	GL_CHECK(glGenFramebuffers(1, &fb));
-	GL_CHECK(glBindFramebuffer(GL_FRAMEBUFFER, fb));
+	GL_CHECK(glGenFramebuffers(1, &m_framebuffer));
+	GL_CHECK(glBindFramebuffer(GL_FRAMEBUFFER, m_framebuffer));
 
-	GL_CHECK(glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture, 0));
+	GL_CHECK(glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, m_texture, 0));
 
 	GLenum fbstatus;
 	GL_CHECK(fbstatus = glCheckFramebufferStatus(GL_FRAMEBUFFER));
-	if(fbstatus != GL_FRAMEBUFFER_COMPLETE) {
+	if (fbstatus != GL_FRAMEBUFFER_COMPLETE) {
 		LOGERROR("openglosd: %s: Framebuffer is not complete!", __FUNCTION__);
 		return false;
 	}
+
+	m_initiated = true;
 	return true;
 }
 
-void cOglFb::Bind(void) {
-	if (!initiated)
+void cOglFb::Bind(void)
+{
+	if (!m_initiated)
 		Init();
-	GL_CHECK(glViewport(0, 0, width, height));
-	GL_CHECK(glBindFramebuffer(GL_FRAMEBUFFER, fb));
+	GL_CHECK(glViewport(0, 0, m_width, m_height));
+	GL_CHECK(glBindFramebuffer(GL_FRAMEBUFFER, m_framebuffer));
 }
 
-void cOglFb::BindRead(void) {
-	GL_CHECK(glBindFramebuffer(GL_FRAMEBUFFER, fb));
-}
-
-void cOglFb::BindWrite(void) {
-	GL_CHECK(glBindFramebuffer(GL_FRAMEBUFFER, fb));
-}
-
-void cOglFb::Unbind(void) {
+void cOglFb::Unbind(void)
+{
 	GL_CHECK(glBindFramebuffer(GL_FRAMEBUFFER, 0));
 	GL_CHECK(glBindTexture(GL_TEXTURE_2D, 0));
 }
 
-bool cOglFb::BindTexture(void) {
-	if (!initiated)
+bool cOglFb::BindTexture(void)
+{
+	if (!m_initiated)
 		return false;
-	GL_CHECK(glBindTexture(GL_TEXTURE_2D, texture));
+	GL_CHECK(glBindTexture(GL_TEXTURE_2D, m_texture));
 	return true;
 }
-
 
 /****************************************************************************************
 * cOglOutputFb
 ****************************************************************************************/
-cOglOutputFb::cOglOutputFb(GLint width, GLint height) : cOglFb(width, height, width, height) {
-	initiated = false;
-	this->width = width;
-	this->height = height;
-	fb = 0;
-	texture = 0;
-}
-
-cOglOutputFb::~cOglOutputFb(void) {
-	if (texture)
-		GL_CHECK(glDeleteTextures(1, &texture));
-	if (fb)
-		GL_CHECK(glDeleteFramebuffers(1, &fb));
-}
-
-bool cOglOutputFb::Init(void) {
-	initiated = true;
-	GL_CHECK(glGenTextures(1, &texture));
-	GL_CHECK(glBindTexture(GL_TEXTURE_2D, texture));
-	GL_CHECK(glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL));
+bool cOglOutputFb::Init(void)
+{
+	GL_CHECK(glGenTextures(1, &m_texture));
+	GL_CHECK(glBindTexture(GL_TEXTURE_2D, m_texture));
+	GL_CHECK(glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, m_width, m_height, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL));
 	GL_CHECK(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR));
 	GL_CHECK(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR));
 	GL_CHECK(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE));
 	GL_CHECK(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE));
-	GL_CHECK(glGenFramebuffers(1, &fb));
-	GL_CHECK(glBindFramebuffer(GL_FRAMEBUFFER, fb));
+	GL_CHECK(glGenFramebuffers(1, &m_framebuffer));
+	GL_CHECK(glBindFramebuffer(GL_FRAMEBUFFER, m_framebuffer));
 
-	GL_CHECK(glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture, 0));
+	GL_CHECK(glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, m_texture, 0));
 
 	GLenum fbstatus;
 	GL_CHECK(fbstatus = glCheckFramebufferStatus(GL_FRAMEBUFFER));
-	if(fbstatus != GL_FRAMEBUFFER_COMPLETE) {
-		LOGERROR("openglosd: %s: Framebuffer is not complete (%d)!", __FUNCTION__, fbstatus);
+	if (fbstatus != GL_FRAMEBUFFER_COMPLETE) {
+		LOGERROR("openglosd: %s: Framebuffer is not complete!", __FUNCTION__);
 		return false;
 	}
 
+	m_initiated = true;
 	return true;
 }
 
-void cOglOutputFb::BindWrite(void) {
-	if (!initiated)
-		Init();
-	GL_CHECK(glViewport(0, 0, width, height));
-	GL_CHECK(glBindFramebuffer(GL_FRAMEBUFFER, fb));
-}
-
-void cOglOutputFb::Unbind(void) {
-	GL_CHECK(glFinish()); //??
+void cOglOutputFb::Unbind(void)
+{
+	GL_CHECK(glFinish());
 	GL_CHECK(glBindTexture(GL_TEXTURE_2D, 0));
 	GL_CHECK(glBindFramebuffer(GL_FRAMEBUFFER, 0));
 }

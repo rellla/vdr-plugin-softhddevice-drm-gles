@@ -213,46 +213,47 @@ private:
 * cOglFb
 * Framebuffer Object - OpenGL part of a Pixmap
 ****************************************************************************************/
-class cOglFb {
-protected:
-	bool initiated;
-	GLuint fb;
-	GLuint texture;
-	GLint width, height;
-	GLint viewPortWidth, viewPortHeight;
-	bool scrollable;
+class cOglFb
+{
 public:
-	cOglFb(GLint width, GLint height, GLint viewPortWidth, GLint viewPortHeight);
+	cOglFb(GLint, GLint, GLint, GLint);
 	virtual ~cOglFb(void);
-	bool Initiated(void) { return initiated; }
+
+	bool Initiated(void) { return m_initiated; }
 	virtual bool Init(void);
 	void Bind(void);
-	void BindRead(void);
-	virtual void BindWrite(void);
 	virtual void Unbind(void);
 	bool BindTexture(void);
-	void Blit(GLint destX1, GLint destY1, GLint destX2, GLint destY2);
-	GLint Width(void) { return width; };
-	GLint Height(void) { return height; };
-	bool Scrollable(void) { return scrollable; };
-	GLint ViewportWidth(void) { return viewPortWidth; };
-	GLint ViewportHeight(void) { return viewPortHeight; };
+	void Blit(GLint, GLint, GLint, GLint);
+	GLint Width(void) { return m_width; };
+	GLint Height(void) { return m_height; };
+	bool Scrollable(void) { return m_scrollable; };
+	GLint ViewportWidth(void) { return m_viewPortWidth; };
+	GLint ViewportHeight(void) { return m_viewPortHeight; };
+protected:
+	bool m_initiated = false;
+	GLint m_width, m_height;
+private:
+	GLuint m_framebuffer = 0;
+	GLuint m_texture = 0;
+	GLint m_viewPortWidth, m_viewPortHeight;
+	bool m_scrollable = false;
 };
 
 /****************************************************************************************
 * cOglOutputFb
 * Output Framebuffer Object - holds texture which is our "output framebuffer"
 ****************************************************************************************/
-class cOglOutputFb : public cOglFb {
-private:
+class cOglOutputFb : public cOglFb
+{
 public:
-	GLuint fb;
-	GLuint texture;
-	cOglOutputFb(GLint width, GLint height);
-	virtual ~cOglOutputFb(void);
+	cOglOutputFb(GLint width, GLint height) : cOglFb(width, height, width, height) {};
+
 	virtual bool Init(void);
-	virtual void BindWrite(void);
 	virtual void Unbind(void);
+private:
+	GLuint m_framebuffer = 0;
+	GLuint m_texture = 0;
 };
 
 /****************************************************************************************
