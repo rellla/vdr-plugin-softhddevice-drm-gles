@@ -610,16 +610,31 @@ private:
 #define OGL_MAX_OSDIMAGES 512
 #define OGL_CMDQUEUE_SIZE 200
 
-class cOglThread : public cThread {
+class cOglThread : public cThread
+{
+public:
+	cOglThread(cCondWait *startWait, int maxCacheSize, cSoftHdDevice *device);
+	virtual ~cOglThread(void) {};
+
+	void Stop(void);
+	void DoCmd(cOglCmd*);
+	int StoreImage(const cImage &);
+	void DropImageData(int);
+	sOglImage *GetImageRef(int);
+	int MaxTextureSize(void) { return m_maxTextureSize; };
+protected:
+	virtual void Action(void);
 private:
-	cCondWait *startWait;
-	cCondWait *wait;
-	bool stalled;
-	std::queue<cOglCmd*> commands;
-	GLint maxTextureSize;
-	sOglImage imageCache[OGL_MAX_OSDIMAGES];
-	long memCached;
-	long maxCacheSize;
+	cCondWait *m_startWait;
+	cCondWait m_wait;
+	bool m_stalled = false;
+	std::queue<cOglCmd*> m_commands;
+	GLint m_maxTextureSize = 0;
+	sOglImage m_imageCache[OGL_MAX_OSDIMAGES];
+	long m_memCached = 0;
+	long m_maxCacheSize;
+	cVideoRender *m_pRender;
+
 	bool InitOpenGL(void);
 	bool InitShaders(void);
 	void DeleteShaders(void);
@@ -630,18 +645,6 @@ private:
 	void ClearSlot(int slot);
 	void eglAcquireContext(void);
 	void eglReleaseContext(void);
-	cVideoRender *Render;
-protected:
-	virtual void Action(void);
-public:
-	cOglThread(cCondWait *startWait, int maxCacheSize, cSoftHdDevice *device);
-	virtual ~cOglThread();
-	void Stop(void);
-	void DoCmd(cOglCmd* cmd);
-	int StoreImage(const cImage &image);
-	void DropImageData(int imageHandle);
-	sOglImage *GetImageRef(int slot);
-	int MaxTextureSize(void) { return maxTextureSize; };
 };
 
 /****************************************************************************************

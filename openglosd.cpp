@@ -1770,78 +1770,71 @@ bool cOglCmdDropImage::Execute(void) {
 /******************************************************************************
 * cOglThread
 ******************************************************************************/
-cOglThread::cOglThread(cCondWait *startWait, int maxCacheSize, cSoftHdDevice *device) : cThread("oglThread") {
-	stalled = false;
-	memCached = 0;
-	this->maxCacheSize = maxCacheSize * 1024 * 1024;
-	this->startWait = startWait;
-	this->Render = device->Render();
-	wait = new cCondWait();
-	maxTextureSize = 0;
+cOglThread::cOglThread(cCondWait *startWait, int maxCacheSize, cSoftHdDevice *device)
+	: cThread("oglThread"),
+	  m_startWait(startWait),
+	  m_maxCacheSize(maxCacheSize * 1024 * 1024),
+	  m_pRender(device->Render())
+{
 	for (int i = 0; i < OGL_MAX_OSDIMAGES; i++) {
-		imageCache[i].used = false;
-		imageCache[i].texture = GL_NONE;
-		imageCache[i].width = 0;
-		imageCache[i].height = 0;
+		m_imageCache[i].used = false;
+		m_imageCache[i].texture = GL_NONE;
+		m_imageCache[i].width = 0;
+		m_imageCache[i].height = 0;
 	}
 
 	Start();
 }
 
-cOglThread::~cOglThread() {
-	delete wait;
-	wait = NULL;
-}
-
-void cOglThread::Stop(void) {
+void cOglThread::Stop(void)
+{
 	for (int i = 0; i < OGL_MAX_OSDIMAGES; i++) {
-		if (imageCache[i].used) {
+		if (m_imageCache[i].used) {
 			DropImageData(i);
 		}
 	}
 	Cancel(2);
-	stalled = false;
+	m_stalled = false;
 }
 
-void cOglThread::DoCmd(cOglCmd* cmd) {
-	while (stalled)
+void cOglThread::DoCmd(cOglCmd* cmd)
+{
+	while (m_stalled)
 		cCondWait::SleepMs(10);
 
 	bool doSignal = false;
 	Lock();
-	if (commands.size() == 0)
+	if (m_commands.size() == 0)
 		doSignal = true;
-	commands.push(cmd);
+	m_commands.push(cmd);
 	Unlock();
 
-	if (commands.size() > OGL_CMDQUEUE_SIZE) {
-		stalled = true;
+	if (m_commands.size() > OGL_CMDQUEUE_SIZE) {
+		m_stalled = true;
 	}
 
-	if (doSignal || stalled)
-		wait->Signal();
+	if (doSignal || m_stalled)
+		m_wait.Signal();
 }
 
-int cOglThread::StoreImage(const cImage &image) {
-	if (!maxCacheSize) {
+int cOglThread::StoreImage(const cImage &image)
+{
+	if (!m_maxCacheSize) {
 		LOGERROR("openglosd: %s: cannot store image, no cache set", __FUNCTION__);
 		return 0;
 	}
 
-	if (image.Width() > maxTextureSize || image.Height() > maxTextureSize) {
-		LOGERROR("openglosd: %s: cannot store image of %dpx x %dpx "
-				"(maximum size is %dpx x %dpx) - falling back to "
-				"cOsdProvider::StoreImageData()", __FUNCTION__,
-				image.Width(), image.Height(),
-				maxTextureSize, maxTextureSize);
+	if (image.Width() > m_maxTextureSize || image.Height() > m_maxTextureSize) {
+		LOGERROR("openglosd: %s: cannot store image of %dpx x %dpx (maximum size is %dpx x %dpx) - falling back to cOsdProvider::StoreImageData()",
+			__FUNCTION__, image.Width(), image.Height(), m_maxTextureSize, m_maxTextureSize);
 		return 0;
 	}
 
 	int imgSize = image.Width() * image.Height();
-	int newMemUsed = imgSize * sizeof(tColor) + memCached;
-	if (newMemUsed > maxCacheSize) {
-		float cachedMB = memCached / 1024.0f / 1024.0f;
-		float maxMB = maxCacheSize / 1024.0f / 1024.0f;
+	int newMemUsed = imgSize * sizeof(tColor) + m_memCached;
+	if (newMemUsed > m_maxCacheSize) {
+		float cachedMB = m_memCached / 1024.0f / 1024.0f;
+		float maxMB = m_maxCacheSize / 1024.0f / 1024.0f;
 		LOGERROR("openglosd: %s: Maximum size for GPU cache reached. Used: %.2fMB Max: %.2fMB", __FUNCTION__, cachedMB, maxMB);
 		return 0;
 	}
@@ -1875,16 +1868,18 @@ int cOglThread::StoreImage(const cImage &image) {
 		slot = 0;
 	}
 
-	memCached += imgSize  * sizeof(tColor);
+	m_memCached += imgSize * sizeof(tColor);
+
 	return slot;
 }
 
-int cOglThread::GetFreeSlot(void) {
+int cOglThread::GetFreeSlot(void)
+{
 	Lock();
 	int slot = 0;
 	for (int i = 0; i < OGL_MAX_OSDIMAGES && !slot; i++) {
-		if (!imageCache[i].used) {
-			imageCache[i].used = true;
+		if (!m_imageCache[i].used) {
+			m_imageCache[i].used = true;
 			slot = -i - 1;
 		}
 	}
@@ -1892,101 +1887,105 @@ int cOglThread::GetFreeSlot(void) {
 	return slot;
 }
 
-void cOglThread::ClearSlot(int slot) {
+void cOglThread::ClearSlot(int slot)
+{
 	int i = -slot - 1;
 	if (i >= 0 && i < OGL_MAX_OSDIMAGES) {
 		Lock();
-		imageCache[i].used = false;
-		imageCache[i].texture = GL_NONE;
-		imageCache[i].width = 0;
-		imageCache[i].height = 0;
+		m_imageCache[i].used = false;
+		m_imageCache[i].texture = GL_NONE;
+		m_imageCache[i].width = 0;
+		m_imageCache[i].height = 0;
 		Unlock();
 	}
 }
 
-sOglImage *cOglThread::GetImageRef(int slot) {
+sOglImage *cOglThread::GetImageRef(int slot)
+{
 	int i = -slot - 1;
 	if (0 <= i && i < OGL_MAX_OSDIMAGES)
-		return &imageCache[i];
+		return &m_imageCache[i];
 	return 0;
 }
 
-void cOglThread::DropImageData(int imageHandle) {
+void cOglThread::DropImageData(int imageHandle)
+{
 	sOglImage *imageRef = GetImageRef(imageHandle);
 	if (!imageRef)
 		return;
 	int imgSize = imageRef->width * imageRef->height * sizeof(tColor);
-	memCached -= imgSize;
+	m_memCached -= imgSize;
 	cCondWait dropWait;
 	DoCmd(new cOglCmdDropImage(imageRef, &dropWait));
 	dropWait.Wait();
 	ClearSlot(imageHandle);
 }
 
-void cOglThread::Action(void) {
+void cOglThread::Action(void)
+{
 	if (!InitOpenGL()) {
 		LOGERROR("openglosd: %s: Could not initiate OpenGL context", __FUNCTION__);
 		Cleanup();
-		startWait->Signal();
+		m_startWait->Signal();
 		return;
 	}
 
 	if (!InitShaders()) {
 		LOGERROR("openglosd: %s: Could not initiate shaders", __FUNCTION__);
 		Cleanup();
-		startWait->Signal();
+		m_startWait->Signal();
 		return;
 	}
 
 	if (!InitVertexBuffers()) {
 		LOGERROR("openglosd: %s: Vertex Buffers NOT initialized", __FUNCTION__);
 		Cleanup();
-		startWait->Signal();
+		m_startWait->Signal();
 		return;
 	}
 
-	GL_CHECK(glGetIntegerv(GL_MAX_TEXTURE_SIZE, &maxTextureSize));
-	LOGDEBUG2(L_OPENGL, "openglosd: %s: Maximum Pixmap size: %dx%dpx", __FUNCTION__, maxTextureSize, maxTextureSize);
+	GL_CHECK(glGetIntegerv(GL_MAX_TEXTURE_SIZE, &m_maxTextureSize));
+	LOGDEBUG2(L_OPENGL, "openglosd: %s: Maximum Pixmap size: %dx%dpx", __FUNCTION__, m_maxTextureSize, m_maxTextureSize);
 
 	//now Thread is ready to do his job
-	startWait->Signal();
-	stalled = false;
+	m_startWait->Signal();
+	m_stalled = false;
 
 	LOGINFO("OpenGL context initialized");
 
-	uint64_t start_flush = 0;
-	uint64_t end_flush = 0;
-	int time_reset = 0;
+	uint64_t startFlush = 0;
+	uint64_t endFlush = 0;
+	bool timeReset = false;
 
 	while(Running()) {
-
-		if (commands.empty()) {
-			wait->Wait(20);
+		if (m_commands.empty()) {
+			m_wait.Wait(20);
 			continue;
 		}
 
 		Lock();
-		cOglCmd* cmd = commands.front();
-		commands.pop();
+		cOglCmd* cmd = m_commands.front();
+		m_commands.pop();
 		Unlock();
 
 		uint64_t start = cTimeMs::Now();
-		if (strcmp(cmd->Description(), "InitFramebuffer") == 0 || time_reset) {
-			start_flush = cTimeMs::Now();
-			time_reset = 0;
+		if (strcmp(cmd->Description(), "InitFramebuffer") == 0 || timeReset) {
+			startFlush = cTimeMs::Now();
+			timeReset = false;
 		}
 
 		cmd->Execute();
-		LOGDEBUG2(L_OPENGL_TIME_ALL, "openglosd: %s: \"%-*s\", %dms, %d commands left, time %" PRIu64 "", __FUNCTION__, 15, cmd->Description(), (int)(cTimeMs::Now() - start), (int)(commands.size()), cTimeMs::Now());
+		LOGDEBUG2(L_OPENGL_TIME_ALL, "openglosd: %s: \"%-*s\", %dms, %d commands left, time %" PRIu64 "",
+			__FUNCTION__, 15, cmd->Description(), (int)(cTimeMs::Now() - start), (int)(m_commands.size()), cTimeMs::Now());
 
 		if (strcmp(cmd->Description(), "Copy buffer to OutputFramebuffer") == 0) {
-			end_flush = cTimeMs::Now();
-			time_reset = 1;
-			LOGDEBUG2(L_OPENGL_TIME, "openglosd: %s: OSD Flush %dms, time %" PRIu64 "", __FUNCTION__, (int)(end_flush - start_flush), cTimeMs::Now());
+			endFlush = cTimeMs::Now();
+			timeReset = true;
+			LOGDEBUG2(L_OPENGL_TIME, "openglosd: %s: OSD Flush %dms, time %" PRIu64 "", __FUNCTION__, (int)(endFlush - startFlush), cTimeMs::Now());
 		}
 		delete cmd;
-		if (stalled && commands.size() < OGL_CMDQUEUE_SIZE / 2)
-			stalled = false;
+		if (m_stalled && m_commands.size() < OGL_CMDQUEUE_SIZE / 2)
+			m_stalled = false;
 	}
 
 	LOGDEBUG2(L_OPENGL, "openglosd: %s: Cleaning up OpenGL stuff", __FUNCTION__);
@@ -1996,19 +1995,20 @@ void cOglThread::Action(void) {
 
 void cOglThread::eglAcquireContext(void)
 {
-	EGL_CHECK(eglMakeCurrent(Render->EglDisplay(), Render->EglSurface(), Render->EglSurface(), Render->EglContext()));
+	EGL_CHECK(eglMakeCurrent(m_pRender->EglDisplay(), m_pRender->EglSurface(), m_pRender->EglSurface(), m_pRender->EglContext()));
 }
 
 void cOglThread::eglReleaseContext(void)
 {
-	EGL_CHECK(eglMakeCurrent(Render->EglDisplay(), EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT));
+	EGL_CHECK(eglMakeCurrent(m_pRender->EglDisplay(), EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT));
 }
 
-bool cOglThread::InitOpenGL(void) {
+bool cOglThread::InitOpenGL(void)
+{
 	LOGDEBUG2(L_OPENGL, "openglosd: %s: Init OpenGL context", __FUNCTION__);
 
 	// Wait for the EGL context to be created
-	while(!Render->GlInitiated()) {
+	while(!m_pRender->GlInitiated()) {
 		LOGDEBUG2(L_OPENGL, "openglosd: %s: wait for EGL context", __FUNCTION__);
 		usleep(20000);
 	}
@@ -2023,43 +2023,51 @@ bool cOglThread::InitOpenGL(void) {
 	VertexBuffers[vbText]->EnableBlending();
 	GL_CHECK(glDisable(GL_DEPTH_TEST));
 	LOGDEBUG2(L_OPENGL, "openglosd: %s: Init OpenGL context done", __FUNCTION__);
+
 	return true;
 }
 
-bool cOglThread::InitShaders(void) {
-	for (int i=0; i < stCount; i++) {
+bool cOglThread::InitShaders(void)
+{
+	for (int i = 0; i < stCount; i++) {
 		cShader *shader = new cShader();
 		if (!shader->Load((eShaderType)i))
 			return false;
 		Shaders[i] = shader;
 	}
 	LOGDEBUG2(L_OPENGL, "openglosd: %s: Shaders initialized", __FUNCTION__);
+
 	return true;
 }
 
-void cOglThread::DeleteShaders(void) {
-	for (int i=0; i < stCount; i++)
+void cOglThread::DeleteShaders(void)
+{
+	for (int i = 0; i < stCount; i++)
 		delete Shaders[i];
 }
 
-bool cOglThread::InitVertexBuffers(void) {
-	for (int i=0; i < vbCount; i++) {
+bool cOglThread::InitVertexBuffers(void)
+{
+	for (int i = 0; i < vbCount; i++) {
 		cOglVb *vb = new cOglVb(i);
 		if (!vb->Init())
 			return false;
 		VertexBuffers[i] = vb;
 	}
 	LOGDEBUG2(L_OPENGL, "openglosd: %s: Vertex buffers initialized", __FUNCTION__);
+
 	return true;
 }
 
-void cOglThread::DeleteVertexBuffers(void) {
+void cOglThread::DeleteVertexBuffers(void)
+{
 	for (int i=0; i < vbCount; i++) {
 		delete VertexBuffers[i];
 	}
 }
 
-void cOglThread::Cleanup(void) {
+void cOglThread::Cleanup(void)
+{
 	DeleteVertexBuffers();
 	delete cOglOsd::OutputFramebuffer;
 	cOglOsd::OutputFramebuffer = NULL;
