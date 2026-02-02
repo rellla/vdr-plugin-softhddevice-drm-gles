@@ -578,98 +578,103 @@ void cOglFontAtlas::BindTexture(void) {
 /****************************************************************************************
 * cOglFont
 ****************************************************************************************/
-FT_Library cOglFont::ftLib = 0;
-cList<cOglFont> *cOglFont::fonts = 0;
-bool cOglFont::initiated = false;
+FT_Library cOglFont::s_ftLib = 0;
+cList<cOglFont> *cOglFont::s_pFonts = 0;
+bool cOglFont::s_initiated = false;
 
-cOglFont::cOglFont(const char *fontName, int charHeight) : name(fontName) {
-	size = charHeight;
-	height = 0;
-	bottom = 0;
-
-	int error = FT_New_Face(ftLib, fontName, 0, &face);
+cOglFont::cOglFont(const char *fontName, int charHeight)
+	: m_name(fontName),
+	  m_size(charHeight)
+{
+	int error = FT_New_Face(s_ftLib, m_name, 0, &m_face);
 	if (error)
-		LOGERROR("openglosd: %s: failed to open %s!", __FUNCTION__, *name);
+		LOGERROR("openglosd: %s: failed to open %s!", __FUNCTION__, *m_name);
 
 	FT_ULong charcode;
 	FT_UInt gindex;
 	int count = 0;
-	int min_index = 0;
-	int max_index = 0;
+	int minIndex = 0;
+	int maxIndex = 0;
 
-	charcode = FT_Get_First_Char(face, &gindex);
-	min_index = gindex;
-	max_index = gindex;
+	charcode = FT_Get_First_Char(m_face, &gindex);
+	minIndex = gindex;
+	maxIndex = gindex;
 	while (gindex != 0) {
 		count++;
-		charcode = FT_Get_Next_Char(face, charcode, &gindex);
-		min_index = std::min(min_index, (int)gindex);
-		max_index = std::max(max_index, (int)gindex);
+		charcode = FT_Get_Next_Char(m_face, charcode, &gindex);
+		minIndex = std::min(minIndex, (int)gindex);
+		maxIndex = std::max(maxIndex, (int)gindex);
 	}
 
-	FT_Set_Char_Size(face, 0, charHeight * 64, 0, 0);
-	height = (face->size->metrics.ascender - face->size->metrics.descender + 63) / 64;
-	bottom = abs((face->size->metrics.descender - 63) / 64);
-	this->atlas = new cOglFontAtlas(face, charHeight);
-	LOGDEBUG2(L_OPENGL, "openglosd: %s: Created new font: %s (%d) height: %d, bottom: %d - %d chars (%d - %d)", __FUNCTION__, fontName, charHeight, height, bottom, count, min_index, max_index);
+	FT_Set_Char_Size(m_face, 0, m_size * 64, 0, 0);
+	m_height = (m_face->size->metrics.ascender - m_face->size->metrics.descender + 63) / 64;
+	m_bottom = abs((m_face->size->metrics.descender - 63) / 64);
+	m_pAtlas = new cOglFontAtlas(m_face, m_size);
+	LOGDEBUG2(L_OPENGL, "openglosd: %s: Created new font: %s (%d) height: %d, bottom: %d - %d chars (%d - %d)", __FUNCTION__, m_name, m_size, m_height, m_bottom, count, minIndex, maxIndex);
 }
 
-cOglFont::~cOglFont(void) {
-	delete atlas;
-	FT_Done_Face(face);
+cOglFont::~cOglFont(void)
+{
+	delete m_pAtlas;
+	FT_Done_Face(m_face);
 }
 
-cOglFont *cOglFont::Get(const char *name, int charHeight) {
-	if (!fonts)
+cOglFont *cOglFont::Get(const char *name, int charHeight)
+{
+	if (!s_pFonts)
 		Init();
 
 	cOglFont *font;
-	for (font = fonts->First(); font; font = fonts->Next(font))
+	for (font = s_pFonts->First(); font; font = s_pFonts->Next(font))
 		if (!strcmp(font->Name(), name) && charHeight == font->Size()) {
 			return font;
 		}
 	font = new cOglFont(name, charHeight);
-	fonts->Add(font);
+	s_pFonts->Add(font);
+
 	return font;
 }
 
-void cOglFont::Init(void) {
-	if (FT_Init_FreeType(&ftLib)) {
+void cOglFont::Init(void)
+{
+	if (FT_Init_FreeType(&s_ftLib)) {
 		LOGERROR("openglosd: %s: failed to initialize FreeType library!", __FUNCTION__);
 		return;
 	}
-	fonts = new cList<cOglFont>;
-	initiated = true;
+	s_pFonts = new cList<cOglFont>;
+	s_initiated = true;
 }
 
-void cOglFont::Cleanup(void) {
-	if (!initiated)
+void cOglFont::Cleanup(void)
+{
+	if (!s_initiated)
 		return;
-	delete fonts;
-	fonts = 0;
-	if (ftLib && FT_Done_FreeType(ftLib))
+	delete s_pFonts;
+	s_pFonts = 0;
+	if (s_ftLib && FT_Done_FreeType(s_ftLib))
 		LOGERROR("openglosd: %s: failed to deinitialize FreeType library!", __FUNCTION__);
 
-	ftLib = 0;
+	s_ftLib = 0;
 }
 
-cOglGlyph* cOglFont::Glyph(FT_ULong charCode) const {
+cOglGlyph* cOglFont::Glyph(FT_ULong charCode) const
+{
 	// Non-breaking space:
 	if (charCode == 0xA0)
 		charCode = 0x20;
 
 	// Lookup in cache:
-	for (cOglGlyph *g = glyphCache.First(); g; g = glyphCache.Next(g)) {
+	for (cOglGlyph *g = m_glyphCache.First(); g; g = m_glyphCache.Next(g)) {
 		if (g->CharCode() == charCode) {
 			return g;
 		}
 	}
 
-	FT_UInt glyph_index = FT_Get_Char_Index(face, charCode);
+	FT_UInt glyphIndex = FT_Get_Char_Index(m_face, charCode);
 
 	FT_Int32 loadFlags = FT_LOAD_NO_BITMAP;
 	// Load glyph image into the slot (erase previous one):
-	int error = FT_Load_Glyph(face, glyph_index, loadFlags);
+	int error = FT_Load_Glyph(m_face, glyphIndex, loadFlags);
 	if (error) {
 		LOGERROR("openglosd: %s: FT_Error (0x%02x) : %s", __FUNCTION__, FT_Errors[error].code, FT_Errors[error].message);
 		return NULL;
@@ -677,75 +682,56 @@ cOglGlyph* cOglFont::Glyph(FT_ULong charCode) const {
 
 	FT_Glyph ftGlyph;
 	FT_Stroker stroker;
-	error = FT_Stroker_New( ftLib, &stroker );
+	error = FT_Stroker_New(s_ftLib, &stroker);
 	if (error) {
 		LOGERROR("openglosd: %s: FT_Stroker_New FT_Error (0x%02x) : %s", __FUNCTION__, FT_Errors[error].code, FT_Errors[error].message);
 		return NULL;
 	}
 	float outlineWidth = 0.25f;
-	FT_Stroker_Set(stroker,
-					(int)(outlineWidth * 64),
-					FT_STROKER_LINECAP_ROUND,
-					FT_STROKER_LINEJOIN_ROUND,
-					0);
+	FT_Stroker_Set(stroker, (int)(outlineWidth * 64), FT_STROKER_LINECAP_ROUND, FT_STROKER_LINEJOIN_ROUND, 0);
 
-
-	error = FT_Get_Glyph(face->glyph, &ftGlyph);
+	error = FT_Get_Glyph(m_face->glyph, &ftGlyph);
 	if (error) {
 		LOGERROR("openglosd: %s: FT_Get_Glyph FT_Error (0x%02x) : %s", __FUNCTION__, FT_Errors[error].code, FT_Errors[error].message);
 		return NULL;
 	}
 
-	error = FT_Glyph_StrokeBorder( &ftGlyph, stroker, 0, 1 );
-	if ( error ) {
+	error = FT_Glyph_StrokeBorder(&ftGlyph, stroker, 0, 1);
+	if (error) {
 		LOGERROR("openglosd: %s: FT_Glyph_StrokeBorder FT_Error (0x%02x) : %s", __FUNCTION__, FT_Errors[error].code, FT_Errors[error].message);
 		return NULL;
 	}
 	FT_Stroker_Done(stroker);
 
-	error = FT_Glyph_To_Bitmap( &ftGlyph, FT_RENDER_MODE_NORMAL, 0, 1);
+	error = FT_Glyph_To_Bitmap(&ftGlyph, FT_RENDER_MODE_NORMAL, 0, 1);
 	if (error) {
 		LOGERROR("openglosd: %s: FT_Glyph_To_Bitmap FT_Error (0x%02x) : %s", __FUNCTION__, FT_Errors[error].code, FT_Errors[error].message);
 		return NULL;
 	}
 
-	cOglGlyph *Glyph = new cOglGlyph(charCode, (FT_BitmapGlyph)ftGlyph);
-	Glyph->LoadTexture();
-	glyphCache.Add(Glyph);
+	cOglGlyph *glyph = new cOglGlyph(charCode, (FT_BitmapGlyph)ftGlyph);
+	glyph->LoadTexture();
+	m_glyphCache.Add(glyph);
 	FT_Done_Glyph(ftGlyph);
 
-	return Glyph;
+	return glyph;
 }
 
-int cOglFont::Kerning(cOglGlyph *glyph, FT_ULong prevSym) const {
+int cOglFont::Kerning(cOglGlyph *glyph, FT_ULong prevSym) const
+{
 	int kerning = 0;
 	if (glyph && prevSym) {
 		kerning = glyph->GetKerningCache(prevSym);
 		if (kerning == KERNING_UNKNOWN) {
 			FT_Vector delta;
-			FT_UInt glyph_index = FT_Get_Char_Index(face, glyph->CharCode());
-			FT_UInt glyph_index_prev = FT_Get_Char_Index(face, prevSym);
-			FT_Get_Kerning(face, glyph_index_prev, glyph_index, FT_KERNING_DEFAULT, &delta);
+			FT_UInt glyphIndex = FT_Get_Char_Index(m_face, glyph->CharCode());
+			FT_UInt glyphIndexPrev = FT_Get_Char_Index(m_face, prevSym);
+			FT_Get_Kerning(m_face, glyphIndexPrev, glyphIndex, FT_KERNING_DEFAULT, &delta);
 			kerning = delta.x / 64;
 			glyph->SetKerningCache(prevSym, kerning);
 		}
 	}
-	return kerning;
-}
 
-int cOglFont::AtlasKerning(cOglAtlasGlyph *glyph, FT_ULong prevSym) const {
-	int kerning = 0;
-	if (glyph && prevSym) {
-		kerning = glyph->GetKerningCache(prevSym);
-		if (kerning == KERNING_UNKNOWN) {
-			FT_Vector delta;
-			FT_UInt glyph_index = FT_Get_Char_Index(face, glyph->CharCode());
-			FT_UInt glyph_index_prev = FT_Get_Char_Index(face, prevSym);
-			FT_Get_Kerning(face, glyph_index_prev, glyph_index, FT_KERNING_DEFAULT, &delta);
-			kerning = delta.x / 64;
-			glyph->SetKerningCache(prevSym, kerning);
-		}
-	}
 	return kerning;
 }
 
@@ -1574,7 +1560,8 @@ bool cOglCmdDrawText::Execute(void)
 			if ( m_limitX && xGlyph + g->AdvanceX() > m_limitX )
 				break;
 
-			kerning = f->AtlasKerning(g, prevSym);
+			kerning = f->Kerning(g, prevSym);
+//			kerning = f->AtlasKerning(g, prevSym);
 			prevSym = sym;
 
 			GLfloat x2 = xGlyph + kerning + g->BearingLeft();
