@@ -179,32 +179,34 @@ private:
 /****************************************************************************************
 * cOglFont
 ****************************************************************************************/
-class cOglFont : public cListObject {
-private:
-	static bool initiated;
-	cString name;
-	int size;
-	int height;
-	int bottom;
-	static FT_Library ftLib;
-	FT_Face face;
-	static cList<cOglFont> *fonts;
-	mutable cList<cOglGlyph> glyphCache;
-	cOglFont(const char *fontName, int charHeight);
-	static void Init(void);
-	cOglFontAtlas *atlas;
+class cOglFont : public cListObject
+{
 public:
 	virtual ~cOglFont(void);
 	static cOglFont *Get(const char *name, int charHeight);
-	cOglFontAtlas *Atlas(void) { return atlas; };
+	cOglFontAtlas *Atlas(void) { return m_pAtlas; };
 	static void Cleanup(void);
-	const char *Name(void) { return *name; };
-	int Size(void) { return size; };
-	int Bottom(void) {return bottom; };
-	int Height(void) {return height; };
+	const char *Name(void) { return *m_name; };
+	int Size(void) { return m_size; };
+	int Bottom(void) {return m_bottom; };
+	int Height(void) {return m_height; };
 	cOglGlyph* Glyph(FT_ULong charCode) const;
 	int Kerning(cOglGlyph *glyph, FT_ULong prevSym) const;
-	int AtlasKerning(cOglAtlasGlyph *glyph, FT_ULong prevSym) const;
+private:
+	static bool s_initiated;
+	static FT_Library s_ftLib;
+	static cList<cOglFont> *s_pFonts;
+
+	cString m_name;
+	int m_size;
+	int m_height = 0;
+	int m_bottom = 0;
+	FT_Face m_face;
+	mutable cList<cOglGlyph> m_glyphCache;
+	cOglFontAtlas *m_pAtlas;
+
+	cOglFont(const char *fontName, int charHeight);
+	static void Init(void);
 };
 
 /****************************************************************************************
