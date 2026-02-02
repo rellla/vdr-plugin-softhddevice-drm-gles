@@ -436,53 +436,59 @@ bool cShader::CheckCompileErrors(GLuint object, bool program) {
 /****************************************************************************************
 * cOglGlyph
 ****************************************************************************************/
-cOglGlyph::cOglGlyph(FT_ULong charCode, FT_BitmapGlyph ftGlyph) {
-	this->charCode = charCode;
-	bearingLeft = ftGlyph->left;
-	bearingTop = ftGlyph->top;
-	width = ftGlyph->bitmap.width;
-	height = ftGlyph->bitmap.rows;
-	advanceX = ftGlyph->root.advance.x >> 16;   //value in 1/2^16 pixel
-	LoadTexture(ftGlyph);
+cOglGlyph::cOglGlyph(FT_ULong charCode, FT_BitmapGlyph ftGlyph)
+	: m_charCode(charCode),
+	  m_bearingLeft(ftGlyph->left),
+	  m_bearingTop(ftGlyph->top),
+	  m_width(ftGlyph->bitmap.width),
+	  m_height(ftGlyph->bitmap.rows),
+	  m_pBuffer(ftGlyph->bitmap.buffer),
+	  m_advanceX(ftGlyph->root.advance.x >> 16)   // value in 1/2^16 pixel
+{
 }
 
-cOglGlyph::~cOglGlyph(void) {
-	if (texture)
-		GL_CHECK(glDeleteTextures(1, &texture));
+cOglGlyph::~cOglGlyph(void)
+{
+	if (m_texture)
+		GL_CHECK(glDeleteTextures(1, &m_texture));
 }
 
-int cOglGlyph::GetKerningCache(FT_ULong prevSym) {
-	for (int i = kerningCache.Size(); --i > 0; ) {
-		if (kerningCache[i].prevSym == prevSym)
-			return kerningCache[i].kerning;
+int cOglGlyph::GetKerningCache(FT_ULong prevSym)
+{
+	for (int i = m_pKerningCache.Size(); --i > 0; ) {
+		if (m_pKerningCache[i].prevSym == prevSym)
+			return m_pKerningCache[i].kerning;
 	}
 	return KERNING_UNKNOWN;
 }
 
-void cOglGlyph::SetKerningCache(FT_ULong prevSym, int kerning) {
-	kerningCache.Append(tKerning(prevSym, kerning));
+void cOglGlyph::SetKerningCache(FT_ULong prevSym, int kerning)
+{
+	m_pKerningCache.Append(tKerning(prevSym, kerning));
 }
 
-void cOglGlyph::BindTexture(void) {
-	GL_CHECK(glBindTexture(GL_TEXTURE_2D, texture));
+void cOglGlyph::BindTexture(void)
+{
+	GL_CHECK(glBindTexture(GL_TEXTURE_2D, m_texture));
 }
 
-void cOglGlyph::LoadTexture(FT_BitmapGlyph ftGlyph) {
+void cOglGlyph::LoadTexture(void)
+{
 	// Disable byte-alignment restriction
 	GL_CHECK(glPixelStorei(GL_UNPACK_ALIGNMENT, 1));
-	GL_CHECK(glGenTextures(1, &texture));
-	GL_CHECK(glBindTexture(GL_TEXTURE_2D, texture));
+	GL_CHECK(glGenTextures(1, &m_texture));
+	GL_CHECK(glBindTexture(GL_TEXTURE_2D, m_texture));
 
 	GL_CHECK(glTexImage2D(
 		GL_TEXTURE_2D,
 		0,
 		GL_LUMINANCE,
-		ftGlyph->bitmap.width,
-		ftGlyph->bitmap.rows,
+		m_width,
+		m_height,
 		0,
 		GL_LUMINANCE,
 		GL_UNSIGNED_BYTE,
-		ftGlyph->bitmap.buffer
+		m_pBuffer
 	));
 
 	// Set texture options
@@ -498,52 +504,27 @@ void cOglGlyph::LoadTexture(FT_BitmapGlyph ftGlyph) {
 /****************************************************************************************
 * cOglAtlasGlyph
 ****************************************************************************************/
-cOglAtlasGlyph::cOglAtlasGlyph(FT_ULong charCode, float advanceX, float advanceY,
-                               float width, float height,
-                               float bearingLeft, float bearingTop,
-                               float xoffset, float yoffset) {
-	this->charCode = charCode;
-	this->bearingLeft = bearingLeft;
-	this->bearingTop = bearingTop;
-	this->width = width;
-	this->height = height;
-	this->advanceX = advanceX;   //value in 1/2^16 pixel
-	this->advanceY = advanceY;   //value in 1/2^16 pixel
-	this->xoffset = xoffset;
-	this->yoffset = yoffset;
-}
-
-cOglAtlasGlyph::~cOglAtlasGlyph(void) {
-
-}
-
-int cOglAtlasGlyph::GetKerningCache(FT_ULong prevSym) {
-	for (int i = kerningCache.Size(); --i > 0; ) {
-		if (kerningCache[i].prevSym == prevSym)
-			return kerningCache[i].kerning;
-	}
-	return KERNING_UNKNOWN;
-}
-
-void cOglAtlasGlyph::SetKerningCache(FT_ULong prevSym, int kerning) {
-	kerningCache.Append(tKerning(prevSym, kerning));
+cOglAtlasGlyph::cOglAtlasGlyph(FT_ULong charCode, FT_BitmapGlyph ftGlyph, float offsetX, float offsetY)
+	: cOglGlyph(charCode, ftGlyph),
+	  m_advanceY(ftGlyph->root.advance.y >> 16),   // value in 1/2^16 pixel
+	  m_offsetX(offsetX),
+	  m_offsetY(offsetY)
+{
 }
 
 /****************************************************************************************
 * cOglFontAtlas
 ****************************************************************************************/
-cOglFontAtlas::cOglFontAtlas(FT_Face face, int height) {
-	this->fontheight = height;
-	int max_atlas_width;
-	GL_CHECK(glGetIntegerv(GL_MAX_TEXTURE_SIZE, &max_atlas_width));
+cOglFontAtlas::cOglFontAtlas(FT_Face face, int height)
+{
+	int maxAtlasWidth;
+	GL_CHECK(glGetIntegerv(GL_MAX_TEXTURE_SIZE, &maxAtlasWidth));
 
 	FT_Set_Pixel_Sizes(face, 0, height);
 	FT_GlyphSlot g = face->glyph;
 
-	int roww = 0;
-	int rowh = 0;
-	w = 0;
-	h = 0;
+	int rowW = 0;
+	int rowH = 0;
 
 	/* Find the minimum size for the texture holding all visible ASCII characters */
 	for (int i = MIN_CHARCODE; i <= MAX_CHARCODE; i++) {
@@ -583,32 +564,32 @@ cOglFontAtlas::cOglFontAtlas(FT_Face face, int height) {
 
 		FT_BitmapGlyph bGlyph = (FT_BitmapGlyph)ftGlyph;
 
-		if (roww + bGlyph->bitmap.width + 1 >= (unsigned int)max_atlas_width) {
-			w = std::max(w, roww);
-			h += rowh;
-			roww = 0;
-			rowh = 0;
+		if (rowW + bGlyph->bitmap.width + 1 >= (unsigned int)maxAtlasWidth) {
+			m_width = std::max(m_width, rowW);
+			m_height += rowH;
+			rowW = 0;
+			rowH = 0;
 		}
-		roww += bGlyph->bitmap.width + 1;
-		rowh = std::max(rowh, (int)bGlyph->bitmap.rows);
+		rowW += bGlyph->bitmap.width + 1;
+		rowH = std::max(rowH, (int)bGlyph->bitmap.rows);
 
 		FT_Done_Glyph(ftGlyph);
 	}
 
-	w = std::max(w, roww);
-	h += rowh;
+	m_width = std::max(m_width, rowW);
+	m_height += rowH;
 
 	/* Create a texture that will be used to hold all ASCII glyphs */
-	GL_CHECK(glGenTextures(1, &tex));
-	GL_CHECK(glBindTexture(GL_TEXTURE_2D, tex));
-	LOGDEBUG2(L_OPENGL, "openglosd: %s: Try creating font atlas texture with w %d h %d (max %d)", __FUNCTION__, w, h, max_atlas_width);
+	GL_CHECK(glGenTextures(1, &m_texture));
+	GL_CHECK(glBindTexture(GL_TEXTURE_2D, m_texture));
+	LOGDEBUG2(L_OPENGL, "openglosd: %s: Try creating font atlas texture with w %d h %d (max %d)", __FUNCTION__, m_width, m_height, maxAtlasWidth);
 
 	GL_CHECK(glTexImage2D(
 		GL_TEXTURE_2D,
 		0,
 		GL_LUMINANCE,
-		w,
-		h,
+		m_width,
+		m_height,
 		0,
 		GL_LUMINANCE,
 		GL_UNSIGNED_BYTE,
@@ -621,10 +602,10 @@ cOglFontAtlas::cOglFontAtlas(FT_Face face, int height) {
 	GL_CHECK(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR));
 	GL_CHECK(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR));
 
-	int ox = 0;
-	int oy = 0;
+	int offsetX = 0;
+	int offsetY = 0;
 
-	rowh = 0;
+	rowH = 0;
 
 	// Now do the real upload
 	for (FT_ULong i = MIN_CHARCODE; i <= MAX_CHARCODE; i++) {
@@ -664,17 +645,17 @@ cOglFontAtlas::cOglFontAtlas(FT_Face face, int height) {
 		FT_BitmapGlyph bGlyph = (FT_BitmapGlyph)ftGlyph;
 
 		// pushing the glyphs to the texture
-		if (ox + bGlyph->bitmap.width + 1 >= (unsigned int)max_atlas_width) {
-			oy += rowh;
-			rowh = 0;
-			ox = 0;
+		if (offsetX + bGlyph->bitmap.width + 1 >= (unsigned int)maxAtlasWidth) {
+			offsetY += rowH;
+			rowH = 0;
+			offsetX = 0;
 		}
 
 		GL_CHECK(glTexSubImage2D(
 			GL_TEXTURE_2D,
 			0,
-			ox,
-			oy,
+			offsetX,
+			offsetY,
 			bGlyph->bitmap.width,
 			bGlyph->bitmap.rows,
 			GL_LUMINANCE,
@@ -682,34 +663,26 @@ cOglFontAtlas::cOglFontAtlas(FT_Face face, int height) {
 			bGlyph->bitmap.buffer
 		));
 
-		float ax = bGlyph->root.advance.x >> 16; // AdvanceX
-		float ay = bGlyph->root.advance.y >> 16; // AdvanceX
-		float bw = bGlyph->bitmap.width; // Width
-		float bh = bGlyph->bitmap.rows; // Height
-		float bl = bGlyph->left; // BearingLeft
-		float bt = bGlyph->top; // BearingTop
-		float tx = ox / (float)w;
-		float ty = oy / (float)h;
-
-		Glyph[i - MIN_CHARCODE] = new cOglAtlasGlyph(i, ax, ay, bw, bh, bl, bt, tx, ty);
-		rowh = std::max(rowh, (int)bGlyph->bitmap.rows);
-		ox += bGlyph->bitmap.width + 1;
+		m_pGlyph[i - MIN_CHARCODE] = new cOglAtlasGlyph(i, bGlyph, offsetX / (float)m_width, offsetY / (float)m_height);
+		rowH = std::max(rowH, (int)bGlyph->bitmap.rows);
+		offsetX += bGlyph->bitmap.width + 1;
 
 		FT_Done_Glyph(ftGlyph);
 	}
 
 	GL_CHECK(glBindTexture(GL_TEXTURE_2D, 0));
-	LOGDEBUG2(L_OPENGL, "openglosd: %s: Created a %d x %d (%d kB) FontAtlas for fontsize %d, rowh %d, roww %d", __FUNCTION__, w, h, w * h / 1024, height, rowh, roww);
+	LOGDEBUG2(L_OPENGL, "openglosd: %s: Created a %d x %d (%d kB) FontAtlas for fontsize %d, rowH %d, rowW %d",
+		__FUNCTION__, m_width, m_height, m_width * m_height / 1024, height, rowH, rowW);
 }
 
 cOglFontAtlas::~cOglFontAtlas(void) {
-	if (tex)
-		GL_CHECK(glDeleteTextures(1, &tex));
+	if (m_texture)
+		GL_CHECK(glDeleteTextures(1, &m_texture));
 
 	for (FT_ULong i = MIN_CHARCODE; i <= MAX_CHARCODE; i++) {
-		if (Glyph[i - MIN_CHARCODE]) {
-			delete Glyph[i - MIN_CHARCODE];
-			Glyph[i - MIN_CHARCODE] = nullptr;
+		if (m_pGlyph[i - MIN_CHARCODE]) {
+			delete m_pGlyph[i - MIN_CHARCODE];
+			m_pGlyph[i - MIN_CHARCODE] = nullptr;
 		}
 	}
 }
@@ -718,11 +691,11 @@ cOglAtlasGlyph* cOglFontAtlas::GetGlyph(int sym) const {
 	if (sym < MIN_CHARCODE || sym > MAX_CHARCODE)
 		return nullptr;
 
-	return Glyph[sym - MIN_CHARCODE];
+	return m_pGlyph[sym - MIN_CHARCODE];
 }
 
 void cOglFontAtlas::BindTexture(void) {
-	GL_CHECK(glBindTexture(GL_TEXTURE_2D, tex));
+	GL_CHECK(glBindTexture(GL_TEXTURE_2D, m_texture));
 }
 
 /****************************************************************************************
@@ -860,6 +833,7 @@ cOglGlyph* cOglFont::Glyph(FT_ULong charCode) const {
 	}
 
 	cOglGlyph *Glyph = new cOglGlyph(charCode, (FT_BitmapGlyph)ftGlyph);
+	Glyph->LoadTexture();
 	glyphCache.Add(Glyph);
 	FT_Done_Glyph(ftGlyph);
 
@@ -1784,33 +1758,33 @@ bool cOglCmdDrawText::Execute(void) {
 
 			vertices.push_back(x2);
 			vertices.push_back(y2);
-			vertices.push_back(g->XOffset());
-			vertices.push_back(g->YOffset());
+			vertices.push_back(g->OffsetX());
+			vertices.push_back(g->OffsetY());
 
 			vertices.push_back(x2 + w);
 			vertices.push_back(y2);
-			vertices.push_back(g->XOffset() + g->Width() / (float)fa->Width());
-			vertices.push_back(g->YOffset());
+			vertices.push_back(g->OffsetX() + g->Width() / (float)fa->Width());
+			vertices.push_back(g->OffsetY());
 
 			vertices.push_back(x2);
 			vertices.push_back(y2 + h);
-			vertices.push_back(g->XOffset());
-			vertices.push_back(g->YOffset() + g->Height() / (float)fa->Height());
+			vertices.push_back(g->OffsetX());
+			vertices.push_back(g->OffsetY() + g->Height() / (float)fa->Height());
 
 			vertices.push_back(x2 + w);
 			vertices.push_back(y2);
-			vertices.push_back(g->XOffset() + g->Width() / (float)fa->Width());
-			vertices.push_back(g->YOffset());
+			vertices.push_back(g->OffsetX() + g->Width() / (float)fa->Width());
+			vertices.push_back(g->OffsetY());
 
 			vertices.push_back(x2);
 			vertices.push_back(y2 + h);
-			vertices.push_back(g->XOffset());
-			vertices.push_back(g->YOffset() + g->Height() / (float)fa->Height());
+			vertices.push_back(g->OffsetX());
+			vertices.push_back(g->OffsetY() + g->Height() / (float)fa->Height());
 
 			vertices.push_back(x2 + w);
 			vertices.push_back(y2 + h);
-			vertices.push_back(g->XOffset() + g->Width() / (float)fa->Width());
-			vertices.push_back(g->YOffset() + g->Height() / (float)fa->Height());
+			vertices.push_back(g->OffsetX() + g->Width() / (float)fa->Width());
+			vertices.push_back(g->OffsetY() + g->Height() / (float)fa->Height());
 
 			xGlyph += kerning + g->AdvanceX();
 			yGlyph += kerning + g->AdvanceY();
