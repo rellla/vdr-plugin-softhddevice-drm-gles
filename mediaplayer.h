@@ -40,9 +40,9 @@ public:
 	cPlaylistEntry(std::string);
 
 	std::string OsdItemString(void);
-	cPlaylistEntry* NextEntry(void) { return m_pNextEntry; };
+	cPlaylistEntry* GetNextEntry(void) { return m_pNextEntry; };
 	void SetNextEntry(cPlaylistEntry *entry) { m_pNextEntry = entry; };
-	std::string Path(void) { return m_path; };
+	std::string GetPath(void) { return m_path; };
 private:
 	std::string m_path;
 	std::string m_file;
@@ -63,7 +63,7 @@ public:
 	virtual ~cSoftHdPlayer();
 
 	void SetEntry(int);
-	const char *Source(void) { return m_pSource; };
+	const char *GetSource(void) { return m_pSource; };
 
 	void JumpSec(int seconds) { m_jumpSec = seconds; };
 	void Pause(bool pause) { m_paused = pause; };
@@ -71,10 +71,10 @@ public:
 	void Stop(void) { m_stopped = true; };
 	void ToggleRandomPlay(void) { m_random = !m_random; }
 	bool IsRandomPlayActive(void) { return m_random; }
-	int CurrentTime(void) { return m_currentTime; }
-	int Duration(void) { return m_duration; };
-	cPlaylistEntry *FirstPlaylistEntry(void) { return m_pFirstEntry; };
-	cPlaylistEntry *CurrentPlaylistEntry(void) { return m_pCurrentEntry; };
+	int GetCurrentTime(void) { return m_currentTime; }
+	int GetDuration(void) { return m_duration; };
+	cPlaylistEntry *GetFirstPlaylistEntry(void) { return m_pFirstEntry; };
+	cPlaylistEntry *GetCurrentPlaylistEntry(void) { return m_pCurrentEntry; };
 
 protected:
 	virtual void Activate(bool On);

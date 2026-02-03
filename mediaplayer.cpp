@@ -45,7 +45,7 @@ extern "C" {
  ****************************************************************************/
 
 /**
- * Playlist entry constructor
+ * Builds the playlist entry from a file name
  *
  * @param path    full path name to the file
  */
@@ -62,7 +62,7 @@ cPlaylistEntry::cPlaylistEntry(std::string path)
 }
 
 /**
- * Compose folder, subfolder and filename to a string for the OSD entry
+ * Compose a full-path-string for the OSD entry
  */
 std::string cPlaylistEntry::OsdItemString(void)
 {
@@ -84,7 +84,7 @@ static bool IsM3UPlaylist(char *source)
 }
 
 /**
- * Player constructor
+ * Create a new player for a file or playlist
  *
  * @param url             file or playlist to be played
  * @param device          pointer to device
@@ -106,11 +106,6 @@ cSoftHdPlayer::cSoftHdPlayer(const char *url, cSoftHdDevice *device)
 	LOGDEBUG2(L_MEDIA, "mediaplayer: %s: player started", __FUNCTION__);
 }
 
-/**
- * Player destructor
- *
- * Cleanup the playlist
- */
 cSoftHdPlayer::~cSoftHdPlayer()
 {
 	m_stopped = true;
@@ -118,7 +113,7 @@ cSoftHdPlayer::~cSoftHdPlayer()
 
 	while (m_pFirstEntry) {
 		cPlaylistEntry *entry = m_pFirstEntry;
-		m_pFirstEntry = entry->NextEntry();
+		m_pFirstEntry = entry->GetNextEntry();
 		delete entry;
 		m_entries--;
 	}
@@ -130,6 +125,8 @@ cSoftHdPlayer::~cSoftHdPlayer()
  * Start player thread
  *
  * Called right after the player has been attached
+ *
+ * @param on         true starts the player, false does nothing
  */
 void cSoftHdPlayer::Activate(bool on)
 {
@@ -140,8 +137,7 @@ void cSoftHdPlayer::Activate(bool on)
 
 /**
  * Main thread action
- *
- * Invokes replay start
+ * which invokes replay start
  */
 void cSoftHdPlayer::Action(void)
 {
@@ -151,10 +147,10 @@ void cSoftHdPlayer::Action(void)
 	if (IsM3UPlaylist(m_pSource)) {
 		while(m_pCurrentEntry) {
 			m_jumpSec = 0;
-			Play(m_pCurrentEntry->Path().c_str());
+			Play(m_pCurrentEntry->GetPath().c_str());
 
 			if (!m_noModify) {
-				m_pCurrentEntry = m_pCurrentEntry->NextEntry();
+				m_pCurrentEntry = m_pCurrentEntry->GetNextEntry();
 
 				if (m_random) {
 					srand (time (NULL));
@@ -176,9 +172,7 @@ void cSoftHdPlayer::Action(void)
 }
 
 /**
- * Read the playlist
- *
- * and fill the list
+ * Read the playlist file
  */
 void cSoftHdPlayer::ReadPlaylist(const char *playlist)
 {
@@ -222,7 +216,7 @@ void cSoftHdPlayer::SetEntry(int index)
 	entry = m_pFirstEntry;
 
 	for (int i = 0; i < index ; i++) {
-		entry = entry->NextEntry();
+		entry = entry->GetNextEntry();
 	}
 
 	m_pCurrentEntry = entry;
@@ -231,7 +225,7 @@ void cSoftHdPlayer::SetEntry(int index)
 }
 
 /**
- * Play the file
+ * Play a file
  *
  * @param url       file to play
  */
@@ -367,7 +361,7 @@ cSoftHdControl *cSoftHdControl::m_pControl = NULL;
 cSoftHdPlayer *cSoftHdControl::m_pPlayer = NULL;
 
 /**
- * Player control constructor
+ * Create a new control interface and corresponding player
  *
  * @param url             file or playlist to be played
  * @param device          pointer to device
@@ -379,9 +373,6 @@ cSoftHdControl::cSoftHdControl(const char *url, cSoftHdDevice *device)
 	m_pControl = this;
 }
 
-/**
- * Player control destructor
- */
 cSoftHdControl::~cSoftHdControl()
 {
 	delete m_pPlayer;
@@ -411,10 +402,10 @@ void cSoftHdControl::ShowProgress(void)
 		m_pOsd = Skins.Current()->DisplayReplay(false);
 	}
 
-	m_pOsd->SetTitle(m_pPlayer->CurrentPlaylistEntry() ? m_pPlayer->CurrentPlaylistEntry()->Path().c_str() : m_pPlayer->Source());
-	m_pOsd->SetProgress(m_pPlayer->CurrentTime(), m_pPlayer->Duration());
-	m_pOsd->SetCurrent(IndexToHMSF(m_pPlayer->CurrentTime(), false, 1));
-	m_pOsd->SetTotal(IndexToHMSF(m_pPlayer->Duration(), false, 1));
+	m_pOsd->SetTitle(m_pPlayer->GetCurrentPlaylistEntry() ? m_pPlayer->GetCurrentPlaylistEntry()->GetPath().c_str() : m_pPlayer->GetSource());
+	m_pOsd->SetProgress(m_pPlayer->GetCurrentTime(), m_pPlayer->GetDuration());
+	m_pOsd->SetCurrent(IndexToHMSF(m_pPlayer->GetCurrentTime(), false, 1));
+	m_pOsd->SetTotal(IndexToHMSF(m_pPlayer->GetDuration(), false, 1));
 
 	Skins.Flush();
 }
@@ -422,7 +413,7 @@ void cSoftHdControl::ShowProgress(void)
 /**
  * Handle a key event
  *
- * @param key     key pressed
+ * @param key     pressed key
  */
 eOSState cSoftHdControl::ProcessKey(eKeys key)
 {
