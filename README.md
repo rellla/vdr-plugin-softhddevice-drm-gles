@@ -380,13 +380,15 @@ simply play a single file.
 
 In replay mode, you can control playback with the following keys:
 
-	OK:       Show/ Hide replay menu
-	Play:     Play if paused
-	Pause:    Pause if playing, play again if paused
-	Green:    Jump 60s backwards
-	Yellow:   Jump 60s forward
-	Blue:     Stop replay and end player
-	Next:     Continue with next file in playlist if available
+	OK:          Show/ Hide replay menu
+	Play/Up:     Play if paused
+	Pause/Down:  Pause if playing, play again if paused
+	Left:        Jump 5s backwards
+	Right:       Jump 5s forward
+	Green:       Jump 60s backwards
+	Yellow:      Jump 60s forward
+	Blue/Back:   Stop replay and end player
+	Next:        Continue with next file in playlist if available
 
 
 Raspberry Pi 4/5 hints:
