@@ -1,22 +1,14 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 /**
  * @file videorender.h
- * Rendering class header file
+ * Video Renderer (Display) Header File
  *
- * @copyright (c) 2009 - 2015 by Johns.  All Rights Reserved.
- * @copyright (c) 2018 by zille.  All Rights Reserved.
- * @copyright (c) 2025 by Andreas Baierl. All Rights Reserved.
+ * @copyright 2009 - 2015 by Johns.  All Rights Reserved.
+ * @copyright 2018 by zille.  All Rights Reserved.
+ * @copyright 2025 - 2026 by Andreas Baierl. All Rights Reserved.
  *
- * @license{AGPLv3
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as
- * published by the Free Software Foundation, either version 3 of the
- * License.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.}
+ * @license{AGPL-3.0-or-later}
  */
 
 #ifndef __VIDEORENDER_H
@@ -59,6 +51,11 @@ class cSoftHdDevice;
 class cSoftHdConfig;
 class cSoftHdAudio;
 
+/**
+ * @addtogroup render
+ * @{
+ */
+
 #define AV_SYNC_THRESHOLD_AUDIO_BEHIND_VIDEO_MS 35 ///< threshold in ms, when to duplicate video frames to keep audio and video in sync
 #define AV_SYNC_THRESHOLD_AUDIO_AHEAD_VIDEO_MS 5   ///< threshold in ms, when to drop video frames to keep audio and video in sync
 
@@ -77,48 +74,70 @@ enum drmColorRange {
 	COLORRANGE_FULL = 1
 };
 
+/**
+ * DRM Buffer Getting-Strategy
+ */
 class cBufferStrategy {
 public:
 	virtual ~cBufferStrategy() = default;
 	virtual cDrmBuffer *GetBuffer(cDrmBufferPool *, AVDRMFrameDescriptor *) = 0;
 };
 
+/**
+ * DRM Buffer: Get a Buffer to Use Once
+ */
 class cBufferStrategyUseOnce : public cBufferStrategy {
 public:
 	cDrmBuffer *GetBuffer(cDrmBufferPool *, AVDRMFrameDescriptor *) override;
 };
 
+/**
+ * DRM Buffer: Get a Hardware Buffer to Reuse
+ */
 class cBufferStrategyReuseHardware : public cBufferStrategy {
 public:
 	cDrmBuffer *GetBuffer(cDrmBufferPool *, AVDRMFrameDescriptor *) override;
 };
 
+/**
+ * DRM Buffer: Get a Software Buffer to Reuse
+ */
 class cBufferStrategyReuseSoftware : public cBufferStrategy {
 public:
 	cDrmBuffer *GetBuffer(cDrmBufferPool *, AVDRMFrameDescriptor *) override;
 };
 
+/**
+ * Strategy to Prepare DRM Buffer for Decoding
+ */
 class cDecodingStrategy {
 public:
 	virtual ~cDecodingStrategy() = default;
 	virtual AVFrame *PrepareDrmBuffer(cDrmBuffer *, int, AVFrame *) = 0;
 };
 
+/**
+ * Prepare DRM Buffer for Software Decoding
+ */
 class cDecodingStrategySoftware : public cDecodingStrategy {
 public:
 	AVFrame *PrepareDrmBuffer(cDrmBuffer *, int, AVFrame *) override;
 };
 
+/**
+ * Prepare DRM Buffer for Hardware Decoding
+ */
 class cDecodingStrategyHardware : public cDecodingStrategy {
 public:
 	AVFrame *PrepareDrmBuffer(cDrmBuffer *, int, AVFrame *) override;
 };
 
 /**
- * cVideoRender - Video render class
+ * Video Renderer
+ *
+ * This part is responsible to put all the parts together and display them on the screen
  */
-class cVideoRender : public cThread
-{
+class cVideoRender : public cThread {
 public:
 	cVideoRender(cSoftHdDevice *);
 	~cVideoRender(void);
@@ -293,5 +312,7 @@ private:
 	void SetColorSpace(drmColorRange);
 	void RestoreColorSpace();
 };
+
+/** @} */
 
 #endif

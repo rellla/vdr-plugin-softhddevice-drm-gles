@@ -1,26 +1,18 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 /**
  * @file config.cpp
- * SoftHdDevice config class
+ * Plugin Configuration
  *
  * This file defines cSoftHdConfig, which is used to keep all
  * the config settings, which are set via setup.conf, commandline
  * or setup menu.
  *
- * @copyright (c) 2011, 2015 by Johns.  All Rights Reserved.
- * @copyright (c) 2018 zille.  All Rights Reserved.
- * @copyright (c) 2025 by Andreas Baierl. All Rights Reserved.
+ * @copyright 2011, 2015 by Johns.  All Rights Reserved.
+ * @copyright 2018 zille.  All Rights Reserved.
+ * @copyright 2025 - 2026 by Andreas Baierl. All Rights Reserved.
  *
- * @license{AGPLv3
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as
- * published by the Free Software Foundation, either version 3 of the
- * License.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.}
+ * @license{AGPL-3.0-or-later}
  */
 
 #include <cstring>
@@ -30,9 +22,12 @@
 #include "config.h"
 #include "logger.h"
 
-/*****************************************************************************
- * cSoftHdConfig - Setup parameters
- ****************************************************************************/
+/**
+ * Plugin Configuration
+ *
+ * @defgroup config Configuration
+ * @{
+ */
 
 /**
  * Parse setup parameters
@@ -40,7 +35,7 @@
  * @param name      paramter name (case sensetive)
  * @param value     value as string
  *
- * @returns         true if the parameter is supported, false otherwise
+ * @return          true if the parameter is supported, false otherwise
  */
 bool cSoftHdConfig::SetupParse(const char *name, const char *value)
 {
@@ -154,3 +149,5 @@ int cSoftHdConfig::GetDecoderNeedsMaxPackets(void)
 	std::lock_guard<std::mutex> lock(m_mutex);
 	return m_decoderNeedsMaxPackets;
 }
+
+/** @} */

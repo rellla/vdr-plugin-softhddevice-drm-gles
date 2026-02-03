@@ -1,21 +1,18 @@
+// SPDX-License-Identifier: AGLP-3.0-or-later
+
 /**
  * @file audio.h
- * Audio and alsa module header file
+ * Audio and Alsa Interface Header File
  *
- * @copyright (c) 2009 - 2014 by Johns.  All Rights Reserved.
- * @copyright (c) 2025 by Andreas Baierl. All Rights Reserved.
+ * @copyright 2009 - 2014 by Johns.  All Rights Reserved.
+ * @copyright 2025 - 2026 by Andreas Baierl. All Rights Reserved.
  *
- * @license{AGPLv3
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as
- * published by the Free Software Foundation, either version 3 of the
- * License.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.}
+ * @license{AGPL-3.0-or-later}
+ */
+
+/**
+ * @addtogroup audio
+ * @{
  */
 
 #ifndef __AUDIO_H
@@ -40,14 +37,11 @@ extern "C" {
 #include "pidcontroller.h"
 #include "ringbuffer.h"
 
-#define NORMALIZE_MAX_INDEX 128 ///< number of average values
-#define AV_SYNC_BORDER_MS 5000  ///< absolute max a/v difference in ms which should trigger a resync
-
 class cSoftHdConfig;
 class cSoftHdDevice;
 
 /**
- * cSoftHdAudio - Audio class
+ * Audio Interface
  */
 class cSoftHdAudio : public cThread {
 public:
@@ -64,7 +58,6 @@ public:
 
 	void FlushBuffers(void);
 	int GetUsedBytes(void);
-	int GetFreeBytes(void);
 	int64_t GetHardwareOutputPtsMs(void);
 	int64_t GetHardwareOutputDelayMs(void);
 	int64_t GetHardwareOutputPtsTimebaseUnits(void);
@@ -72,6 +65,7 @@ public:
 	bool HasInputPts(void) { return m_inputPts != AV_NOPTS_VALUE; }
 	int64_t GetInputPtsMs(void) { return PtsToMs(m_inputPts); }
 	int64_t GetOutputPtsMs(void);
+	int GetAvResyncBorderMs(void) { return AV_SYNC_BORDER_MS; };
 
 	void SetEq(int[18], int);
 	void SetVolume(int);
@@ -80,15 +74,11 @@ public:
 	void SetNormalize(bool, int);
 	void SetCompression(bool, int);
 	void SetStereoDescent(int);
-	void SetPassthrough(int);
+	void SetPassthroughMask(int);
 	void SetAutoAES(bool appendAes) { m_appendAES = appendAes; }
 	void SetTimebase(AVRational *timebase) { m_pTimebase = timebase; };
 
-	void FlushAlsaBuffers(void);
-	void DropAlsaBuffers(void);
-	bool CyclicCall(void);
 	void DropSamplesOlderThanPtsMs(int64_t);
-	void ProcessEvents(void);
 	void ClockDriftCompensation(void);
 	void ResetHwDelayBaseline(void);
 	void SetHwDelayBaseline(void);
@@ -100,6 +90,8 @@ protected:
 
 private:
 	constexpr static int AUDIO_MIN_BUFFER_FREE = 3072 * 8 * 8; ///< Minimum free space in audio buffer 8 packets for 8 channels
+	constexpr static int NORMALIZE_MAX_INDEX = 128;            ///< number of normalize average samples
+	constexpr static int AV_SYNC_BORDER_MS = 5000;             ///< absolute max a/v difference in ms which should trigger a resync
 	cSoftHdDevice *m_pDevice;               ///< pointer to device
 	cSoftHdConfig *m_pConfig;               ///< pointer to config
 	IEventReceiver *m_pEventReceiver;       ///< pointer to event receiver
@@ -136,6 +128,12 @@ private:
 	snd_pcm_sframes_t m_hwBaseline = 0;     ///< saves the hw delay (pause bursts) once a real audio frame to correctly do the AV-Sync
 	bool m_firstRealAudioReceived = false;  ///< false, as long as no real audio was sent - used to trigger the baseline set
 
+	void Enqueue(uint16_t *, int, AVFrame *);
+	void EnqueueFrame(AVFrame *);
+	bool SendAudio(int);
+	bool SendPause(void);
+	void BuildPauseBurst(void);
+
 	// Normalizer
 	bool m_normalize;                       ///< flag to use volume normalize
 	const int m_normalizeSamples = 4096;    ///< number of normalize samples
@@ -146,16 +144,19 @@ private:
 	int m_normalizeFactor;                  ///< current normalize factor
 	const int m_normalizeMinFactor = 100;   ///< min. normalize factor
 	int m_normalizeMaxFactor;               ///< max. normalize factor
+	void Normalize(uint16_t *, int);
 
 	// Compressor
 	bool m_compression;                     ///< flag to use compress volume
 	int m_compressionFactor = 0;            ///< current compression factor
 	int m_compressionMaxFactor;             ///< max. compression factor
+	void Compress(uint16_t *, int);
 
 	// Amplifier
 	int m_amplifier;                        ///< software volume amplify factor
 	int m_stereoDescent;                    ///< volume descent for stereo
 	int m_volume = 0;                       ///< current volume (0 .. 1000)
+	void SoftAmplify(int16_t *, int);
 
 	// Equalizer
 	int m_useEqualizer;                     ///< flag to use equalizer
@@ -171,23 +172,13 @@ private:
 	AVFilterGraph *m_pFilterGraph = nullptr;
 	AVFilterContext *m_pBuffersrcCtx;
 	AVFilterContext *m_pBuffersinkCtx;
+	int InitFilter(AVCodecContext *);
 	AVFrame *FilterGetFrame(void);
 	int CheckForFilterReady(AVCodecContext *);
 
 	// ring buffer variables
 	static constexpr unsigned RINGBUFFER_SIZE = 3 * 5 * 7 * 8 * 2 * 1000; ///< default ring buffer size ~2s 8ch 16bit (3 * 5 * 7 * 8)
 	cSoftHdRingbuffer m_pRingbuffer{RINGBUFFER_SIZE};                     ///< sample ring buffer
-
-	void Normalize(uint16_t *, int);
-	void Compress(uint16_t *, int);
-	void SoftAmplify(int16_t *, int);
-	int InitFilter(AVCodecContext *);
-
-	void Enqueue(uint16_t *, int, AVFrame *);
-	void EnqueueFrame(AVFrame *);
-	bool SendAudio(int);
-	bool SendPause(void);
-	void BuildPauseBurst(void);
 
 	// alsa
 	snd_pcm_t *m_pAlsaPCMHandle;         ///< alsa pcm handle
@@ -196,23 +187,29 @@ private:
 	int m_alsaRatio;                     ///< internal -> mixer ratio * 1000
 	bool m_alsaUseMmap;                  ///< use mmap
 
-	void HandleError(int);
+	int AlsaSetup(int, int, int);
 	char *OpenAlsaDevice(const char *, int);
 	char *FindAlsaDevice(const char *, const char *, int);
-	int AlsaSetup(int channels, int sample_rate, int passthrough);
 	void AlsaInitPCMDevice(void);
 	void AlsaInitMixer(void);
 	void AlsaSetVolume(int);
 	void AlsaInit(void);
 	void AlsaExit(void);
+	void FlushAlsaBuffers(void);
+	void DropAlsaBuffers(void);
+	void FlushAlsaBuffersInternal(bool);
+	bool CyclicCall(void);
+	void ProcessEvents(void);
+	void HandleError(int);
+
+	int64_t GetOutputPtsMsInternal(void);
 	int64_t PtsToMs(int64_t pts) { return pts * av_q2d(*m_pTimebase) * 1000; }
 	int64_t MsToPts(int64_t ptsMs) { return ptsMs / av_q2d(*m_pTimebase) / 1000; }
 	int MsToFrames(int milliseconds) { return (int64_t)milliseconds * m_hwSampleRate / 1000; }
 	int FramesToMs(int frames) { return (int64_t)frames * 1000 / m_hwSampleRate; }
 	double FramesToMsDouble(int frames) { return (double)frames * 1000 / m_hwSampleRate; }
-	void FlushAlsaBuffersInternal(bool);
-
-	int64_t GetOutputPtsMsInternal(void);
 };
+
+/** @} */
 
 #endif

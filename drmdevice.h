@@ -1,21 +1,13 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 /**
  * @file drmdevice.h
- * DRM device header file
+ * DRM Device Header File
  *
- * @copyright (c) 2018 by zille.  All Rights Reserved.
- * @copyright (c) 2025 by Andreas Baierl. All Rights Reserved.
+ * @copyright 2018 by zille.  All Rights Reserved.
+ * @copyright 2025 - 2026 by Andreas Baierl. All Rights Reserved.
  *
- * @license{AGPLv3
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as
- * published by the Free Software Foundation, either version 3 of the
- * License.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.}
+ * @license{AGPL-3.0-or-later}
  */
 
 #ifndef __DRMDEVICE_H
@@ -38,12 +30,15 @@ class cDrmBuffer;
 
 class cVideoRender;
 
-/*****************************************************************************
- * cDrmDevice class
- ****************************************************************************/
+/**
+ * @addtogroup drm
+ * @{
+ */
 
-class cDrmDevice
-{
+/**
+ * DRM Device
+ */
+class cDrmDevice {
 public:
 	cDrmDevice(cVideoRender *, const char *);
 	~cDrmDevice(void);
@@ -126,6 +121,7 @@ private:
 	uint64_t m_zposPip = 0;                ///< zpos of pip plane
 	cDrmPlane m_pipPlane;                  ///< the pip drm plane
 
+	int CreatePropertyBlob(uint32_t *);
 	int GetPropertyValue(uint32_t, uint32_t, const char *, uint64_t *);
 	uint32_t GetPropertyID(uint32_t, uint32_t, const char *);
 
@@ -145,5 +141,7 @@ private:
 	int InitGbm(int, int, uint32_t, uint64_t);
 #endif
 };
+
+/** @} */
 
 #endif

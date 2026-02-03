@@ -1,25 +1,17 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 /**
  * @file codec_audio.cpp
- * Audio decoder class
+ * Audio Decoder
  *
  * This file defines cAudioDecoder, which has all the functions
  * to decode audio data. It's the audio interface to ffmpeg.
  *
- * @copyright (c) 2009 - 2015 by Johns.  All Rights Reserved.
- * @copyright (c) 2018 by zille.  All Rights Reserved.
- * @copyright (c) 2025 by Andreas Baierl. All Rights Reserved.
+ * @copyright 2009 - 2015 by Johns.  All Rights Reserved.
+ * @copyright 2018 by zille.  All Rights Reserved.
+ * @copyright 2025 - 2026 by Andreas Baierl. All Rights Reserved.
  *
- * @license{AGPLv3
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as
- * published by the Free Software Foundation, either version 3 of the
- * License.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.}
+ * @license{AGPL-3.0-or-later}
  */
 
 #include <cstdint>
@@ -34,14 +26,17 @@ extern "C" {
 #include "logger.h"
 #include "misc.h"
 
-/*****************************************************************************
- * cAudioDecoder class
- ****************************************************************************/
+/**
+ * FFMpeg Audio Decoder Frontend
+ *
+ * @defgroup audiodecoder Audio Decoder
+ * @{
+ */
 
 /**
- * Audio decoder class constructor
+ * Create a new audio decoder for the given audio context
  *
- * @param audio           audio module
+ * @param audio    audio context
  */
 cAudioDecoder::cAudioDecoder(cSoftHdAudio *audio)
 	: m_pAudio(audio),
@@ -53,9 +48,6 @@ cAudioDecoder::cAudioDecoder(cSoftHdAudio *audio)
 	LOGDEBUG2(L_CODEC, "audiocodec: %s: Set passthrough mask %d", __FUNCTION__, m_passthroughMask);
 }
 
-/**
- * Audio decoder class destructor
- */
 cAudioDecoder::~cAudioDecoder(void)
 {
 	Close();
@@ -69,6 +61,8 @@ cAudioDecoder::~cAudioDecoder(void)
  * @param codecId       audio codec id
  * @param par           audio codec parameters
  * @param timebase      timebase
+ *
+ * @todo FIXME: errors shouldn't be fatal, maybe just disable audio
  */
 void cAudioDecoder::Open(AVCodecID codecId, AVCodecParameters *par, AVRational timebase)
 {
@@ -76,7 +70,6 @@ void cAudioDecoder::Open(AVCodecID codecId, AVCodecParameters *par, AVRational t
 
 	m_codecId = codecId;
 
-	// FIXME: errors shouldn't be fatal, maybe just disable audio
 	if (codecId == AV_CODEC_ID_AC3) {
 		if (!(codec = avcodec_find_decoder_by_name("ac3_fixed"))) {
 			LOGFATAL("audiocodec: %s: codec ac3_fixed ID %#06x not found", __FUNCTION__, codecId);
@@ -135,9 +128,9 @@ void cAudioDecoder::Close(void)
  * @param avpkt         undecoded audio packet
  * @param frame         decoded audio frame
  *
- * @returns 0           codec is not supported for passthrough, use Filter to handle the data
- * @returns -1          sth went wrong, data will be discarded
- * @returns 1           data accepted
+ * @retval 0            codec is not supported for passthrough, use Filter to handle the data
+ * @retval -1           sth went wrong, data will be discarded
+ * @retval 1            data accepted
  *                      if finished, spdif header was created and data was sent to passthrough device
  */
 int cAudioDecoder::DecodePassthrough(const AVPacket * avpkt, AVFrame *frame)
@@ -303,7 +296,7 @@ int cAudioDecoder::DecodePassthrough(const AVPacket * avpkt, AVFrame *frame)
  *
  * Setup audio, if format changed
  *
- * @return     0 if new audio was correctly set up,
+ * @retval 0     if new audio was correctly set up,
  *               otherwise return value of cSoftHdAudio::Setup()
  */
 int cAudioDecoder::UpdateFormat(void)
@@ -421,7 +414,9 @@ void cAudioDecoder::Decode(const AVPacket * avpkt)
 }
 
 /**
- * Flush the audio decoder
+ * Flush the audio decoder buffers
+ *
+ * Also resets the last PTS and Codec ID
  */
 void cAudioDecoder::FlushBuffers(void)
 {
@@ -444,10 +439,12 @@ void cAudioDecoder::ResetSpdif(void)
 /**
  * Set audio pass-through mask
  *
- * @param mask         codec to enable (AC-3, E-AC-3, DTS)
+ * @param mask         codec mask to enable (AC-3, E-AC-3, DTS)
  */
-void cAudioDecoder::SetPassthrough(int mask)
+void cAudioDecoder::SetPassthroughMask(int mask)
 {
 	LOGDEBUG2(L_CODEC, "audiocodec: %s: %d", __FUNCTION__, mask);
 	m_passthroughMask = mask & (CODEC_AC3 | CODEC_EAC3 | CODEC_DTS);
 }
+
+/** @} */

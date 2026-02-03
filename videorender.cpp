@@ -1,25 +1,17 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 /**
  * @file videorender.cpp
- * Rendering class
+ * Video Renderer (Display)
  *
  * This file defines cVideoRender, which includes all methods to
  * bring the video and osd to display.
  *
- * @copyright (c) 2009 - 2015 by Johns.  All Rights Reserved.
- * @copyright (c) 2018 by zille.  All Rights Reserved.
- * @copyright (c) 2025 by Andreas Baierl. All Rights Reserved.
+ * @copyright 2009 - 2015 by Johns.  All Rights Reserved.
+ * @copyright 2018 by zille.  All Rights Reserved.
+ * @copyright 2025 - 2026 by Andreas Baierl. All Rights Reserved.
  *
- * @license{AGPLv3
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as
- * published by the Free Software Foundation, either version 3 of the
- * License.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.}
+ * @license{AGPL-3.0-or-later}
  */
 
 #include <cerrno>
@@ -58,12 +50,15 @@ extern "C" {
 #include "videorender.h"
 #include "videostream.h"
 
-/*****************************************************************************
- * cVideoRender class
- ****************************************************************************/
+/**
+ * Video Renderer
+ *
+ * @defgroup render Video Renderer
+ * @{
+ */
 
 /**
- * cVideoRender constructor
+ * Create the video renderer
  *
  * @param device         pointer to cSoftHdDevice
  */
@@ -88,7 +83,7 @@ cVideoRender::cVideoRender(cSoftHdDevice *device)
 }
 
 /**
- * cVideoRender destructor
+ * Destroy the video renderer
  */
 cVideoRender::~cVideoRender(void)
 {
@@ -138,7 +133,7 @@ struct sRect {
  * @param dispWidth    width of video area
  * @param dispHeight   height of video area
  *
- * @returns            the new computed video area or the given area if no frame was given
+ * @return             the new computed video area or the given area if no frame was given
  */
 static sRect ComputeFittedRect(AVFrame *frame, uint64_t dispX, uint64_t dispY, uint64_t dispWidth, uint64_t dispHeight)
 {
@@ -555,9 +550,9 @@ void cVideoRender::LogDroppedDuped(int64_t audioPtsMs, int64_t videoPtsMs, int a
 /**
  * Get frame flags
  *
- * @param frame	      AVFrame
+ * @param frame       AVFrame
  *
- * @returns           FRAME_FLAG_TRICKSPEED or FRAME_FLAG_STILLPICTURE
+ * @return            FRAME_FLAG_TRICKSPEED or FRAME_FLAG_STILLPICTURE
  */
 int cVideoRender::GetFrameFlags(AVFrame *frame)
 {
@@ -715,7 +710,7 @@ bool cVideoRender::DisplayFrame()
 				bool skipSync = m_scheduleResyncAtPtsMs != AV_NOPTS_VALUE;
 				if (m_scheduleResyncAtPtsMs != AV_NOPTS_VALUE &&
 				    m_scheduleResyncAtPtsMs <= videoPtsMs &&
-				    std::abs(PtsToMs(m_scheduleResyncAtPtsMs) - PtsToMs(videoPtsMs)) < AV_SYNC_BORDER_MS) {
+				    std::abs(PtsToMs(m_scheduleResyncAtPtsMs) - PtsToMs(videoPtsMs)) < m_pAudio->GetAvResyncBorderMs()) {
 
 					LOGDEBUG2(L_AV_SYNC, "videorender: resync schedule arrived at %s, current audio pts %s video pts %s",
 						Timestamp2String(m_scheduleResyncAtPtsMs, 1), Timestamp2String(audioPtsMs, 1), Timestamp2String(videoPtsMs, 1));
@@ -827,7 +822,6 @@ bool cVideoRender::CanHandleHdr(void)
 {
 	return m_pDrmDevice->CanHandleHdr();
 }
-
 
 /*****************************************************************************
  * OSD
@@ -956,105 +950,23 @@ static void ReleaseFrame( __attribute__ ((unused)) void *opaque, uint8_t *data)
  * Check, if the main render output buffer is full.
  *
  * @retval true     render output buffer is full
-  */
+ */
 bool cVideoRender::IsOutputBufferFull(void)
 {
 	return m_drmBufferQueue.IsFull();
 }
 
-/*****************************************************************************
- * Buffer reuse strategy: use-once
- ****************************************************************************/
-cDrmBuffer *cBufferStrategyUseOnce::GetBuffer(cDrmBufferPool *pool, AVDRMFrameDescriptor *)
-{
-	cDrmBuffer *buf = pool->FindUninitilized();
-
-	if (buf)
-		buf->SetDestroyAfterUse(true);
-
-	return buf;
-}
-
-/*****************************************************************************
- * Buffer reuse strategy: reuse
- ****************************************************************************/
-cDrmBuffer *cBufferStrategyReuseHardware::GetBuffer(cDrmBufferPool *pool, AVDRMFrameDescriptor *primedata)
-{
-	cDrmBuffer *buf = pool->FindByDmaBufHandle(primedata->objects[0].fd);
-
-	if (buf)
-		return buf;
-	else
-		return pool->FindUninitilized();
-}
-
-cDrmBuffer *cBufferStrategyReuseSoftware::GetBuffer(cDrmBufferPool *pool, AVDRMFrameDescriptor *)
-{
-	cDrmBuffer *buf = pool->FindNoPresentationPending();
-
-	if (buf)
-		return buf;
-	else
-		return pool->FindUninitilized();
-}
-
-/*****************************************************************************
- * Decoding strategy: software
- ****************************************************************************/
-AVFrame *cDecodingStrategySoftware::PrepareDrmBuffer(cDrmBuffer *buf, int drmDeviceFd, AVFrame *inframe)
-{
-	if (!buf->IsDirty()) {
-		buf->Setup(drmDeviceFd, inframe->width, inframe->height, DRM_FORMAT_NV12, nullptr, true);
-
-		int dmaBufHandle;
-		if (drmPrimeHandleToFD(drmDeviceFd, buf->PrimeHandle(0), DRM_CLOEXEC | DRM_RDWR, &dmaBufHandle))
-			LOGFATAL("videorender: %s: Failed to retrieve the Prime FD (%d): %m", __FUNCTION__, errno);
-
-		buf->SetDmaBufHandle(dmaBufHandle);
-	}
-
-	for (int i = 0; i < inframe->height; ++i)
-		memcpy(buf->Plane(0) + i * buf->Pitch(0), inframe->data[0] + i * inframe->linesize[0], inframe->linesize[0]);
-
-	for (int i = 0; i < inframe->height / 2; ++i)
-		memcpy(buf->Plane(1) + i * buf->Pitch(1), inframe->data[1] + i * inframe->linesize[1], inframe->linesize[1]);
-
-	AVFrame *frame = av_frame_alloc();
-	frame->pts = inframe->pts;
-	frame->width = inframe->width;
-	frame->height = inframe->height;
-	frame->format = AV_PIX_FMT_DRM_PRIME;
-	frame->sample_aspect_ratio = inframe->sample_aspect_ratio;
-
-	frame->format = AV_PIX_FMT_DRM_PRIME;
-	AVDRMFrameDescriptor *primedata = (AVDRMFrameDescriptor *)av_mallocz(sizeof(AVDRMFrameDescriptor));
-	primedata->objects[0].fd = buf->DmaBufHandle();
-	frame->data[0] = (uint8_t *)primedata;
-	frame->buf[0] = av_buffer_create((uint8_t *)primedata, sizeof(*primedata), ReleaseFrame, NULL, AV_BUFFER_FLAG_READONLY);
-
-	av_frame_free(&inframe);
-
-	return frame;
-}
-
-/*****************************************************************************
- * Decoding strategy: hardware
- ****************************************************************************/
-AVFrame *cDecodingStrategyHardware::PrepareDrmBuffer(cDrmBuffer *buf, int drmDeviceFd, AVFrame *frame)
-{
-	if (!buf->IsDirty()) {
-		AVDRMFrameDescriptor *primedata = (AVDRMFrameDescriptor *)frame->data[0];
-		buf->Setup(drmDeviceFd, frame->width, frame->height, 0, primedata, false);
-	}
-
-	return frame;
-}
-
+/**
+ * Push a main frame into the render ringbuffer
+ */
 void cVideoRender::PushMainFrame(AVFrame *frame)
 {
 	PushFrame(frame, IsTrickSpeed(), m_bufferReuseStrategy, m_decodingStrategy, &m_drmBufferQueue, &m_drmBufferPool);
 }
 
+/**
+ * Push a PiP frame into the render ringbuffer
+ */
 void cVideoRender::PushPipFrame(AVFrame *frame)
 {
 	PushFrame(frame, false, m_pipBufferReuseStrategy, m_pipDecodingStrategy, &m_pipDrmBufferQueue, &m_pipDrmBufferPool);
@@ -1136,7 +1048,10 @@ void cVideoRender::ResetFrameCounter(void)
 	LOGDEBUG("videorender: %s: reset m_startCounter %d TrickSpeed %d", __FUNCTION__, m_startCounter, IsTrickSpeed());
 }
 
-void cVideoRender::Reset()
+/**
+ * Reset the renderer
+ */
+void cVideoRender::Reset(void)
 {
 	m_startCounter = 0;
 	m_framesDuped = 0;
@@ -1456,7 +1371,7 @@ void cVideoRender::SetVideoOutputPosition(const cRect &rect)
 /**
  * Process queued events and forward to event receiver
  */
-void cVideoRender::ProcessEvents()
+void cVideoRender::ProcessEvents(void)
 {
 	for (Event event : m_eventQueue)
 		m_pEventReceiver->OnEventReceived(event);
@@ -1464,6 +1379,11 @@ void cVideoRender::ProcessEvents()
 	m_eventQueue.clear();
 }
 
+/**
+ * Set the size and position of the pip window
+ *
+ * @param useAlt       true, if the alternative position and size (see setup menu) should be used
+ */
 void cVideoRender::SetPipSize(bool useAlt)
 {
 	if (useAlt) {
@@ -1476,3 +1396,93 @@ void cVideoRender::SetPipSize(bool useAlt)
 		m_pipTopPercent = m_pConfig->ConfigPipTopPercent;
 	}
 }
+
+/*****************************************************************************
+ * Buffer reuse strategy: use-once
+ ****************************************************************************/
+cDrmBuffer *cBufferStrategyUseOnce::GetBuffer(cDrmBufferPool *pool, AVDRMFrameDescriptor *)
+{
+	cDrmBuffer *buf = pool->FindUninitilized();
+
+	if (buf)
+		buf->SetDestroyAfterUse(true);
+
+	return buf;
+}
+
+/*****************************************************************************
+ * Buffer reuse strategy: reuse
+ ****************************************************************************/
+cDrmBuffer *cBufferStrategyReuseHardware::GetBuffer(cDrmBufferPool *pool, AVDRMFrameDescriptor *primedata)
+{
+	cDrmBuffer *buf = pool->FindByDmaBufHandle(primedata->objects[0].fd);
+
+	if (buf)
+		return buf;
+	else
+		return pool->FindUninitilized();
+}
+
+cDrmBuffer *cBufferStrategyReuseSoftware::GetBuffer(cDrmBufferPool *pool, AVDRMFrameDescriptor *)
+{
+	cDrmBuffer *buf = pool->FindNoPresentationPending();
+
+	if (buf)
+		return buf;
+	else
+		return pool->FindUninitilized();
+}
+
+/*****************************************************************************
+ * Decoding strategy: software
+ ****************************************************************************/
+AVFrame *cDecodingStrategySoftware::PrepareDrmBuffer(cDrmBuffer *buf, int drmDeviceFd, AVFrame *inframe)
+{
+	if (!buf->IsDirty()) {
+		buf->Setup(drmDeviceFd, inframe->width, inframe->height, DRM_FORMAT_NV12, nullptr, true);
+
+		int dmaBufHandle;
+		if (drmPrimeHandleToFD(drmDeviceFd, buf->PrimeHandle(0), DRM_CLOEXEC | DRM_RDWR, &dmaBufHandle))
+			LOGFATAL("videorender: %s: Failed to retrieve the Prime FD (%d): %m", __FUNCTION__, errno);
+
+		buf->SetDmaBufHandle(dmaBufHandle);
+	}
+
+	for (int i = 0; i < inframe->height; ++i)
+		memcpy(buf->Plane(0) + i * buf->Pitch(0), inframe->data[0] + i * inframe->linesize[0], inframe->linesize[0]);
+
+	for (int i = 0; i < inframe->height / 2; ++i)
+		memcpy(buf->Plane(1) + i * buf->Pitch(1), inframe->data[1] + i * inframe->linesize[1], inframe->linesize[1]);
+
+	AVFrame *frame = av_frame_alloc();
+	frame->pts = inframe->pts;
+	frame->width = inframe->width;
+	frame->height = inframe->height;
+	frame->format = AV_PIX_FMT_DRM_PRIME;
+	frame->sample_aspect_ratio = inframe->sample_aspect_ratio;
+
+	frame->format = AV_PIX_FMT_DRM_PRIME;
+	AVDRMFrameDescriptor *primedata = (AVDRMFrameDescriptor *)av_mallocz(sizeof(AVDRMFrameDescriptor));
+	primedata->objects[0].fd = buf->DmaBufHandle();
+	frame->data[0] = (uint8_t *)primedata;
+	frame->buf[0] = av_buffer_create((uint8_t *)primedata, sizeof(*primedata), ReleaseFrame, NULL, AV_BUFFER_FLAG_READONLY);
+
+	av_frame_free(&inframe);
+
+	return frame;
+}
+
+/*****************************************************************************
+ * Decoding strategy: hardware
+ ****************************************************************************/
+AVFrame *cDecodingStrategyHardware::PrepareDrmBuffer(cDrmBuffer *buf, int drmDeviceFd, AVFrame *frame)
+{
+	if (!buf->IsDirty()) {
+		AVDRMFrameDescriptor *primedata = (AVDRMFrameDescriptor *)frame->data[0];
+		buf->Setup(drmDeviceFd, frame->width, frame->height, 0, primedata, false);
+	}
+
+	return frame;
+}
+
+/** @} */

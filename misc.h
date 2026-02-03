@@ -1,21 +1,13 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 /**
  * @file misc.h
- * Misc function header file
+ * Misc Functions
  *
- * @copyright (c) 2009 - 2012 by Lutz Sammer.  All Rights Reserved.
- * @copyright (c) 2025 by Andreas Baierl. All Rights Reserved.
+ * @copyright 2009 - 2012 by Lutz Sammer.  All Rights Reserved.
+ * @copyright 2025 - 2026 by Andreas Baierl. All Rights Reserved.
  *
- * @license{AGPLv3
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as
- * published by the Free Software Foundation, either version 3 of the
- * License.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.}
+ * @license{AGPL-3.0-or-later}
  */
 
 #ifndef __MISC_H
@@ -34,26 +26,39 @@ extern "C" {
 
 #include "logger.h"
 
+/**
+ * @addtogroup misc
+ * @{
+ */
+
 /****************************************************************************************
  * GL Helpers
  ***************************************************************************************/
+/**
+ * Check for OpenGL errors and log them
+ */
 static inline void glCheckError(const char *stmt, const char *fname, int line) {
 	GLint err = glGetError();
 	if (err != GL_NO_ERROR)
 		LOGERROR("GL Error (0x%08x): %s failed at %s:%i", err, stmt, fname, line);
 }
 
+/**
+ * Check for EGL errors and log them
+ */
 static inline void eglCheckError(const char *stmt, const char *fname, int line) {
 	EGLint err = eglGetError();
 	if (err != EGL_SUCCESS)
 		LOGERROR("EGL ERROR (0x%08x): %s failed at %s:%i", err, stmt, fname, line);
 }
 
+/** glCheckError macro */
 #define GL_CHECK(stmt) do { \
 		stmt; \
 		glCheckError(#stmt, __FILE__, __LINE__); \
 	} while (0)
 
+/** eglCheckError macro */
 #define EGL_CHECK(stmt) do { \
 		stmt; \
 		eglCheckError(#stmt, __FILE__, __LINE__); \
@@ -69,7 +74,7 @@ static inline void eglCheckError(const char *stmt, const char *fname, int line) 
 #define AV_NOPTS_VALUE INT64_C(0x8000000000000000)
 #endif
 
-#define VIDEO_SURFACES_MAX 3
+#define VIDEO_SURFACES_MAX 3 ///< maximum video surfaces kept by the filter and render queues
 
 /**
  * Check, if this is an interlaced frame
@@ -87,11 +92,11 @@ static inline bool isInterlacedFrame(AVFrame *frame)
 #endif
 }
 
+#ifdef av_err2str
+#undef av_err2str
 /**
  * Workaround for av_err2str() not working with C++
  */
-#ifdef av_err2str
-#undef av_err2str
 static inline const char* av_err2string(int errnum)
 {
 	static char str[3][AV_ERROR_MAX_STRING_SIZE];
@@ -115,6 +120,9 @@ static inline const char* av_err2string(int errnum)
  * Nice time-stamp string.
  *
  * @param ts       time stamp
+ * @param divisor  optional divisor for the given timestamp int (must be > 0)
+ *
+ * @return nice formatted timestamp string
  */
 static inline const char *Timestamp2String(int64_t ts, uint8_t divisor)
 {
@@ -136,7 +144,7 @@ static inline const char *Timestamp2String(int64_t ts, uint8_t divisor)
 }
 
 /**
- * Return _count_ amount of bytes from data
+ * Return _count_ amount of bytes from _data_
  */
 static inline uint32_t ReadBytes(const uint8_t *data, int count)
 {
@@ -149,5 +157,7 @@ static inline uint32_t ReadBytes(const uint8_t *data, int count)
 
 	return value;
 }
+
+/** @} */
 
 #endif

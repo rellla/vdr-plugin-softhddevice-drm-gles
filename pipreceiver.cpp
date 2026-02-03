@@ -1,20 +1,12 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 /**
  * @file pipreceiver.cpp
- * pip receiver class
+ * PiP (Picture-in-Picture) Interface
  *
- * @copyright (c) 2025 by Andreas Baierl. All Rights Reserved.
+ * @copyright 2025 - 2026 by Andreas Baierl. All Rights Reserved.
  *
- * @license{AGPLv3
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as
- * published by the Free Software Foundation, either version 3 of the
- * License.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.}
+ * @license{AGPL-3.0-or-later}
  */
 
 #include <vdr/remux.h>
@@ -25,12 +17,22 @@
 #include "pipreceiver.h"
 #include "softhddevice.h"
 
+/**
+ * Picture-in-Picture
+ *
+ * @defgroup pip PiP
+ * @{
+ */
+
 /*****************************************************************************
  * cPipReceiver class
  ****************************************************************************/
 
 /**
- * pip receiver class constructor
+ * Create a new receiver for the pip stream handling only video pid
+ *
+ * @param channel    channel to receive
+ * @param device     pointer to cSoftHdDevice object
  */
 cPipReceiver::cPipReceiver(const cChannel *channel, cSoftHdDevice *device)
 	: cReceiver(NULL, MINPRIORITY),
@@ -41,7 +43,7 @@ cPipReceiver::cPipReceiver(const cChannel *channel, cSoftHdDevice *device)
 }
 
 /**
- * pip receiver class destructor
+ * Detach the pip receiver
  */
 cPipReceiver::~cPipReceiver(void)
 {
@@ -50,7 +52,9 @@ cPipReceiver::~cPipReceiver(void)
 }
 
 /**
- * called before the receiver gets attached or after it got detached
+ * Called before the receiver gets attached or after it got detached
+ *
+ * @param on       set on/off (unused)
  */
 void cPipReceiver::Activate(bool on)
 {
@@ -62,7 +66,7 @@ void cPipReceiver::Activate(bool on)
 #define RETRYWAITMS    5 // time between two retries
 #define ERRORDELTASEC 60 // seconds before reporting lost packages again
 /**
- * receive data from the receiver
+ * Receive data from the receiver
  *
  * This code is taken from VDRs cTransfer::Receive()
  */
@@ -153,9 +157,6 @@ int cPipReceiver::PlayTs(const uchar *data, int size)
  * cPipHandler class
  ****************************************************************************/
 
-/**
- * cPipHandler constructor
- */
 cPipHandler::cPipHandler(cSoftHdDevice *device)
 	: m_pDevice(device),
 	  m_pEventReceiver(device)
@@ -175,7 +176,7 @@ cPipHandler::~cPipHandler(void)
  ****************************************************************************/
 
 /**
- * Handle the pip event
+ * Handle a pip event
  */
 void cPipHandler::HandleEvent(enum PipState event)
 {
@@ -438,3 +439,5 @@ void cPipHandler::SwapPosition(void)
 {
 	m_pEventReceiver->OnEventReceived(PipEvent{PIPSWAPPOSITION});
 }
+
+/** @} */

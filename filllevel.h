@@ -1,18 +1,10 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 /**
- * @file fillLevel.h
- * Low-pass filter for audio buffer fill level measurement
+ * @file filllevel.h
+ * Low-pass Filter for Audio Buffer Fill Level Measurement Header File
  *
- * @license{AGPLv3
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as
- * published by the Free Software Foundation, either version 3 of the
- * License.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.}
+ * @license{AGPL-3.0-or-later}
  */
 
 #ifndef FILLLEVEL_H
@@ -20,6 +12,14 @@
 
 #include <mutex>
 
+/**
+ * @addtogroup misc
+ * @{
+ */
+
+/**
+ * Fill Level Low Pass Filter
+ */
 class cBufferFillLevelLowPassFilter {
 public:
 	void Reset();
@@ -56,5 +56,7 @@ private:
 
 	const char* StateToString(State d);
 };
+
+/** @} */
 
 #endif

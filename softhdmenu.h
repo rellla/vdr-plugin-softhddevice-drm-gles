@@ -1,21 +1,13 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 /**
  * @file softhdmenu.h
- * Softhddevice menu class header file
+ * Plugin Main Menu Header File
  *
- * @copyright (c) 2020 zille.  All Rights Reserved.
- * @copyright (c) 2025 by Andreas Baierl. All Rights Reserved.
+ * @copyright 2020 zille.  All Rights Reserved.
+ * @copyright 2025 - 2026 by Andreas Baierl. All Rights Reserved.
  *
- * @license{AGPLv3
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as
- * published by the Free Software Foundation, either version 3 of the
- * License.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.}
+ * @license{AGPL-3.0-or-later}
  */
 
 #ifndef __SOFTHDMENU_H
@@ -27,9 +19,10 @@
 
 class cSoftHdDevice;
 
-/*****************************************************************************
- * cSoftHdMenu
- ****************************************************************************/
+/**
+ * @addtogroup menu
+ * @{
+ */
 
 typedef enum {
 	Initial,
@@ -37,8 +30,10 @@ typedef enum {
 	Red
 } HotkeyState;
 
-class cSoftHdMenu : public cOsdMenu
-{
+/**
+ * Plugin Main Menu
+ */
+class cSoftHdMenu : public cOsdMenu {
 public:
 	cSoftHdMenu(const char *, cSoftHdDevice *, int = 0, int = 0, int = 0, int = 0, int = 0);
 	virtual ~cSoftHdMenu();
@@ -60,11 +55,13 @@ private:
 	void SelectPlaylistMenu(void);
 	void FindFileMenu(std::string, FILE *);
 	void MakePlayList(const char *, const char *);
-	int IsValidMediaFile(const char *);
+	bool IsValidMediaFile(const char *);
 	void PlayMedia(const char *);
 	std::string m_path;
 	std::string m_lastItem;
 	std::string m_playlist;
 };
+
+/** @} */
 
 #endif

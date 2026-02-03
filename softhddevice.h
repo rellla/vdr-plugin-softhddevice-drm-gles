@@ -1,21 +1,13 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 /**
  * @file softhddevice.h
- * Device class header file
+ * Output Device Header File
  *
- * @copyright (c) 2011 - 2015 by Johns.  All Rights Reserved.
- * @copyright (c) 2025 by Andreas Baierl. All Rights Reserved.
+ * @copyright 2011 - 2015 by Johns.  All Rights Reserved.
+ * @copyright 2025 - 2026 by Andreas Baierl. All Rights Reserved.
  *
- * @license{AGPLv3
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as
- * published by the Free Software Foundation, either version 3 of the
- * License.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.}
+ * @license{AGPL-3.0-or-later}
  */
 
 #ifndef __SOFTHDDEVICE_H
@@ -41,6 +33,22 @@ extern "C"
 #include "event.h"
 #include "jittertracker.h"
 #include "pes.h"
+
+class cAudioDecoder;
+class cDvbSpuDecoder;
+class cPipHandler;
+class cPipReceiver;
+class cSpuDecoder;
+class cSoftHdAudio;
+class cSoftHdGrab;
+class cSoftOsdProvider;
+class cVideoRender;
+class cVideoStream;
+
+/**
+ * @addtogroup device
+ * @{
+ */
 
 // State machine definitions
 // Implementing C++17 visitor pattern
@@ -92,23 +100,10 @@ enum PlaybackMode {
 	VIDEO_ONLY
 };
 
-class cAudioDecoder;
-class cDvbSpuDecoder;
-class cPipHandler;
-class cPipReceiver;
-class cSpuDecoder;
-class cSoftHdAudio;
-class cSoftHdGrab;
-class cSoftOsdProvider;
-class cVideoRender;
-class cVideoStream;
-
-/*****************************************************************************
- * cSoftHdDevice - cDevice class
- ****************************************************************************/
-
-class cSoftHdDevice : public cDevice, public IEventReceiver, public cStatus
-{
+/**
+ * Output Device Implementation
+ */
+class cSoftHdDevice : public cDevice, public IEventReceiver, public cStatus {
 public:
 	cSoftHdDevice(cSoftHdConfig *);
 	virtual ~cSoftHdDevice(void);
@@ -197,7 +192,7 @@ public:
 	// audio
 	int GetVideoAudioDelayMs(void) { return m_pConfig->ConfigVideoAudioDelayMs; };
 	int GetMinBufferFillLevelThresholdMs(void) { return MIN_BUFFER_FILL_LEVEL_THRESHOLD_MS; };
-	void SetPassthrough(int);
+	void SetPassthroughMask(int);
 	void ResetChannelId(void);
 
 	// Logging, statistics
@@ -296,5 +291,7 @@ private:
 	void OnEnteringState(State);
 	void OnLeavingState(State);
 };
+
+/** @} */
 
 #endif

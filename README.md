@@ -1,12 +1,12 @@
-softhddevice-drm-gles
-=====================
+Readme - softhddevice-drm-gles
+==============================
 
 A software and GPU emulated HD output device for VDR  
 (https://github.com/rellla/vdr-plugin-softhddevice-drm-gles)
 
 
-Features:
----------
+Features
+--------
 - Hardware accelerated video decoding (depending on hardware and FFmpeg support)
   - MPEG2
   - H.264
@@ -23,6 +23,28 @@ Features:
 - Grabbing support
 - Detach/Attach support (release display, audio and GPU resources, but keep VDR running)
 - Many adjustable (expert) settings via setup menu
+
+
+Supported Hardware
+------------------
+In general, any device that provides a DRM/KMS output and is supported by FFmpeg should work.
+This is true for most of the devices, that are supported by LibreELEC. 
+
+Current development happens on a **Raspberry PI 4** and a **Radxa Rock 4B Plus (RK3399)**.
+
+|                 | 576i MPEG2 | 720p H.264 | 1080i H.264 | 1080p HEVC |
+| --------------- | ---------- | ---------- | ----------- | ---------- |
+| Allwinner       | Not tested | Not tested | Not tested  | Not tested |
+| Amlogic         | Not tested | Not tested | Not tested  | Not tested |
+| Raspberry Pi 2  | ❌          | SW         | SW          | SW         |
+| Raspberry Pi 3  | Not tested | Not tested | Not tested  | Not tested |
+| Raspberry Pi 4  | SW         | ✅          | ✅           | ✅          |
+| Raspberry Pi 5  | SW         | SW         | SW          | ✅          |
+| Rockchip RK3399 | ✅          | ✅          | ✅           | ✅          |
+
+✅= Hardware decoding  
+SW = Device does not support hardware decoding. Software decoding is used.  
+❌= Device supports hardware decoding, but it is not implemented in this plugin.  
 
 
 Why do we need another softhddevice version?
@@ -76,35 +98,15 @@ A doxygen documentation is available [here](https://rellla.github.io/vdr-plugin-
 and is updated on every commit automatically.
 
 
-Supported Hardware:
--------------------
-
-|                 | 576i MPEG2 | 720p H.264 | 1080i H.264 | 1080p HEVC |
-| --------------- | ---------- | ---------- | ----------- | ---------- |
-| Allwinner       | Not tested | Not tested | Not tested  | Not tested |
-| Amlogic         | Not tested | Not tested | Not tested  | Not tested |
-| Raspberry Pi 2  | ❌          | SW         | SW          | SW         |
-| Raspberry Pi 3  | Not tested | Not tested | Not tested  | Not tested |
-| Raspberry Pi 4  | SW         | ✅          | ✅           | ✅          |
-| Raspberry Pi 5  | SW         | SW         | SW          | ✅          |
-| Rockchip RK3399 | ✅          | ✅          | ✅           | ✅          |
-
-✅= Hardware decoding  
-SW = Device does not support hardware decoding. Software decoding is used.  
-❌= Device supports hardware decoding, but it is not implemented in this plugin.  
-
-In general, any device that provides a DRM/KMS output and is supported by FFmpeg should work.
-
-
-Known Bugs/ TODO:
------------------
+Known Bugs/ TODO
+----------------
 - amlogic trickspeed is broken
 - rpi avcodec_flush_buffers is broken in [rpi-ffmpeg](https://github.com/jc-kynesim/rpi-ffmpeg) (used in LibreELEC), use a workaround for now
 - see https://github.com/rellla/vdr-plugin-softhddevice-drm-gles/issues
 
 
-Requirements:
--------------
+Requirements
+------------
 
 - No running X!
 
@@ -143,8 +145,8 @@ Requirements:
 	- glm - OpenGL Mathematics (GLM)
 
 
-Install:
---------
+Installation
+------------
 
 	git clone https://github.com/rellla/vdr-plugin-softhddevice-drm-gles.git
 	cd vdr-plugin-softhddevice-drm-gles
@@ -152,99 +154,13 @@ Install:
 	make install
 
 
-OpenGL/ES:
-----------
-OpenGL/ES support is based on the work of Stefan Braun
-(https://github.com/louisbraun/softhddevice-openglosd)
-
-This enables GPU accelerated OSD rendering.
-OpenGL/ES support is enabled, if gles2, egl and gbm are found on the system
-To disable OpenGL/ES support (if autodetected), simply build with
-
-	GLES=0 make
-
-In this case, VDR is using CPU based OSD rendering.
-
-
-FFmpeg:
--------
-The plugin should work with any recent upstream FFmpeg version but may lack
-hardware decoder acceleration. If you want to drive the plugin with a hardware
-acclerated decoder, you may need to build FFmpeg on your own.
-
-LibreELEC is a good source to find out the current status of what is already upstreamed and supported.
-Have a look at https://github.com/LibreELEC/LibreELEC.tv/tree/master/packages/multimedia/ffmpeg
-and choose the FFmpeg source and patches which match your platform.
-Most of them have not yet been upstreamed, so you probably need to build FFmpeg on your own.
-LibreELEC supports Rockchip, Allwinner, Raspberry PI and (kind of) Amlogic.
-Have a look at https://github.com/LibreELEC/LibreELEC.tv/tree/master/projects to find platform
-specific patches.
-
-The following instructions may help you to setup FFmpeg (may be outdated):
-
-- Raspberry Pi, Amlogic:
-	- [rpi-ffmpeg](https://github.com/jc-kynesim/rpi-ffmpeg) is the very recent version for RPI4/RPI5 and Amlogic (For Raspberry Pi LibreELEC normally patches the upstream FFmpeg version to get the version from jc-kynesim)
-	- check out a recent branch (note: the master branch is not the one you want to have)
-	- most likely this branch has everything you need and you don't need any further patches (in doubt, check [how it is handled in LibreELEC](https://github.com/LibreELEC/LibreELEC.tv/tree/master/packages/multimedia/ffmpeg))
-	- build FFmpeg as usual with the "configure - make - make install" logic
-	- For Raspberry Pi building with the following configure options should enable hardware acceleration:
-
-			--disable-static --enable-shared --enable-pic --enable-bsfs --enable-filters --enable-v4l2_m2m --enable-libdrm --enable-libudev --enable-v4l2-request --enable-sand --enable-hwaccels --enable-neon --disable-vdpau --disable-vaapi --disable-mmal
-	- For Amlogic building with the following configure options should enable hardware acceleration:
-
-			--disable-static --enable-shared --enable-pic --enable-bsfs --enable-filters --enable-v4l2_m2m --enable-libdrm --enable-hwaccels --enable-neon --disable-vdpau --disable-vaapi --disable-libudev --disable-v4l2-request
-
-- Rockchip, Allwinner:
-	- use mainline FFmpeg with version mentioned in [LibreELEC package file](https://github.com/LibreELEC/LibreELEC.tv/blob/master/packages/multimedia/ffmpeg/package.mk)
-	- patch the mainline version with the [patchsets](https://github.com/LibreELEC/LibreELEC.tv/tree/master/packages/multimedia/ffmpeg/patches) which where mentioned for your platform in the package.mk
-	- build FFmpeg as usual with the "configure - make - make install" logic
-	- building with the following configure options should enable hardware acceleration:
-
-			--disable-static --enable-shared --enable-pic --enable-bsfs --enable-filters --enable-v4l2_m2m --enable-libdrm --enable-libudev --enable-v4l2-request --enable-hwaccels --enable-neon --disable-vdpau --disable-vaapi
-
-
-Resolution:
-----------
-Setting the display resolution is possible with the -d switch (see below).
-If no specific resolution is stated, the plugin searches for resolutions
-with a refresh rate of 50Hz. If one is found, the highest possbile is used.
-If no resolution at 50Hz is found, the plugin searches for resolutions at
-60Hz and uses the highest possbile. If neither 50Hz or 60Hz can be found,
-the plugin uses the highest possbile resolution with a refresh rate which is
-first discovered.
-
-When the plugin is unable to detect any resolution (e.g. if there is no TV/Monitor
-attached, the plugin will not start. You can workaorund this by submitting
-a fixed EDID to your config (see Documentation, way differs from architecture)
-
-When using the -d switch, make sure you use the syntax of "widthXheight@refreshrate",
-so for example: "-d 3840x2160@50" for 4K at 50Hz.
-
-
-Picture-in-Picture (PiP):
--------------------------
-The plugins supports the picture-in-picture feature. This allows you to move your current
-stream into a small overlay window and continue watching TV as usual. You can change channels
-on the main and in the pip window. It's also possible to swap both windows. Audio is only
-available in the main stream. The pip window is always opened with the current channel and does
-not remember the last pip channel.
-You can define your individual pip window size and position and an alternative window. It's possible
-to swap between the two positions.
-PiP can be controlled via SVDRP, menu or via remote control keys, which are defined as hotkeys in
-the keymacros.conf.
-If your VDR has enough devices assigned, you can watch channels on different transponders. On one-tuner
-systems, pip should only show the channels like if you are doing a concurrent recording.
-
-Note: Be aware, that the pip feature works in general but is still a little bit experimental.
-
-
-Commandline arguments:
-----------------------
+Commandline Arguments
+---------------------
 Use vdr -h to see the command line arguments supported by the plugin.
 
 	-a audio_device (e.g. hw:0,1)
-	-p device for pass-through
-	-c audio mixer channel name
+	-p device for pass-through (e.g. hw:0,1)
+	-c audio mixer channel name (e.g. PCM)
 	-d display resolution (e.g. 1920x1080@50)
 	-D	start plugin in detached state
 	-w workarounds
@@ -252,8 +168,8 @@ Use vdr -h to see the command line arguments supported by the plugin.
 		disable-pip (to force disabling the pip feature)
 
 
-Setup: environment
--------------------
+Setup: Environment Variables
+----------------------------
 
 	ALSA_DEVICE=default
 		alsa PCM device name
@@ -397,8 +313,8 @@ Setup: /etc/vdr/setup.conf
 		0 = top aligned, 100 = bottom aligned
 
 
-SVDRP:
-------
+SVDRP Commands
+--------------
 
 	PLAY Url    Play the media from the given url.
 		Tested extension: *.mp3, *.mp4, *.m3u, *.m3u8
@@ -433,8 +349,9 @@ SVDRP:
 
 	PIPP         Swap pip position between normal and alternative.
 
-Keymacros:
-----------
+
+Keymacros
+---------
 
 See keymacros.conf how to setup the macros.
 
@@ -451,9 +368,94 @@ Currently supported:
 	@softhddevice-drm-gles Red 2       Attach device
 
 
-Mediaplayer:
-------------
+OpenGL/ES
+---------
+OpenGL/ES support is based on the work of Stefan Braun
+(https://github.com/louisbraun/softhddevice-openglosd)
 
+This enables GPU accelerated OSD rendering.
+OpenGL/ES support is enabled, if gles2, egl and gbm are found on the system
+To disable OpenGL/ES support (if autodetected), simply build with
+
+	GLES=0 make
+
+In this case, VDR is using CPU based OSD rendering.
+
+
+FFmpeg
+------
+The plugin should work with any recent upstream FFmpeg version but may lack
+hardware decoder acceleration. If you want to drive the plugin with a hardware
+acclerated decoder, you may need to build FFmpeg on your own.
+
+LibreELEC is a good source to find out the current status of what is already upstreamed and supported.
+Have a look at https://github.com/LibreELEC/LibreELEC.tv/tree/master/packages/multimedia/ffmpeg
+and choose the FFmpeg source and patches which match your platform.
+Most of them have not yet been upstreamed, so you probably need to build FFmpeg on your own.
+LibreELEC supports Rockchip, Allwinner, Raspberry PI and (kind of) Amlogic.
+Have a look at https://github.com/LibreELEC/LibreELEC.tv/tree/master/projects to find platform
+specific patches.
+
+The following instructions may help you to setup FFmpeg (may be outdated):
+
+- Raspberry Pi, Amlogic:
+	- [rpi-ffmpeg](https://github.com/jc-kynesim/rpi-ffmpeg) is the very recent version for RPI4/RPI5 and Amlogic (For Raspberry Pi LibreELEC normally patches the upstream FFmpeg version to get the version from jc-kynesim)
+	- check out a recent branch (note: the master branch is not the one you want to have)
+	- most likely this branch has everything you need and you don't need any further patches (in doubt, check [how it is handled in LibreELEC](https://github.com/LibreELEC/LibreELEC.tv/tree/master/packages/multimedia/ffmpeg))
+	- build FFmpeg as usual with the "configure - make - make install" logic
+	- For Raspberry Pi building with the following configure options should enable hardware acceleration:
+
+			--disable-static --enable-shared --enable-pic --enable-bsfs --enable-filters --enable-v4l2_m2m --enable-libdrm --enable-libudev --enable-v4l2-request --enable-sand --enable-hwaccels --enable-neon --disable-vdpau --disable-vaapi --disable-mmal
+	- For Amlogic building with the following configure options should enable hardware acceleration:
+
+			--disable-static --enable-shared --enable-pic --enable-bsfs --enable-filters --enable-v4l2_m2m --enable-libdrm --enable-hwaccels --enable-neon --disable-vdpau --disable-vaapi --disable-libudev --disable-v4l2-request
+
+- Rockchip, Allwinner:
+	- use mainline FFmpeg with version mentioned in [LibreELEC package file](https://github.com/LibreELEC/LibreELEC.tv/blob/master/packages/multimedia/ffmpeg/package.mk)
+	- patch the mainline version with the [patchsets](https://github.com/LibreELEC/LibreELEC.tv/tree/master/packages/multimedia/ffmpeg/patches) which where mentioned for your platform in the package.mk
+	- build FFmpeg as usual with the "configure - make - make install" logic
+	- building with the following configure options should enable hardware acceleration:
+
+			--disable-static --enable-shared --enable-pic --enable-bsfs --enable-filters --enable-v4l2_m2m --enable-libdrm --enable-libudev --enable-v4l2-request --enable-hwaccels --enable-neon --disable-vdpau --disable-vaapi
+
+
+Display Resolution
+------------------
+Setting the display resolution is possible with the -d switch (see below).
+If no specific resolution is stated, the plugin searches for resolutions
+with a refresh rate of 50Hz. If one is found, the highest possbile is used.
+If no resolution at 50Hz is found, the plugin searches for resolutions at
+60Hz and uses the highest possbile. If neither 50Hz or 60Hz can be found,
+the plugin uses the highest possbile resolution with a refresh rate which is
+first discovered.
+
+When the plugin is unable to detect any resolution (e.g. if there is no TV/Monitor
+attached, the plugin will not start. You can workaorund this by submitting
+a fixed EDID to your config (see Documentation, way differs from architecture)
+
+When using the -d switch, make sure you use the syntax of "widthXheight@refreshrate",
+so for example: "-d 3840x2160@50" for 4K at 50Hz.
+
+
+Picture-in-Picture (PiP)
+------------------------
+The plugins supports the picture-in-picture feature. This allows you to move your current
+stream into a small overlay window and continue watching TV as usual. You can change channels
+on the main and in the pip window. It's also possible to swap both windows. Audio is only
+available in the main stream. The pip window is always opened with the current channel and does
+not remember the last pip channel.
+You can define your individual pip window size and position and an alternative window. It's possible
+to swap between the two positions.
+PiP can be controlled via SVDRP, menu or via remote control keys, which are defined as hotkeys in
+the keymacros.conf.
+If your VDR has enough devices assigned, you can watch channels on different transponders. On one-tuner
+systems, pip should only show the channels like if you are doing a concurrent recording.
+
+Note: Be aware, that the pip feature works in general but is still a little bit experimental.
+
+
+Mediaplayer
+-----------
 The plugin has an integrated mediaplayer reduced to the most important player functions.
 Playback can be started with svdrp or via the main menu. If the mediaplayer is called via
 the main menu, you can either choose a previously created playlist, create a new playlist or
@@ -472,8 +474,8 @@ In replay mode, you can control playback with the following keys:
 	Next:        Continue with next file in playlist if available
 
 
-Raspberry Pi 4/5 hints:
-----------
+Hints for Raspberry Pi 4/5
+--------------------------
 It is highly recommended to use the kms driver with Raspberry Pi 4/5 and not the outdated
 fkms driver. Be sure you have the following dtoverlay activated in your /boot/config.txt:
 
@@ -496,25 +498,15 @@ you might need to add the vdr user to the audio and render groups:
 	usermod -a -G render vdr
 
 
-Copyright:
-----------
+Copyright
+---------
 
-Copyright (c) 2011 - 2013 by Johns.  All Rights Reserved.  
-Copyright (c) 2018 - 2021 by zillevdr.  All Rights Reserved.  
-Copyright (c) 2020 - 2025 by rellla.  All Rights Reserved.  
+Copyright 2011 - 2013 by Johns.    All Rights Reserved.  
+Copyright 2018 - 2021 by zillevdr. All Rights Reserved.  
+Copyright 2020 - 2026 by rellla.   All Rights Reserved.  
 
 
-License:
---------
+License
+-------
 
-**AGPLv3**  
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU Affero General Public License as
-published by the Free Software Foundation, either version 3 of the
-License.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU Affero General Public License for more details.
+[AGPL version 3.0 or later](LICENSE.md)  

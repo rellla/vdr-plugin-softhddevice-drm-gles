@@ -1,24 +1,16 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 /**
  * @file h264parser.cpp
- * H264 parser class
+ * H.264 Parser
  *
  * This file defines cH264Parser which is used to parse
  * width and height from a H264 stream.
  *
- * @copyright (c) 2018 - 2019 by zille.  All Rights Reserved.
- * @copyright (c) 2025 by Andreas Baierl. All Rights Reserved.
+ * @copyright 2018 - 2019 by zille.  All Rights Reserved.
+ * @copyright 2025 - 2026 by Andreas Baierl. All Rights Reserved.
  *
- * @license{AGPLv3
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as
- * published by the Free Software Foundation, either version 3 of the
- * License.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.}
+ * @license{AGPL-3.0-or-later}
  */
 
 #include <cassert>
@@ -34,9 +26,12 @@ extern "C" {
 #include "logger.h"
 #include "misc.h"
 
-/*****************************************************************************
- * cH264Parser class
- ****************************************************************************/
+/**
+ * H.264 Parser
+ *
+ * @addtogroup misc
+ * @{
+ */
 
 /**
  * Check for a 0x000001 or 0x00000001 start code
@@ -46,7 +41,8 @@ extern "C" {
  * @param[in] size               size of data
  * @param[out] startCodeLength   start code length (3 or 4)
  *
- * @returns true if a valid start code was detected, false otherwise
+ * @retval true     if a valid start code was detected
+ * @retval false    no valid startcode was detected
  */
 bool isValidStartCode(const uint8_t *data, int offset, int size, int &startCodeLength)
 {
@@ -70,7 +66,7 @@ bool isValidStartCode(const uint8_t *data, int offset, int size, int &startCodeL
  * @param offset             start parsing at offset
  * @param startCodeLength    start code length (3 or 4)
  *
- * @returns the nal unit type
+ * @return the nal unit type
  */
 static int NalUnitType(const uint8_t *data, int offset, int startCodeLength)
 {
@@ -78,8 +74,10 @@ static int NalUnitType(const uint8_t *data, int offset, int startCodeLength)
 }
 
 /**
- * Returns the SPS offset in the data stream
- * or -1 if there is no SPS
+ * Get the SPS offset
+ *
+ * @retval positive value     SPS offset in the data stream
+ * @retval -1                 if there is no SPS
  */
 int cH264Parser::GetSPSOffset(void)
 {
@@ -101,8 +99,10 @@ int cH264Parser::GetSPSOffset(void)
 }
 
 /**
- * Returns the PPS offset in the data stream
- * or -1 if there is no PPS
+ * Get the PPS offset
+ *
+ * @retval positive value     PPS offset in the data stream
+ * @retval -1                 if there is no PPS
  */
 int cH264Parser::GetPPSOffset(void)
 {
@@ -124,8 +124,10 @@ int cH264Parser::GetPPSOffset(void)
 }
 
 /**
- * Returns the slice offset in the data stream
- * or -1 if there is no slice
+ * Get the slice offset
+ *
+ * @retval positive value     slice offset in the data stream
+ * @retval -1                 if there is no slice
  */
 int cH264Parser::GetSliceOffset(void)
 {
@@ -635,8 +637,8 @@ void cH264Parser::PrintNalUnits(void)
 		m_naluString.c_str(), m_width, m_height);
 }
 
-/*
- * helper functions to parse resolution from stream
+/**
+ * Read the next bit of a stream
  */
 unsigned int cH264Parser::ReadBit()
 {
@@ -652,6 +654,9 @@ unsigned int cH264Parser::ReadBit()
 	return (m_pStart[nIndex] >> (7 - nOffset)) & 0x01;
 }
 
+/**
+ * Read n number of bits of a stream
+ */
 unsigned int cH264Parser::ReadBits(int n)
 {
 	if (m_nCurrentBit + n > m_nLength * 8) {
@@ -664,9 +669,13 @@ unsigned int cH264Parser::ReadBits(int n)
 	for (int i = 0; i < n; i++) {
 		r = (r << 1) | ReadBit();
 	}
+
 	return r;
 }
 
+/**
+ * Read an unsigned exponential-golomb coded integer
+ */
 unsigned int cH264Parser::ReadExponentialGolombCode()
 {
 	int zeros = 0;
@@ -695,15 +704,18 @@ unsigned int cH264Parser::ReadExponentialGolombCode()
 	return ((1u << zeros) - 1) + suffix;
 }
 
+/**
+ * Read a signed exponential-golomb coded integer
+ */
 unsigned int cH264Parser::ReadSE()
 {
 	int r = ReadExponentialGolombCode();
 
-	if (r & 0x01) {
-		r = (r+1)/2;
-	} else {
-		r = -(r/2);
-	}
+	if (r & 0x01)
+		r = (r + 1) / 2;
+	else
+		r = -(r / 2);
+
 	return r;
 }
 
@@ -729,3 +741,5 @@ void cH264Parser::ConvertEBSPtoRBSP(const uint8_t *src, int length)
 			zeroCount = 0;
 	}
 }
+
+/** @} */

@@ -1,25 +1,18 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 /**
  * @file openglosd.cpp
- * Osd class - hardware accelerated (OpenGL/ES)
+ * OpenGL OSD
  *
  * This file defines cOglOsd and all other osd classes, which
- * create and handle the OpenGL accelerated OSD.
+ * create and handle the OpenGL accelerated OSD (OpenGL/ES).
  *
  * @note This file was originally authored by Stefan Braun (see README),
  * but there was never set any copyright info.
- * @copyright (c) 2025 by Andreas Baierl. All Rights Reserved.
  *
- * @license{AGPLv3
+ * @copyright 2025 - 2026 by Andreas Baierl. All Rights Reserved.
  *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as
- * published by the Free Software Foundation, either version 3 of the
- * License.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.}
+ * @license{AGPL-3.0-or-later}
  */
 
 #include <algorithm>
@@ -47,6 +40,13 @@
 #include "openglshader.h"
 #include "softhddevice.h"
 #include "videorender.h"
+
+/**
+ * OpenGL OSD
+ *
+ * @addtogroup osd OSD
+ * @{
+ */
 
 // This maybe useful for skin developing and marks the rects of the single draws
 #ifdef GRIDPOINTS
@@ -2543,3 +2543,5 @@ void cOglOsd::DrawScaledBitmap(int x, int y, const cBitmap &Bitmap, double Facto
 
 	m_pOglPixmaps[0]->DrawBitmap(cPoint(xNew, yNew), *b);
 }
+
+/** @} */

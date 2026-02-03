@@ -1,25 +1,17 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 /**
  * @file softhdsetupmenu.cpp
- * Setup menu class
+ * Plugin Setup Menu
  *
  * This file defines cMenuSetupSoft which describes the
  * setup menu and sets the config paramaters.
  *
- * @copyright (c) 2011, 2015 by Johns.  All Rights Reserved.
- * @copyright (c) 2018 zille.  All Rights Reserved.
- * @copyright (c) 2025 by Andreas Baierl. All Rights Reserved.
+ * @copyright 2011, 2015 by Johns.  All Rights Reserved.
+ * @copyright 2018 zille.  All Rights Reserved.
+ * @copyright 2025 - 2026 by Andreas Baierl. All Rights Reserved.
  *
- * @license{AGPLv3
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as
- * published by the Free Software Foundation, either version 3 of the
- * License.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.}
+ * @license{AGPL-3.0-or-later}
  */
 
 #include <vdr/menuitems.h>
@@ -31,9 +23,14 @@
 #include "softhddevice.h"
 #include "softhdsetupmenu.h"
 
-/*****************************************************************************
- * cMenuSetupSoft - Setup menu
- ****************************************************************************/
+/**
+ * Plugin Menus
+ *
+ * Setup Menu
+ *
+ * @addtogroup menu
+ * @{
+ */
 
 /**
  * Create a seperator named item
@@ -63,7 +60,7 @@ inline cOsdItem *cMenuSetupSoft::CollapsedItem(const char *label, int &flag, con
 }
 
 /**
- * Create setup menu.
+ * Build setup menu
  */
 void cMenuSetupSoft::Create(void)
 {
@@ -288,7 +285,7 @@ eOSState cMenuSetupSoft::ProcessKey(eKeys key)
 }
 
 /**
- * cMenuSetupSoft constructor
+ * Init the setup menu parameters and build the menu
  *
  * Import global config variables into setup
  */
@@ -394,7 +391,7 @@ cMenuSetupSoft::cMenuSetupSoft(cSoftHdDevice *device)
 }
 
 /**
- * Store setup
+ * Store settings
  */
 void cMenuSetupSoft::Store(void)
 {
@@ -427,10 +424,10 @@ void cMenuSetupSoft::Store(void)
 	m_pConfig->ConfigAudioPassthroughState = m_cAudioPassthroughDefault;
 	if (m_pConfig->ConfigAudioPassthroughState) {
 		SetupStore("AudioPassthrough", m_pConfig->ConfigAudioPassthroughMask);
-		m_pDevice->SetPassthrough(m_pConfig->ConfigAudioPassthroughMask);
+		m_pDevice->SetPassthroughMask(m_pConfig->ConfigAudioPassthroughMask);
 	} else {
 		SetupStore("AudioPassthrough", -m_pConfig->ConfigAudioPassthroughMask);
-		m_pDevice->SetPassthrough(0);
+		m_pDevice->SetPassthroughMask(0);
 	}
 	SetupStore("AudioAutoAES", m_pConfig->ConfigAudioAutoAES = m_cAudioAutoAES);
 	m_pAudioDevice->SetAutoAES(m_pConfig->ConfigAudioAutoAES);
@@ -532,3 +529,5 @@ void cMenuSetupSoft::Store(void)
 	SetupStore("MaxSizeGPUImageCache", m_pConfig->ConfigMaxSizeGPUImageCache = m_cMaxSizeGPUImageCache);
 #endif
 }
+
+/** @} */

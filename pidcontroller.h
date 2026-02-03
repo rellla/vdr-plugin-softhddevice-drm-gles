@@ -1,26 +1,26 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 /**
  * @file pidcontroller.h
- * Proportinal, Integral, Derivative Controller
+ * PID (proportional, integral, derivative) Controller Header File
  *
- * @license{AGPLv3
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as
- * published by the Free Software Foundation, either version 3 of the
- * License.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.}
+ * @license{AGPL-3.0-or-later}
  */
 
 #ifndef PID_CONTROLLER_H
 #define PID_CONTROLLER_H
 
+/**
+ * @addtogroup audio
+ * @{
+ */
+
 // Comment this in to transmit PID controller data for tuning/visualization. See DEVELOPER/README.md for instructions.
 // #define PID_CONTROLLER_TUNING_AID_ADDRESS "192.168.2.22"
 
+/**
+ * PID Controller
+ */
 class cPidController {
 public:
 	cPidController(double, double, double, double);
@@ -53,5 +53,7 @@ private:
 	void SendTuningAidData(double, double, double, double, double, double);
 #endif
 };
+
+/** @} */
 
 #endif

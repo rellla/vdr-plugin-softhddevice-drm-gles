@@ -1,20 +1,12 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 /**
  * @file pipreceiver.h
- * Pip receiver header file
+ * PiP (Picture-in-Picture) Interface Header File
  *
- * @copyright (c) 2025 by Andreas Baierl. All Rights Reserved.
+ * @copyright 2025 - 2026 by Andreas Baierl. All Rights Reserved.
  *
- * @license{AGPLv3
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as
- * published by the Free Software Foundation, either version 3 of the
- * License.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.}
+ * @license{AGPL-3.0-or-later}
  */
 
 #ifndef __PIPRECEIVER_H
@@ -27,10 +19,14 @@
 class cSoftHdDevice;
 
 /**
- * cPipReceiver - receiver class for pip
+ * @addtogroup pip
+ * @{
  */
-class cPipReceiver : public cReceiver
-{
+
+/**
+ * Receiver for PiP Stream
+ */
+class cPipReceiver : public cReceiver {
 public:
 	cPipReceiver(const cChannel *, cSoftHdDevice *);
 	virtual ~cPipReceiver(void);
@@ -40,20 +36,19 @@ protected:
 	virtual void Receive(const uchar *, int);
 
 private:
-	cSoftHdDevice *m_pDevice;
-	cTsToPes m_pTsToPesVideo;
-	uint64_t m_lastErrorReport = 0;
-	int m_numLostPackets = 0;
+	cSoftHdDevice *m_pDevice;        ///< pointer to device
+	cTsToPes m_pTsToPesVideo;        ///< TS to PES converter
+	uint64_t m_lastErrorReport = 0;  ///< tracks time since last error report
+	int m_numLostPackets = 0;        ///< tracks lost packets
 
 	int ParseTs(const uchar *, int);
 	int PlayTs(const uchar *, int);
 };
 
 /**
- * cPipHandler - class for pip
+ * PiP Stream Handler
  */
-class cPipHandler
-{
+class cPipHandler {
 public:
 	cPipHandler(cSoftHdDevice *);
 	virtual ~cPipHandler(void);
@@ -81,5 +76,7 @@ private:
 	void HandleEnable(bool);
 	void HandleChannelChange(int);
 };
+
+/** @} */
 
 #endif

@@ -1,22 +1,14 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 /**
  * @file softhdosd.h
- * Softhddevice osd header file
+ * Software OSD Header File
  *
- * Copyright: (c) 2011, 2014 by Johns.  All Rights Reserved.
- * Copyright (c) 2018 - 2019 zille.  All Rights Reserved.
- * Copyright: (c) 2025 by Andreas Baierl. All Rights Reserved.
+ * @copyright 2011, 2014 by Johns.  All Rights Reserved.
+ * @copyright 2018 - 2019 zille.  All Rights Reserved.
+ * @copyright 2025 - 2026 by Andreas Baierl. All Rights Reserved.
  *
- * License: AGPLv3
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as
- * published by the Free Software Foundation, either version 3 of the
- * License.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.
+ * @license{AGPL-3.0-or-later}
  */
 
 #ifndef __SOFTOSD_H
@@ -33,15 +25,15 @@ class cOglThread;
 #endif
 class cSoftHdDevice;
 
-/*****************************************************************************
- * OSD (software)
- ****************************************************************************/
+/**
+ * @addtogroup osd
+ * @{
+ */
 
 /**
- * cSoftOsd - SoftHdDevice plugin software OSD class
+ * Software Based OSD
  */
-class cSoftOsd:public cOsd
-{
+class cSoftOsd:public cOsd {
 public:
 	cSoftOsd(int, int, uint, cSoftHdDevice *);
 	virtual ~cSoftOsd(void);
@@ -56,21 +48,16 @@ private:
 	int m_osdLevel;                  ///< current osd level
 };
 
-/*****************************************************************************
- * OSD provider
- ****************************************************************************/
-
 /**
- * cSoftOsdProvider - SoftHdDevice plugin OSD provider class
+ * Plugin OSD provider
  */
-class cSoftOsdProvider:public cOsdProvider
-{
+class cSoftOsdProvider:public cOsdProvider {
 public:
 	cSoftOsdProvider(cSoftHdDevice *);
 	virtual ~cSoftOsdProvider();
 
 	virtual cOsd * CreateOsd(int, int, uint);
-	virtual bool ProvidesTrueColor(void);
+	virtual bool ProvidesTrueColor(void) { return true; };
 #ifdef USE_GLES
 	void RequestStopOpenGlThread(void);
 	void StopOpenGlThread(void);
@@ -94,5 +81,7 @@ protected:
 	virtual void DropImageData(int ImageHandle);
 #endif
 };
+
+/** @} */
 
 #endif

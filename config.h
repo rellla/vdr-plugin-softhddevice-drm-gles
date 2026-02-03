@@ -1,21 +1,13 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 /**
  * @file config.h
- * SoftHdDevice config header file
+ * Plugin Configuration Header File
  *
- * @copyright (c) 2011, 2015 by Johns.  All Rights Reserved.
- * @copyright (c) 2025 by Andreas Baierl. All Rights Reserved.
+ * @copyright 2011, 2015 by Johns.  All Rights Reserved.
+ * @copyright 2025 - 2026 by Andreas Baierl. All Rights Reserved.
  *
- * @license{AGPLv3
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as
- * published by the Free Software Foundation, either version 3 of the
- * License.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.}
+ * @license{AGPL-3.0-or-later}
  */
 
 #ifndef __SOFTHDCONFIG_H
@@ -24,11 +16,17 @@
 #include <atomic>
 #include <mutex>
 
-/*****************************************************************************
- * Config
- ****************************************************************************/
-class cSoftHdConfig
-{
+/**
+ * Plugin Configuration
+ *
+ * @addtogroup config
+ * @{
+ */
+
+/**
+ * Plugin Configuration
+ */
+class cSoftHdConfig {
 public:
 	cSoftHdConfig(void) = default;
 
@@ -85,9 +83,10 @@ public:
 	const char *ConfigAudioMixerChannel = nullptr;      ///< audio mixer channel name
 	const char *ConfigDisplayResolution = nullptr;      ///< display resolution (syntax: "1920x1080@50")
 
-	// stats
-	const char *CurrentDecoderName = "unknown";
-	const char *CurrentDecoderType = "unknown";
+	// stats - set by the video decoder
+	const char *CurrentDecoderName = "unknown";         ///< current decoder name
+	const char *CurrentDecoderType = "unknown";         ///< current decoder type: "hardware" or "software"
+
 	std::atomic<int> StatMaxShortTermAudioJitterMs = 0; ///< logged max audio jitter of the last 1000 packets
 	std::atomic<int> StatMaxLongTermAudioJitterMs = 0;  ///< logged max overall audio jitter since stream start
 	std::atomic<int> StatMaxShortTermVideoJitterMs = 0; ///< logged max video jitter of the last 1000 packets
@@ -102,5 +101,7 @@ private:
 	int m_decoderNeedsMaxPackets = 0;
 	std::mutex m_mutex;
 };
+
+/** @} */
 
 #endif

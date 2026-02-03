@@ -1,20 +1,12 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 /**
  * @file h264parser.h
- * H264 parser header file
+ * H.264 Parser Header File
  *
- * @copyright (c) 2025 by Andreas Baierl. All Rights Reserved.
+ * @copyright 2025 - 2026 by Andreas Baierl. All Rights Reserved.
  *
- * @license{AGPLv3
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as
- * published by the Free Software Foundation, either version 3 of the
- * License.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.}
+ * @license{AGPL-3.0-or-later}
  */
 
 #ifndef __H264PARSER_H
@@ -27,6 +19,11 @@
 extern "C" {
 #include <libavcodec/avcodec.h>
 }
+
+/**
+ * @addtogroup misc
+ * @{
+ */
 
 typedef enum {
 	NALU_TYPE_NON_IDR = (1 << 0),
@@ -41,10 +38,9 @@ typedef enum {
 } NalUnitTypes;
 
 /**
- * cH264Parser - H264 Parser class
+ * H.264 Parser
  */
-class cH264Parser
-{
+class cH264Parser {
 private:
 	struct RefPicMod {
 		int list;
@@ -129,5 +125,7 @@ private:
 	int GetSliceOffset(void);
 	void ConvertEBSPtoRBSP(const uint8_t *, int);
 };
+
+/** @} */
 
 #endif

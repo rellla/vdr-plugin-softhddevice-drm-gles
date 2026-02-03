@@ -1,18 +1,10 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 /**
  * @file queue.h
- * Thread-safe queue header file
+ * Thread-safe Queue
  *
- * @license{AGPLv3
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as
- * published by the Free Software Foundation, either version 3 of the
- * License.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.}
+ * @license{AGPL-3.0-or-later}
  */
 
 #ifndef __SOFTHDQUEUE_H
@@ -23,7 +15,12 @@
 #include <mutex>
 
 /**
- * Thread-safe queue class
+ * @addtogroup misc
+ * @{
+ */
+
+/**
+ * Thread-safe Queue
  *
  * This class provides a thread-safe queue implementation using std::deque
  * and std::mutex for synchronization. It supports both FIFO queue operations
@@ -32,8 +29,7 @@
  * @tparam T The type of elements stored in the queue
  */
 template <typename T>
-class cQueue
-{
+class cQueue {
 public:
 	cQueue(size_t maxSize) : m_maxSize(maxSize) {};
 	~cQueue(void) {};
@@ -136,5 +132,7 @@ private:
 	std::mutex m_mutex;        ///< Mutex for thread-safe access
 	size_t m_maxSize;          ///< Maximum queue capacity
 };
+
+/** @} */
 
 #endif

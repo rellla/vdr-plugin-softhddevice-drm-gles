@@ -1,21 +1,13 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 /**
  * @file softhdmenu.cpp
- * Softhddevice menu class
+ * Plugin Main Menu
  *
- * @copyright (c) 2020 zille.  All Rights Reserved.
- * @copyright (c) 2025 by Andreas Baierl. All Rights Reserved.
+ * @copyright 2020 zille.  All Rights Reserved.
+ * @copyright 2025 - 2026 by Andreas Baierl. All Rights Reserved.
  *
- * @license{AGPLv3
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as
- * published by the Free Software Foundation, either version 3 of the
- * License.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.}
+ * @license{AGPL-3.0-or-later}
  */
 
 #include <string>
@@ -30,12 +22,17 @@
 #include "softhddevice.h"
 #include "softhdmenu.h"
 
-/*****************************************************************************
- * cSoftHdMenu
- ****************************************************************************/
+/**
+ * Plugin Menus
+ *
+ * Main Menu
+ *
+ * @defgroup menu Menus
+ * @{
+ */
 
 /**
- * Softhddevice menu constructor
+ * Build main or playlist menu
  */
 cSoftHdMenu::cSoftHdMenu(const char *title, cSoftHdDevice *device,
                          int c0, int c1, int c2, int c3, int c4)
@@ -53,9 +50,6 @@ cSoftHdMenu::cSoftHdMenu(const char *title, cSoftHdDevice *device,
 	}
 }
 
-/**
- * Softhddevice menu destructor
- */
 cSoftHdMenu::~cSoftHdMenu()
 {
 	pSoftHdMenu = NULL;
@@ -134,6 +128,8 @@ enum Hotkeys {
 
 /**
  * Handle a key code which was compose by hotkey handling in ProcessKey()
+ *
+ * @param code       hotkey code to handle (see enum Hotkeys)
  */
 void cSoftHdMenu::HandleHotKey(int code) {
 	switch (code) {
@@ -505,9 +501,9 @@ void cSoftHdMenu::PlayMedia(const char *name)
  * Test if it's a media file - at least if it has the right file extension...
  *
  * @param name        file name
- * @returns           true if it's a media file
+ * @return            true if it's a media file
  */
-int cSoftHdMenu::IsValidMediaFile(const char *name)
+bool cSoftHdMenu::IsValidMediaFile(const char *name)
 {
 	if (strcasestr(name, ".MP3")  ||
 	    strcasestr(name, ".MP4")  ||
@@ -519,8 +515,10 @@ int cSoftHdMenu::IsValidMediaFile(const char *name)
 	    strcasestr(name, ".M3U")  ||
 	    strcasestr(name, ".TS")) {
 
-		return 1;
+		return true;
 	}
 
-	return 0;
+	return false;
 }
+
+/** @} */

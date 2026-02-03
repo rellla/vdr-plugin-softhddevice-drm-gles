@@ -1,24 +1,16 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 /**
  * @file logger.cpp
- * Logger class
+ * Logger
  *
  * This file defines cSoftHdLogger, which is a class to log things
  * into syslog. You can use one of the LOG* macros, which are
  * defined in the header file logger.h.
  *
- * @copyright (c) 2025 by Andreas Baierl. All Rights Reserved.
+ * @copyright 2025 - 2026 by Andreas Baierl. All Rights Reserved.
  *
- * @license{AGPLv3
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as
- * published by the Free Software Foundation, either version 3 of the
- * License.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.}
+ * @license{AGPL-3.0-or-later}
  */
 
 #include <cstdarg>
@@ -39,6 +31,13 @@ extern "C" {
 
 #include "logger.h"
 
+/**
+ * Miscellaneous Helper Functions
+ *
+ * @defgroup misc Miscellaneous
+ * @{
+ */
+
 /*****************************************************************************
  * cSoftHdLogger class
  ****************************************************************************/
@@ -46,7 +45,7 @@ extern "C" {
 /**
  * Get an instance to the global logger
  *
- * @returns pointer to the logger instance
+ * @return    pointer to the logger instance
  */
 std::shared_ptr<cSoftHdLogger> cSoftHdLogger::GetLogger()
 {
@@ -65,7 +64,7 @@ void cSoftHdLogger::SetLogLevel(int level)
 }
 
 /**
- * Log to LOG_ERR and abort
+ * Log to syslog LOG_ERR and abort
  */
 void cSoftHdLogger::LogFatal(const char *format, ...)
 {
@@ -86,7 +85,7 @@ void cSoftHdLogger::LogFatal(const char *format, ...)
 }
 
 /**
- * Log to LOG_ERR
+ * Log to syslog LOG_ERR
  */
 void cSoftHdLogger::LogError(const char *format, ...)
 {
@@ -105,7 +104,7 @@ void cSoftHdLogger::LogError(const char *format, ...)
 }
 
 /**
- * Log to LOG_WARNING
+ * Log to syslog LOG_WARNING
  */
 void cSoftHdLogger::LogWarning(const char *format, ...)
 {
@@ -124,7 +123,7 @@ void cSoftHdLogger::LogWarning(const char *format, ...)
 }
 
 /**
- * Log to LOG_INFO
+ * Log to syslog LOG_INFO
  */
 void cSoftHdLogger::LogInfo(const char *format, ...)
 {
@@ -143,7 +142,7 @@ void cSoftHdLogger::LogInfo(const char *format, ...)
 }
 
 /**
- * Log to LOG_DEBUG
+ * Log to syslog LOG_DEBUG
  */
 void cSoftHdLogger::LogDebug(const char *format, ...)
 {
@@ -162,7 +161,7 @@ void cSoftHdLogger::LogDebug(const char *format, ...)
 }
 
 /**
- * Log to LOG_DEBUG and add logging category to output
+ * Log to syslog LOG_DEBUG and add logging category to output
  */
 void cSoftHdLogger::LogDebug2(const int cat, const char *format, ...)
 {
@@ -222,7 +221,7 @@ void cSoftHdLogger::LogDebug2(const int cat, const char *format, ...)
 }
 
 /**
- * Log to LOG_DEBUG and add prefix [FFMpeg] to output
+ * Log to syslog LOG_DEBUG and add prefix [FFMpeg] to output
  */
 void cSoftHdLogger::LogFFmpeg(const char *fmt, va_list vl)
 {
@@ -251,3 +250,5 @@ void cSoftHdLogger::LogFFmpegCallback([[maybe_unused]] void *ptr, [[maybe_unused
 	if (auto logger = GetLogger())
 		logger->LogFFmpeg(fmt, vl);
 }
+
+/** @} */

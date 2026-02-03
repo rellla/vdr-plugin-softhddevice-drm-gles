@@ -1,20 +1,12 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 /**
  * @file videofilter.h
- * Deinterlace and scaling filter header file
+ * Deinterlace and Scaling Filters Header File
  *
- * @copyright (c) 2025 by Andreas Baierl. All Rights Reserved.
+ * @copyright 2025 - 2026 by Andreas Baierl. All Rights Reserved.
  *
- * @license{AGPLv3
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as
- * published by the Free Software Foundation, either version 3 of the
- * License.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.}
+ * @license{AGPL-3.0-or-later}
  */
 
 #ifndef __THREADS_H
@@ -37,10 +29,14 @@ class cDrmBuffer;
 class cVideoRender;
 
 /**
- * Video filter class
+ * @addtogroup filter
+ * @{
  */
-class cVideoFilter : public cThread
-{
+
+/**
+ * Video Filter
+ */
+class cVideoFilter : public cThread {
 public:
 	cVideoFilter(cVideoRender *, cQueue<cDrmBuffer> *, const char *, std::function<void(AVFrame *)>);
 	void InitAndStart(const AVCodecContext *, AVFrame *, bool);
@@ -50,11 +46,11 @@ public:
 	int GetNumFramesToFilter(void) { return m_numFramesToFilter; };
 
 private:
-	cVideoRender *m_pRender;
+	cVideoRender *m_pRender;                        ///< pointer to renderer
 
-	AVFilterGraph *m_pFilterGraph;
-	AVFilterContext *m_pBuffersrcCtx;
-	AVFilterContext *m_pBuffersinkCtx;
+	AVFilterGraph *m_pFilterGraph;                  ///< filter graph
+	AVFilterContext *m_pBuffersrcCtx;               ///< buffer src context
+	AVFilterContext *m_pBuffersinkCtx;              ///< buffer sink context
 
 	bool m_filterBug;                               ///< flag for a ffmpeg bug
 	cQueue<AVFrame> m_frames{VIDEO_SURFACES_MAX};   ///< queue for frames to be filtered
@@ -65,5 +61,7 @@ private:
 	void Action(void);
 	void SetFilterOutputPixFormat(AVPixelFormat);
 };
+
+/** @} */
 
 #endif

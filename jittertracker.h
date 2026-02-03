@@ -1,18 +1,10 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 /**
  * @file jittertracker.h
- * Tracks the jitter of incoming packets (currently only for logging purposes)
+ * Jitter Tracking of Incoming Packets Header File
  *
- * @license{AGPLv3
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as
- * published by the Free Software Foundation, either version 3 of the
- * License.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.}
+ * @license{AGPL-3.0-or-later}
  */
 
 #ifndef JITTERTRACKER_H
@@ -21,11 +13,19 @@
 #include <atomic>
 #include <chrono>
 
+/**
+ * @addtogroup misc
+ * @{
+ */
+
+/**
+ * Jitter Tracker
+ */
 class cJitterTracker {
 public:
 	cJitterTracker(const char* identifier) : m_identifier(identifier) {}
-	void PacketReceived();
-	void Reset();
+	void PacketReceived(void);
+	void Reset(void);
 	int GetLongTermMaxJitterMs(void) { return m_longTermMaxJitterMs; };
 	int GetShortTermMaxJitterMs(void) { return m_shortTermMaxJitterMs; };
 
@@ -39,5 +39,7 @@ private:
 	bool m_secondPacket = true;
 	const char *m_identifier;
 };
+
+/** @} */
 
 #endif

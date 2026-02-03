@@ -1,26 +1,18 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 /**
  * @file softhddevice.cpp
- * Device class
+ * Output Device
  *
  * This file defines cSoftHdDevice which is the implementation
  * of cDevice. This is the place where all the device commands
  * which are sent be VDR are placed in (i.e. Play(), TrickSpeed() ...)
  *
- * @copyright (c) 2011 - 2015 by Johns.  All Rights Reserved.
- * @copyright (c) 2018 - 2019 by zille.  All Rights Reserved.
- * @copyright (c) 2025 by Andreas Baierl. All Rights Reserved.
+ * @copyright 2011 - 2015 by Johns.  All Rights Reserved.
+ * @copyright 2018 - 2019 by zille.  All Rights Reserved.
+ * @copyright 2025 - 2026 by Andreas Baierl. All Rights Reserved.
  *
- * @license{AGPLv3
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as
- * published by the Free Software Foundation, either version 3 of the
- * License.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.}
+ * @license{AGPL-3.0-or-later}
  */
 
 #include <chrono>
@@ -50,12 +42,15 @@ extern "C" {
 #include "videorender.h"
 #include "videostream.h"
 
-/*****************************************************************************
- * cSoftHdDevice class
- ****************************************************************************/
+/**
+ * Output Device Implementation
+ *
+ * @defgroup device Device
+ * @{
+ */
 
 /**
- * cSoftHdDevice constructor
+ * Create the device
  *
  * Initializes some member variables
  *
@@ -73,9 +68,9 @@ cSoftHdDevice::cSoftHdDevice(cSoftHdConfig *config)
 }
 
 /**
- * cSoftHdDevice destructor
+ * Destroy the device
  *
- * only deletes spu decoder, which was created in constructor
+ * Only deletes spu decoder, which was created in constructor
  */
 cSoftHdDevice::~cSoftHdDevice(void)
 {
@@ -150,8 +145,8 @@ void cSoftHdDevice::ChannelSwitch(const cDevice *device, int channelNum, bool li
 /**
  * Get the device SPU decoder.
  *
- * @returns a pointer to the device's SPU decoder
- *          (or NULL, if thisdevice doesn't have an SPU decoder)
+ * @return a pointer to the device's SPU decoder
+ *         (or NULL, if this device doesn't have an SPU decoder)
  */
 cSpuDecoder *cSoftHdDevice::GetSpuDecoder(void)
 {
@@ -175,7 +170,7 @@ bool cSoftHdDevice::HasDecoder(void) const
 }
 
 /**
- * Returns true if this device can currently start a replay session
+ * Return true if this device can currently start a replay session
  */
 bool cSoftHdDevice::CanReplay(void) const
 {
@@ -647,7 +642,7 @@ bool cSoftHdDevice::SetPlayMode(ePlayMode play_mode)
 
 /**
  * Gets the current System Time Counter, which can be used to
- *        synchronize audio, video and subtitles.
+ * synchronize audio, video and subtitles.
  */
 int64_t cSoftHdDevice::GetSTC(void)
 {
@@ -751,7 +746,6 @@ void cSoftHdDevice::TrickSpeed(int speed, bool forward)
  * This is called by VDR via DeviceClear() in the Empty() call.
  *
  * Empty() does clear all VDR internal packets.
- *
  */
 void cSoftHdDevice::Clear(void)
 {
@@ -789,7 +783,6 @@ void cSoftHdDevice::Clear(void)
  * Sets the device into play mode (after a previous trick mode, or pause)
  *
  * This is called by VDR via DevicePlay() in the Play() and Goto() call
- *
  */
 void cSoftHdDevice::Play(void)
 {
@@ -862,8 +855,8 @@ void cSoftHdDevice::HandleStillPicture(const uchar *data, int size)
 }
 
 /**
- * Returns true if the device itself or any of the file handles in
- * Poller is ready for further action.
+ * Return true if the device itself or any of the file handles in
+ * poller is ready for further action.
  * If TimeoutMs is not zero, the device will wait up to the given number
  * of milliseconds before returning in case it can't accept any data.
  *
@@ -890,17 +883,17 @@ bool cSoftHdDevice::Poll(__attribute__ ((unused)) cPoller & poller, int timeoutM
 /**
  * Flush the device output buffers.
  *
- * @param timeout_ms        timeout in ms to become ready
+ * @param timeoutMs        timeout in ms to become ready
  */
-bool cSoftHdDevice::Flush(int timeout)
+bool cSoftHdDevice::Flush(int timeoutMs)
 {
 	if (IsDetached())
 		return true;
 
-	LOGDEBUG("device: %s: timeout %d ms", __FUNCTION__, timeout);
+	LOGDEBUG("device: %s: timeout %d ms", __FUNCTION__, timeoutMs);
 	if (m_pVideoStream->GetAvPacketsFilled()) {
-		if (timeout) {			// let display thread work
-			usleep(timeout * 1000);
+		if (timeoutMs) {			// let display thread work
+			usleep(timeoutMs * 1000);
 		}
 		return !m_pVideoStream->GetAvPacketsFilled();
 	}
@@ -942,8 +935,12 @@ void cSoftHdDevice::SetVideoFormat(bool videoFormat16_9)
 /**
  * Get the video size
  *
- * Returns the width, height and aspect ratio of the currently
+ * Return the width, height and aspect ratio of the currently
  * displayed video material
+ *
+ * @param[out] width              video width
+ * @param[out] height             video height
+ * @param[out] aspectRatio        video aspect ratio
  *
  * @note the video_aspect is used to scale the subtitle.
  */
@@ -964,7 +961,11 @@ void cSoftHdDevice::GetVideoSize(int &width, int &height, double &aspectRatio)
 /**
  * Returns the width, height and aspect ratio the OSD
  *
- * FIXME: Called every second, for nothing (no OSD displayed)?
+ * @param[out] width              osd width
+ * @param[out] height             osd height
+ * @param[out] aspectRatio        osd aspect ratio
+ *
+ * @todo: Called every second, for nothing (no OSD displayed)?
  */
 void cSoftHdDevice::GetOsdSize(int &width, int &height, double &aspectRatio)
 {
@@ -1035,6 +1036,8 @@ static void PrintStreamData(const uchar *payload)
 
 /**
  * Play an audio packet
+ *
+ * This is the main function, which is called by VDR to play audio data
  *
  * @param data   data of exactly one complete PES packet
  * @param size   size of PES packet
@@ -1151,6 +1154,8 @@ void cSoftHdDevice::SetVolumeDevice(int volume)
 /**
  * Play a video packet of the main videostream
  *
+ * This is the main function, which is called by VDR to play video data
+ *
  * @param data    A complete PES packet with optionally fragmented payload
  * @param size    the length of the PES packet including header
  *
@@ -1263,6 +1268,14 @@ int cSoftHdDevice::PlayVideoInternal(cVideoStream *stream, cReassemblyBufferVide
 }
 
 /**
+ * Returns the buffer fill level threshold in milliseconds.
+ * Combines the minimum threshold with the user-configured additional buffer length.
+ */
+int cSoftHdDevice::GetBufferFillLevelThresholdMs() {
+	return MIN_BUFFER_FILL_LEVEL_THRESHOLD_MS + m_pConfig->ConfigAdditionalBufferLengthMs;
+}
+
+/**
  * Check if the buffering threshold has been reached
  *
  * During the BUFFERING state, this method determines when sufficient audio/video data
@@ -1283,7 +1296,8 @@ int cSoftHdDevice::PlayVideoInternal(cVideoStream *stream, cReassemblyBufferVide
  *      -> video and audio has enough data buffered (calculated from the first output pts to play)
  *      -> the render output buffer queue is completely filled once (which implies "a video frame reached the renderer")
  *
- * @returns true if buffering threshold is reached and playback can start, false otherwise
+ * @retval true    if playback should start (audio or video only or buffering threshold reached)
+ * @retval false   if playback should not start
  *
  * @note In order to signal ThresholdReached, both (audio and video) need to have a valid pts in audio + video mode!
  */
@@ -1335,7 +1349,7 @@ bool cSoftHdDevice::IsBufferingThresholdReached()
  * from BUFFERING to PLAY state. It synchronizes audio with video by taking the maximum
  * of both output PTSes, then adjusts for user-configured audio/video delay.
  *
- * @returns The first audio PTS in milliseconds that should be played
+ * @return the first audio PTS in milliseconds that should be played
  *
  * @note Positive ConfigVideoAudioDelayMs means audio is intentionally delayed (video ahead)
  * @note Negative ConfigVideoAudioDelayMs means video is intentionally delayed (audio ahead)
@@ -1402,7 +1416,7 @@ uchar *cSoftHdDevice::GrabImage(int &size, bool jpeg, int quality, int width, in
  *
  * @param rect      requested video window rectangle
  *
- * @returns         the real rectangle or cRect::NULL if invalid
+ * @return          the real rectangle or cRect::NULL if invalid
  */
 cRect cSoftHdDevice::CanScaleVideo(const cRect & rect, __attribute__ ((unused)) int alignment)
 {
@@ -1456,7 +1470,7 @@ const char *cSoftHdDevice::CommandLineHelp(void)
 int cSoftHdDevice::ProcessArgs(int argc, char *argv[])
 {
 	//
-	//	Parse arguments.
+	// Parse arguments.
 	//
 
 	for (;;) {
@@ -1631,11 +1645,11 @@ void cSoftHdDevice::SetDecoderFallbackToSw(bool enable)
 /**
  * Set the passthrough mask (called from setup menu or conf)
  */
-void cSoftHdDevice::SetPassthrough(int mask)
+void cSoftHdDevice::SetPassthroughMask(int mask)
 {
-	m_pAudio->SetPassthrough(mask);
+	m_pAudio->SetPassthroughMask(mask);
 	if (m_pAudioDecoder)
-		m_pAudioDecoder->SetPassthrough(mask);
+		m_pAudioDecoder->SetPassthroughMask(mask);
 }
 
 /**
@@ -1704,10 +1718,9 @@ int cSoftHdDevice::PlayAudioPkts(AVPacket * pkt)
 {
 	m_pAudio->LazyInit();
 
-	if (m_pAudio->IsBufferFull()) {
-//		LOGERROR("device: %s: m_pAudio->GetFreeBytes() < AUDIO_MIN_BUFFER_FREE!", __FUNCTION__);
+	if (m_pAudio->IsBufferFull())
 		return 0;
-	}
+
 	m_pAudioDecoder->Decode(pkt);
 	return 1;
 }
@@ -1724,14 +1737,17 @@ int cSoftHdDevice::PlayVideoPkts(AVPacket * pkt)
 {
 	m_pAudio->LazyInit();
 
-	if (m_pVideoStream->GetAvPacketsFilled() >= VIDEO_PACKET_MAX - 10) {
+	if (m_pVideoStream->GetAvPacketsFilled() >= (size_t)m_pVideoStream->GetVideoPacketMax() - 10)
 		return 0;
-	}
 
 	m_pVideoStream->PushAvPacket(pkt);
 
 	return 1;
 }
+
+/*****************************************************************************
+ * Detach and attach functionality
+ ****************************************************************************/
 
 /**
  * Detach the device
@@ -1781,13 +1797,9 @@ bool cSoftHdDevice::IsDetached(void) const
 	return m_state == State::DETACHED;
 }
 
-/**
- * Returns the buffer fill level threshold in milliseconds.
- * Combines the minimum threshold with the user-configured additional buffer length.
- */
-int cSoftHdDevice::GetBufferFillLevelThresholdMs() {
-	return MIN_BUFFER_FILL_LEVEL_THRESHOLD_MS + m_pConfig->ConfigAdditionalBufferLengthMs;
-}
+/*****************************************************************************
+ * PiP functionality
+ ****************************************************************************/
 
 /**
  * Resets pip stream and render pipeline
@@ -1829,4 +1841,7 @@ void cSoftHdDevice::PipChannelSwap(bool closePip) { m_pPipHandler->ChannelSwap(c
 void cSoftHdDevice::PipSwapPosition(void) { m_pPipHandler->SwapPosition(); };
 void cSoftHdDevice::PipSetSize(void) { m_pPipHandler->SetSize(); };
 
+/** Enable HDR display mode */
 void cSoftHdDevice::SetEnableHdr(bool enable) { m_pRender->SetEnableHdr(enable); };
+
+/** @} */

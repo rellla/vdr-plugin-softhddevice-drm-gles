@@ -1,25 +1,17 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 /**
  * @file softhddevice-drm-gles.cpp
- * Main plugin class
+ * Main Plugin Interface
  *
  * This file defines cPluginSoftHdDevice, which is the main class
  * for initializing the plugin itselft.
  *
- * @copyright (c) 2011, 2015 by Johns.  All Rights Reserved.
- * @copyright (c) 2018 zille.  All Rights Reserved.
- * @copyright (c) 2025 by Andreas Baierl. All Rights Reserved.
+ * @copyright 2011, 2015 by Johns.  All Rights Reserved.
+ * @copyright 2018 zille.  All Rights Reserved.
+ * @copyright 2025 - 2026 by Andreas Baierl. All Rights Reserved.
  *
- * @license{AGPLv3
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as
- * published by the Free Software Foundation, either version 3 of the
- * License.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.}
+ * @license{AGPL-3.0-or-later}
  */
 
 #include <vdr/player.h>
@@ -34,6 +26,13 @@
 #include "softhddevice.h"
 #include "softhdmenu.h"
 #include "softhdsetupmenu.h"
+
+/**
+ * Main Plugin Interface
+ *
+ * @defgroup plugin Main Plugin
+ * @{
+ */
 
 /*****************************************************************************
  * Static variables
@@ -85,7 +84,7 @@ cPluginSoftHdDevice::~cPluginSoftHdDevice(void)
 /**
  * Return plugin version number
  *
- * @returns version number as constant string
+ * @return the version number as constant string
  */
 const char *cPluginSoftHdDevice::Version(void)
 {
@@ -95,7 +94,7 @@ const char *cPluginSoftHdDevice::Version(void)
 /**
  * Return plugin short description
  *
- * @returns short description as constant string
+ * @return a short description as constant string
  */
 const char *cPluginSoftHdDevice::Description(void)
 {
@@ -105,7 +104,7 @@ const char *cPluginSoftHdDevice::Description(void)
 /**
  * Return a string that describes all known command line options
  *
- * @returns command line help as constant string
+ * @return the command line help as constant string
  */
 const char *cPluginSoftHdDevice::CommandLineHelp(void)
 {
@@ -127,7 +126,7 @@ bool cPluginSoftHdDevice::ProcessArgs(int argc, char *argv[])
  *
  * Must be called before accessing any DVB functions
  *
- * @returns true if any devices are available.
+ * @retval true (always)
  */
 bool cPluginSoftHdDevice::Initialize(void)
 {
@@ -198,7 +197,8 @@ cMenuSetupPage *cPluginSoftHdDevice::SetupMenu(void)
  * @param name      paramter name (case sensetive)
  * @param value     value as string
  *
- * @returns         true if the parameter is supported, false otherwise
+ * @retval true     if the parameter is supported
+ * @retval false    if the parameter is unsupported
  */
 bool cPluginSoftHdDevice::SetupParse(const char *name, const char *value)
 {
@@ -373,5 +373,7 @@ cString cPluginSoftHdDevice::SVDRPCommand(const char *command, const char *optio
 
 	return NULL;
 }
+
+/** @} */
 
 VDRPLUGINCREATOR(cPluginSoftHdDevice);	// Don't touch this!

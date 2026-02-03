@@ -1,25 +1,17 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 /**
  * @file mediaplayer.cpp
- * Mediaplayer class
+ * Mediaplayer
  *
  * This file defines all classes used for the integrated mediaplayer
  *    - cSoftHdPlayer (cPlayer)
  *    - cSoftHdControl (cControl)
  *
- * @copyright (c) 2020 zille.  All Rights Reserved.
- * @copyright (c) 2025 by Andreas Baierl. All Rights Reserved.
+ * @copyright 2020 zille.  All Rights Reserved.
+ * @copyright 2025 - 2026 by Andreas Baierl. All Rights Reserved.
  *
- * @license{AGPLv3
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as
- * published by the Free Software Foundation, either version 3 of the
- * License.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.}
+ * @license{AGPL-3.0-or-later}
  */
 
 #include <cstdlib>
@@ -39,6 +31,13 @@ extern "C" {
 #include "mediaplayer.h"
 #include "softhddevice.h"
 #include "softhdmenu.h"
+
+/**
+ * Mediaplayer Related Stuff
+ *
+ * @defgroup mediaplayer Mediaplayer
+ * @{
+ */
 
 /*****************************************************************************
  * cPlaylistEntry
@@ -173,6 +172,8 @@ void cSoftHdPlayer::Action(void)
 
 /**
  * Read the playlist file
+ *
+ * @param playlist       full path to the playlist
  */
 void cSoftHdPlayer::ReadPlaylist(const char *playlist)
 {
@@ -475,3 +476,5 @@ eOSState cSoftHdControl::ProcessKey(eKeys key)
 
 	return osContinue;
 }
+
+/** @} */

@@ -1,24 +1,16 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 /**
  * @file drmplane.cpp
- * DRM plane class
+ * DRM Plane
  *
  * This file defines cDrmPlane, which is a class to describe
  * planes, that are used for modesetting in the DRM system.
  *
- * @copyright (c) 2018 by zille.  All Rights Reserved.
- * @copyright (c) 2025 by Andreas Baierl. All Rights Reserved.
+ * @copyright 2018 by zille.  All Rights Reserved.
+ * @copyright 2025 - 2026 by Andreas Baierl. All Rights Reserved.
  *
- * @license{AGPLv3
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as
- * published by the Free Software Foundation, either version 3 of the
- * License.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.\
+ * @license{AGPL-3.0-or-later}
  */
 
 #include <cerrno>
@@ -32,9 +24,10 @@
 #include "drmplane.h"
 #include "logger.h"
 
-/*****************************************************************************
- * cDrmPlane class
- ****************************************************************************/
+/**
+ * @addtogroup drm
+ * @{
+ */
 
 /**
  * Fill the plane properties
@@ -80,7 +73,7 @@ void cDrmPlane::FreeProperties(void)
 }
 
 /**
- * Set the modesetting parameters of a plane
+ * Caches the modesetting parameters of a plane
  *
  * These values are used for drm modesetting
  *
@@ -149,7 +142,7 @@ void cDrmPlane::SetPlaneZpos(drmModeAtomicReqPtr ModeReq)
 }
 
 /**
- * Set all other plane properties
+ * Set all plane properties (except zpos)
  *
  * @param ModeReq        pointer to the atomic mode request
  */
@@ -185,8 +178,8 @@ void cDrmPlane::ClearPlane(drmModeAtomicReqPtr ModeReq)
  *
  * @param fdDrm     drm file descriptor
  *
- * @returns 1       plane can use zpos
- * @returns 0       plane can't use zpos
+ * @retval 1        plane can use zpos
+ * @retval 0        plane can't use zpos
  */
 int cDrmPlane::HasZpos(int fdDrm)
 {
@@ -213,7 +206,7 @@ int cDrmPlane::HasZpos(int fdDrm)
 }
 
 /**
- * Dump the plane parameter modesetting values
+ * Dump the cached plane parameter modesetting values
  */
 void cDrmPlane::DumpParameters(const char *id)
 {
@@ -230,3 +223,5 @@ void cDrmPlane::DumpParameters(const char *id)
 	LOGERROR("  SRC H  : %" PRIu64 "",          GetSrcH());
 	LOGERROR("  ZPOS   : %" PRIu64 "",          GetZpos());
 }
+
+/** @} */

@@ -1,18 +1,10 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 /**
  * @file pes.cpp
- * PES packet parser implementation
+ * PES Packet Parser
  *
- * @license{AGPLv3
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as
- * published by the Free Software Foundation, either version 3 of the
- * License.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.}
+ * @license{AGPL-3.0-or-later}
  */
 
 #include <functional>
@@ -30,18 +22,26 @@ extern "C" {
 }
 
 /**
- * Codec information structure
+ * @addtogroup misc
+ * @{
+ */
+
+/**
+ * Codec Information Structure
+ *
  * Contains lambdas for sync word detection and frame size calculation
  */
-struct CodecInfo {
+struct CodecInfo
+{
 	int minSize;
 	std::function<bool(const uint8_t*)> MatchSyncWord;
 	std::function<int(const uint8_t*)> GetFrameSize;
 };
 
 /**
- * Map of audio codec information
- * Key: AVCodecID
+ * Map of Audio Codec Information
+ *
+ * Key:   AVCodecID
  * Value: CodecInfo with sync word detection and frame size calculation lambdas
  */
 static const std::map<AVCodecID, CodecInfo> AudioCodecMap = {
@@ -192,7 +192,7 @@ static const std::map<AVCodecID, CodecInfo> AudioCodecMap = {
 };
 
 /**
- * Construct a PES packet parser
+ * Create a PES packet parser
  *
  * Initializes the parser with a pointer to PES packet data and its size.
  * The actual validation is performed by calling Init() in derived classes.
@@ -216,7 +216,8 @@ cPes::cPes(const uint8_t *data, int size)
  *
  * Sets m_valid to true if all checks pass. Called by derived class constructors.
  */
-void cPes::Init() {
+void cPes::Init(void)
+{
 	if (IsHeaderValid() && IsStreamIdValid()) {
 		if (m_size <= 8 || PesPayloadOffset(m_data) > m_size) // header length field is at position 8 when the PES extension is present
 			LOGWARNING("pes: %s: packet too short: %d %02X", __FUNCTION__, m_size, GetStreamId());
@@ -241,7 +242,8 @@ void cPes::Init() {
  *
  * @return true if the packet is valid and matches the expected stream type, false otherwise
  */
-bool cPes::IsValid() {
+bool cPes::IsValid(void)
+{
 	return m_valid;
 }
 
@@ -254,7 +256,7 @@ bool cPes::IsValid() {
  *
  * @return true if the header is valid, false otherwise
  */
-bool cPes::IsHeaderValid()
+bool cPes::IsHeaderValid(void)
 {
 	return PesLongEnough(m_size) && ReadBytes(m_data, 3) == PES_PACKET_START_CODE_PREFIX;
 }
@@ -267,7 +269,7 @@ bool cPes::IsHeaderValid()
  *
  * @return true if the PES packet contains a PTS, false otherwise
  */
-bool cPes::HasPts()
+bool cPes::HasPts(void)
 {
 	return PesHasPts(m_data);
 }
@@ -280,7 +282,7 @@ bool cPes::HasPts()
  *
  * @return The PTS value in 90 kHz units, or AV_NOPTS_VALUE if no PTS is present
  */
-int64_t cPes::GetPts()
+int64_t cPes::GetPts(void)
 {
 	if (!HasPts())
 		return AV_NOPTS_VALUE;
@@ -296,7 +298,7 @@ int64_t cPes::GetPts()
  *
  * @return Pointer to the payload data
  */
-const uint8_t *cPes::GetPayload()
+const uint8_t *cPes::GetPayload(void)
 {
 	return &m_data[PesPayloadOffset(m_data)];
 }
@@ -309,7 +311,7 @@ const uint8_t *cPes::GetPayload()
  *
  * @return Size of the payload in bytes
  */
-int cPes::GetPayloadSize()
+int cPes::GetPayloadSize(void)
 {
 	return m_size - PesPayloadOffset(m_data);
 }
@@ -331,13 +333,17 @@ int cPes::GetPayloadSize()
  *
  * @return Total size in bytes: actual packet length if specified, otherwise input buffer size
  */
-int cPes::GetPacketLength()
+int cPes::GetPacketLength(void)
 {
 	if (!PesHasLength(m_data))
 		return m_size; // Length field is 0, meaning unbounded/unspecified. Return raw data size.
 
 	return PesLength(m_data);
 }
+
+/********************************************************************************
+ * Reassembly buffer
+ *******************************************************************************/
 
 /**
  * Pop an AVPacket from the reassembly buffer
@@ -380,9 +386,9 @@ AVPacket *cReassemblyBuffer::PopAvPacket(int size)
 	return avpkt;
 }
 
-/*
+/********************************************************************************
  * Video specific implementation
- */
+ *******************************************************************************/
 
 /**
  * Parse video codec header to detect codec type
@@ -395,7 +401,8 @@ AVPacket *cReassemblyBuffer::PopAvPacket(int size)
  *
  * @return true if a codec was detected, false otherwise
  */
-bool cReassemblyBufferVideo::ParseCodecHeader(const uint8_t *fragment, int size) {
+bool cReassemblyBufferVideo::ParseCodecHeader(const uint8_t *fragment, int size)
+{
 	const uint8_t *codecPayload = &fragment[VIDEO_FRAME_START_CODE_LEN];
 	uint32_t startCode = ReadBytes(fragment, VIDEO_FRAME_START_CODE_LEN);
 
@@ -433,9 +440,9 @@ bool cReassemblyBufferVideo::HasLeadingZero(const uint8_t *data, int size)
 	return size > VIDEO_FRAME_START_CODE_LEN + 1 && data[0] == 0 && ReadBytes(&data[1], VIDEO_FRAME_START_CODE_LEN) == VIDEO_FRAME_START_CODE;
 }
 
-/*
+/********************************************************************************
  * Audio specific implementation
- */
+ *******************************************************************************/
 
 /**
  * Pop an audio AVPacket from the reassembly buffer
@@ -445,7 +452,7 @@ bool cReassemblyBufferVideo::HasLeadingZero(const uint8_t *data, int size)
  *
  * @return Allocated AVPacket with one audio frame, or nullptr if no valid frame found
  */
-AVPacket *cReassemblyBufferAudio::PopAvPacket()
+AVPacket *cReassemblyBufferAudio::PopAvPacket(void)
 {
 	AVCodecID detectedCodec = TruncateBufferUntilFirstValidData();
 
@@ -483,7 +490,8 @@ AVPacket *cReassemblyBufferAudio::PopAvPacket()
  *
  * @return Detected codec ID, or AV_CODEC_ID_NONE if no valid frames found
  */
-AVCodecID cReassemblyBufferAudio::TruncateBufferUntilFirstValidData() {
+AVCodecID cReassemblyBufferAudio::TruncateBufferUntilFirstValidData(void)
+{
 	int sizeBeforeTruncation = m_buffer.GetSize();
 
 	SyncWordInfo firstFrame = FindTwoConsecutiveFramesWithSameSyncWord();
@@ -510,7 +518,7 @@ AVCodecID cReassemblyBufferAudio::TruncateBufferUntilFirstValidData() {
  *
  * @return SyncWordInfo with codec ID and position, or AV_CODEC_ID_NONE if not found
  */
-SyncWordInfo cReassemblyBufferAudio::FindTwoConsecutiveFramesWithSameSyncWord()
+SyncWordInfo cReassemblyBufferAudio::FindTwoConsecutiveFramesWithSameSyncWord(void)
 {
 	while (true) {
 		SyncWordInfo firstFrame = FindSyncWord(m_buffer.Peek(), m_buffer.GetSize());
@@ -613,16 +621,16 @@ int cReassemblyBufferAudio::GetFrameSizeForCodec(AVCodecID codec, const uint8_t 
  *
  * Clears all buffered data, PTS tracking, and resets codec detection state.
  */
-void cReassemblyBuffer::Reset()
+void cReassemblyBuffer::Reset(void)
 {
 	m_buffer.Reset();
 	m_codec = AV_CODEC_ID_NONE;
 	m_lastPoppedPts = AV_NOPTS_VALUE;
 }
 
-/*
+/********************************************************************************
  * PTS tracking buffer
- */
+ *******************************************************************************/
 
 /**
  * Push data into the PTS tracking buffer
@@ -634,7 +642,8 @@ void cReassemblyBuffer::Reset()
  * @param size Size of data in bytes
  * @param pts Presentation timestamp, or AV_NOPTS_VALUE if not available
  */
-void cPtsTrackingBuffer::Push(const uint8_t *data, int size, int64_t pts) {
+void cPtsTrackingBuffer::Push(const uint8_t *data, int size, int64_t pts)
+{
 	if (pts != AV_NOPTS_VALUE) // PES packets not starting with a new frame (fragmented data) have no PTS
 		m_pts[m_data.size()] = pts;
 
@@ -654,7 +663,8 @@ void cPtsTrackingBuffer::Push(const uint8_t *data, int size, int64_t pts) {
  *
  * @param amount Number of bytes to erase from the beginning
  */
-void cPtsTrackingBuffer::Erase(size_t amount) {
+void cPtsTrackingBuffer::Erase(size_t amount)
+{
 	if (m_data.empty() || amount == 0)
 		return;
 
@@ -691,9 +701,12 @@ void cPtsTrackingBuffer::Erase(size_t amount) {
  *
  * @return PTS value, or AV_NOPTS_VALUE if no PTS is available
  */
-int64_t cPtsTrackingBuffer::GetPts() {
+int64_t cPtsTrackingBuffer::GetPts(void)
+{
 	if (m_pts.empty())
 		return AV_NOPTS_VALUE;
 
 	return m_pts.begin()->second;
 }
+
+/** @} */

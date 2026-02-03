@@ -1,22 +1,14 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 /**
  * @file softhddevice-drm-gles.h
- * Main plugin class header file
+ * Main Plugin Interface Header File
  *
- * @copyright (c) 2011, 2014 by Johns.  All Rights Reserved.
- * @copyright (c) 2018 - 2019 zille.  All Rights Reserved.
- * @copyright (c) 2025 by Andreas Baierl. All Rights Reserved.
+ * @copyright 2011, 2014 by Johns.  All Rights Reserved.
+ * @copyright 2018 - 2019 zille.  All Rights Reserved.
+ * @copyright 2025 - 2026 by Andreas Baierl. All Rights Reserved.
  *
- * @license{AGPLv3
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as
- * published by the Free Software Foundation, either version 3 of the
- * License.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.}
+ * @license{AGPL-3.0-or-later}
  */
 
 #ifndef __SOFTHDDEVICE_DRM_GLES_H
@@ -33,15 +25,15 @@
 class cSoftHdDevice;
 class cSoftHdConfig;
 
-/*****************************************************************************
- * Plugin
- ****************************************************************************/
+/**
+ * @addtogroup plugin
+ * @{
+ */
 
 /**
- * cPluginSoftHdDevice - SoftHdDevice plugin class
+ * Main Plugin Class
  */
-class cPluginSoftHdDevice : public cPlugin
-{
+class cPluginSoftHdDevice : public cPlugin {
 public:
 	cPluginSoftHdDevice(void);
 	virtual ~cPluginSoftHdDevice(void);
@@ -63,5 +55,7 @@ private:
 	cSoftHdDevice *m_pDevice;          ///< pointer to cSoftHdDevice object
 	cSoftHdConfig *m_pConfig;          ///< pointer to cSoftHdConfig object
 };
+
+/** @} */
 
 #endif
