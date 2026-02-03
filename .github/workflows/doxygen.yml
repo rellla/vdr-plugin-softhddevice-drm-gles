@@ -1,0 +1,96 @@
+name: Generate and deploy doxygen documentation
+
+on:
+  push:
+    branches: drm-atomic-gles
+  workflow_dispatch:
+    inputs:
+      folder:
+        description: 'Folder for doxygen html output'
+        required: true
+        default: "srcdoc/html"
+
+      config_file:
+        description: 'Path to doxygen config file'
+        required: true
+        default: "doxygen/Doxyfile"
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+env:
+  DOXYGEN_OUTPUT: srcdoc/html
+  DOXYGEN_CONFIG: doxygen/Doxyfile
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout plugin repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Compute git version
+        shell: bash
+        run: |
+          set -e
+          if git describe --tags --exact-match HEAD >/dev/null 2>&1 \
+             && git diff --quiet \
+             && git diff --cached --quiet; then
+            GIT_DESCRIBE_VERSION=""
+          else
+            HASH=$(git describe --tags --always --dirty --exclude "*" 2>/dev/null || echo "unknown")
+            GIT_DESCRIBE_VERSION="-$HASH"
+          fi
+          echo "GIT_DESCRIBE_VERSION=$GIT_DESCRIBE_VERSION" >> $GITHUB_ENV
+
+      - name: Setup pages
+        uses: actions/configure-pages@v5
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y graphviz doxygen
+
+      - name: Resolve inputs
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "DOXYGEN_OUTPUT=${{ inputs.folder }}" >> $GITHUB_ENV
+            echo "DOXYGEN_CONFIG=${{ inputs.config_file }}" >> $GITHUB_ENV
+          fi
+
+      - name: Configure doxygen
+        run: |
+          cp "$DOXYGEN_CONFIG" "$DOXYGEN_CONFIG.tmp"
+          BASE_VERSION=$(grep -R 'static const char \*const VERSION *=' softhddevice-drm-gles.cpp \
+            | awk '{ print $7 }' | sed 's/[";]//g' | head -n1)
+          PROJECT_VERSION="${BASE_VERSION}${GIT_DESCRIBE_VERSION}"
+          echo "PROJECT_NUMBER=$PROJECT_VERSION" >> "$DOXYGEN_CONFIG.tmp"
+          echo "Set documentation version nummer to $PROJECT_VERSION"
+
+      - name: Run doxygen
+        run: doxygen $DOXYGEN_CONFIG.tmp
+
+      - name: Create .nojekyll (ensures pages with underscores work on gh pages)
+        run: touch $DOXYGEN_OUTPUT/.nojekyll
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: ${{ env.DOXYGEN_OUTPUT }}
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Deploy to github pages
+        id: deployment
+        uses: actions/deploy-pages@v4
