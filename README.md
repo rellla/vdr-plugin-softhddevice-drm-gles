@@ -43,7 +43,8 @@ with a zero-copy approach. That's the same for OpenGL/ES OSD.
 
 [See developer page](DEVELOPER/README.md)
 
-A doxygen documentation is available [here](https://vdr.imkreisrum.de/docs)
+A doxygen documentation is available [here](https://rellla.github.io/vdr-plugin-softhddevice-drm-gles/)
+and is updated on every commit automatically.
 
 
 Supported Hardware:
