@@ -1,20 +1,12 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 /**
  * @file drmbuffer.h
- * DRM buffer header file
+ * DRM Buffer Header File
  *
- * @copyright (c) 2025 by Andreas Baierl. All Rights Reserved.
+ * @copyright 2025 - 2026 by Andreas Baierl. All Rights Reserved.
  *
- * @license{AGPLv3
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as
- * published by the Free Software Foundation, either version 3 of the
- * License.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.}
+ * @license{AGPL-3.0-or-later}
  */
 
 #ifndef __DRMBUFFER_H
@@ -31,23 +23,27 @@ extern "C" {
 
 #include "pool.h"
 
-#define RENDERBUFFERS 36    ///< number of render video buffers
+/**
+ * @addtogroup drm
+ * @{
+ */
 
-struct format_plane_info
-{
+struct format_plane_info {
 	uint8_t bitspp;
 	uint8_t xsub;
 	uint8_t ysub;
 };
 
-struct format_info
-{
+struct format_info {
 	uint32_t format;
 	const char *fourcc;
 	uint8_t num_planes;
 	struct format_plane_info planes[4];
 };
 
+/**
+ * DRM Buffer
+ */
 class cDrmBuffer {
 public:
 	cDrmBuffer(void);
@@ -127,7 +123,7 @@ private:
 	uint32_t m_pitch[4];        ///< array of the plane pitch
 	uint32_t m_size[4]{0};      ///< array of the plane size
 
-	bool m_presentationPending = false; ///< true, if buffer is pending presentation
+	bool m_presentationPending = false; ///< true, if buffer presentation is pending
 	bool m_destroyAfterUse = false;     ///< true, if buffer should be destroyed after use
 	bool m_closeHandleOnDestroy;        ///< true, if DMA-BUF handle should be closed on destroy
 
@@ -136,6 +132,9 @@ private:
 #endif
 };
 
+/**
+ * DRM Buffer Pool
+ */
 class cDrmBufferPool : public cPool<cDrmBuffer> {
 public:
 	cDrmBufferPool() : cPool<cDrmBuffer>(RENDERBUFFERS) {}
@@ -143,6 +142,10 @@ public:
 	cDrmBuffer *FindNoPresentationPending(void);
 	cDrmBuffer *FindByDmaBufHandle(int);
 	void DestroyAllExcept(cDrmBuffer *);
+private:
+	constexpr static int RENDERBUFFERS = 36;    ///< number of render video buffers
 };
+
+/** @} */
 
 #endif

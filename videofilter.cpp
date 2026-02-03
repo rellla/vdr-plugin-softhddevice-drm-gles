@@ -1,22 +1,14 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 /**
  * @file videofilter.cpp
- * Deinterlace and scaling filters
+ * Deinterlace and Scaling Filters
  *
- * @copyright (c) 2009 - 2015 by Johns.  All Rights Reserved.
- * @copyright (c) 2018 by zille.  All Rights Reserved.
- * @copyright (c) 2025 by Andreas Baierl. All Rights Reserved.
+ * @copyright 2009 - 2015 by Johns.  All Rights Reserved.
+ * @copyright 2018 by zille.  All Rights Reserved.
+ * @copyright 2025 - 2026 by Andreas Baierl. All Rights Reserved.
  *
- * @license{AGPLv3
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as
- * published by the Free Software Foundation, either version 3 of the
- * License.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.}
+ * @license{AGPL-3.0-or-later}
  */
 
 extern "C" {
@@ -33,11 +25,13 @@ extern "C" {
 #include "videofilter.h"
 #include "videorender.h"
 
-/*****************************************************************************
- * cVideoFilter class
+/**
+ * Deinterlace and Scaling Filters
  *
- * This thread handles video filters like deinterlacer or scale filter
- ****************************************************************************/
+ * @defgroup filter Video filters
+ * @{
+ */
+
 cVideoFilter::cVideoFilter(cVideoRender *videoRender, cQueue<cDrmBuffer> *drmBufferQueue, const char *name, std::function<void(AVFrame *)> frameOutput)
 	: cThread(name),
 	  m_pRender(videoRender),
@@ -202,6 +196,11 @@ void cVideoFilter::InitAndStart(const AVCodecContext *videoCtx, AVFrame *frame, 
 	Start();
 }
 
+/**
+ * Main filter thread loop
+ *
+ * Pops unfiltered frames from the input queue, processes them and sends the filtered frames to the render queue
+ */
 void cVideoFilter::Action(void)
 {
 	LOGDEBUG("video filter: thread started");
@@ -258,13 +257,16 @@ void cVideoFilter::Action(void)
 }
 
 /**
- * Put a frame in the buffer to be filtered
+ * Puts a frame in the buffer to be filtered
  */
 void cVideoFilter::PushFrame(AVFrame *frame)
 {
 	m_frames.Push(frame);
 }
 
+/**
+ * Stops the filter thread and does a cleanup
+ */
 void cVideoFilter::Stop(void)
 {
 	if (!Active())
@@ -282,3 +284,5 @@ void cVideoFilter::Stop(void)
 
 	avfilter_graph_free(&m_pFilterGraph);
 }
+
+/** @} */

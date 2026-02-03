@@ -1,25 +1,17 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 /**
  * @file codec_video.cpp
- * Video decoder class
+ * Video Decoder
  *
  * This file defines cVideoDecoder, which has all the functions
  * to decode video data. It's the video interface to ffmpeg.
  *
- * @copyright (c) 2009 - 2015 by Johns.  All Rights Reserved.
- * @copyright (c) 2018 by zille.  All Rights Reserved.
- * @copyright (c) 2025 by Andreas Baierl. All Rights Reserved.
+ * @copyright 2009 - 2015 by Johns.  All Rights Reserved.
+ * @copyright 2018 by zille.  All Rights Reserved.
+ * @copyright 2025 - 2026 by Andreas Baierl. All Rights Reserved.
  *
- * @license{AGPLv3
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as
- * published by the Free Software Foundation, either version 3 of the
- * License.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.}
+ * @license{AGPL-3.0-or-later}
  */
 
 extern "C" {
@@ -39,9 +31,16 @@ extern "C" {
 //#define NUM_CAPTURE_BUFFERS 10
 //#define NUM_OUTPUT_BUFFERS 10
 
-/******************************************************************************
- * static functions
- *****************************************************************************/
+/**
+ * FFMpeg Video Decoder Frontend
+ *
+ * @defgroup videodecoder Video Decoder
+ * @{
+ */
+
+/********************************************************************************
+ * Static functions
+ *******************************************************************************/
 
 /**
  * Callback to negotiate the PixelFormat
@@ -50,6 +49,8 @@ extern "C" {
  * @param fmt           the list of formats which are supported by
  *                      the codec, it is terminated by -1 as 0 is a
  *                      valid format, the formats are ordered by quality
+ *
+ * @return              the negotiated pixel format
  */
 static enum AVPixelFormat GetFormat(AVCodecContext * videoCtx,
                                     const enum AVPixelFormat *fmt)
@@ -103,7 +104,6 @@ static const AVCodecHWConfig *FindHWConfig(const AVCodec *codec)
  *
  * @return                        AVCodec if found, NULL otherwise
  */
-
 static const AVCodec *FindHWDecoder(enum AVCodecID codecId)
 {
 	const AVCodec *codec;
@@ -130,18 +130,13 @@ static const AVCodec *FindHWDecoder(enum AVCodecID codecId)
  *
  * @return                        AVCodec if found, NULL otherwise
  */
-
 static const AVCodec *FindSWDecoder(enum AVCodecID codecId)
 {
 	return avcodec_find_decoder(codecId);
 }
 
-/******************************************************************************
- * cVideoDecoder class
- *****************************************************************************/
-
 /**
- * cVideoDecoder constructor
+ * Create a new video decoder
  *
  * @param hardwareQuirks     hardware specific quirks for decoder
  * @param identifier         string to identify decoder for video or pip stream
@@ -168,8 +163,8 @@ cVideoDecoder::cVideoDecoder(int hardwareQuirks, const char *identifier)
  * @param width                    force width (only for H264 and if par is not set)
  * @param height                   force height (only for H264 and if par is not set)
  *
- * @returns 0                      decoder successfully opend
- * @returns -1                     opening the decoder failed
+ * @retval 0                       decoder successfully opend
+ * @retval -1                      opening the decoder failed
  */
 int cVideoDecoder::Open(enum AVCodecID codecId, AVCodecParameters * par,
                         AVRational timebase, bool forceSoftwareDecoder,
@@ -333,10 +328,10 @@ void cVideoDecoder::Close(void)
 /**
  * Get extradata from avpkt
  *
- * @param avpkt	video packet
+ * @param avpkt    video packet
  *
- * @returns 0      extradata set
- * @returns -1     something went wrong
+ * @retval 0       extradata set
+ * @retval -1      something went wrong
  */
 int cVideoDecoder::GetExtraData(const AVPacket * avpkt)
 {
@@ -419,10 +414,10 @@ int cVideoDecoder::GetExtraData(const AVPacket * avpkt)
  *
  * @param avpkt                  video packet
  *
- * @returns 0                    packet was sent
- * @returns AVERROR(EAGAIN)      packet was not accepted, first receive frame and send packet again
- * @returns AVERROR(EINVAL)      invalid input or missing m_pVideoCtx
- * @returns ret                  other ffmpeg error
+ * @retval 0                     packet was sent
+ * @retval AVERROR(EAGAIN)       packet was not accepted, first receive frame and send packet again
+ * @retval AVERROR(EINVAL)       invalid input or missing m_pVideoCtx
+ * @retval ret                   other ffmpeg error
  */
 int cVideoDecoder::SendPacket(const AVPacket *avpkt)
 {
@@ -473,11 +468,11 @@ int cVideoDecoder::SendPacket(const AVPacket *avpkt)
  * @param[out] frame            decoded AVFrame
  * @param instance              instance name for logging
  *
- * @returns 0                   received frame
- * @returns AVERROR(EAGAIN)     get no frame, send avpkt again
- * @returns AVERROR_EOF         EOF, needs flushing
- * @returns AVERROR(EINVAL)     get no frame, something went wrong
- * @returns ret                 return other ffmpeg error
+ * @retval 0                    received frame
+ * @retval AVERROR(EAGAIN)      get no frame, send avpkt again
+ * @retval AVERROR_EOF          EOF, needs flushing
+ * @retval AVERROR(EINVAL)      get no frame, something went wrong
+ * @retval ret                  return other ffmpeg error
  */
 int cVideoDecoder::ReceiveFrame(AVFrame **frame)
 {
@@ -545,8 +540,8 @@ int cVideoDecoder::ReceiveFrame(AVFrame **frame)
  * @param timebase                timebase
  * @param forceSoftwareDecoding   force software decoding
  *
- * @returns 0                     success
- * @returns -1                    reopen decoder failed
+ * @retval 0                      success
+ * @retval -1                     reopen decoder failed
  *
  * @todo:
  * This is just a temporary implementation
@@ -570,7 +565,9 @@ int cVideoDecoder::ReopenCodec(enum AVCodecID codecId, AVCodecParameters *par,
 }
 
 /**
- * Flush the video decoder
+ * Flush the video decoder buffers
+ *
+ * Also reset packet sent/ frame received counter
  */
 void cVideoDecoder::FlushBuffers(void)
 {
@@ -597,3 +594,5 @@ bool cVideoDecoder::IsKeyFrame(AVFrame *frame)
 	return frame->flags & AV_FRAME_FLAG_KEY;
 #endif
 }
+
+/** @} */

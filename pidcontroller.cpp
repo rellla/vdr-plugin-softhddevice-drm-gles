@@ -1,18 +1,10 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 /**
  * @file pidcontroller.cpp
- * Proportinal, Integral, Derivative Controller
+ * PID (proportional, integral, derivative) Controller
  *
- * @license{AGPLv3
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as
- * published by the Free Software Foundation, either version 3 of the
- * License.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.}
+ * @license{AGPL-3.0-or-later}
  */
 
 #include <cmath>
@@ -29,7 +21,12 @@
 #endif
 
 /**
- * Constructor for the PID Controller.
+ * @addtogroup audio
+ * @{
+ */
+
+/**
+ * Create a PID Controller.
  *
  * @param kp            Proportional gain
  * @param ki            Integral gain
@@ -50,7 +47,7 @@ cPidController::cPidController(double kp, double ki, double kd, double maxOutput
 }
 
 /**
- * Calculates the new output value.
+ * Calculate the new output value.
  *
  * @param currentValue     The current value
  * @param dt               The time elapsed since the last update (seconds)
@@ -97,9 +94,9 @@ double cPidController::Update(double currentValue, double dt)
 }
 
 /**
- * Resets the internal state (integral sum and error history)
+ * Reset the internal state (integral sum and error history).
  */
-void cPidController::Reset()
+void cPidController::Reset(void)
 {
 	firstRun = true;
 	pTerm = 0;
@@ -146,3 +143,5 @@ void cPidController::SendTuningAidData(double pTerm, double iTerm, double dTerm,
 	sendto(sock, payload, len, 0, (struct sockaddr*)&dest_addr, sizeof(dest_addr));
 }
 #endif
+
+/** @} */

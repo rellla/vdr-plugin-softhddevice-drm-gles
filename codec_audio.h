@@ -1,21 +1,13 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 /**
  * @file codec_audio.h
- * Audio decoder header file
+ * Audio Decoder Header File
  *
- * @copyright (c) 2009 - 2013, 2015 by Johns.  All Rights Reserved.
- * @copyright (c) 2025 by Andreas Baierl. All Rights Reserved.
+ * @copyright 2009 - 2013, 2015 by Johns.  All Rights Reserved.
+ * @copyright 2025 - 2026 by Andreas Baierl. All Rights Reserved.
  *
- * @license{AGPLv3
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as
- * published by the Free Software Foundation, either version 3 of the
- * License.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.}
+ * @license{AGPL-3.0-or-later}
  */
 
 #ifndef __CODEC_AUDIO_H
@@ -27,51 +19,64 @@ extern "C" {
 #include <libavcodec/avcodec.h>
 }
 
-/**
- * bits used for the passthrough mask
- *
- * 0x01 and 0x02 are kept unused for compatibility with an existing setup.conf
- */
-#define CODEC_AC3  0x04      ///< AC-3 bit mask
-#define CODEC_EAC3 0x08      ///< E-AC-3 bit mask
-#define CODEC_DTS  0x10      ///< DTS bit mask
-
-/**
- * IEC Data type enumeration
- */
-enum IEC61937
-{
-	IEC61937_NULL = 0x00,      ///< no data
-	IEC61937_AC3 = 0x01,       ///< AC-3 data
-	IEC61937_EAC3 = 0x15,      ///< E-AC-3 data
-	IEC61937_DTS1 = 0x0B,      ///< DTS type I (512 samples)
-	IEC61937_DTS2 = 0x0C,      ///< DTS type II (1024 samples)
-	IEC61937_DTS3 = 0x0D,      ///< DTS type III (2048 samples)
-	IEC61937_DTSHD = 0x11,     ///< DTS HD data (not used)
-	IEC61937_TRUEHD = 0x16,    ///< TrueHD data (not used)
-};
-
-#define IEC61937_PREAMBLE1      0xF872
-#define IEC61937_PREAMBLE2      0x4E1F
-#define DTS_PREAMBLE_16BE_1     0x7FFE
-#define DTS_PREAMBLE_16BE_2     0x8001
-
-/**
- * Codec frame sizes
- */
-#define DTS1_FRAME_SIZE          512
-#define DTS2_FRAME_SIZE         1024
-#define DTS3_FRAME_SIZE         2048
-#define AC3_FRAME_SIZE          1536
-#define EAC3_FRAME_SIZE         6144
-#define TRUEHD_FRAME_SIZE      15360    ///< (not used)
-
-#define MAX_FRAME_SIZE EAC3_FRAME_SIZE
-
 class cSoftHdAudio;
 
 /**
- * cAudioDecoder - Audio decoder class
+ * @addtogroup audiodecoder
+ * @{
+ */
+
+/**
+ * Bits used for the passthrough mask
+ *
+ * 0x01 and 0x02 are kept unused for compatibility with an existing setup.conf
+ */
+enum PassthroughMask {
+	CODEC_AC3  = (1 << 2), ///< AC-3 bit mask
+	CODEC_EAC3 = (1 << 3), ///< E-AC-3 bit mask
+	CODEC_DTS  = (1 << 4), ///< DTS bit mask
+};
+
+/**
+ * IEC Data type
+ */
+enum IEC61937Type {
+	IEC61937_NULL   = 0x00, ///< no data
+	IEC61937_AC3    = 0x01, ///< AC-3 data
+	IEC61937_EAC3   = 0x15, ///< E-AC-3 data
+	IEC61937_DTS1   = 0x0B, ///< DTS type I (512 samples)
+	IEC61937_DTS2   = 0x0C, ///< DTS type II (1024 samples)
+	IEC61937_DTS3   = 0x0D, ///< DTS type III (2048 samples)
+	IEC61937_DTSHD  = 0x11, ///< DTS HD data (not used)
+	IEC61937_TRUEHD = 0x16, ///< TrueHD data (not used)
+};
+
+/**
+ * IEC Preambles
+ */
+enum IEC61937Preamble {
+	IEC61937_PREAMBLE1  = 0xF872,
+	IEC61937_PREAMBLE2  = 0x4E1F,
+	DTS_PREAMBLE_16BE_1 = 0x7FFE,
+	DTS_PREAMBLE_16BE_2 = 0x8001,
+};
+
+/**
+ * Codec frame sizes for spdif
+ */
+enum CodecFrameSizes {
+	DTS1_FRAME_SIZE   = 512,
+	DTS2_FRAME_SIZE   = 1024,
+	DTS3_FRAME_SIZE   = 2048,
+	AC3_FRAME_SIZE    = 1536,
+	EAC3_FRAME_SIZE   = 6144,
+	MAX_FRAME_SIZE    = EAC3_FRAME_SIZE,
+
+	TRUEHD_FRAME_SIZE = 15360, ///< (not used)
+};
+
+/**
+ * Audio Decoder
  */
 class cAudioDecoder {
 public:
@@ -81,7 +86,7 @@ public:
 	void Close(void);
 	void Decode(const AVPacket *);
 	void FlushBuffers(void);
-	void SetPassthrough(int);
+	void SetPassthroughMask(int);
 	AVCodecID GetCodecId() const { return m_codecId; };
 
 private:
@@ -104,5 +109,7 @@ private:
 	int UpdateFormat(void);
 	void ResetSpdif(void);
 };
+
+/** @} */
 
 #endif

@@ -1,20 +1,12 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 /**
  * @file dummyosd.h
- * Dummy osd class
+ * Dummy OSD
  *
- * @copyright (c) 2025 by Andreas Baierl. All Rights Reserved.
+ * @copyright 2025 - 2026 by Andreas Baierl. All Rights Reserved.
  *
- * @license{AGPLv3
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as
- * published by the Free Software Foundation, either version 3 of the
- * License.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.}
+ * @license{AGPL-3.0-or-later}
  *
  * The code is borrowed from the dummydevice plugin:
  *    http://phivdr.dyndns.org/vdr/
@@ -28,7 +20,14 @@
 #include <vdr/osd.h>
 
 /**
- * cDummyPixmap - dummy pixmap class for skins
+ * Dummy OSD
+ *
+ * @addtogroup osd
+ * @{
+ */
+
+/**
+ * Dummy Pixmap for Skins
  *
  * This pixmap just inits but does nothing else
  */
@@ -58,9 +57,9 @@ public:
 };
 
 /**
- * cDummyOsd - dummy osd class
+ * Dummy OSD
  *
- * This osd just inits and can create a dummy pixmap but really nothing else
+ * This OSD just inits and can create a dummy pixmap but really nothing else
  */
 class cDummyOsd : public cOsd {
 private:
@@ -92,5 +91,7 @@ public:
 	virtual void DrawSlope([[maybe_unused]] int x1, [[maybe_unused]] int y1, [[maybe_unused]] int x2, [[maybe_unused]] int y2, [[maybe_unused]] tColor Color, [[maybe_unused]] int Type) {}
 	virtual void Flush(void) {}
 };
+
+/** @} */
 
 #endif

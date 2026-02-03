@@ -1,30 +1,30 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 /**
  * @file openglshader.h
- * Shader definitions for OpenGL osd class
+ * Shader Definitions for OpenGL OSD
  *
  * @note This code was originally authored by Stefan Braun (see README),
  * but there was never set any copyright info.
- * @copyright (c) 2025 by Andreas Baierl. All Rights Reserved.
  *
- * @license{AGPLv3
+ * @copyright 2025 - 2026 by Andreas Baierl. All Rights Reserved.
  *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as
- * published by the Free Software Foundation, either version 3 of the
- * License.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.}
+ * @license{AGPL-3.0-or-later}
  */
 
 #ifndef __SOFTHDDEVICE_OPENGLSHADER_H
 #define __SOFTHDDEVICE_OPENGLSHADER_H
 
-/***********************************************************************
- * Rectangle shaders
- **********************************************************************/
+/**
+ * Shaders for Hardware Accelerated OpenGL OSD
+ *
+ * @addtogroup osd
+ * @{
+ */
+
+/**
+ * Rectangle Vertex Shader
+ */
 const char *rectVertexShader =
 "#version 100 \n\
 \
@@ -40,6 +40,9 @@ void main() \
 } \
 ";
 
+/**
+ * Rectangle Fragment Shader
+ */
 const char *rectFragmentShader =
 "#version 100 \n\
 precision mediump float; \
@@ -51,9 +54,9 @@ void main() \
 } \
 ";
 
-/***********************************************************************
- * Texture shaders
- **********************************************************************/
+/**
+ * Texture Vertex Shader
+ */
 const char *textureVertexShader =
 "#version 100 \n\
 \
@@ -77,6 +80,9 @@ void main() \
 } \
 ";
 
+/**
+ * Texture Fragment Shader
+ */
 const char *textureFragmentShader =
 "#version 100 \n\
 precision mediump float; \
@@ -103,6 +109,8 @@ void main() \
 ";
 
 /**
+ * Texture Fragment Shader (swapped blue/red)
+ *
  * In difference to the textureFragmentShader this one does
  * a blue/red color component swap
  */
@@ -132,9 +140,9 @@ void main() \
 } \
 ";
 
-/***********************************************************************
- * Text shaders
- **********************************************************************/
+/**
+ * Text Vertex Shader
+ */
 const char *textVertexShader =
 "#version 100 \n\
 \
@@ -155,6 +163,9 @@ void main() \
 } \
 ";
 
+/**
+ * Text Fragment Shader
+ */
 const char *textFragmentShader =
 "#version 100 \n\
 precision mediump float; \
@@ -169,5 +180,7 @@ void main() \
 	gl_FragColor = textColor * sampled; \
 } \
 ";
+
+/** @} */
 
 #endif

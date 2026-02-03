@@ -1,24 +1,16 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 /**
  * @file drmdevice.cpp
- * DRM device class
+ * DRM Device
  *
  * This file defines cDrmDevice, which keeps some functions
  * to interact with the DRM (display) system.
  *
- * @copyright (c) 2018 by zille.  All Rights Reserved.
- * @copyright (c) 2025 by Andreas Baierl. All Rights Reserved.
+ * @copyright 2018 by zille.  All Rights Reserved.
+ * @copyright 2025 - 2026 by Andreas Baierl. All Rights Reserved.
  *
- * @license{AGPLv3
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as
- * published by the Free Software Foundation, either version 3 of the
- * License.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.}
+ * @license{AGPL-3.0-or-later}
  */
 
 #include <cerrno>
@@ -46,12 +38,15 @@
 #include "logger.h"
 #include "videorender.h"
 
-/*****************************************************************************
- * cDrmDevice class
- ****************************************************************************/
+/**
+ * DRM Display Interface
+ *
+ * @defgroup drm DRM Module
+ * @{
+ */
 
 /**
- * cDrmDevice constructor
+ * Create a drm device
  *
  * @param render         pointer to cVideoRender object
  * @param resolution     display resolution string set by user
@@ -63,9 +58,6 @@ cDrmDevice::cDrmDevice(cVideoRender *render, const char* resolution)
 		sscanf(resolution, "%dx%d@%d", &m_userReqDisplayWidth, &m_userReqDisplayHeight, &m_userReqDisplayRefreshRate);
 }
 
-/**
- * cDrmDevice destructor
- */
 cDrmDevice::~cDrmDevice(void)
 {
 	LOGDEBUG2(L_DRM, "drmdevice: %s", __FUNCTION__);
@@ -84,7 +76,8 @@ static int get_resources(int fd, drmModeRes **resources)
 /**
  * Test drm capabilities
  *
- * @returns 0 if all caps match, 1 on mismatch
+ * @retval 0   if all needed caps match
+ * @retval 1   on mismatch
  */
 static int TestCaps(int fd)
 {
@@ -115,7 +108,7 @@ static int TestCaps(int fd)
 /**
  * Find and open a suitable device with the wanted capabilities
  *
- * @returns the file descriptor of the opened device
+ * @return          the file descriptor of the opened device
  */
 static int FindDrmDevice(drmModeRes **resources)
 {
@@ -191,10 +184,12 @@ static drmModeConnector *FindDrmConnector(int fd, drmModeRes *resources)
 	return connector;
 }
 
+
 /**
  * Initiate the drm device
  *
- * @returns 0 on success, a negative value on error
+ * @retval 0                on success
+ * @retval -errno           on error
  */
 int cDrmDevice::Init(void)
 {
@@ -595,8 +590,8 @@ int cDrmDevice::Init(void)
  * @param format       gbm pixel format
  * @param modifier     gbm buffer modifier
  *
- * @returns 0          on success
- * @returns -1         on error
+ * @retval 0           on success
+ * @retval -1          on error
  */
 int cDrmDevice::InitGbm(int w, int h, uint32_t format, uint64_t modifier)
 {
@@ -677,10 +672,10 @@ EGLConfig cDrmDevice::GetEGLConfig(void)
 }
 
 /**
- * Init EGL
+ * Init EGL context
  *
- * @returns 0       on success
- * @returns -1      on error
+ * @retval 0       on success
+ * @retval -1      on error
  */
 int cDrmDevice::InitEGL(void)
 {
@@ -735,6 +730,9 @@ int cDrmDevice::InitEGL(void)
 	return 0;
 }
 
+/**
+ * Callback function to destroy a drm buffer which stays in the gbm_bo's user data
+ */
 static void drm_fb_destroy_callback(struct gbm_bo *bo, void *data)
 {
 	int drm_fd = gbm_device_get_fd(gbm_bo_get_device(bo));
@@ -765,11 +763,11 @@ __attribute__ ((weak)) uint32_t
 gbm_bo_get_offset(struct gbm_bo *bo, int plane);
 
 /**
- * Get a buffer from a gbm buffer object
+ * Get a drm buffer from a gbm buffer object
  *
  * @param bo        gbm buffer object
  *
- * @returns         a gbm buffer corresponding to the gbm buffer object
+ * @return          a drm buffer corresponding to the gbm buffer object
  */
 cDrmBuffer *cDrmDevice::GetBufFromBo(struct gbm_bo *bo)
 {
@@ -852,7 +850,12 @@ cDrmBuffer *cDrmDevice::GetBufFromBo(struct gbm_bo *bo)
 #endif
 
 /**
- * Finds the CRTC_ID for the given encoder
+ * Find the CRTC_ID for the given encoder
+ *
+ * @param resources       drm resources
+ * @param encoder         drm encoder
+ *
+ * @return                CRTC_ID
  */
 static int32_t FindCrtcForEncoder(const drmModeRes *resources, const drmModeEncoder *encoder)
 {
@@ -870,7 +873,12 @@ static int32_t FindCrtcForEncoder(const drmModeRes *resources, const drmModeEnco
 }
 
 /**
- * Finds the CRTC_ID for the given connector
+ * Find the CRTC_ID for the given connector
+ *
+ * @param resources       drm resources
+ * @param connector       drm connector
+ *
+ * @return                CRTC_ID
  */
 int32_t cDrmDevice::FindCrtcForConnector(const drmModeRes *resources, const drmModeConnector *connector)
 {
@@ -893,7 +901,7 @@ int32_t cDrmDevice::FindCrtcForConnector(const drmModeRes *resources, const drmM
 }
 
 /**
- * Close drm file handle
+ * Close the drm file handle
  */
 void cDrmDevice::Close(void)
 {
@@ -905,11 +913,37 @@ void cDrmDevice::Close(void)
 }
 
 /**
- * Add a property to a request
+ * Wrapper to create a property blob
+ *
+ * Creates a property blob for the drm mode which was found during Init()
+ *
+ * @param[out] modeID     id of the blob
+ *
+ * @retval 0              on success
+ * @retval -errno         on error
+ *
+ * @todo    According to drm logs, this blob must be destroyed by calling drmModeDestroyPropertyBlob
+ *          which is probably missing
+ */
+int cDrmDevice::CreatePropertyBlob(uint32_t *modeID)
+{
+	return drmModeCreatePropertyBlob(m_fdDrm, &m_drmModeInfo, sizeof(m_drmModeInfo), modeID);
+}
+
+/**
+ * Add a drm property to an atomic modeset request
+ *
+ * @param ModeReq     atomic request object
+ * @param objectID    drm object id
+ * @param objectType  drm object type
+ * @param propName    name of the drm property to be set
+ * @param value       the value, the drm property should get
+ *
+ * @return            negative value on errors, otherwise the number of properties in the atomic request
  */
 int cDrmDevice::SetPropertyRequest(drmModeAtomicReqPtr ModeReq,
-					uint32_t objectID, uint32_t objectType,
-					const char *propName, uint64_t value)
+	uint32_t objectID, uint32_t objectType,
+	const char *propName, uint64_t value)
 {
 	uint32_t i;
 	uint64_t id = 0;
@@ -939,7 +973,15 @@ int cDrmDevice::SetPropertyRequest(drmModeAtomicReqPtr ModeReq,
 }
 
 /**
- * Gets a property value
+ * Get a drm property value
+ *
+ * @param objectID      drm object ID
+ * @param objectType    drm object type
+ * @param propName      drm property name
+ * @param[out] value    value for the requested property
+ *
+ * @retval 0            value was found
+ * @retval -1           value was not found
  */
 int cDrmDevice::GetPropertyValue(uint32_t objectID, uint32_t objectType, const char *propName, uint64_t *value)
 {
@@ -978,7 +1020,13 @@ int cDrmDevice::GetPropertyValue(uint32_t objectID, uint32_t objectType, const c
 }
 
 /**
- * Gets a property ID
+ * Get a property ID
+ *
+ * @param objectID      drm object ID
+ * @param objectType    drm object type
+ * @param propName      drm property name
+ *
+ * @return the value if found, 0 otherwise
  */
 uint32_t cDrmDevice::GetPropertyID(uint32_t objectID, uint32_t objectType, const char *propName)
 {
@@ -1017,7 +1065,7 @@ uint32_t cDrmDevice::GetPropertyID(uint32_t objectID, uint32_t objectType, const
 }
 
 /**
- * Saves information of a CRTC
+ * Save information of a CRTC
  */
 void cDrmDevice::SaveCrtc(void)
 {
@@ -1037,7 +1085,10 @@ void cDrmDevice::RestoreCrtc(void)
 }
 
 /**
- * Polls for a drm event
+ * Poll for a drm event
+ *
+ * @retval    0 if successful
+ * @retval   -1 on error
  */
 int cDrmDevice::HandleEvent(void)
 {
@@ -1129,3 +1180,5 @@ int cDrmDevice::DestroyHdrBlob(uint32_t blobID)
 {
 	return drmModeDestroyPropertyBlob(m_fdDrm, blobID);
 }
+
+/** @} */

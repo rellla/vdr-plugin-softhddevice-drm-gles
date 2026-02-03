@@ -1,26 +1,18 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 /**
  * @file softhdosd.cpp
- * Osd class
+ * Software OSD
  *
  * This file provides cSoftOsd which is the software accelerated
  * version of this plugin (in contrast to the hardware accelerater cOglOsd).
  * It also decribes cSoftOsdProvider.
  *
- * @copyright (c) 2011, 2015 by Johns.  All Rights Reserved.
- * @copyright (c) 2018 zille.  All Rights Reserved.
- * @copyright (c) 2025 by Andreas Baierl. All Rights Reserved.
+ * @copyright 2011, 2015 by Johns.  All Rights Reserved.
+ * @copyright 2018 zille.  All Rights Reserved.
+ * @copyright 2025 - 2026 by Andreas Baierl. All Rights Reserved.
  *
- * @license{AGPLv3
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as
- * published by the Free Software Foundation, either version 3 of the
- * License.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.}
+ * @license{AGPL-3.0-or-later}
  */
 
 #include "dummyosd.h"
@@ -31,14 +23,15 @@
 #include "softhddevice.h"
 #include "softhdosd.h"
 
-/*****************************************************************************
- * OSD (software)
- ****************************************************************************/
+/**
+ * Software Based OSD (CPU)
+ *
+ * @addtogroup osd
+ * @{
+ */
 
 /**
- * cSoftOsd constructor
- *
- * Initializes the OSD with the given coordinates.
+ * Initializes a software based OSD with the given coordinates
  *
  * @param left     x-coordinate of osd on display
  * @param top      y-coordinate of osd on display
@@ -54,9 +47,7 @@ cSoftOsd::cSoftOsd(int left, int top, uint level, cSoftHdDevice *device)
 }
 
 /**
- * cSoftOsd destructor
- *
- * Shuts down the OSD.
+ * Shut down the OSD
  */
 cSoftOsd::~cSoftOsd(void)
 {
@@ -66,12 +57,11 @@ cSoftOsd::~cSoftOsd(void)
 }
 
 /**
- *	Sets this OSD to be the active one.
+ * Sets this OSD to be the active one
  *
- *	@param on          true on, false off
+ * @param on          true on, false off
  *
- *	@note only needed as workaround for text2skin plugin with
- *	undrawn areas.
+ * @note only needed as workaround for text2skin plugin with undrawn areas
  */
 void cSoftOsd::SetActive(bool on)
 {
@@ -308,7 +298,7 @@ void cSoftOsd::Flush(void)
  ****************************************************************************/
 
 /**
- * cOsdProvider constructor
+ * Create a new OSD provider
  */
 cSoftOsdProvider::cSoftOsdProvider(cSoftHdDevice *device)
 	: cOsdProvider(),
@@ -318,7 +308,7 @@ cSoftOsdProvider::cSoftOsdProvider(cSoftHdDevice *device)
 }
 
 /**
- * cOsdProvider destructor
+ * Delete the OSD provider and stop the OpenGL thread if running
  */
 cSoftOsdProvider::~cSoftOsdProvider()
 {
@@ -336,7 +326,7 @@ cSoftOsdProvider::~cSoftOsdProvider()
 /**
  * Create a new OSD
  *
- * Create either a hardware accelerated (cOglOsd) or software rendered (cSoftOsd) OSD
+ * Create either a hardware accelerated (cOglOsd), software based (cSoftOsd) or dummy OSD (if detached)
  *
  * @param left   x-coordinate of OSD
  * @param top    y-coordinate of OSD
@@ -372,16 +362,6 @@ cOsd *cSoftOsdProvider::CreateOsd(int left, int top, uint level)
 	LOGDEBUG2(L_OSD, "osdprovider: %s: %d, %d, %d", __FUNCTION__, left, top, level);
 	return m_pOsd = new cSoftOsd(left, top, level, m_pDevice);
 #endif
-}
-
-/**
- * Check if this OSD provider is able to handle a true color OSD.
- *
- * @returns true we are able to handle a true color OSD.
- */
-bool cSoftOsdProvider::ProvidesTrueColor(void)
-{
-	return true;
 }
 
 #ifdef USE_GLES
@@ -496,3 +476,5 @@ void cSoftOsdProvider::DropImageData(int imgHandle)
 		m_pOglThread->DropImageData(imgHandle);
 }
 #endif
+
+/** @} */

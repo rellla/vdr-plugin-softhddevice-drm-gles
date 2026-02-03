@@ -1,24 +1,16 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 /**
  * @file drmhdr.cpp
- * HDR class
+ * HDR (High Dynamic Range) Interface
  *
  * This code is mostly taken from https://github.com/jojo61/vdr-plugin-softhdcuvid
  * and it seems this was at least inspired by libweston (https://gitlab.freedesktop.org/wayland/weston
  * which is published under the MIT license.
  *
- * @copyright (c) 2025 by Andreas Baierl. All Rights Reserved.
+ * @copyright 2026 by Andreas Baierl. All Rights Reserved.
  *
- * @license{AGPLv3
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as
- * published by the Free Software Foundation, either version 3 of the
- * License.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.}
+ * @license{AGPL-3.0-or-later}
  */
 
 extern "C" {
@@ -31,6 +23,11 @@ extern "C" {
 #include "drmhdr.h"
 #include "logger.h"
 #include "videorender.h"
+
+/**
+ * @addtogroup drm
+ * @{
+ */
 
 enum hdrMetadataEotf {
 	EOTF_TRADITIONAL_GAMMA_SDR,
@@ -48,10 +45,6 @@ static inline uint16_t EncodeXYY(float xyy)
 	return static_cast<uint16_t>(xyy * 50000.0f + 0.5f);
 }
 
-/*****************************************************************************
- * cHdrMetadata class
- ****************************************************************************/
-
 /**
  * Build an HDR static metadata blob
  *
@@ -61,7 +54,8 @@ static inline uint16_t EncodeXYY(float xyy)
  * @param[in]  sd1              mastering display metadata from ffmpeg frame's sidedata
  * @param[in]  sd2              content light metadata from ffmpeg frame's sidedata
  *
- * @returns 0 on success, -1 on error
+ * @retval 0    on success
+ * @retval -1   on error
  */
 int cHdrMetadata::Build(struct hdr_output_metadata *data, int colorPrimaries, int colorTrc, AVFrameSideData *sd1, AVFrameSideData *sd2)
 {
@@ -192,3 +186,5 @@ int cHdrMetadata::Build(struct hdr_output_metadata *data, int colorPrimaries, in
 
 	return 0;
 }
+
+/** @} */

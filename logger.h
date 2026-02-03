@@ -1,20 +1,12 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 /**
  * @file logger.h
- * Logger class header file
+ * Logger Header File
  *
- * @copyright (c) 2025 by Andreas Baierl. All Rights Reserved.
+ * @copyright 2025 - 2026 by Andreas Baierl. All Rights Reserved.
  *
- * @license{AGPLv3
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as
- * published by the Free Software Foundation, either version 3 of the
- * License.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.}
+ * @license{AGPL-3.0-or-later}
  */
 
 #ifndef __LOGGER_H
@@ -24,50 +16,59 @@
 #include <cstdarg>
 #include <memory>
 
-// FFmpeg log level
+/**
+ * @addtogroup misc
+ * @{
+ */
+
+/** FFmpeg log level */
 #define AV_LOGLEVEL AV_LOG_INFO
 
-/**
+/********************************************************************************
  * Logger macros
- *
- *   - LOGFATAL     logs to LOG_ERR and aborts
- *   - LOGERROR     logs to LOG_ERR
- *   - LOGWARNING   logs to LOG_WARN
- *   - LOGINFO      logs to LOG_INFO
- *   - LOGDEBUG     logs to LOG_DEBUG
- *   - LOGDEBUG2    logs to LOG_DEBUG and prints a category info
- */
+ *******************************************************************************/
+
+/** log to LOG_ERR and abort */
 #define LOGFATAL cSoftHdLogger::GetLogger()->LogFatal
+/** log to LOG_ERR */
 #define LOGERROR cSoftHdLogger::GetLogger()->LogError
+/** log to LOG_WARN */
 #define LOGWARNING cSoftHdLogger::GetLogger()->LogWarning
+/** log to LOG_INFO */
 #define LOGINFO cSoftHdLogger::GetLogger()->LogInfo
+/** log to LOG_DEBUG */
 #define LOGDEBUG cSoftHdLogger::GetLogger()->LogDebug
+/** log to LOG_DEBUG and add a prefix */
 #define LOGDEBUG2 cSoftHdLogger::GetLogger()->LogDebug2
 
 /**
- * Logger flags
+ * Logger Flags
  *
  * depending on the flag used in the macro, logging is enabled and gets
  * a nice prefix in the syslog.
  */
-#define L_DEBUG            (1 << 0)
-#define L_AV_SYNC          (1 << 1)
-#define L_SOUND            (1 << 2)
-#define L_OSD              (1 << 3)
-#define L_DRM              (1 << 4)
-#define L_CODEC            (1 << 5)
-#define L_STILL            (1 << 6)
-#define L_TRICK            (1 << 7)
-#define L_MEDIA            (1 << 8)
-#define L_OPENGL           (1 << 9)
-#define L_OPENGL_TIME      (1 << 10)
-#define L_OPENGL_TIME_ALL  (1 << 11)
-#define L_PACKET           (1 << 12)
-#define L_GRAB             (1 << 13)
-#define L_FFMPEG           (1 << 14)
+enum LogFlags {
+	L_DEBUG           = (1 << 0),  ///< common debug logs
+	L_AV_SYNC         = (1 << 1),  ///< audio/video sync logs
+	L_SOUND           = (1 << 2),  ///< sound logs
+	L_OSD             = (1 << 3),  ///< osd logs
+	L_DRM             = (1 << 4),  ///< drm logs
+	L_CODEC           = (1 << 5),  ///< codec logs
+	L_STILL           = (1 << 6),  ///< stillpicture logs
+	L_TRICK           = (1 << 7),  ///< trickspeed logs
+	L_MEDIA           = (1 << 8),  ///< mediaplayer logs
+	L_OPENGL          = (1 << 9),  ///< opengl osd logs
+	L_OPENGL_TIME     = (1 << 10), ///< opengl osd flush time measurement
+	L_OPENGL_TIME_ALL = (1 << 11), ///< opengl osd all commands time measurement
+	L_PACKET          = (1 << 12), ///< decoder packet/frame tracking logs
+	L_GRAB            = (1 << 13), ///< grabbing logs
+	L_FFMPEG          = (1 << 14), ///< ffmpeg logs
+};
 
 /**
- * cSoftHdLogger - Logger class
+ * Logger
+ *
+ * Plugin specific logging implementation which does not depend on VDR loglevels
  */
 class cSoftHdLogger {
 public:
@@ -89,7 +90,9 @@ private:
 
 	static constexpr int MAX_LOGMESSAGE_SIZE = 512; ///< max size of the log message
 
-	std::atomic<int> m_logLevel = 0; ///< loglevel (see Logger flags above)
+	std::atomic<int> m_logLevel = 0; ///< loglevel mask (see enum LogFlags)
 };
+
+/** @} */
 
 #endif

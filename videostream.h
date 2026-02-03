@@ -1,21 +1,13 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 /**
  * @file videostream.h
- * Videostream class header file
+ * Video Input Stream Header File
  *
- * @copyright (c) 2011 - 2015 by Johns.  All Rights Reserved.
- * @copyright (c) 2025 by Andreas Baierl. All Rights Reserved.
+ * @copyright 2011 - 2015 by Johns.  All Rights Reserved.
+ * @copyright 2025 - 2026 by Andreas Baierl. All Rights Reserved.
  *
- * @license{AGPLv3
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as
- * published by the Free Software Foundation, either version 3 of the
- * License.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.}
+ * @license{AGPL-3.0-or-later}
  */
 
 #ifndef __VIDEOSTREAM_H
@@ -36,28 +28,33 @@ extern "C" {
 #include "queue.h"
 #include "videofilter.h"
 
-#define VIDEO_BUFFER_SIZE (512 * 1024)  ///< video PES buffer default size
-#define VIDEO_PACKET_MAX 192            ///< max number of video packets held in the buffer
-
-// Hardware quirks, that are set depending on the hardware used
-#define QUIRK_NO_HW_DEINT               1 << 0     ///< set, if no hw deinterlacer available
-#define QUIRK_CODEC_FLUSH_WORKAROUND    1 << 1     ///< set, if we have to close and reopen the codec instead of avcodec_flush_buffers (rpi)
-#define QUIRK_CODEC_NEEDS_EXT_INIT      1 << 2     ///< set, if codec needs some infos for init (coded_width and coded_height)
-#define QUIRK_CODEC_SKIP_FIRST_FRAMES   1 << 3     ///< set, if codec should skip first I-Frames
-#define QUIRK_CODEC_SKIP_NUM_FRAMES     2          ///< skip QUIRK_CODEC_SKIP_NUM_FRAMES, in case QUIRK_CODEC_SKIP_FIRST_FRAMES is set
-#define QUIRK_CODEC_DISABLE_MPEG_HW     1 << 4     ///< set, if disable mpeg hardware decoder
-#define QUIRK_CODEC_DISABLE_H264_HW     1 << 5     ///< set, if disable h264 hardware decoder
-
 class cDrmBuffer;
 class cSoftHdConfig;
 class cVideoDecoder;
 class cVideoRender;
 
 /**
- * cVideoStream - Video stream class
+ * @addtogroup video
+ * @{
  */
-class cVideoStream : public cThread
-{
+
+/**
+ * Hardware quirks, that are set depending on the hardware used
+ */
+enum HardwareQuirks {
+	QUIRK_NO_HW_DEINT             = 1 << 0,     ///< set, if no hw deinterlacer available
+	QUIRK_CODEC_FLUSH_WORKAROUND  = 1 << 1,     ///< set, if we have to close and reopen the codec instead of avcodec_flush_buffers (rpi)
+	QUIRK_CODEC_NEEDS_EXT_INIT    = 1 << 2,     ///< set, if codec needs some infos for init (coded_width and coded_height)
+	QUIRK_CODEC_SKIP_FIRST_FRAMES = 1 << 3,     ///< set, if codec should skip first I-Frames
+	QUIRK_CODEC_SKIP_NUM_FRAMES   = 2     ,     ///< skip QUIRK_CODEC_SKIP_NUM_FRAMES, in case QUIRK_CODEC_SKIP_FIRST_FRAMES is set
+	QUIRK_CODEC_DISABLE_MPEG_HW   = 1 << 4,     ///< set, if disable mpeg hardware decoder
+	QUIRK_CODEC_DISABLE_H264_HW   = 1 << 5      ///< set, if disable h264 hardware decoder
+};
+
+/**
+ * Video Input Stream
+ */
+class cVideoStream : public cThread {
 public:
 	virtual ~cVideoStream(void);
 
@@ -89,6 +86,7 @@ public:
 	int64_t GetInputPts(void) { return m_inputPts; };
 	void ResetInputPts(void) { m_inputPts = AV_NOPTS_VALUE; };
 	void GetVideoSize(int *, int *, double *);
+	int GetVideoPacketMax(void) { return VIDEO_PACKET_MAX; };
 
 	// Filter
 	void CancelFilterThread(void);
@@ -124,6 +122,7 @@ private:
 	bool m_parseH264Dimensions = false;             ///< parse width and height when starting an h264 stream
 	int m_decoderFallbackToSwNumPkts = 22;          ///< fallback to sw decoder if hw decoder fails after the given number of packets sent
 
+	constexpr static int VIDEO_PACKET_MAX = 192;    ///< max number of video packets held in the buffer
 	cQueue<AVPacket> m_packets{VIDEO_PACKET_MAX};   ///< AVPackets queue
 
 	enum AVCodecID m_codecId = AV_CODEC_ID_NONE;    ///< current codec id
@@ -156,24 +155,24 @@ private:
 };
 
 /**
- * cMainVideoStream - Main video stream class
+ * Main Video Stream
  */
-class cMainVideoStream : public cVideoStream
-{
+class cMainVideoStream : public cVideoStream {
 public:
 	cMainVideoStream(cVideoRender *render, cQueue<cDrmBuffer> *buf, cSoftHdConfig *config, std::function<void(AVFrame *)> fn)
 		: cVideoStream(render, buf, config, false, fn) {};
 };
 
 /**
- * cPipVideoStream - Pip video stream class
+ * PiP Video Stream
  */
-class cPipVideoStream : public cVideoStream
-{
+class cPipVideoStream : public cVideoStream {
 public:
 	cPipVideoStream(cVideoRender *render, cQueue<cDrmBuffer> *buf, cSoftHdConfig *config, std::function<void(AVFrame *)> fn)
 		: cVideoStream(render, buf, config, true, fn) {};
 	void SetDeinterlacerDeactivated(bool) override {}; // deinterlacing is permanently disabled
 };
+
+/** @} */
 
 #endif

@@ -1,25 +1,17 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 /**
  * @file videostream.cpp
- * Videostream class
+ * Video Input Stream
  *
  * This file defines cVideoStream, which is repsonsible for
  * handling the video stream.
  *
- * @copyright (c) 2011 - 2015 by Johns.  All Rights Reserved.
- * @copyright (c) 2018 - 2019 by zille.  All Rights Reserved.
- * @copyright (c) 2025 by Andreas Baierl. All Rights Reserved.
+ * @copyright 2011 - 2015 by Johns.  All Rights Reserved.
+ * @copyright 2018 - 2019 by zille.  All Rights Reserved.
+ * @copyright 2025 - 2026 by Andreas Baierl. All Rights Reserved.
  *
- * @license{AGPLv3
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as
- * published by the Free Software Foundation, either version 3 of the
- * License.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.}
+ * @license{AGPL-3.0-or-later}
  */
 
 #include <functional>
@@ -46,13 +38,20 @@ extern "C" {
 #include "videorender.h"
 
 /**
+ * Video Input Stream
+ *
+ * @defgroup video Video Input Stream
+ * @{
+ */
+
+/**
  * Helper function to read a line from a given file
  *
  * @param[out] buf           pointer to the data
  * @param[out] size          size of the data at buf
  * @param[in] file           the filepointer to be read on
  *
- * @returns the number of characters read
+ * @return the number of characters read
  */
 static size_t ReadLineFromFile(char *buf, size_t size, const char * file)
 {
@@ -75,7 +74,7 @@ static size_t ReadLineFromFile(char *buf, size_t size, const char * file)
 /**
  * Helper function to find out which platform we are on
  *
- * @returns the hardware quirks of the device
+ * @return the hardware quirks of the device
  */
 static int ReadHWPlatform(void)
 {
@@ -153,7 +152,7 @@ static int ReadHWPlatform(void)
  ****************************************************************************/
 
 /**
- * cVideoStream constructor
+ * Create a video stream
  */
 cVideoStream::cVideoStream(cVideoRender *render, cQueue<cDrmBuffer> *drmBufferQueue, cSoftHdConfig *config, bool isPipStream, std::function<void(AVFrame *)> frameOutput)
 	: cThread(isPipStream ? "shd PIP decode" : "shd main decode"),
@@ -177,9 +176,6 @@ cVideoStream::cVideoStream(cVideoRender *render, cQueue<cDrmBuffer> *drmBufferQu
 		LOGDEBUG2(L_CODEC, "videostream %s: %s: fallback to sw decoder after %d packets sent", __FUNCTION__, m_identifier, m_decoderFallbackToSwNumPkts);
 }
 
-/**
- * cVideoStream destructor
- */
 cVideoStream::~cVideoStream(void)
 {
 	LOGDEBUG("videostream %s:", __FUNCTION__);
@@ -371,6 +367,9 @@ void cVideoStream::OpenDecoder(void)
 	m_dropInvalidPackets = m_pConfig->ConfigDropInvalidH264PFrames ? m_pConfig->ConfigDropInvalidH264PFrames + 1 : 0;
 }
 
+/**
+ * Parse an H.264 packet
+ */
 bool cVideoStream::ParseH264Packet(AVPacket *avpkt)
 {
 	cH264Parser h264Packet(avpkt,
@@ -447,7 +446,7 @@ bool cVideoStream::ParseH264Packet(AVPacket *avpkt)
 }
 
 /**
- * Decodes a reassembled codec packet.
+ * Decodes a reassembled codec packet
  */
 void cVideoStream::DecodeInput(void)
 {
@@ -662,3 +661,5 @@ void cVideoStream::RenderFrame(AVFrame * frame)
 			m_frameOutput(frame);
 	}
 }
+
+/** @} */

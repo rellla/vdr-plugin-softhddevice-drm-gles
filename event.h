@@ -1,18 +1,10 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 /**
  * @file event.h
- * State machine and event header file
+ * State Machine and Event Header File
  *
- * @license{AGPLv3
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as
- * published by the Free Software Foundation, either version 3 of the
- * License.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.}
+ * @license{AGPL-3.0-or-later}
  */
 
 #ifndef __EVENT_H
@@ -20,6 +12,15 @@
 
 #include <variant>
 #include <vdr/tools.h>
+
+/**
+ * Event Handler
+ *
+ * Controls the state machine.
+ *
+ * @addtogroup misc
+ * @{
+ */
 
 enum BufferUnderrunType {
 	VIDEO,
@@ -78,10 +79,14 @@ using Event = std::variant<
 	ResyncEvent
 >;
 
-class IEventReceiver
-{
+/**
+ * Event Receiver
+ */
+class IEventReceiver {
 public:
 	virtual void OnEventReceived(const Event&) = 0;
 };
+
+/** @} */
 
 #endif

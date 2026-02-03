@@ -1,25 +1,17 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 /**
  * @file drmbuffer.cpp
- * DRM buffer class
+ * DRM Buffer
  *
  * This files defines cDrmBuffer, which is a class used to describe
  * a DRM buffer, keeping framebuffer and prime handles to be used
  * by the kernel display interface.
  *
- * @copyright (c) 2018 by zille.  All Rights Reserved.
- * @copyright (c) 2025 by Andreas Baierl. All Rights Reserved.
+ * @copyright 2018 by zille.  All Rights Reserved.
+ * @copyright 2025 - 2026 by Andreas Baierl. All Rights Reserved.
  *
- * License{AGPLv3
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as
- * published by the Free Software Foundation, either version 3 of the
- * License.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.}
+ * @license{AGPL-3.0-or-later}
  */
 
 #include <cstdint>
@@ -39,14 +31,19 @@ extern "C" {
 #include "logger.h"
 #include "pool.h"
 
+/**
+ * @addtogroup drm
+ * @{
+ */
+
 /*****************************************************************************
- * cDrmBuffer class
+ * Drm Buffer
  ****************************************************************************/
 
- /**
- * cDrmBuffer constructor
+/**
+ * Create a new drm buffer
  *
- * @param device     pointer to cSoftHdDevice
+ * as an empty buffer
  */
 cDrmBuffer::cDrmBuffer(void)
 {
@@ -60,13 +57,11 @@ cDrmBuffer::cDrmBuffer(void)
 }
 
 /**
- * cDrmBuffer constructor
+ * Create a new drm buffer
  *
- * Clone a cDrmBuffer
+ * cloned from an existing cDrmBuffer
  *
  * @param src     src buffer to be cloned
- *
- * @returns       a new cDrmBuffer object cloned from src
  */
 cDrmBuffer::cDrmBuffer(cDrmBuffer *src)
 	: m_width(src->m_width),
@@ -132,17 +127,15 @@ cDrmBuffer::cDrmBuffer(cDrmBuffer *src)
 
 #ifdef USE_GLES
 /**
- * cDrmBuffer constructor
+ * Create a new drm buffer
  *
- * Create a new cDrmBuffer from a gbm buffer object
+ * from a gbm buffer object
  *
  * @param fdDrm          drm file descriptor
  * @param width          buffer width
  * @param height         buffer height
  * @param pixFmt         buffer pixel format
  * @param bo             pointer to gbm buffer object
- *
- * @returns              a new cDrmBuffer object from a gbm buffer object
  */
 cDrmBuffer::cDrmBuffer(int fdDrm, uint32_t width, uint32_t height, uint32_t pixFmt, struct gbm_bo *bo)
 	: m_width(width),
@@ -205,12 +198,8 @@ void cDrmBuffer::Destroy(void)
 	}
 
 	for (int i = 0; i < m_numObjects; i++) {
-		if (m_objectPrimeHandle[i]) {
-			// this can happen, when we SetPlayMode 0 while in trickspeed
-			// does not show negative effects, but its not nice though -> TODO
-			if (drmIoctl(m_drmDeviceFd, DRM_IOCTL_GEM_CLOSE, &m_objectPrimeHandle[i]) < 0)
-				LOGERROR("drmbuffer: %s: cannot close handle %d FB %d GEM (%d): %m", __FUNCTION__, m_objectPrimeHandle[i], m_fbId, errno);
-		}
+		if (m_objectPrimeHandle[i] && (drmIoctl(m_drmDeviceFd, DRM_IOCTL_GEM_CLOSE, &m_objectPrimeHandle[i]) < 0))
+			LOGERROR("drmbuffer: %s: cannot close handle %d FB %d GEM (%d): %m", __FUNCTION__, m_objectPrimeHandle[i], m_fbId, errno);
 	}
 
 	m_width = 0;
@@ -222,7 +211,7 @@ void cDrmBuffer::Destroy(void)
 }
 
 /**
- * Infos of a pixel format
+ * Holds the infos of a pixel format
  *
  * Each entry describes a format in the following matter:
  * {
@@ -252,7 +241,7 @@ static const struct format_info format_info_array[] = {
  *
  * @param format      pixel format
  *
- * @returns           the infos of the format as a struct
+ * @return           the infos of the format as a struct
  */
 const struct format_info *FindFormat(uint32_t format)
 {
@@ -415,6 +404,27 @@ void cDrmBuffer::FillBlack(void)
 	}
 }
 
+/**
+ * The presentation of this buffer has finished
+ *
+ * Destroys the buffer, if it is not needed anymore (m_destroyAfterUse == true)
+ */
+void cDrmBuffer::PresentationFinished(void)
+{
+	av_frame_free(&frame);
+	m_presentationPending = false;
+
+	if (m_destroyAfterUse)
+		Destroy();
+}
+
+/*****************************************************************************
+ * Drm Buffer Pool
+ ****************************************************************************/
+
+/**
+ * Find a drm buffer from the buffer pool by a given prime handle
+ */
 cDrmBuffer *cDrmBufferPool::FindByDmaBufHandle(int primeFd)
 {
 	for (const auto &buf : buffer) {
@@ -425,6 +435,9 @@ cDrmBuffer *cDrmBufferPool::FindByDmaBufHandle(int primeFd)
 	return nullptr;
 }
 
+/**
+ * Find a clean drm buffer from the buffer pool
+ */
 cDrmBuffer *cDrmBufferPool::FindUninitilized()
 {
 	int i = 0;
@@ -438,6 +451,9 @@ cDrmBuffer *cDrmBufferPool::FindUninitilized()
 	return nullptr;
 }
 
+/**
+ * Find a dirty drm buffer from the buffer pool which presentation has finished
+ */
 cDrmBuffer *cDrmBufferPool::FindNoPresentationPending()
 {
 	for (const auto &buf : buffer) {
@@ -448,6 +464,12 @@ cDrmBuffer *cDrmBufferPool::FindNoPresentationPending()
 	return nullptr;
 }
 
+/**
+ * Destroy all drm buffers except the given one
+ *
+ * @param exceptBuf      the buffer, which should be kept alive
+ *                       if nullptr is given, all buffers are destroyed
+ */
 void cDrmBufferPool::DestroyAllExcept(cDrmBuffer *exceptBuf)
 {
 	for (const auto &buf : buffer) {
@@ -458,11 +480,4 @@ void cDrmBufferPool::DestroyAllExcept(cDrmBuffer *exceptBuf)
 	}
 }
 
-void cDrmBuffer::PresentationFinished(void)
-{
-	av_frame_free(&frame);
-	m_presentationPending = false;
-
-	if (m_destroyAfterUse)
-		Destroy();
-}
+/** @} */

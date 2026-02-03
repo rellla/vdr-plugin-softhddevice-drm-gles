@@ -1,21 +1,13 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 /**
  * @file ringbuffer.h
- * Ringbuffer class header file
+ * Audio Ringbuffer Header File
  *
- * @copyright (c) 2009, 2011, 2014 by Johns. All Rights Reserved.
- * @copyright (c) 2025 by Andreas Baierl. All Rights Reserved.
+ * @copyright 2009, 2011, 2014 by Johns. All Rights Reserved.
+ * @copyright 2025 - 2026 by Andreas Baierl. All Rights Reserved.
  *
- * @license{AGPLv3
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as
- * published by the Free Software Foundation, either version 3 of the
- * License.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.}
+ * @license{AGPL-3.0-or-later}
  */
 
 #ifndef __SOFTHDRINGBUFFER_H
@@ -24,7 +16,12 @@
 #include <cstddef>
 
 /**
- * Atomic wrapper macros
+ * @addtogroup audio
+ * @{
+ */
+
+/**
+ * Atomic Wrapper Macros
  */
 typedef volatile int atomic_t;  ///< atomic type, 24 bit useable
 
@@ -36,11 +33,9 @@ typedef volatile int atomic_t;  ///< atomic type, 24 bit useable
 #define atomic_sub(val, ptr) __atomic_sub_fetch(ptr, val, __ATOMIC_SEQ_CST)
 
 /**
- * cSoftHdRingbuffer - RingBuffer class
+ * Ringbuffer (FIFO) Implementation
  */
-
-class cSoftHdRingbuffer
-{
+class cSoftHdRingbuffer {
 public:
 	cSoftHdRingbuffer(size_t);
 	~cSoftHdRingbuffer(void);
@@ -64,4 +59,7 @@ private:
 	// The only thing modified by both
 	atomic_t m_filled;            ///< how many of the buffer is used
 };
+
+/** @} */
+
 #endif

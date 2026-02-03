@@ -1,18 +1,10 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 /**
  * @file jittertracker.cpp
- * Tracks the jitter of incoming packets
+ * Jitter Tracking of Incoming Packets
  *
- * @license{AGPLv3
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as
- * published by the Free Software Foundation, either version 3 of the
- * License.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.}
+ * @license{AGPL-3.0-or-later}
  */
 
 #include <algorithm>
@@ -22,11 +14,17 @@
 #include "logger.h"
 
 /**
+ * @addtogroup misc
+ * @{
+ */
+
+/**
  * Called each time a packet is received.
+ *
  * Calculates the diff in PTS to the last received packet and compares that
  * to the diff of the wall clock time of the last received packet to now.
  */
-void cJitterTracker::PacketReceived()
+void cJitterTracker::PacketReceived(void)
 {
 	auto now = std::chrono::steady_clock::now();
 
@@ -72,7 +70,7 @@ void cJitterTracker::PacketReceived()
 /**
  * Resets the jitter tracker.
  */
-void cJitterTracker::Reset()
+void cJitterTracker::Reset(void)
 {
 	m_lastDiffMs = 0;
 	m_shortTermMaxJitterMs = 0;
@@ -81,3 +79,5 @@ void cJitterTracker::Reset()
 	m_firstPacket = true;
 	m_secondPacket = true;
 }
+
+/** @} */

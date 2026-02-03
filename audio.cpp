@@ -1,26 +1,28 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 /**
  * @file audio.cpp
- * Audio and alsa module class
+ * Audio and Alsa Interface
  *
- * This file defines cSoftHdAudio , which holds all functions
+ * cSoftHdAudio handles everything audio related except
+ * the decoding itself (see cAudioDecoder).
+ *
+ * @copyright 2009 - 2014 by Johns.  All Rights Reserved.
+ * @copyright 2018 by zille.  All Rights Reserved.
+ * @copyright 2025 - 2026 by Andreas Baierl. All Rights Reserved.
+ *
+ * @license{AGPL-3.0-or-later}
+ */
+
+/**
+ * Audio and Alsa Interface
+ *
+ * @addtogroup audio Audio Module
+ * @{
+ *
+ * This file defines cSoftHdAudio, which holds all functions
  * we need to deal with audio, e.g.handling the audio stream
  * and sending it to hardware.
- *
- * @copyright (c) 2009 - 2014 by Johns.  All Rights Reserved.
- * @copyright (c) 2018 by zille.  All Rights Reserved.
- * @copyright (c) 2025 by Andreas Baierl. All Rights Reserved.
- *
- * @license{AGPLv3
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as
- * published by the Free Software Foundation, either version 3 of the
- * License.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.}
  */
 
 #include <chrono>
@@ -53,12 +55,8 @@ extern "C" {
 #include "ringbuffer.h"
 #include "softhddevice.h"
 
-/******************************************************************************
- * cSoftHdAudio class
- *****************************************************************************/
-
 /**
- * cSoftHdAudio constructor
+ * Create a new audio context
  */
 cSoftHdAudio::cSoftHdAudio(cSoftHdDevice *device)
 	: cThread("softhd audio"),
@@ -146,7 +144,7 @@ static void ReorderAudioFrame(uint16_t * buf, int size, int channels)
 }
 
 /**
- * Normalize audio
+ * Normalize audio samples
  *
  * @param samples   sample buffer
  * @param count     number of bytes in sample buffer
@@ -227,7 +225,7 @@ void cSoftHdAudio::Normalize(uint16_t *samples, int count)
 }
 
 /**
- * Compress audio
+ * Compress audio samples
  *
  * @param samples   sample buffer
  * @param count     number of bytes in sample buffer
@@ -261,7 +259,7 @@ void cSoftHdAudio::Compress(uint16_t *samples, int count)
 			m_compressionFactor = m_compressionMaxFactor;
 		}
 	} else {
-		return;				// silent nothing todo
+		return; // silent nothing todo
 	}
 
 	LOGDEBUG2(L_SOUND, "audio: %s: max %5d, fac=%6.3f, com=%6.3f", __FUNCTION__, maxSample,
@@ -282,7 +280,7 @@ void cSoftHdAudio::Compress(uint16_t *samples, int count)
 }
 
 /**
- * Software amplifier
+ * Amplify the samples in software
  *
  * @param samples   sample buffer
  * @param count     number of bytes in sample buffer
@@ -388,7 +386,13 @@ void cSoftHdAudio::SetEq(int band[18], int onoff)
 }
 
 /**
- * Init filter
+ * Init audio filters
+ *
+ * The following alsa filters are set:
+ *   - abuffer
+ *   - superequalizer
+ *   - aformat
+ *   - abuffersink
  *
  * @retval 0    everything ok
  * @retval 1    didn't support channels, downmix set -> scrap this frame, test next
@@ -709,7 +713,7 @@ void cSoftHdAudio::Enqueue(uint16_t *buffer, int count, AVFrame *frame)
 }
 
 /**
- * Setup alsa
+ * Alsa setup wrapper
  *
  * only used for passthrough atm, setting up PCM goes via Filter()
  *
@@ -743,7 +747,7 @@ int cSoftHdAudio::Setup(AVCodecContext *ctx, int samplerate, int channels, int p
 /**
  * Get frame from filter sink
  *
- * @returns       pointer to AVFrame if success, NULL otherwise
+ * @return       pointer to AVFrame if success, NULL otherwise
  */
 AVFrame *cSoftHdAudio::FilterGetFrame(void)
 {
@@ -875,16 +879,6 @@ void cSoftHdAudio::FlushBuffers(void)
 }
 
 /**
- * Get free bytes in audio ringbuffer
- */
-int cSoftHdAudio::GetFreeBytes(void)
-{
-	std::lock_guard<std::mutex> lock(m_mutex);
-
-	return m_pRingbuffer.FreeBytes();
-}
-
-/**
  * Get used bytes in audio ringbuffer
  */
 int cSoftHdAudio::GetUsedBytes(void)
@@ -903,7 +897,7 @@ int cSoftHdAudio::GetUsedBytes(void)
  * Note: This does not account for ALSA/kernel buffer delays. For the actual
  * hardware output PTS, use GetHardwareOutputPtsMs() instead.
  *
- * @return PTS in milliseconds
+ * @return     PTS in milliseconds
  */
 int64_t cSoftHdAudio::GetOutputPtsMs(void)
 {
@@ -924,7 +918,7 @@ int64_t cSoftHdAudio::GetOutputPtsMsInternal(void)
  * hardware by accounting for ALSA/kernel buffer delays. This represents the PTS
  * of the audio that is actually being played right now.
  *
- * @return PTS in milliseconds, or AV_NOPTS_VALUE if not available
+ * @return     PTS in milliseconds, or AV_NOPTS_VALUE if not available
  */
 int64_t cSoftHdAudio::GetHardwareOutputPtsMs(void)
 {
@@ -965,9 +959,10 @@ int64_t cSoftHdAudio::GetHardwareOutputDelayMs(void)
 /**
  * Get the hardware output PTS in timebase units
  *
- * @return presentation timestamp in timebase units
+ * @return      presentation timestamp in timebase units
  */
-int64_t cSoftHdAudio::GetHardwareOutputPtsTimebaseUnits(void) {
+int64_t cSoftHdAudio::GetHardwareOutputPtsTimebaseUnits(void)
+{
 	int64_t ptsMs = GetHardwareOutputPtsMs();
 	if (ptsMs == AV_NOPTS_VALUE)
 		return AV_NOPTS_VALUE;
@@ -999,7 +994,7 @@ void cSoftHdAudio::SetVolume(int volume)
 }
 
 /**
- * Set audio playback paused state
+ * Set audio playback pause state
  *
  * @param pause     true to pause, false to resume
  */
@@ -1058,7 +1053,7 @@ void cSoftHdAudio::SetStereoDescent(int delta)
  *
  * @param mask    passthrough mask (as a bitmask)
  */
-void cSoftHdAudio::SetPassthrough(int mask)
+void cSoftHdAudio::SetPassthroughMask(int mask)
 {
 	m_passthrough = mask;
 
@@ -1069,8 +1064,13 @@ void cSoftHdAudio::SetPassthrough(int mask)
 }
 
 /**
- * Initialize audio output module
+ * Initialize audio output module (alsa)
  *
+ * The init is done lazily as soon as there is a STOP->PLAY state change
+ * or the mediaplayer wants to play video or audio.
+ *
+ * This function can safely be called anytime, because it does nothing,
+ * if the init has already be done.
  */
 void cSoftHdAudio::LazyInit()
 {
@@ -1081,7 +1081,11 @@ void cSoftHdAudio::LazyInit()
 }
 
 /**
- * Cleanup audio output module
+ * Cleanup audio output module (alsa)
+ *
+ * This currently also stops the audio thread.
+ *
+ * @todo Move stopping the thread to AlsaExit()
  */
 void cSoftHdAudio::Exit(void)
 {
@@ -1102,7 +1106,7 @@ void cSoftHdAudio::Exit(void)
  *****************************************************************************/
 
 /**
- * handle error
+ * Handle an alsa error
  */
 void cSoftHdAudio::HandleError(int error)
 {
@@ -1228,9 +1232,9 @@ void cSoftHdAudio::Stop(void)
  * If passthrough is enabled, the thread continues sending data (pause bursts) even if audio playback
  * is paused. This prevents, that the AV-Receiver looses the lock and may switch to PCM instead.
  *
- * @return true if data was written or the next write should be scheduled immediately
+ * @return      true if data was written or the next write should be scheduled immediately
  */
-bool cSoftHdAudio::CyclicCall()
+bool cSoftHdAudio::CyclicCall(void)
 {
 	std::lock_guard<std::mutex> lock1(m_pauseMutex);
 
@@ -1286,9 +1290,10 @@ bool cSoftHdAudio::CyclicCall()
 /**
  * Write regular audio data from the ringbuffer to the hardware
  *
- * @param  freeAlsaBufferFrames     number of frames that can be written to the hardware
+ * @param freeAlsaBufferFrames     number of frames that can be written to the hardware
  *
- * @returns true if data was written or the write should be scheduled again immediately, false otherwise
+ * @retval true      if data was written or the write should be scheduled again immediately
+ * @retval false     if no data was written
  */
 bool cSoftHdAudio::SendAudio(int freeAlsaBufferFrames)
 {
@@ -1414,9 +1419,9 @@ void cSoftHdAudio::ResetHwDelayBaseline(void)
 }
 
 /**
- * Process queued events and forward to event receiver
+ * Process queued events and forward them to event receiver
  */
-void cSoftHdAudio::ProcessEvents()
+void cSoftHdAudio::ProcessEvents(void)
 {
 	for (Event event : m_eventQueue)
 		m_pEventReceiver->OnEventReceived(event);
@@ -1425,12 +1430,12 @@ void cSoftHdAudio::ProcessEvents()
 }
 
 /**
- * Open alsa device
+ * Open an alsa device
  *
- * @param device             alsa device
+ * @param device             alsa device to be opened
  * @param passthrough        set, if this is a passthrough device
  *
- * @returns	the alsa device if successful, NULL otherwise
+ * @return   the alsa device if successful, NULL otherwise
  */
 char *cSoftHdAudio::OpenAlsaDevice(const char *device, int passthrough)
 {
@@ -1481,8 +1486,8 @@ char *cSoftHdAudio::OpenAlsaDevice(const char *device, int passthrough)
  * @param hint             string to compare with device name hints
  * @param passthrough      set, if we want a passthrough device
  *
- * @returns	an opened alsa device name if successful, NULL otherwise
- *              NOTE: Returned string is allocated and must be freed by caller
+ * @return   an opened alsa device name if successful, NULL otherwise
+ *           NOTE: Returned string is allocated and must be freed by caller
  */
 char *cSoftHdAudio::FindAlsaDevice(const char *devname, const char *hint, int passthrough)
 {
@@ -1789,7 +1794,7 @@ static void AlsaNoopCallback( __attribute__ ((unused))
 }
 
 /**
- * @brief	Initialize alsa audio output module.
+ * Initialize the alsa audio output module
  */
 void cSoftHdAudio::AlsaInit(void)
 {
@@ -1805,7 +1810,7 @@ void cSoftHdAudio::AlsaInit(void)
 }
 
 /**
- * Cleanup alsa audio output module.
+ * Cleanup the alsa audio output module
  */
 void cSoftHdAudio::AlsaExit(void)
 {
@@ -1829,7 +1834,7 @@ void cSoftHdAudio::AlsaExit(void)
  *
  * Also updates the low-pass filter for the buffer fill level.
  */
-void cSoftHdAudio::ClockDriftCompensation()
+void cSoftHdAudio::ClockDriftCompensation(void)
 {
 	if (m_passthrough)
 		return;
@@ -1863,3 +1868,5 @@ void cSoftHdAudio::ClockDriftCompensation()
 	else
 		m_fillLevel.UpdateAvgBufferFillLevel(hardwareBufferFillLevelFrames);
 }
+
+/** @} */

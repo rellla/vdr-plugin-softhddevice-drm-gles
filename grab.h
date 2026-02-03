@@ -1,20 +1,12 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 /**
  * @file grab.h
- * Grabber header file
+ * Grabbing Interface Header File
  *
- * @copyright (c) 2025 by Andreas Baierl. All Rights Reserved.
+ * @copyright 2025 - 2026 by Andreas Baierl. All Rights Reserved.
  *
- * @license{AGPLv3
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as
- * published by the Free Software Foundation, either version 3 of the
- * License.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.}
+ * @license{AGPL-3.0-or-later}
  */
 
 #ifndef __GRAB_H
@@ -23,6 +15,14 @@
 #include <cstdint>
 
 #include <vdr/osd.h>
+
+class cDrmBuffer;
+class cVideoRender;
+
+/**
+ * @addtogroup misc
+ * @{
+ */
 
 enum Grabtype {
 	GRABVIDEO,
@@ -39,18 +39,14 @@ inline const char* GrabtypeToString(Grabtype t) {
     return "Unknown";
 }
 
-class cDrmBuffer;
-class cVideoRender;
-
 /**
- * cGrabBuffer - Grab buffer class
+ * Grabbing Buffer
  *
- * Class to hold the data for a grabbed buffer.
+ * Holds the data for a grabbed buffer.
  * The grab is triggered by VDR/ cSoftHdDevice, data is set by the renderer
  * and composed by cSoftHdDevice again.
  */
-class cGrabBuffer
-{
+class cGrabBuffer {
 public:
 	cGrabBuffer(void) = default;
 
@@ -76,10 +72,11 @@ private:
 };
 
 /**
- * cSoftHdGrab - Grabber class
+ * Grabbing Processor
+ *
+ * Handles the grabbing workflow from triggering the grab to returning the result
  */
-class cSoftHdGrab
-{
+class cSoftHdGrab {
 public:
 	cSoftHdGrab(cVideoRender *render) : m_pRender(render) {};
 
@@ -89,20 +86,22 @@ public:
 	int Size(void) { return m_grabbedSize; };
 
 private:
-	cVideoRender *m_pRender;
-	uint8_t *m_grabbedImage;
-	int m_grabbedSize;
-	bool m_isActive = false;
+	cVideoRender *m_pRender;         ///< pointer to cVideoRender object
+	uint8_t *m_grabbedImage;         ///< pointer to the finished grabbed image
+	int m_grabbedSize;               ///< data size of the grabbed image
+	bool m_isActive = false;         ///< true, if a grab process is currently running
 
-	bool m_isJpeg = true;
-	int m_quality;
-	int m_grabbedWidth;
-	int m_grabbedHeight;
-	int m_screenWidth;
-	int m_screenHeight;
+	bool m_isJpeg = true;            ///< true, if a jpeg image was requested
+	int m_quality;                   ///< quality of the jpeg image
+	int m_grabbedWidth;              ///< pixel width of the grabbed image
+	int m_grabbedHeight;             ///< pixel height of the grabbed image
+	int m_screenWidth;               ///< pixel screenwidth
+	int m_screenHeight;              ///< pixel screenheight
 
 	bool ProcessGrab(void);
 	uint8_t *GetGrab(int *, int *, int *, int *, int *, Grabtype);
 };
+
+/** @} */
 
 #endif

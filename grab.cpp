@@ -1,23 +1,15 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 /**
  * @file grab.cpp
- * Grabing classes
+ * Grabbing Interface
  *
  * This file defines cGrabBuffer and cSoftHdGrab, which are used
  * to handle grab requests.
  *
- * @copyright (c) 2025 by Andreas Baierl. All Rights Reserved.
+ * @copyright 2025 - 2026 by Andreas Baierl. All Rights Reserved.
  *
- * @license{AGPLv3
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as
- * published by the Free Software Foundation, either version 3 of the
- * License.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.}
+ * @license{AGPL-3.0-or-later}
  */
 
 extern "C" {
@@ -33,6 +25,11 @@ extern "C" {
 #include "grab.h"
 #include "logger.h"
 #include "videorender.h"
+
+/**
+ * @addtogroup misc
+ * @{
+ */
 
 /****************************************************************************************
  * Image data conversion helpers
@@ -73,7 +70,7 @@ enum AVPixelFormat DrmFormatToAVFormat(cDrmBuffer *buf)
  * @param[in] dstH            height of the returned image
  * @param[in] dstPixFmt       pixel format of the returned image
  *
- * @returns                   a pointer to the image data
+ * @return                    a pointer to the image data
  */
 static uint8_t *BufToRgb(cDrmBuffer *buf, int *size, int dstW, int dstH, enum AVPixelFormat dstPixFmt)
 {
@@ -151,7 +148,7 @@ static uint8_t *BufToRgb(cDrmBuffer *buf, int *size, int dstW, int dstH, enum AV
  * @param[in] dstW              width of the returned image
  * @param[in] dstH              height of the returned image
  *
- * @returns                     a pointer to the converted image data
+ * @return                      a pointer to the converted image data
  */
 static uint8_t *ScaleRgb24(uint8_t *src, int *size, int srcW, int srcH, int dstW, int dstH)
 {
@@ -263,7 +260,7 @@ static void AlphaBlend(uint8_t *result, uint8_t *front, uint8_t *back, const uns
  * @param[in] srcW     source video width
  * @param[in] srcH     source video height
  *
- * @returns            0 on success, -1 on error
+ * @return             0 on success, -1 on error
  */
 static int BlitVideo(uint8_t *dst, uint8_t *src, int dstW, int dstH, int dstX, int dstY, int srcW, int srcH)
 {
@@ -288,7 +285,7 @@ static int BlitVideo(uint8_t *dst, uint8_t *src, int dstW, int dstH, int dstX, i
  ****************************************************************************/
 
 /**
- * Free the grab buffer
+ * Free the grabbed drm buffer
  */
 void cGrabBuffer::FreeDrmBuf(void)
 {
@@ -297,8 +294,8 @@ void cGrabBuffer::FreeDrmBuf(void)
 
 	for (int plane = 0; plane < m_pBuf->NumPlanes(); plane++) {
 		if (m_pBuf->Size(plane)) {
-		LOGDEBUG2(L_GRAB, "grab: %s: free buf %p (plane %d)", __FUNCTION__, m_pBuf->Plane(plane), plane);
-		free(m_pBuf->Plane(plane));
+			LOGDEBUG2(L_GRAB, "grab: %s: free buf %p (plane %d)", __FUNCTION__, m_pBuf->Plane(plane), plane);
+			free(m_pBuf->Plane(plane));
 		}
 	}
 	delete m_pBuf;
@@ -362,7 +359,7 @@ bool cSoftHdGrab::Start(bool jpeg, int quality, int width, int height, int scree
 
 /**
  * Convert the cloned drm buffer data to RGB(void, pip) or ARGB (osd)
- * and returns a pointer to the raw data.
+ * and return a pointer to the raw data.
  *
  * @param[out] size            size of the grabbed buffer
  * @param[out] width           width of the grabbed buffer
@@ -371,7 +368,7 @@ bool cSoftHdGrab::Start(bool jpeg, int quality, int width, int height, int scree
  * @param[out] y               y offset of the grabbed buffer
  * @param[in]  buffer type     buffer type (Grabtype)
  *
- * @returns pointer to the raw buffer data
+ * @return a pointer to the raw buffer data
  */
 uint8_t *cSoftHdGrab::GetGrab(int *size, int *width, int *height, int *x, int *y, Grabtype type)
 {
@@ -547,3 +544,5 @@ bool cSoftHdGrab::ProcessGrab(void)
 
 	return true;
 }
+
+/** @} */

@@ -1,21 +1,13 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 /**
  * @file mediaplayer.h
- * Mediaplayer class header file
+ * Mediaplayer Header File
  *
- * @copyright (c) 2020 zille.  All Rights Reserved.
- * @copyright (c) 2025 by Andreas Baierl. All Rights Reserved.
+ * @copyright 2020 zille.  All Rights Reserved.
+ * @copyright 2025 - 2026 by Andreas Baierl. All Rights Reserved.
  *
- * @license{AGPLv3
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as
- * published by the Free Software Foundation, either version 3 of the
- * License.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.}
+ * @license{AGPL-3.0-or-later}
  */
 
 #ifndef __MEDIAPLAYER_H
@@ -29,13 +21,16 @@
 class cSoftHdAudio;
 class cSoftHdDevice;
 
-/*****************************************************************************
- * cPlaylistEntry
+/**
+ * @addtogroup mediaplayer
+ * @{
+ */
+
+/**
+ * Playlist Entry
  *
- * class for a playlist entry
- ****************************************************************************/
-class cPlaylistEntry
-{
+ */
+class cPlaylistEntry {
 public:
 	cPlaylistEntry(std::string);
 
@@ -51,13 +46,12 @@ private:
 	cPlaylistEntry *m_pNextEntry = nullptr;
 };
 
-/*****************************************************************************
- * cSoftHdPlayer (cPlayer mediaplayer)
+/**
+ * Media Player
  *
  * player for mediaplayer mode
- ****************************************************************************/
-class cSoftHdPlayer : public cPlayer, cThread
-{
+ */
+class cSoftHdPlayer : public cPlayer, cThread {
 public:
 	cSoftHdPlayer(const char *, cSoftHdDevice *);
 	virtual ~cSoftHdPlayer();
@@ -100,13 +94,10 @@ private:
 	int m_duration = 0;
 };
 
-/*****************************************************************************
- * cSoftHdControl (cControl mediaplayer)
- *
- * control class for mediaplayer mode
- ****************************************************************************/
-class cSoftHdControl : public cControl
-{
+/**
+ * Media Player Control
+ */
+class cSoftHdControl : public cControl {
 public:
 	cSoftHdControl(const char *, cSoftHdDevice *);
 	virtual ~cSoftHdControl();
@@ -126,5 +117,7 @@ private:
 	cSoftHdDevice *m_pDevice;
 	bool m_closing = false;
 };
+
+/** @} */
 
 #endif

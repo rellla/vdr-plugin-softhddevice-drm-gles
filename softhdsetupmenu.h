@@ -1,22 +1,14 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 /**
  * @file softhdsetupmenu.h
- * Setup menu class header file
+ * Plugin Setup Menu Header File
  *
- * @copyright (c) 2011, 2014 by Johns.  All Rights Reserved.
- * @copyright (c) 2018 - 2019 zille.  All Rights Reserved.
- * @copyright (c) 2025 by Andreas Baierl. All Rights Reserved.
+ * @copyright 2011, 2014 by Johns.  All Rights Reserved.
+ * @copyright 2018 - 2019 zille.  All Rights Reserved.
+ * @copyright 2025 - 2026 by Andreas Baierl. All Rights Reserved.
  *
- * @license{AGPLv3
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as
- * published by the Free Software Foundation, either version 3 of the
- * License.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.}
+ * @license{AGPL-3.0-or-later}
  */
 
 #ifndef __SOFTHDSETUPMENU_H
@@ -28,15 +20,15 @@ class cSoftHdAudio;
 class cSoftHdConfig;
 class cSoftHdDevice;
 
-/*****************************************************************************
- * cMenuSetupSoft - Setup menu
- ****************************************************************************/
+/**
+ * @addtogroup menu
+ * @{
+ */
 
 /**
- * cMenuSetupSoft - SoftHdDevice plugin menu setup page class
+ * Plugin Setup Menu
  */
-class cMenuSetupSoft : public cMenuSetupPage
-{
+class cMenuSetupSoft : public cMenuSetupPage {
 public:
 	cMenuSetupSoft(cSoftHdDevice *);
 	virtual eOSState ProcessKey(eKeys);
@@ -130,5 +122,7 @@ private:
 protected:
 	virtual void Store(void);
 };
+
+/** @} */
 
 #endif

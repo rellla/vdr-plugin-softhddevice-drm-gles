@@ -1,18 +1,10 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 /**
  * @file filllevel.cpp
- * Low-pass filter for audio buffer fill level measurement
+ * Low-pass Filter for Audio Buffer Fill Level Measurement
  *
- * @license{AGPLv3
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as
- * published by the Free Software Foundation, either version 3 of the
- * License.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.}
+ * @license{AGPL-3.0-or-later}
  */
 
 #include <algorithm>
@@ -21,20 +13,24 @@
 #include "logger.h"
 
 /**
+ * @addtogroup misc
+ * @{
+ */
+
+/**
  * Resets the filter state.
  */
-void cBufferFillLevelLowPassFilter::Reset()
+void cBufferFillLevelLowPassFilter::Reset(void)
 {
 	m_state = UNINITIALIZED;
 	m_bufferFillLevelFramesAvg = 0;
 	m_frameCounter = 0;
 }
 
-
 /**
  * Resets the received and written frames counters.
  */
-void cBufferFillLevelLowPassFilter::ResetFramesCounters()
+void cBufferFillLevelLowPassFilter::ResetFramesCounters(void)
 {
 	m_receivedFrames = 0;
 	m_writtenToAlsaFrames = 0;
@@ -87,7 +83,8 @@ void cBufferFillLevelLowPassFilter::UpdateAvgBufferFillLevel(int hardwareBufferF
  * Converts the filter state to a string representation.
  *
  * @param state     The state to convert
- * @returns String representation of the state
+ *
+ * @return String representation of the state
  */
 const char* cBufferFillLevelLowPassFilter::StateToString(State state)
 {
@@ -98,3 +95,5 @@ const char* cBufferFillLevelLowPassFilter::StateToString(State state)
 	}
 	return "Unknown";
 }
+
+/** @} */
