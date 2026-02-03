@@ -174,16 +174,16 @@ void ConvertColor(const GLint &colARGB, glm::vec4 &col) {
 }
 
 /****************************************************************************************
-* cShader
+* cOglShader
 ****************************************************************************************/
-static cShader *Shaders[stCount];
+static cOglShader *Shaders[stCount];
 
-void cShader::Use(void)
+void cOglShader::Use(void)
 {
 	GL_CHECK(glUseProgram(m_id));
 }
 
-bool cShader::Load(eShaderType type)
+bool cOglShader::Load(eShaderType type)
 {
 	const char *vertexCode = NULL;
 	const char *fragmentCode = NULL;
@@ -224,37 +224,37 @@ bool cShader::Load(eShaderType type)
 	return true;
 }
 
-void cShader::SetFloat(const GLchar *name, GLfloat value)
+void cOglShader::SetFloat(const GLchar *name, GLfloat value)
 {
 	GL_CHECK(glUniform1f(glGetUniformLocation(m_id, name), value));
 }
 
-void cShader::SetInteger(const GLchar *name, GLint value)
+void cOglShader::SetInteger(const GLchar *name, GLint value)
 {
 	GL_CHECK(glUniform1i(glGetUniformLocation(m_id, name), value));
 }
 
-void cShader::SetVector2f(const GLchar *name, GLfloat x, GLfloat y)
+void cOglShader::SetVector2f(const GLchar *name, GLfloat x, GLfloat y)
 {
 	GL_CHECK(glUniform2f(glGetUniformLocation(m_id, name), x, y));
 }
 
-void cShader::SetVector3f(const GLchar *name, GLfloat x, GLfloat y, GLfloat z)
+void cOglShader::SetVector3f(const GLchar *name, GLfloat x, GLfloat y, GLfloat z)
 {
 	GL_CHECK(glUniform3f(glGetUniformLocation(m_id, name), x, y, z));
 }
 
-void cShader::SetVector4f(const GLchar *name, GLfloat x, GLfloat y, GLfloat z, GLfloat w)
+void cOglShader::SetVector4f(const GLchar *name, GLfloat x, GLfloat y, GLfloat z, GLfloat w)
 {
 	GL_CHECK(glUniform4f(glGetUniformLocation(m_id, name), x, y, z, w));
 }
 
-void cShader::SetMatrix4(const GLchar *name, const glm::mat4 &matrix)
+void cOglShader::SetMatrix4(const GLchar *name, const glm::mat4 &matrix)
 {
 	GL_CHECK(glUniformMatrix4fv(glGetUniformLocation(m_id, name), 1, GL_FALSE, glm::value_ptr(matrix)));
 }
 
-bool cShader::Compile(const char *vertexCode, const char *fragmentCode)
+bool cOglShader::Compile(const char *vertexCode, const char *fragmentCode)
 {
 	GLuint sVertex, sFragment;
 
@@ -288,7 +288,7 @@ bool cShader::Compile(const char *vertexCode, const char *fragmentCode)
 	return true;
 }
 
-bool cShader::CheckCompileErrors(GLuint object, bool program) {
+bool cOglShader::CheckCompileErrors(GLuint object, bool program) {
 	GLint success;
 	GLchar infoLog[1024];
 	if (!program) {
@@ -2030,7 +2030,7 @@ bool cOglThread::InitOpenGL(void)
 bool cOglThread::InitShaders(void)
 {
 	for (int i = 0; i < stCount; i++) {
-		cShader *shader = new cShader();
+		cOglShader *shader = new cOglShader();
 		if (!shader->Load((eShaderType)i))
 			return false;
 		Shaders[i] = shader;

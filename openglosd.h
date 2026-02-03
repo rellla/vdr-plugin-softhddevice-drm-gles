@@ -66,7 +66,7 @@ class cSoftHdDevice;
 void ConvertColor(const GLint &colARGB, glm::vec4 &col);
 
 /****************************************************************************************
-* cShader
+* cOglShader
 ****************************************************************************************/
 enum eShaderType {
 	stRect,
@@ -76,10 +76,10 @@ enum eShaderType {
 	stCount
 };
 
-class cShader
+class cOglShader
 {
 public:
-	cShader(void) {};
+	cOglShader(void) {};
 
 	bool Load(eShaderType);
 	void Use(void);
