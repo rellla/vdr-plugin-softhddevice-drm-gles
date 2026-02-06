@@ -127,19 +127,20 @@ void cMenuSetupSoft::Create(void)
 		Add(new cMenuEditBoolItem(tr("Enable logging"), &m_cLogDefault, trVDR("off"), trVDR("on")));
 		if (m_cLogDefault) {
 			Add(new cMenuEditBoolItem(tr("\040\040Standard debug logs"), &m_cLogDebug_, trVDR("no"), trVDR("yes")));
-			Add(new cMenuEditBoolItem(tr("\040\040AV Sync debug logs"), &m_cLogAVSync, trVDR("no"), trVDR("yes")));
-			Add(new cMenuEditBoolItem(tr("\040\040Sound debug logs"), &m_cLogSound, trVDR("no"), trVDR("yes")));
-			Add(new cMenuEditBoolItem(tr("\040\040OSD debug logs"), &m_cLogOSD, trVDR("no"), trVDR("yes")));
 			Add(new cMenuEditBoolItem(tr("\040\040DRM debug logs"), &m_cLogDRM, trVDR("no"), trVDR("yes")));
 			Add(new cMenuEditBoolItem(tr("\040\040Codec debug logs"), &m_cLogCodec, trVDR("no"), trVDR("yes")));
+			Add(new cMenuEditBoolItem(tr("\040\040AV Sync debug logs"), &m_cLogAVSync, trVDR("no"), trVDR("yes")));
+			Add(new cMenuEditBoolItem(tr("\040\040Sound debug logs"), &m_cLogSound, trVDR("no"), trVDR("yes")));
+			Add(new cMenuEditBoolItem(tr("\040\040FFmpeg debug logs"), &m_cLogFFmpeg, trVDR("no"), trVDR("yes")));
+			Add(new cMenuEditBoolItem(tr("\040\040Packet tracking logs"), &m_cLogPacket, trVDR("no"), trVDR("yes")));
+			Add(new cMenuEditBoolItem(tr("\040\040OSD debug logs"), &m_cLogOSD, trVDR("no"), trVDR("yes")));
+			Add(new cMenuEditBoolItem(tr("\040\040Grabbing debug logs"), &m_cLogGrab, trVDR("no"), trVDR("yes")));
 			Add(new cMenuEditBoolItem(tr("\040\040Stillpicture debug logs"), &m_cLogStill, trVDR("no"), trVDR("yes")));
 			Add(new cMenuEditBoolItem(tr("\040\040Trickspeed debug logs"), &m_cLogTrick, trVDR("no"), trVDR("yes")));
 			Add(new cMenuEditBoolItem(tr("\040\040Mediaplayer debug logs"), &m_cLogMedia, trVDR("no"), trVDR("yes")));
 			Add(new cMenuEditBoolItem(tr("\040\040OpenGL OSD debug logs"), &m_cLogGL, trVDR("no"), trVDR("yes")));
 			Add(new cMenuEditBoolItem(tr("\040\040OpenGL OSD time measurement"), &m_cLogGLTime, trVDR("no"), trVDR("yes")));
 			Add(new cMenuEditBoolItem(tr("\040\040OpenGL OSD time measurement (extensive)"), &m_cLogGLTimeAll, trVDR("no"), trVDR("yes")));
-			Add(new cMenuEditBoolItem(tr("\040\040Packet tracking logs"), &m_cLogPacket, trVDR("no"), trVDR("yes")));
-			Add(new cMenuEditBoolItem(tr("\040\040Grabbing debug logs"), &m_cLogGrab, trVDR("no"), trVDR("yes")));
 		}
 	}
 
@@ -316,6 +317,7 @@ cMenuSetupSoft::cMenuSetupSoft(cSoftHdDevice *device)
 	m_cLogOSD       = m_pConfig->ConfigLogLevels & L_OSD;
 	m_cLogDRM       = m_pConfig->ConfigLogLevels & L_DRM;
 	m_cLogCodec     = m_pConfig->ConfigLogLevels & L_CODEC;
+	m_cLogFFmpeg    = m_pConfig->ConfigLogLevels & L_FFMPEG;
 	m_cLogStill     = m_pConfig->ConfigLogLevels & L_STILL;
 	m_cLogTrick     = m_pConfig->ConfigLogLevels & L_TRICK;
 	m_cLogMedia     = m_pConfig->ConfigLogLevels & L_MEDIA;
@@ -402,6 +404,7 @@ void cMenuSetupSoft::Store(void)
 		(m_cLogOSD       ? L_OSD : 0) |
 		(m_cLogDRM       ? L_DRM : 0) |
 		(m_cLogCodec     ? L_CODEC : 0) |
+		(m_cLogFFmpeg    ? L_FFMPEG : 0) |
 		(m_cLogStill     ? L_STILL : 0) |
 		(m_cLogTrick     ? L_TRICK : 0) |
 		(m_cLogMedia     ? L_MEDIA : 0) |

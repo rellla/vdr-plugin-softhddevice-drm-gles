@@ -109,20 +109,29 @@ msgstr "Aktiviere Logs"
 msgid "  Standard debug logs"
 msgstr "  Standard debug Logs"
 
+msgid "  DRM debug logs"
+msgstr "  DRM debug Logs"
+
+msgid "  Codec debug logs"
+msgstr "  Codec debug Logs"
+
 msgid "  AV Sync debug logs"
 msgstr "  AV Sync debug Logs"
 
 msgid "  Sound debug logs"
 msgstr "  Sound debug Logs"
 
+msgid "  FFmpeg debug logs"
+msgstr "  FFMpeg logs"
+
+msgid "  Packet tracking logs"
+msgstr "  Paketverfolgung"
+
 msgid "  OSD debug logs"
 msgstr "  OSD debug Logs"
 
-msgid "  DRM debug logs"
-msgstr "  DRM debug Logs"
-
-msgid "  Codec debug logs"
-msgstr "  Codec debug Logs"
+msgid "  Grabbing debug logs"
+msgstr "  Grabbing debug Logs"
 
 msgid "  Stillpicture debug logs"
 msgstr "  Standbild debug Logs"
@@ -141,12 +150,6 @@ msgstr "  OpenGL OSD Zeitmessung"
 
 msgid "  OpenGL OSD time measurement (extensive)"
 msgstr "  OpenGL OSD Zeitmessung (alles)"
-
-msgid "  Packet tracking logs"
-msgstr "  Paketverfolgung"
-
-msgid "  Grabbing debug logs"
-msgstr "  Grabbing debug Logs"
 
 msgid "Video"
 msgstr "Video"

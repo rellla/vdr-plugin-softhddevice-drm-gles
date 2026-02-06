@@ -31,6 +31,10 @@
 #include <sys/syscall.h>
 #include <unistd.h>
 
+extern "C" {
+#include <libavutil/log.h>
+}
+
 #include <vdr/tools.h>
 
 #include "logger.h"
@@ -57,7 +61,7 @@ std::shared_ptr<cSoftHdLogger> cSoftHdLogger::GetLogger()
  */
 void cSoftHdLogger::SetLogLevel(int level)
 {
-	logLevel = level;
+	m_logLevel = level;
 }
 
 /**
@@ -143,7 +147,7 @@ void cSoftHdLogger::LogInfo(const char *format, ...)
  */
 void cSoftHdLogger::LogDebug(const char *format, ...)
 {
-	if (!logLevel)
+	if (!m_logLevel)
 		return;
 
 	va_list ap;
@@ -169,7 +173,7 @@ void cSoftHdLogger::LogDebug2(const int cat, const char *format, ...)
 	char fmt[256];
 	char prefix[20] = "";
 
-	switch (logLevel & cat) {
+	switch (m_logLevel & cat) {
 	case L_AV_SYNC:
 		strcpy(prefix, "[AV_Sync]");
 		break;
@@ -215,4 +219,35 @@ void cSoftHdLogger::LogDebug2(const int cat, const char *format, ...)
 	va_start(ap, format);
 	vsyslog(LOG_DEBUG, fmt, ap);
 	va_end(ap);
+}
+
+/**
+ * Log to LOG_DEBUG and add prefix [FFMpeg] to output
+ */
+void cSoftHdLogger::LogFFmpeg(const char *fmt, va_list vl)
+{
+	if (!(m_logLevel & L_FFMPEG))
+		return;
+
+	av_log_set_level(AV_LOGLEVEL);
+
+	char format[256];
+	char prefix[20] = "";
+	pid_t threadId = syscall(__NR_gettid);
+
+	strcpy(prefix, "[FFMpeg]");
+	snprintf(format, sizeof(format), "[%d] [softhddevice]%s %s", threadId, prefix, fmt);
+
+	vsyslog(LOG_DEBUG, format, vl);
+}
+
+/**
+ * Callback for ffmpeg logs
+ *
+ * Log to LOG_DEBUG and add prefix to output
+ */
+void cSoftHdLogger::LogFFmpegCallback([[maybe_unused]] void *ptr, [[maybe_unused]] int level, const char *fmt, va_list vl)
+{
+	if (auto logger = GetLogger())
+		logger->LogFFmpeg(fmt, vl);
 }

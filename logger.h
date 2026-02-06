@@ -20,7 +20,11 @@
 #ifndef __LOGGER_H
 #define __LOGGER_H
 
+#include <atomic>
 #include <memory>
+
+// FFmpeg log level
+#define AV_LOGLEVEL AV_LOG_INFO
 
 /**
  * Logger macros
@@ -59,6 +63,7 @@
 #define L_OPENGL_TIME_ALL  (1 << 11)
 #define L_PACKET           (1 << 12)
 #define L_GRAB             (1 << 13)
+#define L_FFMPEG           (1 << 14)
 
 /**
  * cSoftHdLogger - Logger class
@@ -66,12 +71,14 @@
 class cSoftHdLogger {
 public:
 	static std::shared_ptr<cSoftHdLogger> GetLogger();
+	static void LogFFmpegCallback(void *, int, const char *, va_list);
 	void LogFatal(const char *format, ...);
 	void LogError(const char *format, ...);
 	void LogWarning(const char *format, ...);
 	void LogInfo(const char *format, ...);
 	void LogDebug(const char *format, ...);
 	void LogDebug2(const int cat, const char *format, ...);
+	void LogFFmpeg(const char *, va_list);
 	void SetLogLevel(int level);
 
 private:
@@ -79,7 +86,7 @@ private:
 	cSoftHdLogger(const cSoftHdLogger &) = delete;
 	cSoftHdLogger& operator=(const cSoftHdLogger &) = delete;
 
-	int logLevel = 0; ///< loglevel (see Logger flags above)
+	std::atomic<int> m_logLevel = 0; ///< loglevel (see Logger flags above)
 };
 
 #endif

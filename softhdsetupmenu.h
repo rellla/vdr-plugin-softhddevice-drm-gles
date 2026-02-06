@@ -72,6 +72,7 @@ protected:
 	int m_cLogOSD;
 	int m_cLogDRM;
 	int m_cLogCodec;
+	int m_cLogFFmpeg;
 	int m_cLogStill;
 	int m_cLogTrick;
 	int m_cLogMedia;

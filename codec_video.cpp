@@ -22,12 +22,6 @@
  * GNU Affero General Public License for more details.}
  */
 
-#ifdef FFMPEG_DEBUG
-#include <sys/syscall.h>
-#include <syslog.h>
-#include <unistd.h>
-#endif
-
 extern "C" {
 #include <libavcodec/avcodec.h>
 #include <libavcodec/bsf.h>
@@ -42,46 +36,12 @@ extern "C" {
 #include "misc.h"
 #include "videostream.h"
 
-
 //#define NUM_CAPTURE_BUFFERS 10
 //#define NUM_OUTPUT_BUFFERS 10
-#define AV_LOGLEVEL AV_LOG_TRACE
 
 /******************************************************************************
  * static functions
  *****************************************************************************/
-
-/**
- * Logging callback, used for ffmpeg logging
- */
-#ifdef FFMPEG_DEBUG
-static void CodecLogCallback(__attribute__ ((unused)) void *ptr,
-                             __attribute__ ((unused)) int level,
-                             __attribute__ ((unused)) const char *fmt,
-                             va_list vl)
-{
-	av_log_set_level(AV_LOG_INFO);
-
-	if (level > AV_LOGLEVEL)
-		return;
-
-	char format[256];
-	char prefix[20] = "";
-	pid_t threadId = syscall(__NR_gettid);
-
-	strcpy(prefix, "[FFMpeg]");
-	snprintf(format, sizeof(format), "[%d] [softhddevice]%s %s", threadId, prefix, fmt);
-
-	vsyslog(LOG_INFO, format, vl);
-}
-#else
-static void CodecLogCallback(__attribute__ ((unused)) void *ptr,
-                             __attribute__ ((unused)) int level,
-                             __attribute__ ((unused)) const char *fmt,
-                             __attribute__ ((unused)) va_list vl)
-{
-}
-#endif
 
 /**
  * Callback to negotiate the PixelFormat
@@ -191,7 +151,7 @@ cVideoDecoder::cVideoDecoder(int hardwareQuirks, const char *identifier)
 	: m_identifier(identifier),
 	  m_hardwareQuirks(hardwareQuirks)
 {
-	av_log_set_callback(CodecLogCallback);
+	av_log_set_callback(cSoftHdLogger::LogFFmpegCallback);
 
 #if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(58,18,100)
 	avcodec_register_all();		// register all formats and codecs

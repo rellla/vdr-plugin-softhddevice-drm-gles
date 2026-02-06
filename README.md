@@ -274,20 +274,21 @@ Setup: /etc/vdr/setup.conf
 	softhddevice-drm-gles.LogLevel = 0
 		0 = default (no debug logs)
 		value is the sum of the following levels
-			1    Standard debug logs
-			2    AV-Sync debug logs
-			4    Sound/Audio debug logs
-			8    Osd debug logs
-			16   DRM debug logs
-			32   Codec (audio+video) debug logs
-			64   Stillpicture debug logs
-			128  Trickspeed debug logs
-			256  Mediaplayer debug logs
-			512  OpenGL/ES debug logs
-			1024 OpenGL/ES Osd flush time measurement
-			2048 OpenGL/ES Osd single command time measurement
-			4096 Packet tracking logs (decoder + display)
-			8192 Grabbing debug logs
+			1     Standard debug logs
+			2     AV-Sync debug logs
+			4     Sound/Audio debug logs
+			8     Osd debug logs
+			16    DRM debug logs
+			32    Codec (audio+video) debug logs
+			64    Stillpicture debug logs
+			128   Trickspeed debug logs
+			256   Mediaplayer debug logs
+			512   OpenGL/ES debug logs
+			1024  OpenGL/ES Osd flush time measurement
+			2048  OpenGL/ES Osd single command time measurement
+			4096  Packet tracking logs (decoder + display)
+			8192  Grabbing debug logs
+			16384 FFmpeg debug logs
 
 	softhddevice-drm-gles.DisableDeint = 0
 		0 = deinterlacer active if available
