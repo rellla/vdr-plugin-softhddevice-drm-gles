@@ -232,6 +232,13 @@ void cFilterThread::InitAndStart(const AVCodecContext *videoCtx, AVFrame *frame,
 	if (!m_pBuffersinkCtx)
 		LOGFATAL("filter thread: %s: Cannot create buffer sink", __FUNCTION__);
 
+	// if we have a 576i stream without a valid sample_aspect_ratio (0/1) force it to be 64/45
+	// wich "stretches" a 576i stream to 1920/1080 size
+	// this was observed with h264 coded 576i vodafone DVB-C channels and some mpeg2 576i material
+	bool videoNeedsToBeStretched = ((videoCtx->sample_aspect_ratio.num == 0) && (videoCtx->height == 576));
+	if (videoNeedsToBeStretched)
+		LOGDEBUG2(L_CODEC, "filter thread: %s: Observed 576i material with a sar 0/1, stretch it", __FUNCTION__);
+
 	if (frame->format == AV_PIX_FMT_DRM_PRIME) {
 		SetFilterOutputPixFormat(AV_PIX_FMT_DRM_PRIME);
 
@@ -247,7 +254,8 @@ void cFilterThread::InitAndStart(const AVCodecContext *videoCtx, AVFrame *frame,
 		par->time_base = videoCtx->pkt_timebase;
 		par->width = videoCtx->width;
 		par->height = videoCtx->height;
-		par->sample_aspect_ratio = videoCtx->sample_aspect_ratio;
+		par->sample_aspect_ratio.num = videoNeedsToBeStretched ? 64 : videoCtx->sample_aspect_ratio.num;
+		par->sample_aspect_ratio.den = videoNeedsToBeStretched ? 45 : videoCtx->sample_aspect_ratio.den;
 
 		LOGDEBUG2(L_CODEC, "filter thread: %s: filter=\"%s\" fmt %d, hw ctx %p, tb %d/%d, wxh %dx%d, sar %d/%d",
 			__FUNCTION__, filterDescr,
@@ -270,10 +278,8 @@ void cFilterThread::InitAndStart(const AVCodecContext *videoCtx, AVFrame *frame,
 			videoCtx->width, videoCtx->height, frame->format,
 			videoCtx->pkt_timebase.num ? videoCtx->pkt_timebase.num : 1,
 			videoCtx->pkt_timebase.num ? videoCtx->pkt_timebase.den : 1,
-			// if we have a 576i stream without a valid sample_aspect_ratio (0/1) force it to be 64/45
-			// wich "stretches" a 576i stream to 1920/1080 size
-			videoCtx->sample_aspect_ratio.num != 0 ? videoCtx->sample_aspect_ratio.num : (videoCtx->height == 576 ? 64 : 1),
-			videoCtx->sample_aspect_ratio.num != 0 ? videoCtx->sample_aspect_ratio.den : (videoCtx->height == 576 ? 45 : 1));
+			videoNeedsToBeStretched ? 64 : videoCtx->sample_aspect_ratio.num,
+			videoNeedsToBeStretched ? 45 : videoCtx->sample_aspect_ratio.den);
 
 		LOGDEBUG2(L_CODEC, "filter thread: %s: filter=\"%s\" args=\"%s\"", __FUNCTION__, filterDescr, args);
 
