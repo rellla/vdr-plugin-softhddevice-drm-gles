@@ -24,7 +24,6 @@ GRID ?= 0
 CONFIG :=
 #CONFIG += -DMEDIA_DEBUG	# enable mediaplayer dumps
 #CONFIG += -DALSA_DEBUG		# enable alsa logs
-#CONFIG += -DFFMPEG_DEBUG	# enable ffmpeg logs
 
 ifeq ($(GLES),1)
 CONFIG += -DUSE_GLES			# build with OpenGL/ES support

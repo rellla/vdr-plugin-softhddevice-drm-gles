@@ -120,6 +120,8 @@ void cSoftHdConfig::PrintLogLevel(int loglevel)
 		strcat(prefix, " drm,");
 	if (loglevel & L_CODEC)
 		strcat(prefix, " codec,");
+	if (loglevel & L_FFMPEG)
+		strcat(prefix, " ffmpeg,");
 	if (loglevel & L_STILL)
 		strcat(prefix, " stillpicture,");
 	if (loglevel & L_TRICK)
