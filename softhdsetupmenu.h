@@ -85,6 +85,7 @@ protected:
 	// Video
 	int m_cVideoMenu;
 	int m_cDisableDeint;
+	int m_cDecoderNeedsIFrame;
 
 	// Audio
 	int m_cAudio;

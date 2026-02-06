@@ -1474,6 +1474,15 @@ void cSoftHdDevice::SetDisableDeint(void)
 }
 
 /**
+ * Forces the h264 decoder to wait for an I-Frame to start
+ */
+void cSoftHdDevice::SetDecoderNeedsIFrame(void)
+{
+	if (m_pVideoStream)
+		m_pVideoStream->SetStartDecodingWithIFrame(m_pConfig->ConfigDecoderNeedsIFrame);
+}
+
+/**
  * Set the passthrough mask (called from setup menu or conf)
  */
 void cSoftHdDevice::SetPassthrough(int mask)

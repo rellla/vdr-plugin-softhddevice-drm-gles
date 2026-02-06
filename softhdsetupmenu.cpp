@@ -150,6 +150,7 @@ void cMenuSetupSoft::Create(void)
 	Add(CollapsedItem(tr("Video"), m_cVideoMenu));
 	if (m_cVideoMenu) {
 		Add(new cMenuEditBoolItem(tr("Disable deinterlacer"), &m_cDisableDeint, trVDR("no"), trVDR("yes")));
+		Add(new cMenuEditBoolItem(tr("H.264 HW decoder needs I-Frame"), &m_cDecoderNeedsIFrame, trVDR("no"), trVDR("yes")));
 		if (m_pDevice->UsePip()) {
 			Add(SeparatorName(tr("Picture-in-picture")));
 			Add(new cMenuEditIntItem(tr(" video scaling factor (%)"), &m_cPipScalePercent, 10, 100));
@@ -332,6 +333,7 @@ cMenuSetupSoft::cMenuSetupSoft(cSoftHdDevice *device)
 	//
 	m_cVideoMenu = 0;
 	m_cDisableDeint = m_pConfig->ConfigDisableDeint;
+	m_cDecoderNeedsIFrame = m_pConfig->ConfigDecoderNeedsIFrame;
 	m_cPipScalePercent = m_pConfig->ConfigPipScalePercent;
 	m_cPipLeftPercent = m_pConfig->ConfigPipLeftPercent;
 	m_cPipTopPercent = m_pConfig->ConfigPipTopPercent;
@@ -432,6 +434,9 @@ void cMenuSetupSoft::Store(void)
 		LOGDEBUG("Disable deinterlacer!");
 	}
 	m_pDevice->SetDisableDeint();
+
+	SetupStore("DecoderNeedsIFrame", m_pConfig->ConfigDecoderNeedsIFrame = m_cDecoderNeedsIFrame);
+	m_pDevice->SetDecoderNeedsIFrame();
 
 	// pip
 	SetupStore("PipScalePercent", m_pConfig->ConfigPipScalePercent = m_cPipScalePercent);

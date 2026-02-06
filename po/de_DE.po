@@ -157,6 +157,9 @@ msgstr "Video"
 msgid "Disable deinterlacer"
 msgstr "Deaktiviere Deinterlacer"
 
+msgid "H.264 HW decoder needs I-Frame"
+msgstr "H.264 HW Dekoder benötigt I-Frame für Start"
+
 msgid "Picture-in-picture"
 msgstr "Bild-in-Bild"
 

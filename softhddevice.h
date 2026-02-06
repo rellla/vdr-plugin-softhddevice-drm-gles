@@ -173,6 +173,9 @@ public:
 	cVideoRender *Render(void) { return m_pRender; };
 	cSoftHdAudio *Audio(void) { return m_pAudio; };
 
+	void SetDisableDeint(void);
+	void SetDecoderNeedsIFrame(void);
+
 	// osd
 #ifdef USE_GLES
 #ifdef WRITE_PNG
@@ -183,7 +186,6 @@ public:
 	void SetDisableOglOsd(void);
 	void SetEnableOglOsd(void);
 #endif
-	void SetDisableDeint(void);
 	void OsdClose(void);
 	void OsdDrawARGB(int, int, int, int, int, const uint8_t *, int, int);
 	void SetScreenSize(int, int, double);

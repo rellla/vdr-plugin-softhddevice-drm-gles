@@ -294,6 +294,10 @@ Setup: /etc/vdr/setup.conf
 		0 = deinterlacer active if available
 		1 = deinterlacer is disabled
 
+	softhddevice-drm-gles.DecoderNeedsIFrame = 0
+		0 = H.264 HW decoder is started as soon as any frame arrives
+		1 = H.264 HW decoder needs to wait for an I-Frame to start
+
 	softhddevice-drm-gles.PipScalePercent = 25
 		10 - 100 = scale factor for pip (%)
 

@@ -24,19 +24,36 @@ extern "C" {
 #include <libavcodec/avcodec.h>
 }
 
+typedef enum {
+	NALU_TYPE_NON_IDR = (1 << 0),
+	NALU_TYPE_IDR     = (1 << 1),
+	NALU_TYPE_SEI     = (1 << 2),
+	NALU_TYPE_SPS     = (1 << 3),
+	NALU_TYPE_PPS     = (1 << 4),
+	NALU_TYPE_AUD     = (1 << 5)
+} NalUnitTypes;
+
 /**
  * cH264Parser - H264 Parser class
  */
 class cH264Parser
 {
 public:
-	cH264Parser(AVPacket *avpkt) : m_pAvpkt(avpkt) {}
-	void GetDimensions(int *, int *);
+	cH264Parser(AVPacket *);
+	int GetWidth(void) { return m_width; };
+	int GetHeight(void) { return m_height; };
+	bool IsIFrame(void);
+
 private:
 	AVPacket *m_pAvpkt;
 	const unsigned char *m_pStart;
 	unsigned short m_nLength;
 	int m_nCurrentBit;
+
+	int m_nalutype = 0;
+
+	int m_width = 0;
+	int m_height = 0;
 
 	unsigned int ReadBit(void);
 	unsigned int ReadBits(int);
