@@ -86,6 +86,7 @@ protected:
 	int m_cVideoMenu;
 	int m_cDisableDeint;
 	int m_cDecoderNeedsIFrame;
+	int m_cParseH264Dimensions;;
 
 	// Audio
 	int m_cAudio;

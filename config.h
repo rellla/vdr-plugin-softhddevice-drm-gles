@@ -60,6 +60,7 @@ public:
 	int ConfigLogLevels = 0;                    ///< loglevel config
 	bool ConfigDisableDeint = false;            ///< disable deinterlacer
 	bool ConfigDecoderNeedsIFrame = false;      ///< start h264 decoder only when an I-Frame arrives
+	bool ConfigParseH264Dimensions = false;     ///< parse h264 stream for width and height for decoder init
 
 	// pip - default position at right top, 25% scaled
 	int ConfigPipScalePercent = 25;             ///< scale factor of pip video

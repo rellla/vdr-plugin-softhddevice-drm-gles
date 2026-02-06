@@ -161,6 +161,7 @@ cVideoStream::cVideoStream(cVideoRender *render, cQueue<cDrmBuffer> *drmBufferQu
 	  m_userDisabledDeinterlacer(config->ConfigDisableDeint),
 	  m_deinterlacerDeactivated(isPipStream ? true : false),
 	  m_startDecodingWithIFrame(config->ConfigDecoderNeedsIFrame),
+	  m_parseH264Dimensions(config->ConfigParseH264Dimensions)
 {
 	m_filterThreadName = "shd " + std::string(m_identifier) + " filter";
 	m_pFilterThread = new cFilterThread(render, m_pDrmBufferQueue, m_filterThreadName.c_str(), frameOutput);
@@ -306,7 +307,7 @@ void cVideoStream::DecodeInput(void)
 		int height = 0;
 
 		if (m_codecId == AV_CODEC_ID_H264 &&
-		   (m_startDecodingWithIFrame || m_hardwareQuirks & QUIRK_CODEC_NEEDS_EXT_INIT)) {
+		   (m_startDecodingWithIFrame || (m_hardwareQuirks & QUIRK_CODEC_NEEDS_EXT_INIT) || m_parseH264Dimensions)) {
 
 			cH264Parser h264Packet(m_packets.Peek());
 
@@ -319,7 +320,7 @@ void cVideoStream::DecodeInput(void)
 			}
 
 			// amlogic h264 decoder needs width an height for correct decoder open
-			if ((m_hardwareQuirks & QUIRK_CODEC_NEEDS_EXT_INIT)) {
+			if ((m_hardwareQuirks & QUIRK_CODEC_NEEDS_EXT_INIT) || m_parseH264Dimensions) {
 				width = h264Packet.GetWidth();
 				height = h264Packet.GetHeight();
 				LOGDEBUG2(L_CODEC, "videostream %s: %s: Parsed width %d height %d", m_identifier, __FUNCTION__, width, height);
