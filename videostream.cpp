@@ -159,7 +159,8 @@ cVideoStream::cVideoStream(cVideoRender *render, cQueue<cDrmBuffer> *drmBufferQu
 	  m_frameOutput(frameOutput),
 	  m_pDrmBufferQueue(drmBufferQueue),
 	  m_userDisabledDeinterlacer(config->ConfigDisableDeint),
-	  m_deinterlacerDeactivated(isPipStream ? true : false)
+	  m_deinterlacerDeactivated(isPipStream ? true : false),
+	  m_startDecodingWithIFrame(config->ConfigDecoderNeedsIFrame),
 {
 	m_filterThreadName = "shd " + std::string(m_identifier) + " filter";
 	m_pFilterThread = new cFilterThread(render, m_pDrmBufferQueue, m_filterThreadName.c_str(), frameOutput);
@@ -304,12 +305,25 @@ void cVideoStream::DecodeInput(void)
 		int width = 0;
 		int height = 0;
 
-		// amlogic h264 decoder needs width an height for correct decoder open
-		if ((m_codecId == AV_CODEC_ID_H264) && (m_hardwareQuirks & QUIRK_CODEC_NEEDS_EXT_INIT)) {
-			cH264Parser h264Parser(m_packets.Peek());
-			h264Parser.GetDimensions(&width, &height);
+		if (m_codecId == AV_CODEC_ID_H264 &&
+		   (m_startDecodingWithIFrame || m_hardwareQuirks & QUIRK_CODEC_NEEDS_EXT_INIT)) {
 
-			LOGDEBUG2(L_CODEC, "videostream %s: %s: Parsed width %d height %d", m_identifier, __FUNCTION__, width, height);
+			cH264Parser h264Packet(m_packets.Peek());
+
+			// start decoding with an I-Frame only
+			if (!h264Packet.IsIFrame() && m_startDecodingWithIFrame) {
+				LOGDEBUG2(L_CODEC, "videostream %s: %s: Skip h264 packet, no I-Frame!", m_identifier, __FUNCTION__);
+				AVPacket *avpkt = m_packets.Pop();
+				av_packet_free(&avpkt);
+				return;
+			}
+
+			// amlogic h264 decoder needs width an height for correct decoder open
+			if ((m_hardwareQuirks & QUIRK_CODEC_NEEDS_EXT_INIT)) {
+				width = h264Packet.GetWidth();
+				height = h264Packet.GetHeight();
+				LOGDEBUG2(L_CODEC, "videostream %s: %s: Parsed width %d height %d", m_identifier, __FUNCTION__, width, height);
+			}
 		}
 
 		if (m_pDecoder->Open(m_codecId, m_pPar, m_timebase, false, width, height))

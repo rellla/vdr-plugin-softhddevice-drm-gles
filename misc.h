@@ -107,6 +107,10 @@ static inline const char* av_err2string(int errnum)
 #define av_err2str(err) av_err2string(err)
 #endif
 
+/****************************************************************************************
+ * Misc Helpers
+ ***************************************************************************************/
+
 /**
  * Nice time-stamp string.
  *
@@ -129,6 +133,21 @@ static inline const char *Timestamp2String(int64_t ts, uint8_t divisor)
 		(int)((ts / (1000)) % 60), (int)(ts % 1000));
 
 	return buf[idx];
+}
+
+/**
+ * Return _count_ amount of bytes from data
+ */
+static inline uint32_t ReadBytes(const uint8_t *data, int count)
+{
+	uint32_t value = 0;
+
+	for (int i = 0; i < count; i++) {
+		value <<= 8;
+		value |= data[i];
+	}
+
+	return value;
 }
 
 #endif

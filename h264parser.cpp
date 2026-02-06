@@ -29,6 +29,7 @@ extern "C" {
 
 #include "h264parser.h"
 #include "logger.h"
+#include "misc.h"
 
 /*****************************************************************************
  * cH264Parser class
@@ -52,25 +53,75 @@ static void PrintStreamData(const uint8_t *data, int size)
 }
 
 /**
- * Get width and height from stream
- *
- * @param[out] width      video stream width
- * @param[out] height     video stream height
+ * Returns true, if we have a 0x000001 start code
+ * in data at the offset position
  */
-void cH264Parser::GetDimensions(int *width, int *height)
+bool isValidStartCode(const uint8_t *data, int offset)
 {
-	m_pStart = NULL;
+	return ReadBytes(&data[offset], 3) == 0x000001;
+}
+
+/**
+ * Return the nal unit type
+ */
+static int NalUnitType(const uint8_t *data, int i)
+{
+	return data[i + 3] & 0x1F;
+}
+
+/**
+ * Init the h264 parser and detect the nalu types
+ *
+ * @param avpkt      AVPacket to parse
+ */
+cH264Parser::cH264Parser(AVPacket *avpkt)
+	: m_pAvpkt(avpkt)
+{
 	int i;
 
-	for (i = 0; i < m_pAvpkt->size; i++) {
-		if (!m_pAvpkt->data[i] && !m_pAvpkt->data[i + 1] && m_pAvpkt->data[i + 2] == 0x01 &&
-		   (m_pAvpkt->data[i + 3] == 0x67 || m_pAvpkt->data[i + 3] == 0x27)) {
+	// part 1: collect the nalu types in the packet
+	for (i = 0; i < m_pAvpkt->size - 3; i++) {
+		if (!isValidStartCode(m_pAvpkt->data, i))
+			continue;
 
+		switch (NalUnitType(m_pAvpkt->data, i)) {
+			case 1:
+				m_nalutype |= NALU_TYPE_NON_IDR;
+				break;
+			case 5:
+				m_nalutype |= NALU_TYPE_IDR;
+				break;
+			case 6:
+				m_nalutype |= NALU_TYPE_SEI;
+				break;
+			case 7:
+				m_nalutype |= NALU_TYPE_SPS;
+				break;
+			case 8:
+				m_nalutype |= NALU_TYPE_PPS;
+				break;
+			case 9:
+				m_nalutype |= NALU_TYPE_AUD;
+				break;
+			default:
+				break;
+		}
+	}
+
+	// part 2: parse h264 SPS and get width and height
+	m_pStart = NULL;
+	for (i = 0; i < m_pAvpkt->size - 4; i++) {
+		if (!isValidStartCode(m_pAvpkt->data, i))
+			continue;
+
+		if (NalUnitType(m_pAvpkt->data, i) == 7) {
 			m_pStart = &m_pAvpkt->data[i + 4];
 			m_nLength = m_pAvpkt->size - i - 4;
 			break;
 		}
 	}
+
+	// no SPS available
 	if (!m_pStart) {
 		LOGERROR("H264Parser: %s: No m_pStart %p Pkt %p i %d", __FUNCTION__, m_pStart, m_pAvpkt, i);
 		PrintStreamData(m_pAvpkt->data, m_pAvpkt->size);
@@ -152,14 +203,14 @@ void cH264Parser::GetDimensions(int *width, int *height)
 	int subWidthC = 0;
 	int subHeightC = 0;
 
-	if (chromaFormatIdc == 0 && separateColorPlaneFlag == 0) { //monochrome
+	if (chromaFormatIdc == 0 && separateColorPlaneFlag == 0) { // monochrome
 		subWidthC = subHeightC = 2;
-	} else if (chromaFormatIdc == 1 && separateColorPlaneFlag == 0) { //4:2:0
+	} else if (chromaFormatIdc == 1 && separateColorPlaneFlag == 0) { // 4:2:0
 		subWidthC = subHeightC = 2;
-	} else if (chromaFormatIdc == 2 && separateColorPlaneFlag == 0) { //4:2:2
+	} else if (chromaFormatIdc == 2 && separateColorPlaneFlag == 0) { // 4:2:2
 		subWidthC = 2;
 		subHeightC = 1;
-	} else if (chromaFormatIdc == 3) { //4:4:4
+	} else if (chromaFormatIdc == 3) { // 4:4:4
 		if (separateColorPlaneFlag == 0) {
 			subWidthC = subHeightC = 1;
 		} else if (separateColorPlaneFlag == 1) {
@@ -167,11 +218,29 @@ void cH264Parser::GetDimensions(int *width, int *height)
 		}
 	}
 
-	*width = ((picWidthInMbsMinusOne + 1) * 16) -
+	m_width = ((picWidthInMbsMinusOne + 1) * 16) -
 		subWidthC * (frameCropRightOffset + frameCropLeftOffset);
 
-	*height = ((2 - frameMbsOnlyFlag)* (picHeightInMapUnitsMinusOne +1) * 16) -
+	m_height = ((2 - frameMbsOnlyFlag)* (picHeightInMapUnitsMinusOne +1) * 16) -
 		subHeightC * ((frameCropBottomOffset * 2) + (frameCropTopOffset * 2));
+
+	LOGDEBUG2(L_CODEC, "H264Parser: %s %s%s%s%s%s%s width %d height %d", __FUNCTION__,
+		m_nalutype & NALU_TYPE_AUD     ? "AUD " : "",
+		m_nalutype & NALU_TYPE_SPS     ? "SPS " : "",
+		m_nalutype & NALU_TYPE_PPS     ? "PPS " : "",
+		m_nalutype & NALU_TYPE_SEI     ? "SEI " : "",
+		m_nalutype & NALU_TYPE_IDR     ? "IDR " : "",
+		m_nalutype & NALU_TYPE_NON_IDR ? "NON-IDR " : "",
+		m_width, m_height);
+}
+
+/*
+ * Does the parser frame include an I-Frame?
+ */
+bool cH264Parser::IsIFrame(void)
+{
+	return (m_nalutype & NALU_TYPE_IDR) ||
+	      ((m_nalutype & NALU_TYPE_NON_IDR) && (m_nalutype & (NALU_TYPE_PPS | NALU_TYPE_SPS)));
 }
 
 /*

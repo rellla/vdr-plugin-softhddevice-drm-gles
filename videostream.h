@@ -93,6 +93,7 @@ public:
 	bool IsDeinterlacerDeactivated(void) { return m_deinterlacerDeactivated; };
 	int HardwareQuirks(void) { return m_hardwareQuirks; };
 	void DisableDeint(bool disable) { m_userDisabledDeinterlacer = disable; };
+	void SetStartDecodingWithIFrame(bool enable) { m_startDecodingWithIFrame = enable; };
 
 protected:
 	cVideoStream(cVideoRender *, cQueue<cDrmBuffer> *, cSoftHdConfig *, bool, std::function<void(AVFrame *)>);
@@ -112,6 +113,7 @@ private:
 	int m_hardwareQuirks;                           ///< hardware specific quirks
 	bool m_userDisabledDeinterlacer = false;        ///< set, if the user configured the deinterlace to be disabled
 	bool m_deinterlacerDeactivated;                 ///< set, if the deinterlacer should be disabled temporarily (trickspeed, stillpicture, pip)
+	bool m_startDecodingWithIFrame = false;         ///< wait for an I-Frame to start h264 decoding
 
 	cQueue<AVPacket> m_packets{VIDEO_PACKET_MAX};   ///< AVPackets queue
 

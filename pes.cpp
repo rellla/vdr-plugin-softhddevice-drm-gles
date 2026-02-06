@@ -21,23 +21,12 @@
 
 #include "pes.h"
 #include "logger.h"
+#include "misc.h"
 
 #include "vdr/remux.h"
 
 extern "C" {
 #include <libavutil/avutil.h>
-}
-
-static uint32_t ReadBytes(const uint8_t *data, int count)
-{
-	uint32_t value = 0;
-
-	for (int i = 0; i < count; i++) {
-		value <<= 8;
-		value |= data[i];
-	}
-
-	return value;
 }
 
 /**
@@ -350,7 +339,6 @@ int cPes::GetPacketLength()
 	return PesLength(m_data);
 }
 
-#include "misc.h"
 /**
  * Pop an AVPacket from the reassembly buffer
  *
