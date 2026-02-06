@@ -94,6 +94,7 @@ public:
 	int HardwareQuirks(void) { return m_hardwareQuirks; };
 	void DisableDeint(bool disable) { m_userDisabledDeinterlacer = disable; };
 	void SetStartDecodingWithIFrame(bool enable) { m_startDecodingWithIFrame = enable; };
+	void SetParseH264Dimensions(bool enable) { m_parseH264Dimensions = enable; };
 
 protected:
 	cVideoStream(cVideoRender *, cQueue<cDrmBuffer> *, cSoftHdConfig *, bool, std::function<void(AVFrame *)>);
@@ -114,6 +115,7 @@ private:
 	bool m_userDisabledDeinterlacer = false;        ///< set, if the user configured the deinterlace to be disabled
 	bool m_deinterlacerDeactivated;                 ///< set, if the deinterlacer should be disabled temporarily (trickspeed, stillpicture, pip)
 	bool m_startDecodingWithIFrame = false;         ///< wait for an I-Frame to start h264 decoding
+	bool m_parseH264Dimensions = false;             ///< parse width and height when starting an h264 stream
 
 	cQueue<AVPacket> m_packets{VIDEO_PACKET_MAX};   ///< AVPackets queue
 

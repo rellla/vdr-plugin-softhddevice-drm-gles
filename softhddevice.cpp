@@ -1483,6 +1483,15 @@ void cSoftHdDevice::SetDecoderNeedsIFrame(void)
 }
 
 /**
+ * Parse the h264 stream width and height before starting the decoder
+ */
+void cSoftHdDevice::SetParseH264Dimensions(void)
+{
+	if (m_pVideoStream)
+		m_pVideoStream->SetParseH264Dimensions(m_pConfig->ConfigParseH264Dimensions);
+}
+
+/**
  * Set the passthrough mask (called from setup menu or conf)
  */
 void cSoftHdDevice::SetPassthrough(int mask)

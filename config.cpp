@@ -58,6 +58,7 @@ bool cSoftHdConfig::SetupParse(const char *name, const char *value)
 	                                                         cSoftHdLogger::GetLogger()->SetLogLevel(ConfigLogState ? ConfigLogLevels : 0);
 	} else if (!strcasecmp(name, "DisableDeint"))          { ConfigDisableDeint = atoi(value);
 	} else if (!strcasecmp(name, "DecoderNeedsIFrame"))    { ConfigDecoderNeedsIFrame = atoi(value);
+	} else if (!strcasecmp(name, "ParseH264Dimensions"))   { ConfigParseH264Dimensions = atoi(value);
 	} else if (!strcasecmp(name, "AudioDelay"))            { ConfigVideoAudioDelayMs = atoi(value);
 	} else if (!strcasecmp(name, "AudioPassthrough"))      { ConfigAudioPassthroughMask = abs(atoi(value)); ConfigAudioPassthroughState = atoi(value) > 0;
 	} else if (!strcasecmp(name, "AudioDownmix"))          { ConfigAudioDownmix = atoi(value);
