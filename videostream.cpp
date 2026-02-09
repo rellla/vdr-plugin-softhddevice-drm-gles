@@ -119,12 +119,14 @@ static int ReadHWPlatform(void)
 		}
 		if (strstr(read_ptr, "bcm2711")) {
 			LOGDEBUG2(L_DRM, "videostream: %s: bcm2711 (Raspberry Pi 4 Model B, Compute Module 4, Pi 400) found", __FUNCTION__);
-			hardwareQuirks |= QUIRK_CODEC_FLUSH_WORKAROUND;
+			hardwareQuirks |= QUIRK_CODEC_FLUSH_WORKAROUND
+			               |  QUIRK_CODEC_NO_MBAFF_SUPPORT;
 			break;
 		}
 		if (strstr(read_ptr, "bcm2712")) {
 			LOGDEBUG2(L_DRM, "videostream: %s: bcm2712 (Raspberry Pi 5, Compute Module 5, Pi 500) found", __FUNCTION__);
-			hardwareQuirks |= QUIRK_CODEC_FLUSH_WORKAROUND;
+			hardwareQuirks |= QUIRK_CODEC_FLUSH_WORKAROUND
+			               |  QUIRK_CODEC_NO_MBAFF_SUPPORT;
 			break;
 		}
 		if (strstr(read_ptr, "amlogic")) {
@@ -298,6 +300,7 @@ void cVideoStream::DecodeInput(void)
 {
 	AVFrame *frame = nullptr;
 	int ret = 0;
+	bool forceSoftwareDecoder = false;
 
 	if (m_codecId == AV_CODEC_ID_NONE || m_packets.IsEmpty() || m_pDrmBufferQueue->IsFull() || m_pFilterThread->IsInputBufferFull())
 		return;
@@ -306,9 +309,12 @@ void cVideoStream::DecodeInput(void)
 		int width = 0;
 		int height = 0;
 
-		if (m_codecId == AV_CODEC_ID_H264 &&
-		   (m_startDecodingWithIFrame || (m_hardwareQuirks & QUIRK_CODEC_NEEDS_EXT_INIT) || m_parseH264Dimensions)) {
+		bool needsParsing = m_startDecodingWithIFrame ||
+		                    m_parseH264Dimensions ||
+		                   (m_hardwareQuirks & QUIRK_CODEC_NEEDS_EXT_INIT) ||
+		                   (m_hardwareQuirks & QUIRK_CODEC_NO_MBAFF_SUPPORT);
 
+		if (needsParsing && m_codecId == AV_CODEC_ID_H264) {
 			cH264Parser h264Packet(m_packets.Peek());
 
 			// start decoding with an I-Frame only
@@ -325,9 +331,16 @@ void cVideoStream::DecodeInput(void)
 				height = h264Packet.GetHeight();
 				LOGDEBUG2(L_CODEC, "videostream %s: %s: Parsed width %d height %d", m_identifier, __FUNCTION__, width, height);
 			}
+
+			// fallback to SW H.264 decoder, if the decoder doesn't support mbaff
+			if (m_hardwareQuirks & QUIRK_CODEC_NO_MBAFF_SUPPORT) {
+				forceSoftwareDecoder = h264Packet.IsMbaff();
+				if (forceSoftwareDecoder)
+					LOGDEBUG2(L_CODEC, "videostream %s: %s: Fallback to H.264 software decoder for mbaff stream", m_identifier, __FUNCTION__);
+			}
 		}
 
-		if (m_pDecoder->Open(m_codecId, m_pPar, m_timebase, false, width, height))
+		if (m_pDecoder->Open(m_codecId, m_pPar, m_timebase, forceSoftwareDecoder, width, height))
 			LOGFATAL("videostream %s: %s: Could not open the decoder!", m_identifier, __FUNCTION__);
 
 		m_pConfig->CurrentDecoderType = m_pDecoder->IsHardwareDecoder() ? "hardware" : "software";
