@@ -283,7 +283,7 @@ void cVideoStream::FlushDecoder(void)
 {
 	LOGDEBUG2(L_CODEC, "videostream %s: %s", m_identifier, __FUNCTION__);
 
-	if (m_hardwareQuirks & QUIRK_CODEC_FLUSH_WORKAROUND) {
+	if ((m_hardwareQuirks & QUIRK_CODEC_FLUSH_WORKAROUND) && m_pDecoder->IsHardwareDecoder()) {
 		if (m_pDecoder->ReopenCodec(m_codecId, m_pPar, m_timebase, 0))
 			LOGFATAL("videostream %s: %s: Could not reopen the decoder (flush)!", m_identifier, __FUNCTION__);
 	} else {
