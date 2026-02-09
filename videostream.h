@@ -43,6 +43,7 @@ extern "C" {
 #define QUIRK_CODEC_SKIP_NUM_FRAMES     2          ///< skip QUIRK_CODEC_SKIP_NUM_FRAMES, in case QUIRK_CODEC_SKIP_FIRST_FRAMES is set
 #define QUIRK_CODEC_DISABLE_MPEG_HW     1 << 4     ///< set, if disable mpeg hardware decoder
 #define QUIRK_CODEC_DISABLE_H264_HW     1 << 5     ///< set, if disable h264 hardware decoder
+#define QUIRK_CODEC_NO_MBAFF_SUPPORT    1 << 6     ///< set, if the h264 hardware decoder doesn't support mbaff
 
 class cSoftHdConfig;
 class cVideoDecoder;

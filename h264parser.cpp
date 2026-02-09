@@ -189,8 +189,9 @@ cH264Parser::cH264Parser(AVPacket *avpkt)
 	int picHeightInMapUnitsMinusOne = ReadExponentialGolombCode();
 	int frameMbsOnlyFlag = ReadBit();
 	if (!frameMbsOnlyFlag) {
-		ReadBit();
+		m_mbaff = ReadBit();
 	}
+
 	ReadBit();
 	int frameCroppingFlag = ReadBit();
 	if (frameCroppingFlag) {

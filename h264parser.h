@@ -43,6 +43,7 @@ public:
 	int GetWidth(void) { return m_width; };
 	int GetHeight(void) { return m_height; };
 	bool IsIFrame(void);
+	bool IsMbaff(void) { return m_mbaff; };
 
 private:
 	AVPacket *m_pAvpkt;
@@ -54,6 +55,7 @@ private:
 
 	int m_width = 0;
 	int m_height = 0;
+	bool m_mbaff = false;
 
 	unsigned int ReadBit(void);
 	unsigned int ReadBits(int);
