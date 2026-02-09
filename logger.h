@@ -21,6 +21,7 @@
 #define __LOGGER_H
 
 #include <atomic>
+#include <cstdarg>
 #include <memory>
 
 // FFmpeg log level
