@@ -127,6 +127,7 @@ private:
 	int m_sentTrickPkts = 0;               ///< how many avpkt have been sent to the decoder in trickspeed mode?
 	volatile bool m_newStream = false;     ///< flag for new stream
 	bool m_interlaced;                     ///< flag for interlaced stream
+	bool m_mbaffStream = false;            ///< true, if this stream uses macroblock adaptive frame/field coding
 
 	cDecodingThread *m_pDecodingThread;    ///< pointer to decoding thread
 	int64_t m_inputPts = AV_NOPTS_VALUE;   ///< PTS of the first packet in the input buffer

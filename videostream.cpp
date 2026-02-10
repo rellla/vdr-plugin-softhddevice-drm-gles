@@ -300,7 +300,6 @@ void cVideoStream::DecodeInput(void)
 {
 	AVFrame *frame = nullptr;
 	int ret = 0;
-	bool forceSoftwareDecoder = false;
 
 	if (m_codecId == AV_CODEC_ID_NONE || m_packets.IsEmpty() || m_pDrmBufferQueue->IsFull() || m_pFilterThread->IsInputBufferFull())
 		return;
@@ -334,27 +333,19 @@ void cVideoStream::DecodeInput(void)
 
 			// fallback to SW H.264 decoder, if the decoder doesn't support mbaff
 			if (m_hardwareQuirks & QUIRK_CODEC_NO_MBAFF_SUPPORT) {
-				forceSoftwareDecoder = h264Packet.IsMbaff();
-				if (forceSoftwareDecoder)
+				m_mbaffStream = h264Packet.IsMbaff();
+				if (m_mbaffStream)
 					LOGDEBUG2(L_CODEC, "videostream %s: %s: Fallback to H.264 software decoder for mbaff stream", m_identifier, __FUNCTION__);
 			}
 		}
 
-		if (m_pDecoder->Open(m_codecId, m_pPar, m_timebase, forceSoftwareDecoder, width, height))
+		if (m_pDecoder->Open(m_codecId, m_pPar, m_timebase, m_mbaffStream, width, height))
 			LOGFATAL("videostream %s: %s: Could not open the decoder!", m_identifier, __FUNCTION__);
 
 		m_pConfig->CurrentDecoderType = m_pDecoder->IsHardwareDecoder() ? "hardware" : "software";
 		m_pConfig->CurrentDecoderName = m_pDecoder->Name();
 		m_newStream = false;
 	}
-
-	// wait for m_trickpkts packets
-	//
-	// m_trickpkts is the number of packets we need to have in the buffer
-	// while in interlaced trickspeed mode, needed to get a frame.
-	// This guarantees, that we don't drain the decoder too early, but exactly after
-	// m_trickpkts sent packets
-	int minPkts = (m_pRender->IsTrickSpeed() && m_interlaced) ? m_trickpkts : 1;
 
 	// send packet to decoder
 	AVPacket *avpkt = m_packets.Peek();
@@ -366,8 +357,26 @@ void cVideoStream::DecodeInput(void)
 		av_packet_free(&avpkt);
 	}
 
-	// in backward trickspeed force the decoder to decode the frame, if minPkts are sent
-	if (ret == 0 && m_pRender->IsTrickSpeed() && !m_pRender->IsForwardTrickspeed()) {
+	// Check, if we need to force the decoder to decode the frame (force a decoder drain)
+	//
+	// Get the number of packets we need to have in the buffer while in interlaced (not mbaff)
+	// trickspeed mode, in order to get a decoded frameout of the decoder.
+	//
+	// In a normal interlaced h264 stream we need to force decoding after sending 2 packets
+	// in backwards trickspeed to get a decoded frame, in an mpeg2 stream 1 packet is enough.
+	//
+	// In mbaff coded h264 streams we also force decoding in fast forward mode. Because VDR does
+	// not send a continous stream, the decoder would wait forever otherwise to decode the packet.
+	//
+	// This minPkts magic guarantees, that we don't drain the decoder too early, but exactly after
+	// the right amount of packets was sent in trickspeed mode.
+	int minPkts = 1;
+	if (m_pRender->IsTrickSpeed() && m_interlaced && !m_mbaffStream)
+		minPkts = m_trickpkts;
+
+	if (ret == 0 && m_pRender->IsTrickSpeed() &&
+	   (!m_pRender->IsForwardTrickspeed() ||
+	    (m_pRender->IsForwardTrickspeed() && m_pRender->IsFastTrickspeed() && m_mbaffStream))) {
 		m_sentTrickPkts++;
 		if (m_sentTrickPkts >= minPkts) {
 			m_pDecoder->SendPacket(NULL);

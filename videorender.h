@@ -133,6 +133,7 @@ public:
 	void SetTrickSpeed(double, bool, bool);
 	bool IsTrickSpeed(void) { return m_trickspeed; };
 	bool IsForwardTrickspeed(void) { return m_forwardTrickspeed; };
+	bool IsFastTrickspeed(void) { return m_trickspeedFactor > 1.0; };
 	void SetStillpicture(bool active) { m_stillpicture = active; };
 	bool IsStillpicture(void) { return m_stillpicture; };
 
