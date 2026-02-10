@@ -133,6 +133,8 @@ private:
 	int64_t m_inputPts = AV_NOPTS_VALUE;   ///< PTS of the first packet in the input buffer
 
 	void RenderFrame(AVFrame *);
+	void CheckForcingFrameDecode(void);
+	void OpenDecoder(void);
 };
 
 /**
