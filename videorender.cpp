@@ -1004,7 +1004,7 @@ void cVideoRender::Reset()
  */
 void cVideoRender::SetTrickSpeed(double speed, bool active, bool forward)
 {
-	LOGDEBUG2(L_TRICK, "videorender: %s: set trick speed %.3f %s", __FUNCTION__, speed, forward ? "forward" : "backward");
+	LOGDEBUG2(L_TRICK, "videorender: %s: set trick speed %.3f %s %s", __FUNCTION__, speed, speed > 1.0 ? "fast" : "slow", forward ? "forward" : "backward");
 	m_framePresentationCounter = 1;
 	m_trickspeedFactor = speed;
 	m_trickspeed = active;
