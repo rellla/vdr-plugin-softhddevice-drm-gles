@@ -43,7 +43,6 @@ extern "C" {
 #define QUIRK_CODEC_SKIP_NUM_FRAMES     2          ///< skip QUIRK_CODEC_SKIP_NUM_FRAMES, in case QUIRK_CODEC_SKIP_FIRST_FRAMES is set
 #define QUIRK_CODEC_DISABLE_MPEG_HW     1 << 4     ///< set, if disable mpeg hardware decoder
 #define QUIRK_CODEC_DISABLE_H264_HW     1 << 5     ///< set, if disable h264 hardware decoder
-#define QUIRK_CODEC_NO_MBAFF_SUPPORT    1 << 6     ///< set, if the h264 hardware decoder doesn't support mbaff
 
 class cSoftHdConfig;
 class cVideoDecoder;
@@ -127,7 +126,6 @@ private:
 	int m_sentTrickPkts = 0;               ///< how many avpkt have been sent to the decoder in trickspeed mode?
 	volatile bool m_newStream = false;     ///< flag for new stream
 	bool m_interlaced;                     ///< flag for interlaced stream
-	bool m_mbaffStream = false;            ///< true, if this stream uses macroblock adaptive frame/field coding
 
 	cDecodingThread *m_pDecodingThread;    ///< pointer to decoding thread
 	int64_t m_inputPts = AV_NOPTS_VALUE;   ///< PTS of the first packet in the input buffer

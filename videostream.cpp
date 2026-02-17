@@ -119,14 +119,12 @@ static int ReadHWPlatform(void)
 		}
 		if (strstr(read_ptr, "bcm2711")) {
 			LOGDEBUG2(L_DRM, "videostream: %s: bcm2711 (Raspberry Pi 4 Model B, Compute Module 4, Pi 400) found", __FUNCTION__);
-			hardwareQuirks |= QUIRK_CODEC_FLUSH_WORKAROUND
-			               |  QUIRK_CODEC_NO_MBAFF_SUPPORT;
+			hardwareQuirks |= QUIRK_CODEC_FLUSH_WORKAROUND;
 			break;
 		}
 		if (strstr(read_ptr, "bcm2712")) {
 			LOGDEBUG2(L_DRM, "videostream: %s: bcm2712 (Raspberry Pi 5, Compute Module 5, Pi 500) found", __FUNCTION__);
-			hardwareQuirks |= QUIRK_CODEC_FLUSH_WORKAROUND
-			               |  QUIRK_CODEC_NO_MBAFF_SUPPORT;
+			hardwareQuirks |= QUIRK_CODEC_FLUSH_WORKAROUND;
 			break;
 		}
 		if (strstr(read_ptr, "amlogic")) {
@@ -296,24 +294,20 @@ void cVideoStream::FlushDecoder(void)
 /**
  * Check, if we need to force the decoder to decode the frame (force a decoder drain)
  *
- * Get the number of packets we need to have in the buffer while in interlaced (not mbaff)
+ * Get the number of packets we need to have in the buffer while in interlaced
  * trickspeed mode, in order to get a decoded frameout of the decoder.
  *
- * In a normal interlaced h264 stream we need to force decoding after sending 2 packets
- * in backwards trickspeed to get a decoded frame, in an mpeg2 stream 1 packet is enough.
- *
- * In mbaff coded h264 streams we also force decoding in fast forward mode. Because VDR does
- * not send a continous stream, the decoder would wait forever otherwise to decode the packet.
+ * In a normal interlaced h264 stream we need to force decoding after sending 2 packets in
+ * backwards trickspeed to get a decoded frame, in an mpeg2 stream 1 packet is enough.
  *
  * This minPkts magic guarantees, that we don't drain the decoder too early, but exactly after
  * the right amount of packets was sent in trickspeed mode.
  */
 void cVideoStream::CheckForcingFrameDecode(void)
 {
-	int minPkts = (m_interlaced && !m_mbaffStream) ? m_trickpkts : 1;
+	int minPkts = m_interlaced ? m_trickpkts : 1;
 
-	if ((!m_pRender->IsForwardTrickspeed() ||
-	     (m_pRender->IsForwardTrickspeed() && m_pRender->IsFastTrickspeed() && m_mbaffStream))) {
+	if (!m_pRender->IsForwardTrickspeed()) {
 		m_sentTrickPkts++;
 		if (m_sentTrickPkts >= minPkts) {
 			m_pDecoder->SendPacket(NULL);
@@ -332,8 +326,7 @@ void cVideoStream::OpenDecoder(void)
 
 	bool needsParsing = m_startDecodingWithIFrame ||
 	                    m_parseH264Dimensions ||
-	                   (m_hardwareQuirks & QUIRK_CODEC_NEEDS_EXT_INIT) ||
-	                   (m_hardwareQuirks & QUIRK_CODEC_NO_MBAFF_SUPPORT);
+	                   (m_hardwareQuirks & QUIRK_CODEC_NEEDS_EXT_INIT);
 
 	if (needsParsing && m_codecId == AV_CODEC_ID_H264) {
 		cH264Parser h264Packet(m_packets.Peek());
@@ -352,16 +345,9 @@ void cVideoStream::OpenDecoder(void)
 			height = h264Packet.GetHeight();
 			LOGDEBUG2(L_CODEC, "videostream %s: %s: Parsed width %d height %d", m_identifier, __FUNCTION__, width, height);
 		}
-
-		// fallback to SW H.264 decoder, if the decoder doesn't support mbaff
-		if (m_hardwareQuirks & QUIRK_CODEC_NO_MBAFF_SUPPORT) {
-			m_mbaffStream = h264Packet.IsMbaff();
-			if (m_mbaffStream)
-				LOGDEBUG2(L_CODEC, "videostream %s: %s: Fallback to H.264 software decoder for mbaff stream", m_identifier, __FUNCTION__);
-		}
 	}
 
-	if (m_pDecoder->Open(m_codecId, m_pPar, m_timebase, m_mbaffStream, width, height))
+	if (m_pDecoder->Open(m_codecId, m_pPar, m_timebase, false, width, height))
 		LOGFATAL("videostream %s: %s: Could not open the decoder!", m_identifier, __FUNCTION__);
 
 	m_pConfig->CurrentDecoderType = m_pDecoder->IsHardwareDecoder() ? "hardware" : "software";
