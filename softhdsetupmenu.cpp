@@ -77,14 +77,14 @@ void cMenuSetupSoft::Create(void)
 	//
 	Add(CollapsedItem(tr("General"), m_cGeneral));
 	if (m_cGeneral) {
-		Add(new cMenuEditBoolItem(tr("Hide main menu entry"), &m_cHideMainMenuEntry, trVDR("no"), trVDR("yes")));
+		Add(new cMenuEditBoolItem(tr(" Hide main menu entry"), &m_cHideMainMenuEntry, trVDR("no"), trVDR("yes")));
 #ifdef USE_GLES
 		if (!m_pConfig->ConfigDisableOglOsd) {
-			Add(new cMenuEditIntItem(tr("GPU mem used for image caching (MB)"), &m_cMaxSizeGPUImageCache, 0, 4000));
+			Add(new cMenuEditIntItem(tr(" GPU mem used for image caching (MB)"), &m_cMaxSizeGPUImageCache, 0, 4000));
 		}
 #endif
 
-		Add(new cMenuEditIntItem(tr("Additional buffer size (ms)"), &m_cAdditionalBufferLengthMs, 0, 1000));
+		Add(new cMenuEditIntItem(tr(" Additional buffer size (ms)"), &m_cAdditionalBufferLengthMs, 0, 1000));
 	}
 
 	//
@@ -113,7 +113,7 @@ void cMenuSetupSoft::Create(void)
 	if (!m_pConfig->ConfigDisableOglOsd) {
 		Add(CollapsedItem(tr("Debug"), m_cDebugMenu));
 		if (m_cDebugMenu) {
-			Add(new cMenuEditBoolItem(tr("Write OSD to file"), &m_cWritePngs, trVDR("no"), trVDR("yes")));
+			Add(new cMenuEditBoolItem(tr(" Write OSD to file"), &m_cWritePngs, trVDR("no"), trVDR("yes")));
 		}
 	}
 #endif
@@ -124,23 +124,23 @@ void cMenuSetupSoft::Create(void)
 	//
 	Add(CollapsedItem(tr("Logging"), m_cLogging));
 	if (m_cLogging) {
-		Add(new cMenuEditBoolItem(tr("Enable logging"), &m_cLogDefault, trVDR("off"), trVDR("on")));
+		Add(new cMenuEditBoolItem(tr(" Enable logging"), &m_cLogDefault, trVDR("off"), trVDR("on")));
 		if (m_cLogDefault) {
-			Add(new cMenuEditBoolItem(tr("\040\040Standard debug logs"), &m_cLogDebug_, trVDR("no"), trVDR("yes")));
-			Add(new cMenuEditBoolItem(tr("\040\040DRM debug logs"), &m_cLogDRM, trVDR("no"), trVDR("yes")));
-			Add(new cMenuEditBoolItem(tr("\040\040Codec debug logs"), &m_cLogCodec, trVDR("no"), trVDR("yes")));
-			Add(new cMenuEditBoolItem(tr("\040\040AV Sync debug logs"), &m_cLogAVSync, trVDR("no"), trVDR("yes")));
-			Add(new cMenuEditBoolItem(tr("\040\040Sound debug logs"), &m_cLogSound, trVDR("no"), trVDR("yes")));
-			Add(new cMenuEditBoolItem(tr("\040\040FFmpeg debug logs"), &m_cLogFFmpeg, trVDR("no"), trVDR("yes")));
-			Add(new cMenuEditBoolItem(tr("\040\040Packet tracking logs"), &m_cLogPacket, trVDR("no"), trVDR("yes")));
-			Add(new cMenuEditBoolItem(tr("\040\040OSD debug logs"), &m_cLogOSD, trVDR("no"), trVDR("yes")));
-			Add(new cMenuEditBoolItem(tr("\040\040Grabbing debug logs"), &m_cLogGrab, trVDR("no"), trVDR("yes")));
-			Add(new cMenuEditBoolItem(tr("\040\040Stillpicture debug logs"), &m_cLogStill, trVDR("no"), trVDR("yes")));
-			Add(new cMenuEditBoolItem(tr("\040\040Trickspeed debug logs"), &m_cLogTrick, trVDR("no"), trVDR("yes")));
-			Add(new cMenuEditBoolItem(tr("\040\040Mediaplayer debug logs"), &m_cLogMedia, trVDR("no"), trVDR("yes")));
-			Add(new cMenuEditBoolItem(tr("\040\040OpenGL OSD debug logs"), &m_cLogGL, trVDR("no"), trVDR("yes")));
-			Add(new cMenuEditBoolItem(tr("\040\040OpenGL OSD time measurement"), &m_cLogGLTime, trVDR("no"), trVDR("yes")));
-			Add(new cMenuEditBoolItem(tr("\040\040OpenGL OSD time measurement (extensive)"), &m_cLogGLTimeAll, trVDR("no"), trVDR("yes")));
+			Add(new cMenuEditBoolItem(tr("  Standard debug logs"), &m_cLogDebug_, trVDR("no"), trVDR("yes")));
+			Add(new cMenuEditBoolItem(tr("  DRM debug logs"), &m_cLogDRM, trVDR("no"), trVDR("yes")));
+			Add(new cMenuEditBoolItem(tr("  Codec debug logs"), &m_cLogCodec, trVDR("no"), trVDR("yes")));
+			Add(new cMenuEditBoolItem(tr("  AV Sync debug logs"), &m_cLogAVSync, trVDR("no"), trVDR("yes")));
+			Add(new cMenuEditBoolItem(tr("  Sound debug logs"), &m_cLogSound, trVDR("no"), trVDR("yes")));
+			Add(new cMenuEditBoolItem(tr("  FFmpeg debug logs"), &m_cLogFFmpeg, trVDR("no"), trVDR("yes")));
+			Add(new cMenuEditBoolItem(tr("  Packet tracking logs"), &m_cLogPacket, trVDR("no"), trVDR("yes")));
+			Add(new cMenuEditBoolItem(tr("  OSD debug logs"), &m_cLogOSD, trVDR("no"), trVDR("yes")));
+			Add(new cMenuEditBoolItem(tr("  Grabbing debug logs"), &m_cLogGrab, trVDR("no"), trVDR("yes")));
+			Add(new cMenuEditBoolItem(tr("  Stillpicture debug logs"), &m_cLogStill, trVDR("no"), trVDR("yes")));
+			Add(new cMenuEditBoolItem(tr("  Trickspeed debug logs"), &m_cLogTrick, trVDR("no"), trVDR("yes")));
+			Add(new cMenuEditBoolItem(tr("  Mediaplayer debug logs"), &m_cLogMedia, trVDR("no"), trVDR("yes")));
+			Add(new cMenuEditBoolItem(tr("  OpenGL OSD debug logs"), &m_cLogGL, trVDR("no"), trVDR("yes")));
+			Add(new cMenuEditBoolItem(tr("  OpenGL OSD time measurement"), &m_cLogGLTime, trVDR("no"), trVDR("yes")));
+			Add(new cMenuEditBoolItem(tr("  OpenGL OSD time measurement (extensive)"), &m_cLogGLTimeAll, trVDR("no"), trVDR("yes")));
 		}
 	}
 
@@ -149,10 +149,10 @@ void cMenuSetupSoft::Create(void)
 	//
 	Add(CollapsedItem(tr("Video"), m_cVideoMenu));
 	if (m_cVideoMenu) {
-		Add(new cMenuEditBoolItem(tr("Disable deinterlacer"), &m_cDisableDeint, trVDR("no"), trVDR("yes")));
-		Add(new cMenuEditBoolItem(tr("H.264 HW dec needs I-Frame"), &m_cDecoderNeedsIFrame, trVDR("no"), trVDR("yes")));
-		Add(new cMenuEditBoolItem(tr("H.264 HW dec needs width and height"), &m_cParseH264Dimensions, trVDR("no"), trVDR("yes")));
-		Add(new cMenuEditBoolItem(tr("Enable SW decoder fallback"), &m_cDecoderFallbackToSw, trVDR("no"), trVDR("yes")));
+		Add(new cMenuEditBoolItem(tr(" Disable deinterlacer"), &m_cDisableDeint, trVDR("no"), trVDR("yes")));
+		Add(new cMenuEditBoolItem(tr(" H.264 HW dec needs I-Frame"), &m_cDecoderNeedsIFrame, trVDR("no"), trVDR("yes")));
+		Add(new cMenuEditBoolItem(tr(" H.264 HW dec needs width and height"), &m_cParseH264Dimensions, trVDR("no"), trVDR("yes")));
+		Add(new cMenuEditBoolItem(tr(" Enable SW decoder fallback"), &m_cDecoderFallbackToSw, trVDR("no"), trVDR("yes")));
 		if (m_cDecoderFallbackToSw)
 			Add(new cMenuEditIntItem(tr("  fallback after num packets"), &m_cDecoderFallbackToSwNumPkts, 22));
 		if (m_pDevice->UsePip()) {
@@ -172,22 +172,22 @@ void cMenuSetupSoft::Create(void)
 	//
 	Add(CollapsedItem(tr("Audio"), m_cAudio));
 	if (m_cAudio) {
-		Add(new cMenuEditIntItem(tr("Audio/Video delay (ms)"), &m_cAudioDelay, -1000, 1000));
-		Add(new cMenuEditBoolItem(tr("Volume control"), &m_cAudioSoftvol, tr("Hardware"), tr("Software")));
-		Add(new cMenuEditBoolItem(tr("Enable normalize volume"), &m_cAudioNormalize, trVDR("no"), trVDR("yes")));
+		Add(new cMenuEditIntItem(tr(" Audio/Video delay (ms)"), &m_cAudioDelay, -1000, 1000));
+		Add(new cMenuEditBoolItem(tr(" Volume control"), &m_cAudioSoftvol, tr("Hardware"), tr("Software")));
+		Add(new cMenuEditBoolItem(tr(" Enable normalize volume"), &m_cAudioNormalize, trVDR("no"), trVDR("yes")));
 		if (m_cAudioNormalize)
 			Add(new cMenuEditIntItem(tr("  Max normalize factor (/1000)"), &m_cAudioMaxNormalize, 0, 10000));
-		Add(new cMenuEditBoolItem(tr("Enable volume compression"), &m_cAudioCompression, trVDR("no"), trVDR("yes")));
+		Add(new cMenuEditBoolItem(tr(" Enable volume compression"), &m_cAudioCompression, trVDR("no"), trVDR("yes")));
 		if (m_cAudioCompression)
 			Add(new cMenuEditIntItem(tr("  Max compression factor (/1000)"), &m_cAudioMaxCompression, 0, 10000));
-		Add(new cMenuEditIntItem(tr("Reduce stereo volume (/1000)"), &m_cAudioStereoDescent, 0, 1000));
-		Add(new cMenuEditBoolItem(tr("Enable Stereo downmix"), &m_cAudioDownmix, trVDR("no"), trVDR("yes")));
-		Add(new cMenuEditBoolItem(tr("Enable Pass-through"), &m_cAudioPassthroughDefault, trVDR("off"), trVDR("on")));
+		Add(new cMenuEditIntItem(tr(" Reduce stereo volume (/1000)"), &m_cAudioStereoDescent, 0, 1000));
+		Add(new cMenuEditBoolItem(tr(" Enable Stereo downmix"), &m_cAudioDownmix, trVDR("no"), trVDR("yes")));
+		Add(new cMenuEditBoolItem(tr(" Enable Pass-through"), &m_cAudioPassthroughDefault, trVDR("off"), trVDR("on")));
 		if (m_cAudioPassthroughDefault) {
-			Add(new cMenuEditBoolItem(tr("\040\040AC-3 pass-through"), &m_cAudioPassthroughAC3, trVDR("no"), trVDR("yes")));
-			Add(new cMenuEditBoolItem(tr("\040\040E-AC-3 pass-through"), &m_cAudioPassthroughEAC3, trVDR("no"), trVDR("yes")));
-			Add(new cMenuEditBoolItem(tr("\040\040DTS pass-through"), &m_cAudioPassthroughDTS, trVDR("no"), trVDR("yes")));
-			Add(new cMenuEditBoolItem(tr("Enable automatic AES"), &m_cAudioAutoAES, trVDR("no"), trVDR("yes")));
+			Add(new cMenuEditBoolItem(tr("  AC-3 pass-through"), &m_cAudioPassthroughAC3, trVDR("no"), trVDR("yes")));
+			Add(new cMenuEditBoolItem(tr("  E-AC-3 pass-through"), &m_cAudioPassthroughEAC3, trVDR("no"), trVDR("yes")));
+			Add(new cMenuEditBoolItem(tr("  DTS pass-through"), &m_cAudioPassthroughDTS, trVDR("no"), trVDR("yes")));
+			Add(new cMenuEditBoolItem(tr("  Enable automatic AES"), &m_cAudioAutoAES, trVDR("no"), trVDR("yes")));
 		}
 	}
 

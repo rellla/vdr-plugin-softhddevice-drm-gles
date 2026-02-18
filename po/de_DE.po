@@ -67,14 +67,14 @@ msgstr "verstecken"
 msgid "General"
 msgstr "Allgemeines"
 
-msgid "Hide main menu entry"
-msgstr "Verstecke Hauptmenüeintrag"
+msgid " Hide main menu entry"
+msgstr " Verstecke Hauptmenüeintrag"
 
-msgid "GPU mem used for image caching (MB)"
-msgstr "GPU-Speichergröße für Bild-Zwischenspeicher (MB)"
+msgid " GPU mem used for image caching (MB)"
+msgstr " GPU-Speichergröße für Bild-Zwischenspeicher (MB)"
 
-msgid "Additional buffer size (ms)"
-msgstr "Zusätzlicher Puffer (ms)"
+msgid " Additional buffer size (ms)"
+msgstr " Zusätzlicher Puffer (ms)"
 
 msgid "Statistics"
 msgstr "Statistiken"
@@ -98,13 +98,13 @@ msgid "Debug"
 msgstr "Debug"
 
 msgid "Write OSD to file"
-msgstr "OSD in Datei schreiben"
+msgstr " OSD in Datei schreiben"
 
 msgid "Logging"
 msgstr "Logging"
 
-msgid "Enable logging"
-msgstr "Aktiviere Logs"
+msgid " Enable logging"
+msgstr " Aktiviere Logs"
 
 msgid "  Standard debug logs"
 msgstr "  Standard debug Logs"
@@ -154,17 +154,17 @@ msgstr "  OpenGL OSD Zeitmessung (alles)"
 msgid "Video"
 msgstr "Video"
 
-msgid "Disable deinterlacer"
-msgstr "Deaktiviere Deinterlacer"
+msgid " Disable deinterlacer"
+msgstr " Deaktiviere Deinterlacer"
 
-msgid "H.264 HW dec needs I-Frame"
-msgstr "H.264 HW Dek. benötigt I-Frame"
+msgid " H.264 HW dec needs I-Frame"
+msgstr " H.264 HW Dek. benötigt I-Frame"
 
-msgid "H.264 HW dec needs width and height"
-msgstr "H.264 HW Dek. benötigt Größe"
+msgid " H.264 HW dec needs width and height"
+msgstr " H.264 HW Dek. benötigt Größe"
 
-msgid "Enable SW decoder fallback"
-msgstr "Aktiviere SW Dekoder Fallback"
+msgid " Enable SW decoder fallback"
+msgstr " Aktiviere SW Dekoder Fallback"
 
 msgid "  fallback after num packets"
 msgstr "  Fallback nach Anzahl Paketen"
@@ -196,11 +196,11 @@ msgstr " alt. Abstand rechts (%)"
 msgid "Audio"
 msgstr "Audio"
 
-msgid "Audio/Video delay (ms)"
-msgstr "Audio/Video Verzögerung (ms)"
+msgid " Audio/Video delay (ms)"
+msgstr " Audio/Video Verzögerung (ms)"
 
-msgid "Volume control"
-msgstr "Lautstärkesteuerung"
+msgid " Volume control"
+msgstr " Lautstärkesteuerung"
 
 msgid "Hardware"
 msgstr "Hardware"
@@ -208,26 +208,26 @@ msgstr "Hardware"
 msgid "Software"
 msgstr "Software"
 
-msgid "Enable normalize volume"
-msgstr "Aktiviere Lautstärkenormalisierung"
+msgid " Enable normalize volume"
+msgstr " Aktiviere Lautstärkenormalisierung"
 
 msgid "  Max normalize factor (/1000)"
 msgstr "  Max. Normalisierungsfaktor (/1000)"
 
-msgid "Enable volume compression"
-msgstr "Aktiviere Lautstärkekompression"
+msgid " Enable volume compression"
+msgstr " Aktiviere Lautstärkekompression"
 
 msgid "  Max compression factor (/1000)"
 msgstr "  Max. Kompressionsfaktor (/1000)"
 
-msgid "Reduce stereo volume (/1000)"
-msgstr "Reduziere Steropegel (/1000)"
+msgid " Reduce stereo volume (/1000)"
+msgstr " Reduziere Steropegel (/1000)"
 
-msgid "Enable Stereo downmix"
-msgstr "Audio auf Stereo herunterrechnen"
+msgid " Enable Stereo downmix"
+msgstr " Audio auf Stereo herunterrechnen"
 
-msgid "Enable Pass-through"
-msgstr "Aktiviere Passthrough"
+msgid " Enable Pass-through"
+msgstr " Aktiviere Passthrough"
 
 msgid "  AC-3 pass-through"
 msgstr "  Aktiviere AC-3 Passthrough"
@@ -238,7 +238,7 @@ msgstr "  Aktiviere E-AC-3 Passthrough"
 msgid "  DTS pass-through"
 msgstr "  Aktiviere DTS Passthrough"
 
-msgid "Enable automatic AES"
+msgid "  Enable automatic AES"
 msgstr "  Aktiviere automatische AES Parameter"
 
 msgid "Audio Filter"
