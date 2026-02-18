@@ -207,6 +207,8 @@ void cSoftHdDevice::OnEventReceived(const Event& event)
 				[&invalid](const BufferUnderrunEvent&) { invalid(); },
 				[&invalid](const BufferingThresholdReachedEvent&) { invalid(); },
 				[&invalid](const PipEvent&) { invalid(); },
+				[&invalid](const ScheduleResyncAtPtsMsEvent&) { invalid(); },
+				[&invalid](const ResyncEvent&) { invalid(); },
 			}, event);
 			needsResume = false;
 			break;
@@ -235,6 +237,8 @@ void cSoftHdDevice::OnEventReceived(const Event& event)
 				[this](const PipEvent& p) {
 					m_pPipHandler->HandleEvent(p.state);
 				},
+				[&invalid](const ScheduleResyncAtPtsMsEvent&) { invalid(); },
+				[&invalid](const ResyncEvent&) { invalid(); },
 			}, event);
 			break;
 		case State::BUFFERING:
@@ -290,6 +294,11 @@ void cSoftHdDevice::OnEventReceived(const Event& event)
 				[this](const PipEvent& p) {
 					m_pPipHandler->HandleEvent(p.state);
 				},
+				[this](const ScheduleResyncAtPtsMsEvent& s) {
+					SetState(PLAY);
+					m_pRender->ScheduleResyncAtPtsMs(s.pts);
+				},
+				[&invalid](const ResyncEvent&) { invalid(); },
 			}, event);
 			break;
 		case State::PLAY:
@@ -348,6 +357,12 @@ void cSoftHdDevice::OnEventReceived(const Event& event)
 				[this](const PipEvent& p) {
 					m_pPipHandler->HandleEvent(p.state);
 				},
+				[this](const ScheduleResyncAtPtsMsEvent& s) {
+					m_pRender->ScheduleResyncAtPtsMs(s.pts);
+				},
+				[this](const ResyncEvent&) {
+					SetState(BUFFERING);
+				},
 			}, event);
 			break;
 		case State::TRICK_SPEED:
@@ -383,6 +398,8 @@ void cSoftHdDevice::OnEventReceived(const Event& event)
 				[this](const PipEvent& p) {
 					m_pPipHandler->HandleEvent(p.state);
 				},
+				[&invalid](const ScheduleResyncAtPtsMsEvent&) { invalid(); },
+				[&invalid](const ResyncEvent&) { invalid(); },
 			}, event);
 			break;
 	}
@@ -1188,10 +1205,10 @@ bool cSoftHdDevice::IsBufferingThresholdReached()
 
 	if (reached) {
 		LOGDEBUG2(L_AV_SYNC, "First received PTS: %s (audio), %s (video) buffer fill levels: %ldms (audio) %ldms (video)",
-		Timestamp2String(m_pAudio->GetOutputPtsMs(), 1),
-		Timestamp2String(m_pRender->GetOutputPtsMs(), 1),
-		syncedAudioBufferFillLevelMs,
-		syncedVideoBufferFillLevelMs);
+			Timestamp2String(m_pAudio->GetOutputPtsMs(), 1),
+			Timestamp2String(m_pRender->GetOutputPtsMs(), 1),
+			syncedAudioBufferFillLevelMs,
+			syncedVideoBufferFillLevelMs);
 	}
 
 	return reached;

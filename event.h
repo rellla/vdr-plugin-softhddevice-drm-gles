@@ -58,6 +58,10 @@ struct BufferingThresholdReachedEvent {};
 struct PipEvent {
 	PipState state;
 };
+struct ScheduleResyncAtPtsMsEvent {
+	int64_t pts;
+};
+struct ResyncEvent {};
 
 using Event = std::variant<
 	PlayEvent,
@@ -69,7 +73,9 @@ using Event = std::variant<
 	AttachEvent,
 	BufferUnderrunEvent,
 	BufferingThresholdReachedEvent,
-	PipEvent
+	PipEvent,
+	ScheduleResyncAtPtsMsEvent,
+	ResyncEvent
 >;
 
 class IEventReceiver
