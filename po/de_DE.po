@@ -157,11 +157,17 @@ msgstr "Video"
 msgid "Disable deinterlacer"
 msgstr "Deaktiviere Deinterlacer"
 
-msgid "H.264 HW decoder needs I-Frame"
-msgstr "H.264 HW Dekoder benötigt I-Frame für Start"
+msgid "H.264 HW dec needs I-Frame"
+msgstr "H.264 HW Dek. benötigt I-Frame"
 
-msgid "H.264 HW decoder needs parsed width and height"
-msgstr "H.264 HW Dekoder benötigt Größe für Start"
+msgid "H.264 HW dec needs width and height"
+msgstr "H.264 HW Dek. benötigt Größe"
+
+msgid "Enable SW decoder fallback"
+msgstr "Aktiviere SW Dekoder Fallback"
+
+msgid "  fallback after num packets"
+msgstr "  Fallback nach Anzahl Paketen"
 
 msgid "Picture-in-picture"
 msgstr "Bild-in-Bild"

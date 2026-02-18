@@ -176,6 +176,7 @@ public:
 	void SetDisableDeint(void);
 	void SetDecoderNeedsIFrame(void);
 	void SetParseH264Dimensions(void);
+	void SetDecoderFallbackToSw(bool enable);
 
 	// osd
 #ifdef USE_GLES

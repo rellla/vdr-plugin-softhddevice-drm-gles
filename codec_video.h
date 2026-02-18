@@ -42,6 +42,8 @@ public:
 	AVCodecContext *GetContext(void) { return m_pVideoCtx; };
 	bool IsHardwareDecoder(void) { return m_isHardwareDecoder; };
 	const char *Name(void) { return m_pCodecString; };
+	int GetPacketsSent(void) { return m_cntPacketsSent; };
+	int GetFramesReceived(void) { return m_cntFramesReceived; };
 
 private:
 	AVCodecContext *m_pVideoCtx = nullptr;  ///< video codec context
