@@ -68,6 +68,8 @@ inline const char* EventToString(const Event& e) {
 		[](const BufferUnderrunEvent& e) -> const char* { return e.type == AUDIO ? "BufferUnderrunEvent: Audio" : "BufferUnderrunEvent: Video"; },
 		[](const BufferingThresholdReachedEvent&) -> const char* { return "BufferingThresholdReachedEvent"; },
 		[](const PipEvent&) -> const char* { return "PipEvent"; },
+		[](const ScheduleResyncAtPtsMsEvent&) -> const char* { return "ScheduleResyncAtPtsMsEvent"; },
+		[](const ResyncEvent&) -> const char* { return "ResyncEvent"; },
 	}, e);
 }
 

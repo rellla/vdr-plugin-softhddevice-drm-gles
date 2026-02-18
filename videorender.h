@@ -24,6 +24,7 @@
 
 #include <atomic>
 #include <cstdint>
+#include <mutex>
 #include <vector>
 
 #include <xf86drmMode.h>
@@ -162,6 +163,7 @@ public:
 	bool IsOutputBufferFull(void);
 	void SetDisplayOneFrameThenPause(bool pause) { m_displayOneFrameThenPause = pause; };
 	void SchedulePlaybackStartAtPtsMs(int64_t ptsMs) { m_schedulePlaybackStartAtPtsMs = ptsMs; };
+	void ScheduleResyncAtPtsMs(int64_t ptsMs) { m_scheduleResyncAtPtsMs = ptsMs; };
 	cQueue<cDrmBuffer> *GetMainOutputBuffer(void) { return &m_drmBufferQueue; };
 	cQueue<cDrmBuffer> *GetPipOutputBuffer(void) { return &m_pipDrmBufferQueue; };
 
@@ -186,7 +188,7 @@ private:
 	cSoftHdAudio *m_pAudio;             ///< pointer to cSoftHdAudio
 	cSoftHdConfig *m_pConfig;           ///< pointer to cSoftHdConfig
 	cDisplayThread *m_pDisplayThread;   ///< pointer to display thread
-	cMutex m_videoClockMutex;           ///< mutex used around m_pts
+	std::mutex m_videoClockMutex;       ///< mutex used around m_pts
 	std::vector<Event> m_eventQueue;    ///< event queue for incoming events
 	double m_refreshRateHz;             ///< screen refresh rate in Hz
 
@@ -211,7 +213,7 @@ private:
 	int m_framesDropped = 0;            ///< number of frames dropped
 	bool m_lastFrameWasDropped = false; ///< true, if the last frame was dropped
 	AVRational m_timebase;              ///< timebase used for pts, set by first RenderFrame()
-	cMutex m_timebaseMutex;             ///< mutex used around m_timebase
+	std::mutex m_timebaseMutex;         ///< mutex used around m_timebase
 	int64_t m_pts = AV_NOPTS_VALUE;     ///< current video PTS
 
 	cRect m_videoRect;                  ///< rect of the currently displayed video
@@ -230,6 +232,7 @@ private:
 	std::atomic<bool> m_resumeAudioScheduled = false;                     ///< set, if audio resume is scheduled after a pause
 	std::atomic<bool> m_displayOneFrameThenPause = false;                 ///< set, if only one frame shall be displayed and then pause playback
 	std::atomic<int64_t> m_schedulePlaybackStartAtPtsMs = AV_NOPTS_VALUE; ///< if set, frames with PTS older than this will be dropped
+	std::atomic<int64_t> m_scheduleResyncAtPtsMs = AV_NOPTS_VALUE;        ///< if set, a resync (enter state BUFFERING) will be forced at the given pts
 
 	IEventReceiver *m_pEventReceiver;                                     ///< pointer to event receiver
 	cDrmBufferPool m_drmBufferPool;                                       ///< pool of drm buffers

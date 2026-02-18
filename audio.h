@@ -38,7 +38,8 @@ extern "C" {
 #include "pidcontroller.h"
 #include "ringbuffer.h"
 
-#define NORMALIZE_MAX_INDEX 128		///< number of average values
+#define NORMALIZE_MAX_INDEX 128 ///< number of average values
+#define AV_SYNC_BORDER 5000     ///< absolute max a/v difference in ms which should trigger a resync
 
 class cAudioThread;
 class cSoftHdConfig;

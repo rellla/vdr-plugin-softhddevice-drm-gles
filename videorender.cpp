@@ -25,6 +25,7 @@
 #include <cerrno>
 #include <cinttypes>
 #include <cstdint>
+#include <mutex>
 #include <vector>
 
 #ifdef USE_GLES
@@ -544,26 +545,38 @@ bool cVideoRender::DisplayFrame()
 			if (audioPtsMs != AV_NOPTS_VALUE) {
 				int audioBehindVideoByMs = videoPtsMs - audioPtsMs - m_pDevice->GetVideoAudioDelayMs();
 
-				if (m_resumeAudioScheduled && audioBehindVideoByMs >= 0) { // resume audio from pause
+				bool skipSync = m_scheduleResyncAtPtsMs != AV_NOPTS_VALUE;
+				if (m_scheduleResyncAtPtsMs != AV_NOPTS_VALUE &&
+				    m_scheduleResyncAtPtsMs <= videoPtsMs &&
+				    std::abs(PtsToMs(m_scheduleResyncAtPtsMs) - PtsToMs(videoPtsMs)) < AV_SYNC_BORDER) {
+
+					LOGDEBUG2(L_AV_SYNC, "videorender: resync schedule arrived at %s, current audio pts %s video pts %s",
+						Timestamp2String(m_scheduleResyncAtPtsMs, 1), Timestamp2String(audioPtsMs, 1), Timestamp2String(videoPtsMs, 1));
+					m_eventQueue.push_back(ResyncEvent{});
+					m_scheduleResyncAtPtsMs = AV_NOPTS_VALUE;
+				}
+
+				if (m_resumeAudioScheduled && audioBehindVideoByMs >= 0 && !skipSync) { // resume audio from pause
 					LOGDEBUG2(L_AV_SYNC, "videorender: resuming audio playback: video %s, audio %s", Timestamp2String(videoPtsMs, 1), Timestamp2String(audioPtsMs, 1));
 					m_pAudio->SetPaused(false);
 					m_resumeAudioScheduled = false;
-				} else if (!m_pAudio->IsPaused() && audioBehindVideoByMs > AV_SYNC_THRESHOLD_AUDIO_BEHIND_VIDEO_MS) { // duplicate frame
+				} else if (!m_pAudio->IsPaused() && !skipSync && audioBehindVideoByMs > AV_SYNC_THRESHOLD_AUDIO_BEHIND_VIDEO_MS) { // duplicate frame
 					LogDroppedDuped(audioPtsMs, videoPtsMs, audioBehindVideoByMs);
-
 					m_framePresentationCounter++; // display the current video frame one period longer
-				} else if (!m_pAudio->IsPaused() && !m_lastFrameWasDropped && audioBehindVideoByMs < -AV_SYNC_THRESHOLD_AUDIO_AHEAD_VIDEO_MS) { // drop frame
+				} else if (!m_pAudio->IsPaused() && !skipSync && audioBehindVideoByMs < -AV_SYNC_THRESHOLD_AUDIO_AHEAD_VIDEO_MS) { // drop frame
 					// Drop max every second frame. Otherwise, the buffer gets drained immediately, if multiple frames in a row are dropped.
-					LogDroppedDuped(audioPtsMs, videoPtsMs, audioBehindVideoByMs);
+				        if (!m_lastFrameWasDropped) {
+						LogDroppedDuped(audioPtsMs, videoPtsMs, audioBehindVideoByMs);
 
-					if (pipBuf)
-						pipBuf->PresentationFinished();
+						if (pipBuf)
+							pipBuf->PresentationFinished();
 
-					drmBuffer->PresentationFinished();
-					m_framePresentationCounter--; // skip this pageflip
-					m_lastFrameWasDropped = true;
+						drmBuffer->PresentationFinished();
+						m_framePresentationCounter--; // skip this pageflip
+						m_lastFrameWasDropped = true;
 
-					return true;
+						return true;
+					}
 				}
 
 				m_startCounter++;
@@ -622,11 +635,9 @@ void cVideoRender::DisplayBlackFrame(void)
 
 int64_t cVideoRender::PtsToMs(int64_t pts)
 {
-	m_timebaseMutex.Lock();
-	int64_t videoPtsMs = pts * 1000 * av_q2d(m_timebase);
-	m_timebaseMutex.Unlock();
+	std::lock_guard<std::mutex> lock(m_timebaseMutex);
 
-	return videoPtsMs;
+	return pts * 1000 * av_q2d(m_timebase);
 }
 
 /**
@@ -912,8 +923,13 @@ void cVideoRender::PushFrame(
 	}
 
 	// Store the PTS of the first frame to be presented. The first frame might not have a valid PTS, if gone through a HW deinterlacer.
-	if (m_pts == AV_NOPTS_VALUE && frame->pts != AV_NOPTS_VALUE)
-		m_pts = frame->pts;
+	//
+	// @note: This is the only place outside of the display thread, where the video pts is set
+	// (except setting it to AV_NOPTS_VALUE in cSofthdDevice::Clear() and SetState(STOP))
+	// We only store here, if the stream recently started and the clock wasn't set already in the display thread
+
+	if (GetVideoClock() == AV_NOPTS_VALUE && frame->pts != AV_NOPTS_VALUE)
+		SetVideoClock(frame->pts);
 
 	AVDRMFrameDescriptor *primedata = (AVDRMFrameDescriptor *)frame->data[0];
 	cDrmBuffer *buf = bufferReuseStrategy.load()->GetBuffer(drmBufferPool, primedata);
@@ -938,14 +954,12 @@ void cVideoRender::PushFrame(
  */
 int64_t cVideoRender::GetOutputPtsMs(void)
 {
-	if (m_pts == AV_NOPTS_VALUE)
+	if (GetVideoClock() == AV_NOPTS_VALUE)
 		return AV_NOPTS_VALUE;
 
-	m_timebaseMutex.Lock();
-	int64_t pts = m_pts * 1000 * av_q2d(m_timebase);
-	m_timebaseMutex.Unlock();
+	std::lock_guard<std::mutex> lock(m_timebaseMutex);
 
-	return pts;
+	return GetVideoClock() * 1000 * av_q2d(m_timebase);
 }
 
 /**
@@ -955,9 +969,9 @@ int64_t cVideoRender::GetOutputPtsMs(void)
  */
 void cVideoRender::SetVideoClock(int64_t pts)
 {
-	m_videoClockMutex.Lock();
+	std::lock_guard<std::mutex> lock(m_videoClockMutex);
+
 	m_pts = pts;
-	m_videoClockMutex.Unlock();
 }
 
 /**
@@ -967,11 +981,9 @@ void cVideoRender::SetVideoClock(int64_t pts)
  */
 int64_t cVideoRender::GetVideoClock(void)
 {
-	int64_t pts;
-	m_videoClockMutex.Lock();
-	pts = m_pts;
-	m_videoClockMutex.Unlock();
-	return pts;
+	std::lock_guard<std::mutex> lock(m_videoClockMutex);
+
+	return m_pts;
 }
 
 /**
@@ -989,7 +1001,7 @@ void cVideoRender::Reset()
 	m_framesDuped = 0;
 	m_framesDropped = 0;
 	m_numWrongProgressive = 0;
-	m_pts = AV_NOPTS_VALUE;
+	SetVideoClock(AV_NOPTS_VALUE);
 
 	delete m_decodingStrategy;
 	m_decodingStrategy = nullptr;
