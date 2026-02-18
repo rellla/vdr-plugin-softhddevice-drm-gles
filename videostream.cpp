@@ -166,8 +166,11 @@ cVideoStream::cVideoStream(cVideoRender *render, cQueue<cDrmBuffer> *drmBufferQu
 	m_filterThreadName = "shd " + std::string(m_identifier) + " filter";
 	m_pFilterThread = new cFilterThread(render, m_pDrmBufferQueue, m_filterThreadName.c_str(), frameOutput);
 	m_hardwareQuirks = ReadHWPlatform();
+	m_decoderFallbackToSwNumPkts = config->ConfigDecoderFallbackToSw ? config->ConfigDecoderFallbackToSwNumPkts : 0;
 
 	LOGDEBUG("videostream %s: %s", __FUNCTION__, m_identifier);
+	if (m_decoderFallbackToSwNumPkts)
+		LOGDEBUG2(L_CODEC, "videostream %s: %s: fallback to sw decoder after %d packets sent", __FUNCTION__, m_identifier, m_decoderFallbackToSwNumPkts);
 }
 
 /**
@@ -389,6 +392,15 @@ void cVideoStream::DecodeInput(void)
 	} else if (ret == AVERROR_EOF) {
 		FlushDecoder();
 		m_sentTrickPkts = 0;
+	}
+
+	// fallback to software decoder if configured and hw decoder fails
+	if (m_pDecoder->IsHardwareDecoder() && m_decoderFallbackToSwNumPkts &&
+	   !m_pDecoder->GetFramesReceived() && m_pDecoder->GetPacketsSent() > m_decoderFallbackToSwNumPkts) {
+
+		LOGWARNING("videostream %s: %s: Could not decode frame after %d packets sent, fallback to software decoder!", m_identifier, __FUNCTION__, m_decoderFallbackToSwNumPkts);
+		if (m_pDecoder->ReopenCodec(m_codecId, m_pPar, m_timebase, m_decoderFallbackToSwNumPkts))
+			LOGFATAL("videostream %s: %s: Could not reopen the decoder (sw fallback)!", m_identifier, __FUNCTION__);
 	}
 }
 

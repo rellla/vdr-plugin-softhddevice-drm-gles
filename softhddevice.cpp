@@ -1492,6 +1492,21 @@ void cSoftHdDevice::SetParseH264Dimensions(void)
 }
 
 /**
+ * Force the decoder to fallback to software if the hardware decoder fails
+ * after the configured amount of packets were sent and no frame was received
+ */
+void cSoftHdDevice::SetDecoderFallbackToSw(bool enable)
+{
+	if (!m_pVideoStream)
+		return;
+
+	if (enable)
+		m_pVideoStream->SetDecoderFallbackToSwNumPkts(m_pConfig->ConfigDecoderFallbackToSwNumPkts);
+	else
+		m_pVideoStream->SetDecoderFallbackToSwNumPkts(0);
+}
+
+/**
  * Set the passthrough mask (called from setup menu or conf)
  */
 void cSoftHdDevice::SetPassthrough(int mask)
