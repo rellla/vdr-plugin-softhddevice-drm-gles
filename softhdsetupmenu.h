@@ -45,63 +45,32 @@ protected:
 	// local copies of global setup variables:
 
 	// General
-	int m_cGeneral;
+	int m_cGeneralMenu;
 	int m_cHideMainMenuEntry;
-#ifdef USE_GLES
-	int m_cMaxSizeGPUImageCache;
-#endif
-	int m_cAdditionalBufferLengthMs;
-
-	// Statistics
-	int m_cStatistics;
-
-	// Logging
-	int m_cLogging;
-	int m_cLogDefault;
-	int m_cLogDebug_;
-	int m_cLogAVSync;
-	int m_cLogSound;
-	int m_cLogOSD;
-	int m_cLogDRM;
-	int m_cLogCodec;
-	int m_cLogFFmpeg;
-	int m_cLogStill;
-	int m_cLogTrick;
-	int m_cLogMedia;
-	int m_cLogGL;
-	int m_cLogGLTime;
-	int m_cLogGLTimeAll;
-	int m_cLogPacket;
-	int m_cLogGrab;
-
-	// Video
-	int m_cVideoMenu;
-	int m_cDisableDeint;
-	int m_cDecoderNeedsIFrame;
-	int m_cParseH264Dimensions;
-	int m_cDecoderFallbackToSw;
-	int m_cDecoderFallbackToSwNumPkts;
 
 	// Audio
-	int m_cAudio;
-	int m_cAudioDelay;
+	int m_cAudioMenu;
 	int m_cAudioSoftvol;
-	int m_cAudioNormalize;
-	int m_cAudioMaxNormalize;
-	int m_cAudioCompression;
-	int m_cAudioMaxCompression;
-	int m_cAudioStereoDescent;
 	int m_cAudioDownmix;
 	int m_cAudioPassthroughDefault;
 	int m_cAudioPassthroughAC3;
 	int m_cAudioPassthroughEAC3;
 	int m_cAudioPassthroughDTS;
 	int m_cAudioAutoAES;
-	int m_cAudioFilter;
+	int m_cAudioDelay;
+	int m_cAudioNormalize;
+	int m_cAudioMaxNormalize;
+	int m_cAudioCompression;
+	int m_cAudioMaxCompression;
+	int m_cAudioStereoDescent;
+
+	// Audio equalizer
+	int m_cAudioFilterMenu;
 	int m_cAudioEq;
 	int m_cAudioEqBand[18];
 
-	// pip
+	// Picture-in-Picture
+	int m_cPipMenu;
 	int m_cPipScalePercent;
 	int m_cPipLeftPercent;
 	int m_cPipTopPercent;
@@ -109,6 +78,40 @@ protected:
 	int m_cPipAltScalePercent;
 	int m_cPipAltLeftPercent;
 	int m_cPipAltTopPercent;
+
+	// Logging
+	int m_cLoggingMenu;
+	int m_cLogDefault;
+	int m_cLogDebug_;
+	int m_cLogDRM;
+	int m_cLogCodec;
+	int m_cLogAVSync;
+	int m_cLogSound;
+	int m_cLogFFmpeg;
+	int m_cLogPacket;
+	int m_cLogOSD;
+	int m_cLogGrab;
+	int m_cLogStill;
+	int m_cLogTrick;
+	int m_cLogMedia;
+	int m_cLogGL;
+	int m_cLogGLTime;
+	int m_cLogGLTimeAll;
+
+	// Statistics
+	int m_cStatisticsMenu;
+
+	// Expert settings
+	int m_cExpertMenu;
+	int m_cAdditionalBufferLengthMs;
+	int m_cDisableDeint;
+	int m_cDecoderNeedsIFrame;
+	int m_cParseH264Dimensions;
+	int m_cDecoderFallbackToSw;
+	int m_cDecoderFallbackToSwNumPkts;
+#ifdef USE_GLES
+	int m_cMaxSizeGPUImageCache;
+#endif
 
 private:
 	cSoftHdDevice *m_pDevice;
