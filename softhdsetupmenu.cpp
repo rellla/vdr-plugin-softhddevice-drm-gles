@@ -204,9 +204,10 @@ void cMenuSetupSoft::Create(void)
 		Add(new cMenuEditBoolItem(tr(" H.264 HW dec needs I-Frame"), &m_cDecoderNeedsIFrame, trVDR("no"), trVDR("yes")));
 		Add(new cMenuEditBoolItem(tr(" H.264 HW dec needs width and height"), &m_cParseH264Dimensions, trVDR("no"), trVDR("yes")));
 		Add(new cMenuEditBoolItem(tr(" Enable SW decoder fallback"), &m_cDecoderFallbackToSw, trVDR("no"), trVDR("yes")));
-		if (m_cDecoderFallbackToSw)
+		if (m_cDecoderFallbackToSw) {
+			Add(new cOsdItem(cString::sprintf(tr("  (minimum: %d)"), m_pConfig->GetDecoderNeedsMaxPackets() + 1), osUnknown, false));
 			Add(new cMenuEditIntItem(tr("  fallback after num packets"), &m_cDecoderFallbackToSwNumPkts, 22));
-
+		}
 #ifdef USE_GLES
 		Add(SeparatorName(tr(" OSD settings")));
 		if (!m_pConfig->ConfigDisableOglOsd) {

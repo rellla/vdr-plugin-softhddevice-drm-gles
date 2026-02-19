@@ -394,13 +394,17 @@ void cVideoStream::DecodeInput(void)
 		m_sentTrickPkts = 0;
 	}
 
-	// fallback to software decoder if configured and hw decoder fails
-	if (m_pDecoder->IsHardwareDecoder() && m_decoderFallbackToSwNumPkts &&
-	   !m_pDecoder->GetFramesReceived() && m_pDecoder->GetPacketsSent() > m_decoderFallbackToSwNumPkts) {
+	if (m_pDecoder->IsHardwareDecoder() && !m_pDecoder->GetFramesReceived()) {
+		// log maximum number of packets needed for the hw decoder to deliver a frame
+		if (m_pConfig->GetDecoderNeedsMaxPackets() < m_pDecoder->GetPacketsSent())
+			m_pConfig->SetDecoderNeedsMaxPackets(m_pDecoder->GetPacketsSent());
 
-		LOGWARNING("videostream %s: %s: Could not decode frame after %d packets sent, fallback to software decoder!", m_identifier, __FUNCTION__, m_decoderFallbackToSwNumPkts);
-		if (m_pDecoder->ReopenCodec(m_codecId, m_pPar, m_timebase, m_decoderFallbackToSwNumPkts))
-			LOGFATAL("videostream %s: %s: Could not reopen the decoder (sw fallback)!", m_identifier, __FUNCTION__);
+		// fallback to software decoder if configured and hw decoder fails
+		if (m_decoderFallbackToSwNumPkts && m_pDecoder->GetPacketsSent() > m_decoderFallbackToSwNumPkts) {
+			LOGWARNING("videostream %s: %s: Could not decode frame after %d packets sent, fallback to software decoder!", m_identifier, __FUNCTION__, m_decoderFallbackToSwNumPkts);
+			if (m_pDecoder->ReopenCodec(m_codecId, m_pPar, m_timebase, m_decoderFallbackToSwNumPkts))
+				LOGFATAL("videostream %s: %s: Could not reopen the decoder (sw fallback)!", m_identifier, __FUNCTION__);
+		}
 	}
 }
 
