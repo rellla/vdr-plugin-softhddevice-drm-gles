@@ -55,14 +55,6 @@ protected:
 	// Statistics
 	int m_cStatistics;
 
-	// Debug
-#ifdef USE_GLES
-#ifdef WRITE_PNG
-	int m_cDebugMenu;
-	int m_cWritePngs;
-#endif
-#endif
-
 	// Logging
 	int m_cLogging;
 	int m_cLogDefault;

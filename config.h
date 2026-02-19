@@ -33,9 +33,6 @@ public:
 
 	// setup conf parameters
 #ifdef USE_GLES
-#ifdef WRITE_PNG
-	bool ConfigWritePngs = false;               ///< config write pngs from OSD
-#endif
 	int ConfigMaxSizeGPUImageCache = 128;       ///< config max gpu image cache size
 	int ConfigDisableOglOsd = 0;                ///< config disable ogl osd
 #endif

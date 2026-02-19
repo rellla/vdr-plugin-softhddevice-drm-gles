@@ -1417,15 +1417,6 @@ void cSoftHdDevice::OsdDrawARGB(int xi, int yi, int height, int width, int pitch
 }
 
 #ifdef USE_GLES
-#ifdef WRITE_PNG
-/**
- * Check, if writing the osd into a png file is enabled
- */
-char cSoftHdDevice::WritePngs(void)
-{
-	return m_pConfig->ConfigWritePngs;
-};
-#endif
 /**
  * Get the maximum GPU image cache size
  */

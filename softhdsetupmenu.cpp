@@ -105,20 +105,6 @@ void cMenuSetupSoft::Create(void)
 		Add(new cOsdItem(cString::sprintf(tr(" Video decoder: %s (%s)"), m_pConfig->CurrentDecoderName, m_pConfig->CurrentDecoderType), osUnknown, false));
 	}
 
-#ifdef USE_GLES
-#ifdef WRITE_PNG
-	//
-	//	debug
-	//
-	if (!m_pConfig->ConfigDisableOglOsd) {
-		Add(CollapsedItem(tr("Debug"), m_cDebugMenu));
-		if (m_cDebugMenu) {
-			Add(new cMenuEditBoolItem(tr(" Write OSD to file"), &m_cWritePngs, trVDR("no"), trVDR("yes")));
-		}
-	}
-#endif
-#endif
-
 	//
 	// Logging
 	//
@@ -231,11 +217,6 @@ void cMenuSetupSoft::Create(void)
 eOSState cMenuSetupSoft::ProcessKey(eKeys key)
 {
 	int old_cGeneral = m_cGeneral;
-#ifdef USE_GLES
-#ifdef WRITE_PNG
-	int old_cDebugMenu = m_cDebugMenu;
-#endif
-#endif
 	int old_cStatistics = m_cStatistics;
 	int old_cLogging = m_cLogging;
 	int old_cLogDefault = m_cLogDefault;
@@ -254,11 +235,6 @@ eOSState cMenuSetupSoft::ProcessKey(eKeys key)
 		// update menu only, if something on the structure has changed
 		// this is needed because VDR menus are evil slow
 		if (old_cGeneral                 != m_cGeneral ||
-#ifdef USE_GLES
-#ifdef WRITE_PNG
-		    old_cDebugMenu               != m_cDebugMenu ||
-#endif
-#endif
 		    old_cStatistics              != m_cStatistics ||
 		    old_cLogging                 != m_cLogging ||
 		    old_cLogDefault              != m_cLogDefault ||
@@ -297,16 +273,6 @@ cMenuSetupSoft::cMenuSetupSoft(cSoftHdDevice *device)
 	m_cMaxSizeGPUImageCache = m_pConfig->ConfigMaxSizeGPUImageCache;
 #endif
 	m_cAdditionalBufferLengthMs= m_pConfig->ConfigAdditionalBufferLengthMs;
-
-	//
-	//	Debug
-	//
-#ifdef USE_GLES
-#ifdef WRITE_PNG
-	m_cDebugMenu = 0;
-	m_cWritePngs = m_pConfig->ConfigWritePngs;
-#endif
-#endif
 
 	//
 	// Statistics
@@ -394,16 +360,6 @@ void cMenuSetupSoft::Store(void)
 	SetupStore("MaxSizeGPUImageCache", m_pConfig->ConfigMaxSizeGPUImageCache = m_cMaxSizeGPUImageCache);
 #endif
 	SetupStore("AdditionalBufferLengthMs", m_pConfig->ConfigAdditionalBufferLengthMs = m_cAdditionalBufferLengthMs);
-
-	//
-	// Debug
-	//
-#ifdef USE_GLES
-#ifdef WRITE_PNG
-	m_pConfig->ConfigWritePngs = m_cWritePngs;
-	SetupStore("WritePngs", m_pConfig->ConfigWritePngs);
-#endif
-#endif
 
 	//
 	// Logging

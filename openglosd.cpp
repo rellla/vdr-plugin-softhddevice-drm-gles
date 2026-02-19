@@ -32,10 +32,6 @@
 #include <string>
 #endif
 
-#ifdef WRITE_PNG
-#include <png.h>
-#endif
-
 #include <sys/ioctl.h>
 
 #include <GLES2/gl2.h>
@@ -67,102 +63,6 @@
 /****************************************************************************************
  * Helpers
  ***************************************************************************************/
-#ifdef WRITE_PNG
-static int writeImage(char* filename, int width, int height, void *buffer, char* title)
-{
-	int code;
-	FILE *fp;
-	png_structp png_ptr;
-	png_infop info_ptr;
-
-	// Open file for writing (binary mode)
-	fp = fopen(filename, "wb");
-	if (fp == NULL) {
-		LOGERROR("WritePng: Could not open file %s for writing", filename);
-		code = 1;
-		goto finalise;
-	}
-
-	// Initialize write structure
-	png_ptr = png_create_write_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
-	if (png_ptr == NULL) {
-		LOGERROR("WritePng: Could not allocate write struct");
-		code = 1;
-		goto finalise;
-	}
-
-	// Initialize info structure
-	info_ptr = png_create_info_struct(png_ptr);
-	if (info_ptr == NULL) {
-		LOGERROR("WritePng: Could not allocate info struct");
-		code = 1;
-		goto finalise;
-	}
-
-	// Setup Exception handling
-	if (setjmp(png_jmpbuf(png_ptr))) {
-		LOGERROR("WritePng: Error during png creation");
-		code = 1;
-		goto finalise;
-	}
-
-	png_init_io(png_ptr, fp);
-
-	// Write header (8 bit colour depth)
-	png_set_IHDR(png_ptr, info_ptr, width, height,
-		8, PNG_COLOR_TYPE_RGB_ALPHA, PNG_INTERLACE_NONE,
-		PNG_COMPRESSION_TYPE_DEFAULT, PNG_FILTER_TYPE_DEFAULT);
-
-	// Set title
-	if (title != NULL) {
-		png_text title_text;
-		title_text.compression = PNG_TEXT_COMPRESSION_NONE;
-		title_text.key = strdup("Title");
-		title_text.text = title;
-		png_set_text(png_ptr, info_ptr, &title_text, 1);
-	}
-
-	png_write_info(png_ptr, info_ptr);
-
-	// Write image data
-	int i;
-	for (i = height - 1; i >= 0; i--) {
-		png_write_row(png_ptr, (png_bytep)buffer + i * width * 4);
-	}
-
-	// End write
-	png_write_end(png_ptr, NULL);
-
-	code = 0;
-finalise:
-	if (fp != NULL) fclose(fp);
-	if (info_ptr != NULL) png_free_data(png_ptr, info_ptr, PNG_FREE_ALL, -1);
-	if (png_ptr != NULL) png_destroy_write_struct(&png_ptr, (png_infopp)NULL);
-
-	return code;
-}
-
-static void writePng(int x, int y, int w, int h, bool oFb) {
-	GL_CHECK(glFinish());
-	GLubyte result[w * h * 4];
-	static int scr_nr = 0;
-	char filename[40];
-
-	GLenum fbstatus;
-	GL_CHECK(fbstatus = glCheckFramebufferStatus(GL_FRAMEBUFFER));
-	if(fbstatus != GL_FRAMEBUFFER_COMPLETE)
-		LOGERROR("WritePng: Framebuffer is not complete! %d", fbstatus);
-
-	GL_CHECK(glReadPixels(x, y, w, h, GL_RGBA, GL_UNSIGNED_BYTE, &result));
-	if (oFb) {
-		snprintf(filename, sizeof(filename), "/tmp/%03doFb.png", scr_nr++);
-	} else {
-		snprintf(filename, sizeof(filename), "/tmp/%03dbFb.png", scr_nr++);
-	}
-	writeImage(filename, w, h, &result, strdup("osd"));
-}
-#endif
-
 static void ConvertColor(const GLint &colARGB, glm::vec4 &col) {
 	col.a = ((colARGB & 0xFF000000) >> 24) / 255.0;
 	col.r = ((colARGB & 0x00FF0000) >> 16) / 255.0;
@@ -1062,11 +962,6 @@ bool cOglCmdRenderFbToBufferFb::Execute(void)
 	GL_CHECK(glDisable(GL_SCISSOR_TEST));
 	VertexBuffers[vbTexture]->Unbind();
 
-#ifdef WRITE_PNG
-	// Read back bFb framebuffer
-//	if (Device->WritePngs())
-//		writePng(0, 0, buffer->Width(), buffer->Height(), false);
-#endif
 	if (!m_alphablending)
 		VertexBuffers[vbTexture]->EnableBlending();
 	m_pBuffer->Unbind();
@@ -1120,11 +1015,6 @@ bool cOglCmdCopyBufferToOutputFb::Execute(void)
 	else
 		m_pDevice->OsdClose();
 
-#ifdef WRITE_PNG
-	// Read back oFb framebuffer
-	if (m_pDevice->WritePngs())
-		writePng(0, 0, m_pOutputFramebuffer->Width(), m_pOutputFramebuffer->Height(), true);
-#endif
 	m_pOutputFramebuffer->Unbind();
 
 	return true;
