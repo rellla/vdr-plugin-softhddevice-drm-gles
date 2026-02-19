@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: VDR \n"
 "Report-Msgid-Bugs-To: <see README>\n"
-"POT-Creation-Date: 2026-01-28 11:04+0100\n"
+"POT-Creation-Date: 2026-02-19 09:53+0100\n"
 "PO-Revision-Date: blabla\n"
 "Last-Translator: blabla\n"
 "Language-Team: blabla\n"
@@ -70,143 +70,38 @@ msgstr "Allgemeines"
 msgid " Hide main menu entry"
 msgstr " Verstecke Hauptmenüeintrag"
 
-msgid " GPU mem used for image caching (MB)"
-msgstr " GPU-Speichergröße für Bild-Zwischenspeicher (MB)"
-
-msgid " Additional buffer size (ms)"
-msgstr " Zusätzlicher Puffer (ms)"
-
-msgid "Statistics"
-msgstr "Statistiken"
-
-#, c-format
-msgid " Frames duped(%d) dropped(%d) total(%d)"
-msgstr " Frames verdoppelt(%d) verworfen (%d) gesamt (%d)"
-
-#, c-format
-msgid " OSD: Using %s rendering"
-msgstr " OSD: Benutze %s rendering"
-
-msgid " OSD: Using software rendering"
-msgstr " OSD: Benutze software rendering"
-
-#, c-format
-msgid " Video decoder: %s (%s)"
-msgstr " Video Dekodierer: %s (%s)"
-
-msgid "Debug"
-msgstr "Debug"
-
-msgid "Write OSD to file"
-msgstr " OSD in Datei schreiben"
-
-msgid "Logging"
-msgstr "Logging"
-
-msgid " Enable logging"
-msgstr " Aktiviere Logs"
-
-msgid "  Standard debug logs"
-msgstr "  Standard debug Logs"
-
-msgid "  DRM debug logs"
-msgstr "  DRM debug Logs"
-
-msgid "  Codec debug logs"
-msgstr "  Codec debug Logs"
-
-msgid "  AV Sync debug logs"
-msgstr "  AV Sync debug Logs"
-
-msgid "  Sound debug logs"
-msgstr "  Sound debug Logs"
-
-msgid "  FFmpeg debug logs"
-msgstr "  FFMpeg logs"
-
-msgid "  Packet tracking logs"
-msgstr "  Paketverfolgung"
-
-msgid "  OSD debug logs"
-msgstr "  OSD debug Logs"
-
-msgid "  Grabbing debug logs"
-msgstr "  Grabbing debug Logs"
-
-msgid "  Stillpicture debug logs"
-msgstr "  Standbild debug Logs"
-
-msgid "  Trickspeed debug logs"
-msgstr "  Trickspeed debug Logs"
-
-msgid "  Mediaplayer debug logs"
-msgstr "  Mediaplayer debug Logs"
-
-msgid "  OpenGL OSD debug logs"
-msgstr "  OpenGL OSD debug Logs"
-
-msgid "  OpenGL OSD time measurement"
-msgstr "  OpenGL OSD Zeitmessung"
-
-msgid "  OpenGL OSD time measurement (extensive)"
-msgstr "  OpenGL OSD Zeitmessung (alles)"
-
-msgid "Video"
-msgstr "Video"
-
-msgid " Disable deinterlacer"
-msgstr " Deaktiviere Deinterlacer"
-
-msgid " H.264 HW dec needs I-Frame"
-msgstr " H.264 HW Dek. benötigt I-Frame"
-
-msgid " H.264 HW dec needs width and height"
-msgstr " H.264 HW Dek. benötigt Größe"
-
-msgid " Enable SW decoder fallback"
-msgstr " Aktiviere SW Dekoder Fallback"
-
-msgid "  fallback after num packets"
-msgstr "  Fallback nach Anzahl Paketen"
-
-msgid "Picture-in-picture"
-msgstr "Bild-in-Bild"
-
-msgid " video scaling factor (%)"
-msgstr " Skalierung (%)"
-
-msgid " video left (%)"
-msgstr " Abstand links (%)"
-
-msgid " video top (%)"
-msgstr " Abstand oben (%)"
-
-msgid " use alternative position as default"
-msgstr " Benutze Alternativposition"
-
-msgid " alternative video scaling factor (%)"
-msgstr " alt. Skalierung (%)"
-
-msgid " alternative video left (%)"
-msgstr " alt. Abstand links (%)"
-
-msgid " alternative video top (%)"
-msgstr " alt. Abstand rechts (%)"
-
 msgid "Audio"
 msgstr "Audio"
-
-msgid " Audio/Video delay (ms)"
-msgstr " Audio/Video Verzögerung (ms)"
 
 msgid " Volume control"
 msgstr " Lautstärkesteuerung"
 
-msgid "Hardware"
-msgstr "Hardware"
+msgid "hardware"
+msgstr ""
 
-msgid "Software"
-msgstr "Software"
+msgid "software"
+msgstr ""
+
+msgid " Enable stereo downmix"
+msgstr " Audio auf Stereo herunterrechnen"
+
+msgid " Enable passthrough"
+msgstr " Aktiviere Passthrough"
+
+msgid "  AC-3 passthrough"
+msgstr "  Aktiviere AC-3 Passthrough"
+
+msgid "  E-AC-3 passthrough"
+msgstr "  Aktiviere E-AC-3 Passthrough"
+
+msgid "  DTS passthrough"
+msgstr "  Aktiviere DTS Passthrough"
+
+msgid "  Enable automatic AES"
+msgstr "  Aktiviere automatische AES Parameter"
+
+msgid " Audio/Video delay (ms)"
+msgstr " Audio/Video Verzögerung (ms)"
 
 msgid " Enable normalize volume"
 msgstr " Aktiviere Lautstärkenormalisierung"
@@ -223,28 +118,10 @@ msgstr "  Max. Kompressionsfaktor (/1000)"
 msgid " Reduce stereo volume (/1000)"
 msgstr " Reduziere Steropegel (/1000)"
 
-msgid " Enable Stereo downmix"
-msgstr " Audio auf Stereo herunterrechnen"
+msgid "Audio equalizer"
+msgstr "Audio Equalizer"
 
-msgid " Enable Pass-through"
-msgstr " Aktiviere Passthrough"
-
-msgid "  AC-3 pass-through"
-msgstr "  Aktiviere AC-3 Passthrough"
-
-msgid "  E-AC-3 pass-through"
-msgstr "  Aktiviere E-AC-3 Passthrough"
-
-msgid "  DTS pass-through"
-msgstr "  Aktiviere DTS Passthrough"
-
-msgid "  Enable automatic AES"
-msgstr "  Aktiviere automatische AES Parameter"
-
-msgid "Audio Filter"
-msgstr "Audio-Filter"
-
-msgid " Enable Audio Equalizer"
+msgid " Enable audio equalizer"
 msgstr " Aktiviere Audio Equalizer"
 
 msgid "  60 Hz band gain"
@@ -300,3 +177,129 @@ msgstr "  13500 Hz Frequenzverstärkung"
 
 msgid "  17200 Hz band gain"
 msgstr "  17200 Hz Frequenzverstärkung"
+
+msgid "Picture-in-picture"
+msgstr "Bild-in-Bild"
+
+msgid " video scaling factor (%)"
+msgstr " Skalierung (%)"
+
+msgid " video left (%)"
+msgstr " Abstand links (%)"
+
+msgid " video top (%)"
+msgstr " Abstand oben (%)"
+
+msgid " use alternative position as default"
+msgstr " Benutze Alternativposition"
+
+msgid " alternative video scaling factor (%)"
+msgstr " alt. Skalierung (%)"
+
+msgid " alternative video left (%)"
+msgstr " alt. Abstand links (%)"
+
+msgid " alternative video top (%)"
+msgstr " alt. Abstand rechts (%)"
+
+msgid "Logging"
+msgstr "Logging"
+
+msgid " Enable logging"
+msgstr " Aktiviere Logs"
+
+msgid "  Standard debug logs"
+msgstr "  Standard debug Logs"
+
+msgid "  DRM debug logs"
+msgstr "  DRM debug Logs"
+
+msgid "  Codec debug logs"
+msgstr "  Codec debug Logs"
+
+msgid "  AV Sync debug logs"
+msgstr "  AV Sync debug Logs"
+
+msgid "  Sound debug logs"
+msgstr "  Sound debug Logs"
+
+msgid "  FFmpeg debug logs"
+msgstr "  FFMpeg logs"
+
+msgid "  Packet tracking logs"
+msgstr "  Paketverfolgung"
+
+msgid "  OSD debug logs"
+msgstr "  OSD debug Logs"
+
+msgid "  Grabbing debug logs"
+msgstr "  Grabbing debug Logs"
+
+msgid "  Stillpicture debug logs"
+msgstr "  Standbild debug Logs"
+
+msgid "  Trickspeed debug logs"
+msgstr "  Trickspeed debug Logs"
+
+msgid "  Mediaplayer debug logs"
+msgstr "  Mediaplayer debug Logs"
+
+msgid "  OpenGL OSD debug logs"
+msgstr "  OpenGL OSD debug Logs"
+
+msgid "  OpenGL OSD time measurement"
+msgstr "  OpenGL OSD Zeitmessung"
+
+msgid "  OpenGL OSD time measurement (extensive)"
+msgstr "  OpenGL OSD Zeitmessung (alles)"
+
+msgid "Statistics"
+msgstr "Statistiken"
+
+#, c-format
+msgid " Frames duped(%d) dropped(%d) total(%d)"
+msgstr " Frames verdoppelt(%d) verworfen (%d) gesamt (%d)"
+
+#, c-format
+msgid " OSD: Using %s rendering"
+msgstr " OSD: Benutze %s rendering"
+
+msgid " OSD: Using software rendering"
+msgstr " OSD: Benutze software rendering"
+
+#, c-format
+msgid " Video decoder: %s (%s)"
+msgstr " Video Dekodierer: %s (%s)"
+
+msgid "Expert settings"
+msgstr "Experteneinstellung"
+
+msgid " Audio settings"
+msgstr " Audio Einstellungen"
+
+msgid " Additional buffer size (ms)"
+msgstr " Zusätzlicher Puffer (ms)"
+
+msgid " Video settings"
+msgstr " Video Einstellungen"
+
+msgid " Disable deinterlacer"
+msgstr " Deaktiviere Deinterlacer"
+
+msgid " H.264 HW dec needs I-Frame"
+msgstr " H.264 HW Dek. benötigt I-Frame"
+
+msgid " H.264 HW dec needs width and height"
+msgstr " H.264 HW Dek. benötigt Größe"
+
+msgid " Enable SW decoder fallback"
+msgstr " Aktiviere SW Dekoder Fallback"
+
+msgid "  fallback after num packets"
+msgstr "  Fallback nach Anzahl Paketen"
+
+msgid " OSD settings"
+msgstr " OSD Einstellungen"
+
+msgid " GPU mem used for image caching (MB)"
+msgstr " GPU-Speichergröße für Bild-Zwischenspeicher (MB)"
