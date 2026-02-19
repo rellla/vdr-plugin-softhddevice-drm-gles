@@ -25,6 +25,7 @@
 
 #include <cstring>
 #include <cstdlib>
+#include <mutex>
 
 #include "config.h"
 #include "logger.h"
@@ -137,4 +138,16 @@ void cSoftHdConfig::PrintLogLevel(int loglevel)
 		strcat(prefix, " grabbing");
 
 	LOGINFO("%s", prefix);
+}
+
+void cSoftHdConfig::SetDecoderNeedsMaxPackets(int num)
+{
+	std::lock_guard<std::mutex> lock(m_mutex);
+	m_decoderNeedsMaxPackets = num;
+}
+
+int cSoftHdConfig::GetDecoderNeedsMaxPackets(void)
+{
+	std::lock_guard<std::mutex> lock(m_mutex);
+	return m_decoderNeedsMaxPackets;
 }

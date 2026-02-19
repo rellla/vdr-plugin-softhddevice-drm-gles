@@ -21,6 +21,8 @@
 #ifndef __SOFTHDCONFIG_H
 #define __SOFTHDCONFIG_H
 
+#include <mutex>
+
 /*****************************************************************************
  * Config
  ****************************************************************************/
@@ -83,6 +85,13 @@ public:
 	const char *CurrentDecoderType = "unknown";
 
 	void PrintLogLevel(int);
+
+	void SetDecoderNeedsMaxPackets(int);
+	int GetDecoderNeedsMaxPackets(void);
+
+private:
+	int m_decoderNeedsMaxPackets = 0;
+	std::mutex m_mutex;
 };
 
 #endif

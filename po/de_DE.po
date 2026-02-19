@@ -295,6 +295,10 @@ msgstr " H.264 HW Dek. benötigt Größe"
 msgid " Enable SW decoder fallback"
 msgstr " Aktiviere SW Dekoder Fallback"
 
+#, c-format
+msgid "  (minimum: %d)"
+msgstr "  (mindestens: %d)"
+
 msgid "  fallback after num packets"
 msgstr "  Fallback nach Anzahl Paketen"
 
