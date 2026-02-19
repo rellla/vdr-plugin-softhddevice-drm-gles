@@ -16,8 +16,6 @@ DOXYFILE  = doxygen/Doxyfile
 
 # Use OpenGL/ES for OSD? Disable autodetection by setting GLES=1 or GLES=0 with make command
 GLES ?= $(shell pkg-config --exists glesv2 egl gbm && echo 1)
-# enable this to write the OSD as png into /tmp (only GLES mode)
-PNG ?= 0
 # enable this to mark the corners of the rectangles on the OSD
 GRID ?= 0
 
@@ -27,9 +25,6 @@ CONFIG :=
 
 ifeq ($(GLES),1)
 CONFIG += -DUSE_GLES			# build with OpenGL/ES support
-ifeq ($(PNG),1)
-CONFIG += -DWRITE_PNG			# enable writing OSD to png file
-endif
 ifeq ($(GRID),1)
 CONFIG += -DGRIDPOINTS			# mark gridpoints
 endif
@@ -112,10 +107,6 @@ _CFLAGS += $(shell pkg-config --cflags gbm glesv2 egl)
 LIBS += $(shell pkg-config --libs gbm glesv2 egl)
 _CFLAGS += $(shell pkg-config --cflags freetype2)
 LIBS += $(shell pkg-config --libs freetype2)
-ifeq ($(PNG),1)
-_CFLAGS += $(shell pkg-config --cflags libpng)
-LIBS += $(shell pkg-config --libs libpng)
-endif
 endif
 
 ### Includes and Defines (add further entries here):

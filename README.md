@@ -119,7 +119,6 @@ Requirements:
 	- gbm (Mesa)
 	- freetype2
 	- glm - OpenGL Mathematics (GLM)
-	- libpng (to write debug OSD pngs)
 
 
 Install:
@@ -215,10 +214,6 @@ Setup: /etc/vdr/setup.conf
 
 	softhddevice-drm-gles.MaxSizeGPUImageCache = 128
 		how many GPU memory should be used for image caching
-
-	softhddevíce-drm-gles.WritePngs = 0
-		0 = do nothing, 1 = write osd on every flush to /tmp
-		this is only for debugging purposes
 
 	softhddevice-drm-gles.AdditionalBufferLengthMs = 0
 		0 = default (min 450ms fixed)

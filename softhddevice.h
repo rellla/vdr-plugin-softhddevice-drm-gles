@@ -180,9 +180,6 @@ public:
 
 	// osd
 #ifdef USE_GLES
-#ifdef WRITE_PNG
-	char WritePngs(void);
-#endif
 	int MaxSizeGPUImageCache(void);
 	int OglOsdIsDisabled(void);
 	void SetDisableOglOsd(void);
