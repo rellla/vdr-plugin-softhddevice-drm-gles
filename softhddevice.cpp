@@ -590,6 +590,9 @@ bool cSoftHdDevice::SetPlayMode(ePlayMode play_mode)
  */
 int64_t cSoftHdDevice::GetSTC(void)
 {
+	if (IsDetached())
+		return AV_NOPTS_VALUE;
+
 	switch (m_playbackMode) {
 		case NONE:
 			return AV_NOPTS_VALUE;
@@ -812,6 +815,8 @@ void cSoftHdDevice::HandleStillPicture(const uchar *data, int size)
 bool cSoftHdDevice::Poll(__attribute__ ((unused)) cPoller & poller, int timeoutMs)
 {
 //	LOGDEBUG("device: %s: timeout %d", __FUNCTION__, timeout_ms);
+	if (IsDetached())
+		return true;
 
 	if (!m_pAudio->IsBufferFull() && !m_pVideoStream->IsInputBufferFull())
 		return true;
@@ -981,6 +986,8 @@ static void PrintStreamData(const uchar *payload)
 int cSoftHdDevice::PlayAudio(const uchar *data, int size, uchar id)
 {
 //	LOGDEBUG("device: %s: %p %p %d %d", __FUNCTION__, this, data, size, id);
+	if (IsDetached())
+		return size;
 
 	m_receivedAudio = true;
 
@@ -1083,6 +1090,9 @@ void cSoftHdDevice::SetVolumeDevice(int volume)
 int cSoftHdDevice::PlayVideo(const uchar *data, int size)
 {
 //	LOGDEBUG("device: %s: %p %d", __FUNCTION__, data, size);
+	if (IsDetached())
+		return size;
+
 	m_receivedVideo = true;
 
 	return PlayVideoInternal(m_pVideoStream, &m_videoReassemblyBuffer, data, size, Transferring());
