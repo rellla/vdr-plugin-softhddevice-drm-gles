@@ -1004,6 +1004,11 @@ void cSoftHdAudio::SetStereoDescent(int delta)
 void cSoftHdAudio::SetPassthrough(int mask)
 {
 	m_passthrough = mask;
+
+	// Reset m_pitchPpm if we change the passthrough handling, otherwise
+	// we may continue to adjust the pitch in Enqueue() when in passthrough
+	if (m_passthrough)
+		m_pitchPpm = 0;
 }
 
 /**
