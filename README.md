@@ -297,6 +297,15 @@ Setup: /etc/vdr/setup.conf
 		0 = don't parse width and height before decoder start
 		1 = H.264 HW decoder wants decoded width and height before starting
 
+	softhddevice-drm-gles.DecoderFallbackToSw = 0
+		0 = always use hardware decoder if available
+		1 = fallback to software decoder if hardware decoder
+		    fails after num packets (see below)
+
+	softhddevice-drm-gles.DecoderFallbackToSwNumPkts = 22
+		maximum number of packets sent to the hardware decoder
+		until the software fallback jumps in
+
 	softhddevice-drm-gles.PipScalePercent = 25
 		10 - 100 = scale factor for pip (%)
 
