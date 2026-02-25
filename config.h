@@ -64,7 +64,7 @@ public:
 	bool ConfigParseH264Dimensions = false;     ///< parse h264 stream for width and height for decoder init
 	bool ConfigDecoderFallbackToSw = false;     ///< fallback to software decoder if the hardware decoder fails
 	int ConfigDecoderFallbackToSwNumPkts = 22;  ///< maximum number of packets sent before fallback to sw decoder
-	bool ConfigParseH264StreamStart = false;    ///< log the nal units at stream start until a second i-Frame arrives
+	int ConfigParseH264StreamStart = 0;         ///< log the nal units at stream start up to the given number of i-Frames
 	bool ConfigDropInvalidH264PFrames = false;  ///< drop H.264 P-Frames with invalid references on stream start
 
 	// pip - default position at right top, 25% scaled

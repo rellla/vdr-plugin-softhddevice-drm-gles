@@ -216,7 +216,7 @@ void cMenuSetupSoft::Create(void)
 			Add(new cOsdItem(cString::sprintf(tr("  (minimum: %d)"), m_pConfig->GetDecoderNeedsMaxPackets() + 1), osUnknown, false));
 			Add(new cMenuEditIntItem(tr("  fallback after num packets"), &m_cDecoderFallbackToSwNumPkts, 22));
 		}
-		Add(new cMenuEditBoolItem(tr(" Parse H.264 stream start"), &m_cParseH264StreamStart, trVDR("no"), trVDR("yes")));
+		Add(new cMenuEditIntItem(tr(" Parse H.264 num I-Frames"), &m_cParseH264StreamStart, 0, 20));
 		Add(new cMenuEditBoolItem(tr(" Drop invalid H.264 P-Frames"), &m_cDropInvalidH264PFrames, trVDR("no"), trVDR("yes")));
 #ifdef USE_GLES
 		Add(SeparatorName(tr(" OSD settings")));
