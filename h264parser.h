@@ -77,11 +77,12 @@ public:
 	void BuildInvalidReferenceString(int frameNumber);
 	void BuildValidReferenceString(void);
 	void AddFrameNumber(int);
-	void AddInvalidReference(int);
+	void AddInvalidReference(int, int);
 	void AddValidReference(int);
 	int GetNumRefIdxL0Active(void) { return m_numRefIdxL0Active; };
 	int GetNumRefIdxL1Active(void) { return m_numRefIdxL1Active; };
 	bool HasInvalidReferences(void) { return m_hasInvalidReferences; };
+	bool HasInvalidBackwardReferences(void) { return m_hasInvalidBackwardReferences; };
 
 private:
 	AVPacket *m_pAvpkt;
@@ -108,6 +109,7 @@ private:
 	int  m_log2MaxFrameNumMinus4 = -4; // from SPS
 	std::vector<RefPicMod> m_refMods;
 	bool m_hasInvalidReferences = false;
+	bool m_hasInvalidBackwardReferences = false;
 	bool m_hasValidReferences = false;
 
 	int m_ppsNumRefIdxL0DefaultActiveMinus1 = -1; // from PPS

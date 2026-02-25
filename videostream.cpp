@@ -442,7 +442,7 @@ void cVideoStream::DecodeInput(void)
 
 					// Check if this reference exists in the DPB
 					if (m_dpbFrames.find(modRef) == m_dpbFrames.end()) {
-						h264Packet.AddInvalidReference(modRef);
+						h264Packet.AddInvalidReference(modRef, frameNumber);
 					} else {
 						h264Packet.AddValidReference(modRef);
 					}
@@ -452,8 +452,8 @@ void cVideoStream::DecodeInput(void)
 				h264Packet.BuildInvalidReferenceString(frameNumber);
 				// h264Packet.BuildValidReferenceString();
 
-				if (h264Packet.HasInvalidReferences() && h264Packet.IsPSlice() &&  m_numIFrames < m_dropInvalidPackets) {
-					LOGDEBUG2(L_CODEC, "videostream %s: %s: invalid reference, drop P-Frame %d", m_identifier, __FUNCTION__, frameNumber);
+				if (h264Packet.HasInvalidBackwardReferences() && h264Packet.IsPSlice() &&  m_numIFrames < m_dropInvalidPackets) {
+					LOGDEBUG2(L_CODEC, "videostream %s: %s: invalid backward reference, drop P-Frame %d", m_identifier, __FUNCTION__, frameNumber);
 					dropPacket = true;
 				}
 			}
