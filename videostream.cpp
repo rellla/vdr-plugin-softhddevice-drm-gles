@@ -449,8 +449,8 @@ void cVideoStream::DecodeInput(void)
 				}
 
 				// only print invalid references for better readability
-				h264Packet.PrintInvalidReference();
-				// h264Packet.PrintValidReference();
+				h264Packet.BuildInvalidReferenceString(frameNumber);
+				// h264Packet.BuildValidReferenceString();
 
 				if (h264Packet.HasInvalidReferences() && h264Packet.IsPSlice() && m_dropInvalidPackets) {
 					LOGDEBUG2(L_CODEC, "videostream %s: %s: invalid reference, drop P-Frame %d", m_identifier, __FUNCTION__, frameNumber);

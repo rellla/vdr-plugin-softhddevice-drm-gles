@@ -475,19 +475,21 @@ void cH264Parser::AddValidReference(int modRef)
 	m_hasValidReferences = true;
 }
 
-void cH264Parser::PrintInvalidReference(void)
+void cH264Parser::BuildInvalidReferenceString(int frameNumber)
 {
 	if (!m_hasInvalidReferences)
 		return;
 
 	m_naluString += " !!!";
 	for (auto r : m_invalidReferences) {
-		m_naluString += " ";
-		m_naluString += std::to_string(r);
+		if (r < frameNumber) {
+			m_naluString += " ";
+			m_naluString += std::to_string(r);
+		}
 	}
 }
 
-void cH264Parser::PrintValidReference(void)
+void cH264Parser::BuildValidReferenceString(void)
 {
 	if (!m_hasValidReferences)
 		return;
