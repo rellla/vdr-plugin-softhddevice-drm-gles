@@ -386,12 +386,15 @@ cH264Parser::cH264Parser(AVPacket *avpkt, int maxFrameNum, int refIdxL0, int ref
 						mod.idc = idc;
 						mod.abs_diff_pic_num_minus1 = ReadExponentialGolombCode();
 						m_refMods.push_back(mod);
-					} else if (idc == 2) { // ignore long-term ?
+					// ignore long-term ?
+					/*
+					} else if (idc == 2) {
 						RefPicMod mod;
 						mod.list = 0;
 						mod.idc = idc;
 						mod.long_term_pic_num = ReadExponentialGolombCode();
 						m_refMods.push_back(mod);
+					*/
 					}
 				} while (idc != 3);
 			}
@@ -421,12 +424,15 @@ cH264Parser::cH264Parser(AVPacket *avpkt, int maxFrameNum, int refIdxL0, int ref
 						mod.idc = idc;
 						mod.abs_diff_pic_num_minus1 = ReadExponentialGolombCode();
 						m_refMods.push_back(mod);
+					// ignore long-term ?
+					/*
 					} else if (idc == 2) {
 						RefPicMod mod;
 						mod.list = 0;
 						mod.idc = idc;
 						mod.long_term_pic_num = ReadExponentialGolombCode();
 						m_refMods.push_back(mod);
+					*/
 					}
 				} while (idc != 3);
 			}
@@ -444,12 +450,15 @@ cH264Parser::cH264Parser(AVPacket *avpkt, int maxFrameNum, int refIdxL0, int ref
 						mod.idc = idc;
 						mod.abs_diff_pic_num_minus1 = ReadExponentialGolombCode();
 						m_refMods.push_back(mod);
+					// ignore long-term ?
+					/*
 					} else if (idc == 2) {
 						RefPicMod mod;
 						mod.list = 1;
 						mod.idc = idc;
 						mod.long_term_pic_num = ReadExponentialGolombCode();
 						m_refMods.push_back(mod);
+					*/
 					}
 				} while (idc != 3);
 			}
@@ -463,10 +472,13 @@ cH264Parser::cH264Parser(AVPacket *avpkt, int maxFrameNum, int refIdxL0, int ref
 	}
 }
 
-void cH264Parser::AddInvalidReference(int modRef)
+void cH264Parser::AddInvalidReference(int modRef, int frameNumber)
 {
 	m_invalidReferences.insert(modRef);
 	m_hasInvalidReferences = true;
+
+	if (modRef < frameNumber)
+		m_hasInvalidBackwardReferences = true;
 }
 
 void cH264Parser::AddValidReference(int modRef)
