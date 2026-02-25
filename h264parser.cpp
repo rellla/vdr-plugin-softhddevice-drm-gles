@@ -39,31 +39,43 @@ extern "C" {
  ****************************************************************************/
 
 /**
- * Returns true, if we have a 0x000001 start code
+ * Returns true, if we have a 0x000001 or 0x00000001 start code
  * in data at the offset position
  */
-bool isValidStartCode(const uint8_t *data, int offset)
+bool isValidStartCode(const uint8_t *data, int offset, int size, int &startCodeLength)
 {
-	return ReadBytes(&data[offset], 3) == 0x000001;
+	if (offset + 4 <= size && ReadBytes(&data[offset], 4) == 0x00000001) {
+		startCodeLength = 4;
+		return true;
+	}
+
+	if (offset + 3 <= size && ReadBytes(&data[offset], 3) == 0x000001) {
+		startCodeLength = 3;
+		return true;
+	}
+
+	return false;
 }
 
 /**
  * Return the nal unit type
  */
-static int NalUnitType(const uint8_t *data, int i)
+static int NalUnitType(const uint8_t *data, int offset, int startCodeLength)
 {
-	return data[i + 3] & 0x1F;
+	return data[offset + startCodeLength] & 0x1F;
 }
 
 int cH264Parser::GetSPSOffset(void)
 {
 	int offset = -1;
 
-	for (int i = 0; i < m_pAvpkt->size - 4; i++) {
-		if (!isValidStartCode(m_pAvpkt->data, i))
+	for (int i = 0; i < m_pAvpkt->size; i++) {
+		int startCodeLength = 0;
+
+		if (!isValidStartCode(m_pAvpkt->data, i, m_pAvpkt->size, startCodeLength))
 			continue;
 
-		if (NalUnitType(m_pAvpkt->data, i) == 7) {
+		if (NalUnitType(m_pAvpkt->data, i, startCodeLength) == 7) {
 			offset = i;
 			break;
 		}
@@ -76,11 +88,13 @@ int cH264Parser::GetPPSOffset(void)
 {
 	int offset = -1;
 
-	for (int i = 0; i < m_pAvpkt->size - 4; i++) {
-		if (!isValidStartCode(m_pAvpkt->data, i))
+	for (int i = 0; i < m_pAvpkt->size; i++) {
+		int startCodeLength = 0;
+
+		if (!isValidStartCode(m_pAvpkt->data, i, m_pAvpkt->size, startCodeLength))
 			continue;
 
-		if (NalUnitType(m_pAvpkt->data, i) == 8) {
+		if (NalUnitType(m_pAvpkt->data, i, startCodeLength) == 8) {
 			offset = i;
 			break;
 		}
@@ -93,11 +107,13 @@ int cH264Parser::GetSliceOffset(void)
 {
 	int offset = -1;
 
-	for (int i = 0; i < m_pAvpkt->size - 4; i++) {
-		if (!isValidStartCode(m_pAvpkt->data, i))
+	for (int i = 0; i < m_pAvpkt->size; i++) {
+		int startCodeLength = 0;
+
+		if (!isValidStartCode(m_pAvpkt->data, i, m_pAvpkt->size, startCodeLength))
 			continue;
 
-		if (NalUnitType(m_pAvpkt->data, i) == 1 || NalUnitType(m_pAvpkt->data, i) == 5) {
+		if (NalUnitType(m_pAvpkt->data, i, startCodeLength) == 1 || NalUnitType(m_pAvpkt->data, i, startCodeLength) == 5) {
 			offset = i;
 			break;
 		}
@@ -120,61 +136,46 @@ cH264Parser::cH264Parser(AVPacket *avpkt, int maxFrameNum, int refIdxL0, int ref
 	int i;
 
 	// part 1: collect the nalu types in the packet
-	for (i = 0; i < m_pAvpkt->size - 3; i++) {
-		if (!isValidStartCode(m_pAvpkt->data, i))
+	for (i = 0; i < m_pAvpkt->size; i++) {
+		int startCodeLength = 0;
+
+		if (!isValidStartCode(m_pAvpkt->data, i, m_pAvpkt->size, startCodeLength))
 			continue;
 
-		switch (NalUnitType(m_pAvpkt->data, i)) {
-			case 1:
-				m_naluString += " NON-IDR";
-				m_nalutype |= NALU_TYPE_NON_IDR;
-				break;
-			case 2:
-				m_naluString += " PART_A";
-				m_nalutype |= NALU_TYPE_PART_A;
-				break;
-			case 3:
-				m_naluString += " PART_B";
-				m_nalutype |= NALU_TYPE_PART_B;
-				break;
-			case 4:
-				m_naluString += " PART_C";
-				m_nalutype |= NALU_TYPE_PART_C;
-				break;
-			case 5:
-				m_naluString += " IDR";
-				m_nalutype |= NALU_TYPE_IDR;
-				break;
-			case 6:
-				m_naluString += " SEI";
-				m_nalutype |= NALU_TYPE_SEI;
-				break;
-			case 7:
-				m_naluString += " SPS";
-				m_nalutype |= NALU_TYPE_SPS;
-				break;
-			case 8:
-				m_naluString += " PPS";
-				m_nalutype |= NALU_TYPE_PPS;
-				break;
-			case 9:
-				m_naluString += " AUD";
-				m_nalutype |= NALU_TYPE_AUD;
-				break;
-			default:
-				break;
+		int naluType = NalUnitType(m_pAvpkt->data, i, startCodeLength);
+		switch (naluType) {
+			case 1: m_naluString += " NON-IDR"; m_nalutype |= NALU_TYPE_NON_IDR; break;
+			case 2: m_naluString += " PART_A";  m_nalutype |= NALU_TYPE_PART_A;  break;
+			case 3: m_naluString += " PART_B";  m_nalutype |= NALU_TYPE_PART_B;  break;
+			case 4: m_naluString += " PART_C";  m_nalutype |= NALU_TYPE_PART_C;  break;
+			case 5: m_naluString += " IDR";     m_nalutype |= NALU_TYPE_IDR;     break;
+			case 6: m_naluString += " SEI";     m_nalutype |= NALU_TYPE_SEI;     break;
+			case 7: m_naluString += " SPS";     m_nalutype |= NALU_TYPE_SPS;     break;
+			case 8: m_naluString += " PPS";     m_nalutype |= NALU_TYPE_PPS;     break;
+			case 9: m_naluString += " AUD";     m_nalutype |= NALU_TYPE_AUD;     break;
+			default: break;
 		}
+
+		i += startCodeLength - 1;
 	}
 
 	// part 2: parse h264 SPS and get width and height
 	int spsOffset = GetSPSOffset();
+	m_parseError = false;
 
 	// SPS is available
 	if (spsOffset != -1) {
 		m_hasSPS = true;
+		int startCodeLength = 0;
+		isValidStartCode(m_pAvpkt->data, spsOffset, m_pAvpkt->size, startCodeLength);
 
-		m_pStart = &m_pAvpkt->data[spsOffset + 4];
-		m_nLength = m_pAvpkt->size - spsOffset - 4;
+		const uint8_t *nalPayload = &m_pAvpkt->data[spsOffset + startCodeLength + 1];
+		int nalLength = m_pAvpkt->size - spsOffset - startCodeLength -1;
+
+		ConvertEBSPtoRBSP(nalPayload, nalLength);
+		m_pStart = m_rbsp.data();
+		m_nLength = m_rbsp.size();
+
 		m_nCurrentBit = 0;
 
 		int frameCropLeftOffset = 0;
@@ -272,17 +273,29 @@ cH264Parser::cH264Parser(AVPacket *avpkt, int maxFrameNum, int refIdxL0, int ref
 
 		m_height = ((2 - frameMbsOnlyFlag)* (picHeightInMapUnitsMinusOne +1) * 16) -
 			subHeightC * ((frameCropBottomOffset * 2) + (frameCropTopOffset * 2));
+
+//		if (m_parseError)
+//			LOGWARNING("SPS parsing error");
 	}
 
 	// part 3: parse h264 PPS
 	int ppsOffset = GetPPSOffset();
+	m_parseError = false;
 
 	// PPS is available
 	if (ppsOffset != -1) {
 		m_hasPPS = true;
 
-		m_pStart = &m_pAvpkt->data[ppsOffset + 4];
-		m_nLength = m_pAvpkt->size - ppsOffset - 4;
+		int startCodeLength = 0;
+		isValidStartCode(m_pAvpkt->data, ppsOffset, m_pAvpkt->size, startCodeLength);
+
+		const uint8_t *nalPayload = &m_pAvpkt->data[ppsOffset + startCodeLength + 1];
+		int nalLength = m_pAvpkt->size - ppsOffset - startCodeLength -1;
+
+		ConvertEBSPtoRBSP(nalPayload, nalLength);
+
+		m_pStart = m_rbsp.data();
+		m_nLength = m_rbsp.size();
 		m_nCurrentBit = 0;
 
 		ReadExponentialGolombCode(); // PicParameterSetId
@@ -329,20 +342,32 @@ cH264Parser::cH264Parser(AVPacket *avpkt, int maxFrameNum, int refIdxL0, int ref
 
 		m_numRefIdxL0Active = m_ppsNumRefIdxL0DefaultActiveMinus1 + 1;
 		m_numRefIdxL1Active = m_ppsNumRefIdxL1DefaultActiveMinus1 + 1;
+
+//		if (m_parseError)
+//			LOGWARNING("PPS parsing error");
 	}
 
 	// part 4: parse slice header
 	int sliceOffset = GetSliceOffset();
+	m_parseError = false;
 
 	// slice is available
 	if (sliceOffset != -1) {
-		m_pStart = &m_pAvpkt->data[sliceOffset + 4];
-		m_nLength = m_pAvpkt->size - sliceOffset - 4;
-		uint8_t nalHeader = m_pAvpkt->data[sliceOffset + 3];
+		int startCodeLength = 0;
+		isValidStartCode(m_pAvpkt->data, sliceOffset, m_pAvpkt->size, startCodeLength);
 
+		const uint8_t *nalPayload = &m_pAvpkt->data[sliceOffset + startCodeLength + 1];
+		int nalLength = m_pAvpkt->size - sliceOffset - startCodeLength - 1;
+
+		ConvertEBSPtoRBSP(nalPayload, nalLength);
+
+		m_pStart = m_rbsp.data();
+		m_nLength = m_rbsp.size();
+
+		uint8_t nalHeader = m_pAvpkt->data[sliceOffset + startCodeLength];
 		m_nalRefIdc = (nalHeader >> 5) & 0x03;
 		m_isReference = (m_nalRefIdc != 0);
-		m_isIDR = (NalUnitType(m_pAvpkt->data, sliceOffset) == 5);
+		m_isIDR = ((nalHeader & 0x1F) == 5);
 
 		m_nCurrentBit = 0;
 
@@ -355,6 +380,10 @@ cH264Parser::cH264Parser(AVPacket *avpkt, int maxFrameNum, int refIdxL0, int ref
 
 		int frame_num_bits = m_log2MaxFrameNumMinus4 + 4;
 		m_frameNum = ReadBits(frame_num_bits);
+//		if (m_parseError) {
+//			LOGWARNING("Slice parsing error -> frameNum");
+//			return;
+//		}
 
 		if (m_isIDR)
 			ReadExponentialGolombCode(); // idr_pic_id
@@ -466,9 +495,11 @@ cH264Parser::cH264Parser(AVPacket *avpkt, int maxFrameNum, int refIdxL0, int ref
 			m_naluString += " -I-    ";
 		} else if (m_sliceType == 3) { // SP-slice
 			m_naluString += "       -SP-   ";
-		} else if (m_sliceType == 5) { // SI-slice
+		} else if (m_sliceType == 4) { // SI-slice
 			m_naluString += " -SI-   ";
 		}
+//		if (m_parseError)
+//			LOGWARNING("Slice parsing error");
 	}
 }
 
@@ -555,36 +586,59 @@ void cH264Parser::PrintNalUnits(void)
  */
 unsigned int cH264Parser::ReadBit()
 {
-	assert(m_nCurrentBit <= m_nLength * 8);
-	int nIndex = m_nCurrentBit / 8;
-	int nOffset = m_nCurrentBit % 8 + 1;
+	if (m_nCurrentBit >= m_nLength * 8) {
+		m_parseError = true;
+		return 0;
+	}
+
+	int nIndex  = m_nCurrentBit / 8;
+	int nOffset = m_nCurrentBit % 8;
 
 	m_nCurrentBit++;
-	return (m_pStart[nIndex] >> (8-nOffset)) & 0x01;
+	return (m_pStart[nIndex] >> (7 - nOffset)) & 0x01;
 }
 
 unsigned int cH264Parser::ReadBits(int n)
 {
-	int r = 0;
+	if (m_nCurrentBit + n > m_nLength * 8) {
+		m_parseError = true;
+		return 0;
+	}
+
+	unsigned int r = 0;
 
 	for (int i = 0; i < n; i++) {
-		r |= ( ReadBit() << ( n - i - 1 ) );
+		r = (r << 1) | ReadBit();
 	}
 	return r;
 }
 
 unsigned int cH264Parser::ReadExponentialGolombCode()
 {
-	int r = 0;
-	int i = 0;
+	int zeros = 0;
 
-	while((ReadBit() == 0) && (i < 32)) {
-		i++;
+	while (zeros < 32) {
+	if (m_nCurrentBit >= m_nLength * 8) {
+		m_parseError = true;
+		return 0;
 	}
 
-	r = ReadBits(i);
-	r += (1 << i) - 1;
-	return r;
+	if (ReadBit() == 0)
+		zeros++;
+	else
+		break;
+	}
+
+	if (zeros == 32) {
+		m_parseError = true;
+		return 0;
+	}
+
+	unsigned int suffix = 0;
+	if (zeros > 0)
+		suffix = ReadBits(zeros);
+
+	return ((1u << zeros) - 1) + suffix;
 }
 
 unsigned int cH264Parser::ReadSE()
@@ -597,4 +651,27 @@ unsigned int cH264Parser::ReadSE()
 		r = -(r/2);
 	}
 	return r;
+}
+
+void cH264Parser::ConvertEBSPtoRBSP(const uint8_t *src, int length)
+{
+	m_rbsp.clear();
+	m_rbsp.reserve(length);
+
+	int zeroCount = 0;
+
+	for (int i = 0; i < length; i++) {
+		if (zeroCount == 2 && src[i] == 0x03) {
+			// skip emulation prevention byte
+			zeroCount = 0;
+			continue;
+		}
+
+		m_rbsp.push_back(src[i]);
+
+		if (src[i] == 0x00)
+			zeroCount++;
+		else
+			zeroCount = 0;
+	}
 }
