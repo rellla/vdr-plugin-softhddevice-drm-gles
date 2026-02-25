@@ -537,15 +537,6 @@ void cH264Parser::PrintNalUnits(void)
 }
 
 /*
- * Does the parser frame include an I-Frame?
- */
-bool cH264Parser::IsIFrame(void)
-{
-	return (m_nalutype & NALU_TYPE_IDR) ||
-	      ((m_nalutype & NALU_TYPE_NON_IDR) && (m_nalutype & (NALU_TYPE_PPS | NALU_TYPE_SPS)));
-}
-
-/*
  * helper functions to parse resolution from stream
  */
 unsigned int cH264Parser::ReadBit()

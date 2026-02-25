@@ -57,7 +57,6 @@ public:
 	cH264Parser(AVPacket *, int, int, int);
 	int GetWidth(void) { return m_width; };
 	int GetHeight(void) { return m_height; };
-	bool IsIFrame(void);
 	bool IsMbaff(void) { return m_mbaff; };
 	bool HasSPS(void) { return m_hasSPS; };
 	bool HasPPS(void) { return m_hasPPS; };
@@ -67,6 +66,7 @@ public:
 
 	bool IsPSlice() const { return m_sliceType == 0; }
 	bool IsBSlice() const { return m_sliceType == 1; }
+	bool IsISlice() const { return m_sliceType == 2; }
 	bool IsIDR() const { return m_isIDR; }
 	bool IsReference() const { return m_isReference; }
 	int GetFrameNum() const { return m_frameNum; }

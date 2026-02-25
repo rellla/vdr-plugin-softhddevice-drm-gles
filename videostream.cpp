@@ -348,7 +348,7 @@ void cVideoStream::OpenDecoder(void)
 		}
 
 		// start decoding with an I-Frame only
-		if (!h264Packet.IsIFrame() && m_startDecodingWithIFrame) {
+		if (!h264Packet.IsISlice() && m_startDecodingWithIFrame) {
 			h264Packet.PrintNalUnits();
 			LOGDEBUG2(L_CODEC, "videostream %s: %s: Skip h264 packet, no I-Frame!", m_identifier, __FUNCTION__);
 			AVPacket *avpkt = m_packets.Pop();
@@ -458,7 +458,7 @@ void cVideoStream::DecodeInput(void)
 				}
 			}
 
-			if (h264Packet.IsIFrame())
+			if (h264Packet.IsISlice())
 				m_numIFrames++;
 
 			m_naluTypesAtStart.push_back(h264Packet.GetNalUnitString());
