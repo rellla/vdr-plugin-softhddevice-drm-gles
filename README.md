@@ -340,11 +340,10 @@ Setup: /etc/vdr/setup.conf
 		until the software fallback jumps in
 
 	softhddevice-drm-gles.ParseH264StreamStart = 0
-		0 = disable parsing, 1-20 = parse up to the given number of I-Frames
-		parse and log the frames of a H.264 stream
+		0 = disable parsing, 1-20 = parse H.264 stream up to the given number of I-Frames
 
 	softhddevice-drm-gles.DropInvalidH264PFrames = 0
-		drop p-frames of ah H.264 stream, that have an invalid reference
+		1 = drop H.264 P-Frames with an invalid backwards reference
 
 	softhddevice-drm-gles.PipScalePercent = 25
 		10 - 100 = scale factor for pip (%)

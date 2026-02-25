@@ -371,7 +371,7 @@ void cVideoStream::OpenDecoder(void)
 	m_pConfig->CurrentDecoderName = m_pDecoder->Name();
 	m_newStream = false;
 	m_logPackets = m_pConfig->ConfigParseH264StreamStart ? m_pConfig->ConfigParseH264StreamStart + 1 : 0;
-	m_dropInvalidPackets = m_pConfig->ConfigDropInvalidH264PFrames;
+	m_dropInvalidPackets = m_pConfig->ConfigDropInvalidH264PFrames ? m_pConfig->ConfigDropInvalidH264PFrames + 1 : 0;
 }
 
 /**
@@ -394,7 +394,7 @@ void cVideoStream::DecodeInput(void)
 
 	// log nal units of the frames until the second I Frame arrives
 	if (avpkt && m_codecId == AV_CODEC_ID_H264 && (m_logPackets || m_dropInvalidPackets) && !m_isResend) {
-		if (m_numIFrames < m_logPackets || m_dropInvalidPackets) {
+		if (m_numIFrames < m_logPackets || m_numIFrames < m_dropInvalidPackets) {
 			cH264Parser h264Packet(m_packets.Peek(),
 		                               m_log2MaxFrameNumMinus4,
 		                               m_ppsNumRefIdxL0DefaultActiveMinus1,
@@ -452,7 +452,7 @@ void cVideoStream::DecodeInput(void)
 				h264Packet.BuildInvalidReferenceString(frameNumber);
 				// h264Packet.BuildValidReferenceString();
 
-				if (h264Packet.HasInvalidReferences() && h264Packet.IsPSlice() && m_dropInvalidPackets && m_numIFrames < 2) {
+				if (h264Packet.HasInvalidReferences() && h264Packet.IsPSlice() &&  m_numIFrames < m_dropInvalidPackets) {
 					LOGDEBUG2(L_CODEC, "videostream %s: %s: invalid reference, drop P-Frame %d", m_identifier, __FUNCTION__, frameNumber);
 					dropPacket = true;
 				}
@@ -467,13 +467,14 @@ void cVideoStream::DecodeInput(void)
 			for (std::size_t i = 0; i < m_naluTypesAtStart.size(); i++) {
 				LOGDEBUG("[H264] (%02d) %s", i, m_naluTypesAtStart[i].c_str());
 			}
-			m_logPackets = false;
+			m_logPackets = 0;
 		}
 	}
 
 	if (dropPacket) {
 		avpkt = m_packets.Pop();
 		av_packet_free(&avpkt);
+		m_isResend = false;
 	} else {
 		ret = m_pDecoder->SendPacket(avpkt);
 
