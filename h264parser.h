@@ -74,8 +74,8 @@ public:
 	int GetLog2MaxFrameNumMinus4() const { return m_log2MaxFrameNumMinus4; }
 	int GetPpsNumRefIdxL0DefaultActiveMinus1(void) { return m_ppsNumRefIdxL0DefaultActiveMinus1; };
 	int GetPpsNumRefIdxL1DefaultActiveMinus1(void) { return m_ppsNumRefIdxL1DefaultActiveMinus1; };
-	void PrintInvalidReference(void);
-	void PrintValidReference(void);
+	void BuildInvalidReferenceString(int frameNumber);
+	void BuildValidReferenceString(void);
 	void AddFrameNumber(int);
 	void AddInvalidReference(int);
 	void AddValidReference(int);
