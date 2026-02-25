@@ -136,7 +136,7 @@ private:
 	std::vector<std::string> m_naluTypesAtStart;
 	int m_numIFrames = 0;
 	int m_logPackets = 0;
-	bool m_dropInvalidPackets = false;
+	int m_dropInvalidPackets = 0;
 	std::set<int> m_dpbFrames;
 	int m_maxFrameNum = 1;
 	int m_log2MaxFrameNumMinus4 = -4;
