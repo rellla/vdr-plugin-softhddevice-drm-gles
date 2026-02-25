@@ -83,16 +83,19 @@ public:
 	int GetNumRefIdxL1Active(void) { return m_numRefIdxL1Active; };
 	bool HasInvalidReferences(void) { return m_hasInvalidReferences; };
 	bool HasInvalidBackwardReferences(void) { return m_hasInvalidBackwardReferences; };
+	bool HasParseError(void) const { return m_parseError; };
 
 private:
 	AVPacket *m_pAvpkt;
 	const unsigned char *m_pStart;
+	std::vector<uint8_t> m_rbsp;
 	unsigned short m_nLength;
 	int m_nCurrentBit;
 
 	int m_nalutype = 0;
 	bool m_hasSPS = false;
 	bool m_hasPPS = false;
+	bool m_parseError = false;
 
 	int m_width = 0;
 	int m_height = 0;
@@ -124,6 +127,7 @@ private:
 	int GetSPSOffset(void);
 	int GetPPSOffset(void);
 	int GetSliceOffset(void);
+	void ConvertEBSPtoRBSP(const uint8_t *, int);
 };
 
 #endif
