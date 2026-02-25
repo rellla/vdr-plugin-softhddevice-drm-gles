@@ -135,7 +135,7 @@ private:
 	int64_t m_inputPts = AV_NOPTS_VALUE;   ///< PTS of the first packet in the input buffer
 	std::vector<std::string> m_naluTypesAtStart;
 	int m_numIFrames = 0;
-	bool m_logPackets = false;
+	int m_logPackets = 0;
 	bool m_dropInvalidPackets = false;
 	std::set<int> m_dpbFrames;
 	int m_maxFrameNum = 1;
