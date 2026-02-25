@@ -81,6 +81,7 @@ public:
 	void AddValidReference(int);
 	int GetNumRefIdxL0Active(void) { return m_numRefIdxL0Active; };
 	int GetNumRefIdxL1Active(void) { return m_numRefIdxL1Active; };
+	bool HasInvalidReferences(void) { return m_hasInvalidReferences; };
 
 private:
 	AVPacket *m_pAvpkt;

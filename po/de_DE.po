@@ -311,6 +311,9 @@ msgstr "  Fallback nach Anzahl Paketen"
 msgid " Parse H.264 stream start"
 msgstr " Beginn eines H.264 streams parsen"
 
+msgid " Drop invalid H.264 P-Frames"
+msgstr " Defekte H.264 P-Frames verwerfen"
+
 msgid " OSD settings"
 msgstr " OSD Einstellungen"
 
