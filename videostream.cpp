@@ -370,7 +370,8 @@ void cVideoStream::OpenDecoder(void)
 	m_pConfig->CurrentDecoderType = m_pDecoder->IsHardwareDecoder() ? "hardware" : "software";
 	m_pConfig->CurrentDecoderName = m_pDecoder->Name();
 	m_newStream = false;
-	m_logFrames = m_pConfig->ConfigParseH264StreamStart;
+	m_logPackets = m_pConfig->ConfigParseH264StreamStart;
+	m_dropInvalidPackets = m_pConfig->ConfigDropInvalidH264PFrames;
 }
 
 /**
@@ -389,11 +390,10 @@ void cVideoStream::DecodeInput(void)
 
 	// send packet to decoder
 	AVPacket *avpkt = m_packets.Peek();
-
-	ret = m_pDecoder->SendPacket(avpkt);
+	bool dropPacket = false;
 
 	// log nal units of the frames until the second I Frame arrives
-	if (!ret && m_codecId == AV_CODEC_ID_H264 && m_logFrames) {
+	if (avpkt && m_codecId == AV_CODEC_ID_H264 && (m_logPackets || m_dropInvalidPackets) && !m_isResend) {
 		if (m_numIFrames < 2) {
 			cH264Parser h264Packet(m_packets.Peek(),
 		                               m_log2MaxFrameNumMinus4,
@@ -451,28 +451,43 @@ void cVideoStream::DecodeInput(void)
 				// only print invalid references for better readability
 				h264Packet.PrintInvalidReference();
 				// h264Packet.PrintValidReference();
+
+				if (h264Packet.HasInvalidReferences() && h264Packet.IsPSlice() && m_dropInvalidPackets) {
+					LOGDEBUG2(L_CODEC, "videostream %s: %s: invalid reference, drop P-Frame %d", m_identifier, __FUNCTION__, frameNumber);
+					dropPacket = true;
+				}
 			}
 
 			if (h264Packet.IsIFrame())
 				m_numIFrames++;
 
 			m_naluTypesAtStart.push_back(h264Packet.GetNalUnitString());
-		} else {
+		} else if (m_logPackets) {
 			LOGDEBUG("videostream %s: %s: parsed H.264 stream:", m_identifier, __FUNCTION__);
 			for (std::size_t i = 0; i < m_naluTypesAtStart.size(); i++) {
 				LOGDEBUG("[H264] (%02d) %s", i, m_naluTypesAtStart[i].c_str());
 			}
-			m_logFrames = false;
+			m_logPackets = false;
 		}
 	}
 
-	if (ret != AVERROR(EAGAIN) && ret != AVERROR_EOF) {
+	if (dropPacket) {
 		avpkt = m_packets.Pop();
 		av_packet_free(&avpkt);
-	}
+	} else {
+		ret = m_pDecoder->SendPacket(avpkt);
 
-	if (!ret && m_pRender->IsTrickSpeed())
-		CheckForcingFrameDecode();
+		if (ret != AVERROR(EAGAIN) && ret != AVERROR_EOF) {
+			avpkt = m_packets.Pop();
+			av_packet_free(&avpkt);
+			m_isResend = false;
+		} else {
+			m_isResend = true;
+		}
+
+		if (!ret && m_pRender->IsTrickSpeed())
+			CheckForcingFrameDecode();
+	}
 
 	// receive frame from decoder
 	ret = m_pDecoder->ReceiveFrame(&frame);

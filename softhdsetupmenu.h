@@ -114,6 +114,7 @@ protected:
 	int m_cDecoderFallbackToSw;
 	int m_cDecoderFallbackToSwNumPkts;
 	int m_cParseH264StreamStart;
+	int m_cDropInvalidH264PFrames;
 #ifdef USE_GLES
 	int m_cMaxSizeGPUImageCache;
 #endif

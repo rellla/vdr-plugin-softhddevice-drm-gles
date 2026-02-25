@@ -342,6 +342,9 @@ Setup: /etc/vdr/setup.conf
 	softhddevice-drm-gles.ParseH264StreamStart = 0
 		parse and log the packets of an H.264 stream at stream start up to the second I-Frame
 
+	softhddevice-drm-gles.DropInvalidH264PFrames = 0
+		drop p-frames of ah H.264 stream, that have an invalid reference
+
 	softhddevice-drm-gles.PipScalePercent = 25
 		10 - 100 = scale factor for pip (%)
 
