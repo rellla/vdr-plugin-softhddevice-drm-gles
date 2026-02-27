@@ -89,6 +89,7 @@ public:
 	void InitEvent(void);
 
 	bool CanHandleHdr(void) { return m_hdrMetadata != 0; };
+	int GetPlanePropertyValue(uint32_t, const char *, uint64_t *);
 
 private:
 	cVideoRender *m_pRender;               ///< pointer to cVideoRender object

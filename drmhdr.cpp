@@ -128,14 +128,14 @@ struct hdr_output_metadata *cHdrMetadata::Build(int colorPrimaries, int colorTrc
 
 	enum hdrMetadataEotf eotf;
 	switch (colorTrc) {
-		case AVCOL_TRC_BT2020_10:    // 14
-		case AVCOL_TRC_BT2020_12:
 		case AVCOL_TRC_ARIB_STD_B67: // 18 HLG
 			eotf = EOTF_HLG;
 			break;
 		case AVCOL_TRC_SMPTE2084:    // 16
 			eotf = EOTF_ST2084;
 			break;
+		case AVCOL_TRC_BT2020_10:    // 14
+		case AVCOL_TRC_BT2020_12:
 		case AVCOL_TRC_BT709:        // 1
 		case AVCOL_TRC_UNSPECIFIED:  // 2
 		default:

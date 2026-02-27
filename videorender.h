@@ -249,6 +249,8 @@ private:
 	bool m_hasDoneHdrModeset = false;
 	std::atomic<bool> m_enableHdr = false;
 	std::atomic<bool> m_needsModeset = false;
+	uint64_t m_originalColorRange = 0;
+	bool m_colorRangeStored = false;
 
 #ifdef USE_GLES
 	bool m_disableOglOsd;                      ///< set, if ogl osd is disabled

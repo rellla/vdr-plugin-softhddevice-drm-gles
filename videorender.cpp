@@ -202,6 +202,7 @@ int cVideoRender::SetVideoBuffer(cDrmBuffer *buf)
 	}
 
 	if (hdrData || m_needsModeset) {
+		uint64_t colorRangeToSet = 0;
 		if (hdrData) {
 			m_pDrmDevice->DestroyPropertyBlobHdr();
 
@@ -211,6 +212,12 @@ int cVideoRender::SetVideoBuffer(cDrmBuffer *buf)
 				m_pDrmDevice->DestroyPropertyBlobHdr();
 				LOGERROR("videorender: %s: Failed to set hdr property", __FUNCTION__);
 			}
+
+			if (!m_colorRangeStored) {
+				m_pDrmDevice->GetPlanePropertyValue(m_pDrmDevice->VideoPlane()->GetId(), "COLOR_RANGE", &m_originalColorRange);
+				m_colorRangeStored = true;
+			}
+			colorRangeToSet = 1;
 		}
 
 		drmModeAtomicReqPtr modeReq;
@@ -231,7 +238,7 @@ int cVideoRender::SetVideoBuffer(cDrmBuffer *buf)
 		m_pDrmDevice->SetPropertyRequest(modeReq,
 			m_pDrmDevice->ConnectorId(),         DRM_MODE_OBJECT_CONNECTOR, "COLOR_ENCODING", m_pHdrMetadata.GetColorPrimaries() == AVCOL_PRI_BT2020 ? 9 : 1);
 		m_pDrmDevice->SetPropertyRequest(modeReq,
-			m_pDrmDevice->VideoPlane()->GetId(), DRM_MODE_OBJECT_PLANE,     "COLOR_RANGE",    0);
+			m_pDrmDevice->VideoPlane()->GetId(), DRM_MODE_OBJECT_PLANE,     "COLOR_RANGE",    colorRangeToSet);
 		m_pDrmDevice->SetPropertyRequest(modeReq,
 			m_pDrmDevice->CrtcId(),              DRM_MODE_OBJECT_CRTC,      "MODE_ID", modeID);
 		m_pDrmDevice->SetPropertyRequest(modeReq,
@@ -1324,8 +1331,9 @@ void cVideoRender::Exit(void)
 			m_pDrmDevice->ConnectorId(),         DRM_MODE_OBJECT_CONNECTOR, "Colorspace",          2);
 		m_pDrmDevice->SetPropertyRequest(modeReq,
 			m_pDrmDevice->ConnectorId(),         DRM_MODE_OBJECT_CONNECTOR, "COLOR_ENCODING",      1);
+		uint64_t colorRangeToRestore = m_colorRangeStored ? m_originalColorRange : 0;
 		m_pDrmDevice->SetPropertyRequest(modeReq,
-			m_pDrmDevice->VideoPlane()->GetId(), DRM_MODE_OBJECT_PLANE,     "COLOR_RANGE",         1);
+			m_pDrmDevice->VideoPlane()->GetId(), DRM_MODE_OBJECT_PLANE,     "COLOR_RANGE",         colorRangeToRestore);
 		m_pDrmDevice->SetPropertyRequest(modeReq,
 			m_pDrmDevice->CrtcId(),              DRM_MODE_OBJECT_CRTC,      "MODE_ID",             modeID);
 		m_pDrmDevice->SetPropertyRequest(modeReq,
@@ -1339,6 +1347,7 @@ void cVideoRender::Exit(void)
 		drmModeAtomicFree(modeReq);
 
 		m_hasDoneHdrModeset = false;
+		m_colorRangeStored = false;
 	}
 
 	m_pDrmDevice->DestroyPropertyBlobHdr();

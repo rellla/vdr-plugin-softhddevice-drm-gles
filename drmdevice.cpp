@@ -1099,3 +1099,11 @@ void cDrmDevice::InitEvent(void)
 	memset(&m_drmEventCtx, 0, sizeof(m_drmEventCtx));
 	m_drmEventCtx.version = 2;
 }
+
+/**
+ * Gets a property value from the given plane
+ */
+int cDrmDevice::GetPlanePropertyValue(uint32_t objId, const char *propName, uint64_t *value)
+{
+	return GetPropertyValue(m_fdDrm, objId, DRM_MODE_OBJECT_PLANE, propName, value);
+}
