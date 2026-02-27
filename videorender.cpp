@@ -548,7 +548,7 @@ bool cVideoRender::DisplayFrame()
 				bool skipSync = m_scheduleResyncAtPtsMs != AV_NOPTS_VALUE;
 				if (m_scheduleResyncAtPtsMs != AV_NOPTS_VALUE &&
 				    m_scheduleResyncAtPtsMs <= videoPtsMs &&
-				    std::abs(PtsToMs(m_scheduleResyncAtPtsMs) - PtsToMs(videoPtsMs)) < AV_SYNC_BORDER) {
+				    std::abs(PtsToMs(m_scheduleResyncAtPtsMs) - PtsToMs(videoPtsMs)) < AV_SYNC_BORDER_MS) {
 
 					LOGDEBUG2(L_AV_SYNC, "videorender: resync schedule arrived at %s, current audio pts %s video pts %s",
 						Timestamp2String(m_scheduleResyncAtPtsMs, 1), Timestamp2String(audioPtsMs, 1), Timestamp2String(videoPtsMs, 1));
@@ -563,20 +563,18 @@ bool cVideoRender::DisplayFrame()
 				} else if (!m_pAudio->IsPaused() && !skipSync && audioBehindVideoByMs > AV_SYNC_THRESHOLD_AUDIO_BEHIND_VIDEO_MS) { // duplicate frame
 					LogDroppedDuped(audioPtsMs, videoPtsMs, audioBehindVideoByMs);
 					m_framePresentationCounter++; // display the current video frame one period longer
-				} else if (!m_pAudio->IsPaused() && !skipSync && audioBehindVideoByMs < -AV_SYNC_THRESHOLD_AUDIO_AHEAD_VIDEO_MS) { // drop frame
+				} else if (!m_pAudio->IsPaused() && !skipSync && audioBehindVideoByMs < -AV_SYNC_THRESHOLD_AUDIO_AHEAD_VIDEO_MS && !m_lastFrameWasDropped) { // drop frame
 					// Drop max every second frame. Otherwise, the buffer gets drained immediately, if multiple frames in a row are dropped.
-				        if (!m_lastFrameWasDropped) {
-						LogDroppedDuped(audioPtsMs, videoPtsMs, audioBehindVideoByMs);
+					LogDroppedDuped(audioPtsMs, videoPtsMs, audioBehindVideoByMs);
 
-						if (pipBuf)
-							pipBuf->PresentationFinished();
+					if (pipBuf)
+						pipBuf->PresentationFinished();
 
-						drmBuffer->PresentationFinished();
-						m_framePresentationCounter--; // skip this pageflip
-						m_lastFrameWasDropped = true;
+					drmBuffer->PresentationFinished();
+					m_framePresentationCounter--; // skip this pageflip
+					m_lastFrameWasDropped = true;
 
-						return true;
-					}
+					return true;
 				}
 
 				m_startCounter++;
@@ -960,30 +958,6 @@ int64_t cVideoRender::GetOutputPtsMs(void)
 	std::lock_guard<std::mutex> lock(m_timebaseMutex);
 
 	return GetVideoClock() * 1000 * av_q2d(m_timebase);
-}
-
-/**
- * Wrapper to set the video clock (m_pts)
- *
- * @param pts      the pts to be set
- */
-void cVideoRender::SetVideoClock(int64_t pts)
-{
-	std::lock_guard<std::mutex> lock(m_videoClockMutex);
-
-	m_pts = pts;
-}
-
-/**
- * Wrapper to get the video clock (m_pts)
- *
- * @returns the current pts
- */
-int64_t cVideoRender::GetVideoClock(void)
-{
-	std::lock_guard<std::mutex> lock(m_videoClockMutex);
-
-	return m_pts;
 }
 
 /**
