@@ -70,6 +70,12 @@ msgstr "Allgemeines"
 msgid " Hide main menu entry"
 msgstr " Verstecke Hauptmenüeintrag"
 
+msgid "Video"
+msgstr "Video"
+
+msgid " Enable HDR"
+msgstr " Aktiviere HDR"
+
 msgid "Audio"
 msgstr "Audio"
 

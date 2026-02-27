@@ -1724,3 +1724,5 @@ void cSoftHdDevice::PipChannelChange(int dir) { m_pPipHandler->ChannelChange(dir
 void cSoftHdDevice::PipChannelSwap(bool closePip) { m_pPipHandler->ChannelSwap(closePip); };
 void cSoftHdDevice::PipSwapPosition(void) { m_pPipHandler->SwapPosition(); };
 void cSoftHdDevice::PipSetSize(void) { m_pPipHandler->SetSize(); };
+
+void cSoftHdDevice::SetEnableHdr(bool enable) { m_pRender->SetEnableHdr(enable); };

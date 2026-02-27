@@ -46,6 +46,7 @@ extern "C" {
 #ifdef USE_GLES
 #include "drmdevice.h"
 #endif
+#include "drmhdr.h"
 #include "event.h"
 #include "grab.h"
 #include "misc.h"
@@ -61,6 +62,21 @@ class cSoftHdAudio;
 
 #define AV_SYNC_THRESHOLD_AUDIO_BEHIND_VIDEO_MS 35 ///< threshold in ms, when to duplicate video frames to keep audio and video in sync
 #define AV_SYNC_THRESHOLD_AUDIO_AHEAD_VIDEO_MS 5   ///< threshold in ms, when to drop video frames to keep audio and video in sync
+
+enum drmColorSpace {
+	COLORSPACE_BT709_YCC = 2,
+	COLORSPACE_BT2020_RGB = 9
+};
+
+enum drmColorEncoding {
+	COLORENCODING_BT709 = 1,
+	COLORENCODING_BT2020 = 2
+};
+
+enum drmColorRange {
+	COLORRANGE_LIMITED = 0,
+	COLORRANGE_FULL = 1
+};
 
 class cBufferStrategy {
 public:
@@ -151,6 +167,9 @@ public:
 
 	// DRM
 	int DrmHandleEvent(void);
+	bool CanHandleHdr(void);
+	void SetEnableHdr(bool enable) { m_enableHdr = enable;
+	                                 m_needsModeset = true; };
 
 	// Frame and buffer
 	bool DisplayFrame();
@@ -240,6 +259,13 @@ private:
 	std::atomic<cBufferStrategy *> m_pipBufferReuseStrategy = nullptr;    ///< strategy to select drm buffers
 	std::atomic<cDecodingStrategy *> m_decodingStrategy = nullptr;        ///< strategy for decoding setup
 	std::atomic<cDecodingStrategy *> m_pipDecodingStrategy = nullptr;     ///< strategy for decoding setup
+
+	cHdrMetadata m_pHdrMetadata;                             ///< hdr metadata object
+	bool m_hasDoneHdrModeset = false;                        ///< true, if we ever created an hdr blob and did a modesetting
+	std::atomic<bool> m_enableHdr = false;                   ///< hdr is enabled
+	std::atomic<bool> m_needsModeset = false;                ///< we need to do a modeset
+	drmColorRange m_originalColorRange = COLORRANGE_LIMITED; ///< initial color range
+	bool m_colorRangeStored = false;                         ///< true, if the original color range was stored
 
 #ifdef USE_GLES
 	bool m_disableOglOsd;                      ///< set, if ogl osd is disabled

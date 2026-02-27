@@ -77,12 +77,30 @@ public:
 
 	cDrmBuffer *GetBufFromBo(struct gbm_bo *);
 #endif
-	int SetPropertyRequest(drmModeAtomicReqPtr, uint32_t, uint32_t, const char *, uint64_t);
 	void SaveCrtc(void);
 	void RestoreCrtc(void);
 	int HandleEvent(void);
-	int CreatePropertyBlob(uint32_t *);
 	void InitEvent(void);
+
+	bool CanHandleHdr(void) { return m_hdrMetadata != 0; };
+
+	// drmModeAtomic* wrapper functions
+	drmModeAtomicReqPtr ModeAtomicAlloc(void) { return drmModeAtomicAlloc(); };
+	int ModeAtomicCommit(drmModeAtomicReqPtr req, uint32_t flags, void *user_data) { return drmModeAtomicCommit(m_fdDrm, req, flags, user_data); };
+	void ModeAtomicFree(drmModeAtomicReqPtr req) { drmModeAtomicFree(req); };
+	int SetConnectorCrtcId(drmModeAtomicReqPtr);
+	int SetConnectorHdrOutputMetadata(drmModeAtomicReqPtr, uint32_t);
+	int SetConnectorColorspace(drmModeAtomicReqPtr, uint32_t);
+	int SetVideoPlaneColorEncoding(drmModeAtomicReqPtr, uint32_t);
+	int SetVideoPlaneColorRange(drmModeAtomicReqPtr, uint32_t);
+	int GetVideoPlaneColorRange(uint64_t *);
+	int SetCrtcModeId(drmModeAtomicReqPtr, uint32_t);
+	int SetCrtcActive(drmModeAtomicReqPtr, uint32_t);
+	int CreateModeBlob(uint32_t *);
+	int DestroyModeBlob(uint32_t);
+	int CreateHdrBlob(struct hdr_output_metadata *, size_t, uint32_t *);
+	int SetConnectorHdrBlobProperty(uint32_t);
+	int DestroyHdrBlob(uint32_t);
 
 private:
 	cVideoRender *m_pRender;               ///< pointer to cVideoRender object
@@ -92,6 +110,7 @@ private:
 	drmModeModeInfo m_drmModeInfo;         ///< mode info
 	uint32_t m_crtcId;                     ///< current crtc ID
 	uint32_t m_crtcIndex;                  ///< current crtc index
+	uint32_t m_hdrMetadata = 0;            ///< property id of HDR_OUTPUT_METADATA
 	drmModeCrtc *m_drmModeCrtcSaved;       ///< saved CRTC infos
 	drmEventContext m_drmEventCtx;         ///< drm event context
 
@@ -107,6 +126,10 @@ private:
 	uint64_t m_zposPip = 0;                ///< zpos of pip plane
 	cDrmPlane m_pipPlane;                  ///< the pip drm plane
 
+	int GetPropertyValue(uint32_t, uint32_t, const char *, uint64_t *);
+	uint32_t GetPropertyID(uint32_t, uint32_t, const char *);
+
+	int SetPropertyRequest(drmModeAtomicReqPtr, uint32_t, uint32_t, const char *, uint64_t);
 	int32_t FindCrtcForConnector(const drmModeRes *, const drmModeConnector *);
 #ifdef USE_GLES
 	struct gbm_device *m_pGbmDevice;       ///< pointer to the gbm device

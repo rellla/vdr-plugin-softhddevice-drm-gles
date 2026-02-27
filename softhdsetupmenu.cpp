@@ -81,6 +81,14 @@ void cMenuSetupSoft::Create(void)
 	}
 
 	//
+	// Video
+	//
+	Add(CollapsedItem(tr("Video"), m_cVideoMenu));
+	if (m_cVideoMenu) {
+		Add(new cMenuEditBoolItem(tr(" Enable HDR"), &m_cVideoEnableHDR, trVDR("no"), trVDR("yes")));
+	}
+
+	//
 	// Audio
 	//
 	Add(CollapsedItem(tr("Audio"), m_cAudioMenu));
@@ -228,6 +236,7 @@ void cMenuSetupSoft::Create(void)
 eOSState cMenuSetupSoft::ProcessKey(eKeys key)
 {
 	int old_cGeneralMenu = m_cGeneralMenu;
+	int old_cVideoMenu = m_cVideoMenu;
 	int old_cAudioMenu = m_cAudioMenu;
 	int old_cAudioPassthroughDefault = m_cAudioPassthroughDefault;
 	int old_cAudioNormalize = m_cAudioNormalize;
@@ -247,6 +256,7 @@ eOSState cMenuSetupSoft::ProcessKey(eKeys key)
 		// update menu only, if something on the structure has changed
 		// this is needed because VDR menus are evil slow
 		if (old_cGeneralMenu             != m_cGeneralMenu ||
+		    old_cVideoMenu               != m_cVideoMenu ||
 		    old_cAudioMenu               != m_cAudioMenu ||
 		    old_cAudioPassthroughDefault != m_cAudioPassthroughDefault ||
 		    old_cAudioNormalize          != m_cAudioNormalize ||
@@ -282,6 +292,12 @@ cMenuSetupSoft::cMenuSetupSoft(cSoftHdDevice *device)
 	//
 	m_cGeneralMenu = 0;
 	m_cHideMainMenuEntry = m_pConfig->ConfigHideMainMenuEntry;
+
+	//
+	// Video
+	//
+	m_cVideoMenu = 0;
+	m_cVideoEnableHDR          = m_pConfig->ConfigVideoEnableHDR;
 
 	//
 	// Audio
@@ -374,6 +390,12 @@ void cMenuSetupSoft::Store(void)
 	// General
 	//
 	SetupStore("HideMainMenuEntry", m_pConfig->ConfigHideMainMenuEntry = m_cHideMainMenuEntry);
+
+	//
+	// Video
+	//
+	SetupStore("VideoEnableHDR", m_pConfig->ConfigVideoEnableHDR = m_cVideoEnableHDR);
+	m_pDevice->SetEnableHdr(m_pConfig->ConfigVideoEnableHDR);
 
 	//
 	// Audio

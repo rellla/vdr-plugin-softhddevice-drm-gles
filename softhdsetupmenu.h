@@ -48,6 +48,10 @@ protected:
 	int m_cGeneralMenu;
 	int m_cHideMainMenuEntry;
 
+	// Video
+	int m_cVideoMenu;
+	int m_cVideoEnableHDR;
+
 	// Audio
 	int m_cAudioMenu;
 	int m_cAudioSoftvol;
