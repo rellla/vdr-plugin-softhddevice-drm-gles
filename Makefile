@@ -131,6 +131,7 @@ OBJS = $(PLUGIN).o \
 	config.o \
 	drmbuffer.o \
 	drmdevice.o \
+	drmhdr.o \
 	drmplane.o \
 	filllevel.o \
 	grab.o \
