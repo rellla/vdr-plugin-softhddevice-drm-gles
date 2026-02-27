@@ -203,6 +203,9 @@ static int GetPropertyValue(int fdDrm, uint32_t objectID,
 	drmModeObjectPropertiesPtr objectProps =
 		drmModeObjectGetProperties(fdDrm, objectID, objectType);
 
+	if (!objectProps)
+		return -1;
+
 	for (i = 0; i < objectProps->count_props; i++) {
 		if ((Prop = drmModeGetProperty(fdDrm, objectProps->props[i])) == NULL)
 			LOGDEBUG2(L_DRM, "drmdevice: %s: Unable to query property", __FUNCTION__);
@@ -226,6 +229,46 @@ static int GetPropertyValue(int fdDrm, uint32_t objectID,
 	}
 
 	return 0;
+}
+
+/**
+ * Gets a property ID
+ */
+static uint32_t GetPropertyID(int fdDrm, uint32_t objectID,
+                              uint32_t objectType, const char *propName)
+{
+	uint32_t i;
+	int found = 0;
+	int value = 0;
+
+	drmModePropertyPtr Prop;
+	drmModeObjectPropertiesPtr objectProps =
+		drmModeObjectGetProperties(fdDrm, objectID, objectType);
+
+	if (!objectProps)
+		return 0;
+
+	for (i = 0; i < objectProps->count_props; i++) {
+		if ((Prop = drmModeGetProperty(fdDrm, objectProps->props[i])) == NULL)
+			LOGDEBUG2(L_DRM, "drmdevice: %s: Unable to query property", __FUNCTION__);
+
+		if (strcmp(propName, Prop->name) == 0) {
+			value = objectProps->props[i];
+			found = 1;
+		}
+
+		drmModeFreeProperty(Prop);
+
+		if (found)
+			break;
+	}
+
+	drmModeFreeObjectProperties(objectProps);
+
+	if (!found)
+		LOGDEBUG2(L_DRM, "drmdevice: %s: Unable to find value for property \'%s\'.", __FUNCTION__, propName);
+
+	return value;
 }
 
 /**
@@ -340,6 +383,10 @@ int cDrmDevice::Init(void)
 			break;
 		}
 	}
+
+	m_hdrMetadata = GetPropertyID(m_fdDrm, m_connectorId, DRM_MODE_OBJECT_CONNECTOR, "HDR_OUTPUT_METADATA");
+	if (m_hdrMetadata != 0)
+		LOGDEBUG2(L_DRM, "drmdevice: %s: HDR output metadata ID %d in connector %d", __FUNCTION__, m_hdrMetadata, m_connectorId);
 
 	// Calculate the refresh rate. Don't use m_drmModeInfo.vrefresh, because we need the precise value.
 	double refreshRateHz = (double)m_drmModeInfo.clock * 1000.0 / ((double)m_drmModeInfo.htotal * (double)m_drmModeInfo.vtotal);
@@ -940,11 +987,38 @@ void cDrmDevice::Close(void)
 }
 
 /**
- * Creates a property blob
+ * Create a property blob for mode info
  */
-int cDrmDevice::CreatePropertyBlob(uint32_t *modeID)
+int cDrmDevice::CreatePropertyBlobMode(uint32_t *modeID)
 {
 	return drmModeCreatePropertyBlob(m_fdDrm, &m_drmModeInfo, sizeof(m_drmModeInfo), modeID);
+}
+
+/**
+ * Destroy a property blob for mode info
+ */
+int cDrmDevice::DestroyPropertyBlobMode(uint32_t modeID)
+{
+	return drmModeDestroyPropertyBlob(m_fdDrm, modeID);
+}
+
+/**
+ * Create a property blob for hdr info
+ */
+int cDrmDevice::CreatePropertyBlobHdr(struct hdr_output_metadata *data)
+{
+	return drmModeCreatePropertyBlob(m_fdDrm, data, sizeof(data), &m_hdrBlobId);
+}
+
+/**
+ * Destroy a property blob for hdr info
+ */
+int cDrmDevice::DestroyPropertyBlobHdr(void)
+{
+	if (!m_hdrBlobId)
+		return -1;
+
+	return drmModeDestroyPropertyBlob(m_fdDrm, m_hdrBlobId);
 }
 
 /**
@@ -999,6 +1073,14 @@ void cDrmDevice::RestoreCrtc(void)
 			m_drmModeCrtcSaved->x, m_drmModeCrtcSaved->y, &m_connectorId, 1, &m_drmModeCrtcSaved->mode);
 		drmModeFreeCrtc(m_drmModeCrtcSaved);
 	}
+}
+
+/**
+ * Set a connector property
+ */
+int cDrmDevice::SetConnectorHdrBlobProperty(void)
+{
+	return drmModeConnectorSetProperty(m_fdDrm, m_connectorId, m_hdrMetadata, m_hdrBlobId);
 }
 
 /**

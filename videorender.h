@@ -46,6 +46,7 @@ extern "C" {
 #ifdef USE_GLES
 #include "drmdevice.h"
 #endif
+#include "drmhdr.h"
 #include "event.h"
 #include "grab.h"
 #include "misc.h"
@@ -151,6 +152,9 @@ public:
 
 	// DRM
 	int DrmHandleEvent(void);
+	bool CanHandleHdr(void);
+	void SetEnableHdr(bool enable) { m_enableHdr = enable;
+	                                 m_needsModeset = true; };
 
 	// Frame and buffer
 	bool DisplayFrame();
@@ -240,6 +244,11 @@ private:
 	std::atomic<cBufferStrategy *> m_pipBufferReuseStrategy = nullptr;    ///< strategy to select drm buffers
 	std::atomic<cDecodingStrategy *> m_decodingStrategy = nullptr;        ///< strategy for decoding setup
 	std::atomic<cDecodingStrategy *> m_pipDecodingStrategy = nullptr;     ///< strategy for decoding setup
+
+	cHdrMetadata m_pHdrMetadata;
+	bool m_hasDoneHdrModeset = false;
+	std::atomic<bool> m_enableHdr = false;
+	std::atomic<bool> m_needsModeset = false;
 
 #ifdef USE_GLES
 	bool m_disableOglOsd;                      ///< set, if ogl osd is disabled

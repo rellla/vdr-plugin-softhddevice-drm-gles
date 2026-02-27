@@ -38,6 +38,8 @@ public:
 	int ConfigMaxSizeGPUImageCache = 128;       ///< config max gpu image cache size
 	int ConfigDisableOglOsd = 0;                ///< config disable ogl osd
 #endif
+	int ConfigVideoEnableHDR = 0;               ///< enable HDR
+
 	int ConfigAdditionalBufferLengthMs = 0;     ///< config size ms of a/v buffer
 	int ConfigVideoAudioDelayMs = 0;            ///< config audio delay
 	int ConfigAudioPassthroughMask = 0;         ///< config audio pass-through mask

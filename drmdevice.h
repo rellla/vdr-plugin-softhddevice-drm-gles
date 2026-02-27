@@ -81,8 +81,14 @@ public:
 	void SaveCrtc(void);
 	void RestoreCrtc(void);
 	int HandleEvent(void);
-	int CreatePropertyBlob(uint32_t *);
+	int CreatePropertyBlobMode(uint32_t *);
+	int DestroyPropertyBlobMode(uint32_t);
+	int CreatePropertyBlobHdr(struct hdr_output_metadata *);
+	int DestroyPropertyBlobHdr(void);
+	int SetConnectorHdrBlobProperty(void);
 	void InitEvent(void);
+
+	bool CanHandleHdr(void) { return m_hdrMetadata != 0; };
 
 private:
 	cVideoRender *m_pRender;               ///< pointer to cVideoRender object
@@ -92,6 +98,8 @@ private:
 	drmModeModeInfo m_drmModeInfo;         ///< mode info
 	uint32_t m_crtcId;                     ///< current crtc ID
 	uint32_t m_crtcIndex;                  ///< current crtc index
+	uint32_t m_hdrMetadata = 0;
+	uint32_t m_hdrBlobId = 0;
 	drmModeCrtc *m_drmModeCrtcSaved;       ///< saved CRTC infos
 	drmEventContext m_drmEventCtx;         ///< drm event context
 
