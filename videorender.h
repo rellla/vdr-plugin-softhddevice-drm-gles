@@ -113,7 +113,7 @@ public:
 
 	void SetVideoOutputPosition(const cRect &);
 	void SetScreenSize(int, int, double);
-	int64_t GetVideoClock(void);
+	int64_t GetVideoClock(void) { return m_pts; };
 	void GetStats(int *, int *, int *);
 	void ResetFrameCounter(void);
 	void Reset();
@@ -188,7 +188,6 @@ private:
 	cSoftHdAudio *m_pAudio;             ///< pointer to cSoftHdAudio
 	cSoftHdConfig *m_pConfig;           ///< pointer to cSoftHdConfig
 	cDisplayThread *m_pDisplayThread;   ///< pointer to display thread
-	std::mutex m_videoClockMutex;       ///< mutex used around m_pts
 	std::vector<Event> m_eventQueue;    ///< event queue for incoming events
 	double m_refreshRateHz;             ///< screen refresh rate in Hz
 
@@ -214,7 +213,7 @@ private:
 	bool m_lastFrameWasDropped = false; ///< true, if the last frame was dropped
 	AVRational m_timebase;              ///< timebase used for pts, set by first RenderFrame()
 	std::mutex m_timebaseMutex;         ///< mutex used around m_timebase
-	int64_t m_pts = AV_NOPTS_VALUE;     ///< current video PTS
+	std::atomic<int64_t> m_pts = AV_NOPTS_VALUE; ///< current video PTS
 
 	cRect m_videoRect;                  ///< rect of the currently displayed video
 	bool m_videoIsScaled = false;       ///< true, if the currently displayed video is scaled
@@ -253,7 +252,7 @@ private:
 
 	int GetFrameFlags(AVFrame *);
 	void SetFrameFlags(AVFrame *, int);
-	void SetVideoClock(int64_t);
+	void SetVideoClock(int64_t pts) { m_pts = pts; };
 	bool PageFlip(cDrmBuffer *, cDrmBuffer *);
 	int SetVideoBuffer(cDrmBuffer *);
 	int SetOsdBuffer(drmModeAtomicReqPtr);

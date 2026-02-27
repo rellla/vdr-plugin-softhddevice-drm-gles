@@ -655,8 +655,8 @@ void cSoftHdAudio::Enqueue(uint16_t *buffer, int count, AVFrame *frame)
 	m_fillLevel.ReceivedFrames(snd_pcm_bytes_to_frames(m_pAlsaPCMHandle, bytesWritten));
 
 	if (frame->pts != AV_NOPTS_VALUE) {
-		// discontinuity check, force a resync if the new pts differs more than AV_SYNC_BORDER to the last
-		if (m_inputPts != AV_NOPTS_VALUE && (std::abs(PtsToMs(m_inputPts) - PtsToMs(frame->pts))) > AV_SYNC_BORDER) {
+		// discontinuity check, force a resync if the new pts differs more than AV_SYNC_BORDER_MS to the last
+		if (m_inputPts != AV_NOPTS_VALUE && std::abs(PtsToMs(m_inputPts) - PtsToMs(frame->pts)) > AV_SYNC_BORDER_MS) {
 			LOGDEBUG2(L_AV_SYNC, "audio: %s: discontinuity detected in audio PTS %s -> %s%s", __FUNCTION__,
 				Timestamp2String(PtsToMs(m_inputPts), 1), Timestamp2String(PtsToMs(frame->pts), 1),
 				PtsToMs(m_inputPts) > PtsToMs(frame->pts) ? " (PTS wrapped)" : "");
