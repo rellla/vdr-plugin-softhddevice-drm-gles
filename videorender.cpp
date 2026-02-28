@@ -218,6 +218,8 @@ int cVideoRender::SetVideoBuffer(cDrmBuffer *buf)
 				m_colorRangeStored = true;
 			}
 			colorRangeToSet = 1;
+
+			free(hdrData);
 		}
 
 		drmModeAtomicReqPtr modeReq;

@@ -48,43 +48,12 @@ static inline uint16_t EncodeXYY(float xyy)
 	return static_cast<uint16_t>(xyy * 50000.0f + 0.5f);
 }
 
-static inline void Write_u16(uint8_t *&p, uint16_t v)
-{
-	memcpy(p, &v, sizeof(v));
-	p += sizeof(v);
-}
-
-static void BuildHdrMetadataInfoFrame(void *data, uint16_t display_primary_r_x, uint16_t display_primary_r_y,
-                                      uint16_t display_primary_g_x, uint16_t display_primary_g_y, uint16_t display_primary_b_x,
-                                      uint16_t display_primary_b_y, uint16_t white_point_x, uint16_t white_point_y,
-                                      uint16_t min_luminance, uint16_t max_luminance, uint16_t max_cll, uint16_t max_fall,
-                                      enum hdrMetadataEotf eotf)
-{
-	uint8_t *p = static_cast<uint8_t*>(data);
-	*p++ = static_cast<uint8_t>(eotf);
-	*p++ = METADATA_TYPE1;
-
-	Write_u16(p, display_primary_r_x);
-	Write_u16(p, display_primary_r_y);
-	Write_u16(p, display_primary_g_x);
-	Write_u16(p, display_primary_g_y);
-	Write_u16(p, display_primary_b_x);
-	Write_u16(p, display_primary_b_y);
-	Write_u16(p, white_point_x);
-	Write_u16(p, white_point_y);
-	Write_u16(p, max_luminance);
-	Write_u16(p, min_luminance);
-	Write_u16(p, max_cll);
-	Write_u16(p, max_fall);
-}
-
 /*****************************************************************************
  * cHdrMetadata class
  ****************************************************************************/
 cHdrMetadata::cHdrMetadata(cVideoRender *render)
 	: m_pRender(render)
 {
-	m_data.metadata_type = 1; // @todo: was originally set to 7 in softhdcuvid code, according to docs, only 1 is valid
 }
 
 struct hdr_output_metadata *cHdrMetadata::Build(int colorPrimaries, int colorTrc, AVFrameSideData *sd1, AVFrameSideData *sd2)
@@ -116,6 +85,7 @@ struct hdr_output_metadata *cHdrMetadata::Build(int colorPrimaries, int colorTrc
 		return nullptr;
         }
 
+
 	if (ld)
 		memcpy(&m_ldSave, ld, sizeof(m_ldSave));
 	if (md)
@@ -128,14 +98,14 @@ struct hdr_output_metadata *cHdrMetadata::Build(int colorPrimaries, int colorTrc
 
 	enum hdrMetadataEotf eotf;
 	switch (colorTrc) {
+		case AVCOL_TRC_BT2020_10:    // 14
+		case AVCOL_TRC_BT2020_12:
 		case AVCOL_TRC_ARIB_STD_B67: // 18 HLG
 			eotf = EOTF_HLG;
 			break;
 		case AVCOL_TRC_SMPTE2084:    // 16
 			eotf = EOTF_ST2084;
 			break;
-		case AVCOL_TRC_BT2020_10:    // 14
-		case AVCOL_TRC_BT2020_12:
 		case AVCOL_TRC_BT709:        // 1
 		case AVCOL_TRC_UNSPECIFIED:  // 2
 		default:
@@ -197,10 +167,22 @@ struct hdr_output_metadata *cHdrMetadata::Build(int colorPrimaries, int colorTrc
 		LOGDEBUG2(L_DRM, "HDR %s: Has maxCLL %d maxFALL %d", __FUNCTION__, maxCLL, maxFALL);
 	}
 
-	BuildHdrMetadataInfoFrame(&m_data.hdmi_metadata_type1, EncodeXYY(cs->r.f[0]), EncodeXYY(cs->r.f[1]),
-		EncodeXYY(cs->g.f[0]), EncodeXYY(cs->g.f[1]), EncodeXYY(cs->b.f[0]), EncodeXYY(cs->b.f[1]),
-		EncodeXYY(cs->whitepoint.f[0]), EncodeXYY(cs->whitepoint.f[1]),
-		maxLum, minLum, maxCLL, maxFALL, eotf);
+	struct hdr_output_metadata *data = (struct hdr_output_metadata *)calloc(1, sizeof(struct hdr_output_metadata));
+	data->metadata_type = 1; // @todo: was originally set to 7 in softhdcuvid code, according to docs, only 1 is valid
+	data->hdmi_metadata_type1.eotf = eotf;
+	data->hdmi_metadata_type1.metadata_type = METADATA_TYPE1;
+	data->hdmi_metadata_type1.display_primaries[0].x = EncodeXYY(cs->r.f[0]);
+	data->hdmi_metadata_type1.display_primaries[0].y = EncodeXYY(cs->r.f[1]);
+	data->hdmi_metadata_type1.display_primaries[1].x = EncodeXYY(cs->g.f[0]);
+	data->hdmi_metadata_type1.display_primaries[1].y = EncodeXYY(cs->g.f[1]);
+	data->hdmi_metadata_type1.display_primaries[2].x = EncodeXYY(cs->b.f[0]);
+	data->hdmi_metadata_type1.display_primaries[2].y = EncodeXYY(cs->b.f[1]);
+	data->hdmi_metadata_type1.white_point.x = EncodeXYY(cs->whitepoint.f[0]);
+	data->hdmi_metadata_type1.white_point.y = EncodeXYY(cs->whitepoint.f[1]);
+	data->hdmi_metadata_type1.max_display_mastering_luminance = maxLum;
+	data->hdmi_metadata_type1.min_display_mastering_luminance = minLum;
+	data->hdmi_metadata_type1.max_cll = maxCLL;
+	data->hdmi_metadata_type1.max_fall = maxFALL;
 
-	return &m_data;
+	return data;
 }

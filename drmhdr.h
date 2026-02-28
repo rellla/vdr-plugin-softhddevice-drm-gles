@@ -114,7 +114,6 @@ private:
 	AVMasteringDisplayMetadata m_mdSave = { };
 	AVContentLightMetadata m_ldSave = { };
 	struct colorspace m_hdr10;
-	struct hdr_output_metadata m_data;
 };
 
 #endif
