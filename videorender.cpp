@@ -42,8 +42,6 @@ extern "C" {
 #include <drm_fourcc.h>
 #include <vdr/osd.h>
 #include <vdr/thread.h>
-#include <drm/drm_mode.h>
-#include <xf86drm.h>
 #include <xf86drmMode.h>
 
 #include "audio.h"
