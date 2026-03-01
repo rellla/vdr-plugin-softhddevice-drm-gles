@@ -56,10 +56,10 @@ cHdrMetadata::cHdrMetadata(cVideoRender *render)
 {
 }
 
-struct hdr_output_metadata *cHdrMetadata::Build(int colorPrimaries, int colorTrc, AVFrameSideData *sd1, AVFrameSideData *sd2)
+bool cHdrMetadata::Build(struct hdr_output_metadata *data, int colorPrimaries, int colorTrc, AVFrameSideData *sd1, AVFrameSideData *sd2)
 {
 	if (!m_pRender->CanHandleHdr())
-		return nullptr;
+		return -1;
 
 	// @todo: check, what this does
 	// clean up FFMEPG stuff
@@ -67,7 +67,7 @@ struct hdr_output_metadata *cHdrMetadata::Build(int colorPrimaries, int colorTrc
 		colorTrc = AVCOL_TRC_ARIB_STD_B67;
 
 	if (m_colorPrimaries == colorPrimaries && m_colorTrc == colorTrc && !sd1 && !sd2)
-		return nullptr; // nothing to do
+		return -1; // nothing to do
 
 	AVMasteringDisplayMetadata *md = nullptr;
 	if (sd1)
@@ -79,12 +79,11 @@ struct hdr_output_metadata *cHdrMetadata::Build(int colorPrimaries, int colorTrc
 
 	if (md && !memcmp(md, &m_mdSave, sizeof(m_mdSave))) {
 		if (ld && !memcmp(ld, &m_ldSave, sizeof(m_ldSave))) {
-			return nullptr;
+			return -1;
 		}
 	} else if (ld && !memcmp(ld, &m_ldSave, sizeof(m_ldSave))) {
-		return nullptr;
-        }
-
+		return -1;
+	}
 
 	if (ld)
 		memcpy(&m_ldSave, ld, sizeof(m_ldSave));
@@ -167,8 +166,7 @@ struct hdr_output_metadata *cHdrMetadata::Build(int colorPrimaries, int colorTrc
 		LOGDEBUG2(L_DRM, "HDR %s: Has maxCLL %d maxFALL %d", __FUNCTION__, maxCLL, maxFALL);
 	}
 
-	struct hdr_output_metadata *data = (struct hdr_output_metadata *)calloc(1, sizeof(struct hdr_output_metadata));
-	data->metadata_type = 1; // @todo: was originally set to 7 in softhdcuvid code, according to docs, only 1 is valid
+	data->metadata_type = METADATA_TYPE1;
 	data->hdmi_metadata_type1.eotf = eotf;
 	data->hdmi_metadata_type1.metadata_type = METADATA_TYPE1;
 	data->hdmi_metadata_type1.display_primaries[0].x = EncodeXYY(cs->r.f[0]);
@@ -184,5 +182,7 @@ struct hdr_output_metadata *cHdrMetadata::Build(int colorPrimaries, int colorTrc
 	data->hdmi_metadata_type1.max_cll = maxCLL;
 	data->hdmi_metadata_type1.max_fall = maxFALL;
 
-	return data;
+	LOGDEBUG2(L_DRM, "HDR %s: blob metadata set at %p", __FUNCTION__, data);
+
+	return 0;
 }

@@ -42,6 +42,8 @@ extern "C" {
 #include <drm_fourcc.h>
 #include <vdr/osd.h>
 #include <vdr/thread.h>
+#include <drm/drm_mode.h>
+#include <xf86drm.h>
 #include <xf86drmMode.h>
 
 #include "audio.h"
@@ -193,33 +195,32 @@ int cVideoRender::SetVideoBuffer(cDrmBuffer *buf)
 
 	AVFrame *frame = buf->frame;
 
-	struct hdr_output_metadata *hdrData = nullptr;
+	struct hdr_output_metadata hdrData;
+	bool newHdrBlob = false;
 
 	if (frame && m_enableHdr) {
 		AVFrameSideData *sd1 = av_frame_get_side_data(frame, AV_FRAME_DATA_MASTERING_DISPLAY_METADATA);
 		AVFrameSideData *sd2 = av_frame_get_side_data(frame, AV_FRAME_DATA_CONTENT_LIGHT_LEVEL);
-		hdrData = m_pHdrMetadata.Build(frame->color_primaries, frame->color_trc, sd1, sd2);
+		newHdrBlob = !m_pHdrMetadata.Build(&hdrData, frame->color_primaries, frame->color_trc, sd1, sd2);
 	}
 
-	if (hdrData || m_needsModeset) {
-		uint64_t colorRangeToSet = 0;
-		if (hdrData) {
+	if (newHdrBlob || m_needsModeset) {
+		uint64_t colorRangeToSet = 0; // limited
+		if (newHdrBlob) {
 			m_pDrmDevice->DestroyPropertyBlobHdr();
 
-			if (m_pDrmDevice->CreatePropertyBlobHdr(hdrData)) {
-				LOGERROR("videorender: %s: Failed to create hdr property blob.", __FUNCTION__);
+			if (m_pDrmDevice->CreatePropertyBlobHdr(&hdrData, sizeof(hdrData))) {
+				LOGERROR("videorender: %s: HDR: Failed to create hdr property blob.", __FUNCTION__);
 			} else if (m_pDrmDevice->SetConnectorHdrBlobProperty()) {
 				m_pDrmDevice->DestroyPropertyBlobHdr();
-				LOGERROR("videorender: %s: Failed to set hdr property", __FUNCTION__);
+				LOGERROR("videorender: %s: HDR: Failed to set hdr property", __FUNCTION__);
 			}
 
 			if (!m_colorRangeStored) {
 				m_pDrmDevice->GetPlanePropertyValue(m_pDrmDevice->VideoPlane()->GetId(), "COLOR_RANGE", &m_originalColorRange);
 				m_colorRangeStored = true;
 			}
-			colorRangeToSet = 1;
-
-			free(hdrData);
+			colorRangeToSet = 1; // full
 		}
 
 		drmModeAtomicReqPtr modeReq;
@@ -238,15 +239,24 @@ int cVideoRender::SetVideoBuffer(cDrmBuffer *buf)
 		m_pDrmDevice->SetPropertyRequest(modeReq,
 			m_pDrmDevice->ConnectorId(),         DRM_MODE_OBJECT_CONNECTOR, "Colorspace",     m_pHdrMetadata.GetColorPrimaries() == AVCOL_PRI_BT2020 ? 9 : 2);
 		m_pDrmDevice->SetPropertyRequest(modeReq,
-			m_pDrmDevice->ConnectorId(),         DRM_MODE_OBJECT_CONNECTOR, "COLOR_ENCODING", m_pHdrMetadata.GetColorPrimaries() == AVCOL_PRI_BT2020 ? 9 : 1);
+			m_pDrmDevice->VideoPlane()->GetId(), DRM_MODE_OBJECT_PLANE,     "COLOR_ENCODING", m_pHdrMetadata.GetColorPrimaries() == AVCOL_PRI_BT2020 ? 2 : 1);
 		m_pDrmDevice->SetPropertyRequest(modeReq,
 			m_pDrmDevice->VideoPlane()->GetId(), DRM_MODE_OBJECT_PLANE,     "COLOR_RANGE",    colorRangeToSet);
+
 		m_pDrmDevice->SetPropertyRequest(modeReq,
 			m_pDrmDevice->CrtcId(),              DRM_MODE_OBJECT_CRTC,      "MODE_ID", modeID);
 		m_pDrmDevice->SetPropertyRequest(modeReq,
 			m_pDrmDevice->ConnectorId(),         DRM_MODE_OBJECT_CONNECTOR, "CRTC_ID", m_pDrmDevice->CrtcId());
 		m_pDrmDevice->SetPropertyRequest(modeReq,
 			m_pDrmDevice->CrtcId(),              DRM_MODE_OBJECT_CRTC,      "ACTIVE",  1);
+
+		LOGDEBUG2(L_DRM, "videorender: %s: HDR: connector %d -> Colorspace %s", __FUNCTION__,
+			m_pDrmDevice->ConnectorId(), m_pHdrMetadata.GetColorPrimaries() == AVCOL_PRI_BT2020 ? "BT2020_RGB" : "BT709_YCC");
+
+		LOGDEBUG2(L_DRM, "videorender: %s: HDR: plane %d -> COLOR_ENCODING %s, COLOR_RANGE %s (Color %d)", __FUNCTION__,
+			m_pDrmDevice->VideoPlane()->GetId(), m_pHdrMetadata.GetColorPrimaries() == AVCOL_PRI_BT2020 ? "YCBCR_BT20202" : "YCBCR_BT709",
+			colorRangeToSet == 1 ? "full" : "limited", m_pHdrMetadata.GetColorPrimaries());
+
 		if (drmModeAtomicCommit(m_pDrmDevice->Fd(), modeReq, flags, NULL) != 0)
 			LOGFATAL("videorender: %s: cannot set atomic mode (%d): %m", __FUNCTION__, errno);
 
@@ -1332,7 +1342,7 @@ void cVideoRender::Exit(void)
 		m_pDrmDevice->SetPropertyRequest(modeReq,
 			m_pDrmDevice->ConnectorId(),         DRM_MODE_OBJECT_CONNECTOR, "Colorspace",          2);
 		m_pDrmDevice->SetPropertyRequest(modeReq,
-			m_pDrmDevice->ConnectorId(),         DRM_MODE_OBJECT_CONNECTOR, "COLOR_ENCODING",      1);
+			m_pDrmDevice->VideoPlane()->GetId(), DRM_MODE_OBJECT_PLANE,     "COLOR_ENCODING",      1);
 		uint64_t colorRangeToRestore = m_colorRangeStored ? m_originalColorRange : 0;
 		m_pDrmDevice->SetPropertyRequest(modeReq,
 			m_pDrmDevice->VideoPlane()->GetId(), DRM_MODE_OBJECT_PLANE,     "COLOR_RANGE",         colorRangeToRestore);

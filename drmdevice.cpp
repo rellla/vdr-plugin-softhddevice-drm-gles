@@ -1005,9 +1005,13 @@ int cDrmDevice::DestroyPropertyBlobMode(uint32_t modeID)
 /**
  * Create a property blob for hdr info
  */
-int cDrmDevice::CreatePropertyBlobHdr(struct hdr_output_metadata *data)
+int cDrmDevice::CreatePropertyBlobHdr(struct hdr_output_metadata *data, size_t size)
 {
-	return drmModeCreatePropertyBlob(m_fdDrm, data, sizeof(data), &m_hdrBlobId);
+	int ret = drmModeCreatePropertyBlob(m_fdDrm, data, size, &m_hdrBlobId);
+	if (ret)
+		LOGDEBUG2(L_DRM, "drmdevice: %s: failed to create hdr property blob: id %d, data %p (%d) ret %d", __FUNCTION__, m_hdrBlobId, data, size, ret);
+
+	return ret;
 }
 
 /**
@@ -1080,7 +1084,12 @@ void cDrmDevice::RestoreCrtc(void)
  */
 int cDrmDevice::SetConnectorHdrBlobProperty(void)
 {
-	return drmModeConnectorSetProperty(m_fdDrm, m_connectorId, m_hdrMetadata, m_hdrBlobId);
+	int ret = drmModeConnectorSetProperty(m_fdDrm, m_connectorId, m_hdrMetadata, m_hdrBlobId);
+	if (ret)
+		LOGDEBUG2(L_DRM, "drmdevice: %s: failed to set hdr property blob: blob id %d connector_id %d, m_hdrMetadata %d ret %d",
+			__FUNCTION__, m_hdrBlobId, m_connectorId, m_hdrMetadata, ret);
+
+	return ret;
 }
 
 /**

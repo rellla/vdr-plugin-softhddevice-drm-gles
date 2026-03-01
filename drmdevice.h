@@ -83,7 +83,7 @@ public:
 	int HandleEvent(void);
 	int CreatePropertyBlobMode(uint32_t *);
 	int DestroyPropertyBlobMode(uint32_t);
-	int CreatePropertyBlobHdr(struct hdr_output_metadata *);
+	int CreatePropertyBlobHdr(struct hdr_output_metadata *, size_t);
 	int DestroyPropertyBlobHdr(void);
 	int SetConnectorHdrBlobProperty(void);
 	void InitEvent(void);
