@@ -22,7 +22,7 @@
 #ifndef __SOFTHDDEVICE_DRM_GLES_H
 #define __SOFTHDDEVICE_DRM_GLES_H
 
-#include "vdr/plugin.h"
+#include <vdr/plugin.h>
 
 #include "git-version.h"
 

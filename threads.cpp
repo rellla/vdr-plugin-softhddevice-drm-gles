@@ -32,7 +32,7 @@ extern "C" {
 #include <libavutil/opt.h>
 }
 
-#include "vdr/thread.h"
+#include <vdr/thread.h>
 
 #include "audio.h"
 #include "logger.h"
