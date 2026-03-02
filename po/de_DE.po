@@ -292,12 +292,6 @@ msgstr " Video Einstellungen"
 msgid " Disable deinterlacer"
 msgstr " Deaktiviere Deinterlacer"
 
-msgid " H.264 HW dec needs I-Frame"
-msgstr " H.264 HW Dek. benötigt I-Frame"
-
-msgid " H.264 HW dec needs width and height"
-msgstr " H.264 HW Dek. benötigt Größe"
-
 msgid " Enable SW decoder fallback"
 msgstr " Aktiviere SW Dekoder Fallback"
 
@@ -308,11 +302,17 @@ msgstr "  (mindestens: %d)"
 msgid "  fallback after num packets"
 msgstr "  Fallback nach Anzahl Paketen"
 
-msgid " Parse H.264 stream start"
-msgstr " Beginn eines H.264 streams parsen"
+msgid " H.264: Wait for I-Frames"
+msgstr " H.264: Auf I-Frame warten"
 
-msgid " Drop invalid H.264 P-Frames"
-msgstr " Defekte H.264 P-Frames verwerfen"
+msgid " H.264: Decoder needs video size for init"
+msgstr " H.264: Dekoder benötigt Videogröße für Init"
+
+msgid " H.264: Parse stream until num I-Frames"
+msgstr " H.264: Stream parsen bis Anzahl I-Frames"
+
+msgid " H.264: Drop invalid P-Frames until num I-Frames"
+msgstr " H.264: Defekte P-Frames verwerfen bis Anzahl I-Frames"
 
 msgid " OSD settings"
 msgstr " OSD Einstellungen"

@@ -209,15 +209,15 @@ void cMenuSetupSoft::Create(void)
 
 		Add(SeparatorName(tr(" Video settings")));
 		Add(new cMenuEditBoolItem(tr(" Disable deinterlacer"), &m_cDisableDeint, trVDR("no"), trVDR("yes")));
-		Add(new cMenuEditBoolItem(tr(" H.264 HW dec needs I-Frame"), &m_cDecoderNeedsIFrame, trVDR("no"), trVDR("yes")));
-		Add(new cMenuEditBoolItem(tr(" H.264 HW dec needs width and height"), &m_cParseH264Dimensions, trVDR("no"), trVDR("yes")));
 		Add(new cMenuEditBoolItem(tr(" Enable SW decoder fallback"), &m_cDecoderFallbackToSw, trVDR("no"), trVDR("yes")));
 		if (m_cDecoderFallbackToSw) {
 			Add(new cOsdItem(cString::sprintf(tr("  (minimum: %d)"), m_pConfig->GetDecoderNeedsMaxPackets() + 1), osUnknown, false));
 			Add(new cMenuEditIntItem(tr("  fallback after num packets"), &m_cDecoderFallbackToSwNumPkts, 22));
 		}
-		Add(new cMenuEditIntItem(tr(" Parse H.264 stream (num I-Frames)"), &m_cParseH264StreamStart, 0, 20));
-		Add(new cMenuEditIntItem(tr(" Drop invalid P-Frames (num I-Frames)"), &m_cDropInvalidH264PFrames, 0, 20));
+		Add(new cMenuEditBoolItem(tr(" H.264: Wait for I-Frames"), &m_cDecoderNeedsIFrame, trVDR("no"), trVDR("yes")));
+		Add(new cMenuEditBoolItem(tr(" H.264: Decoder needs video size for init"), &m_cParseH264Dimensions, trVDR("no"), trVDR("yes")));
+		Add(new cMenuEditIntItem(tr(" H.264: Parse stream until num I-Frames"), &m_cParseH264StreamStart, 0, 20));
+		Add(new cMenuEditIntItem(tr(" H.264: Drop invalid P-Frames until num I-Frames"), &m_cDropInvalidH264PFrames, 0, 20));
 #ifdef USE_GLES
 		Add(SeparatorName(tr(" OSD settings")));
 		if (!m_pConfig->ConfigDisableOglOsd) {
