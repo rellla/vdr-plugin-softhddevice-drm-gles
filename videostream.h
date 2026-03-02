@@ -126,25 +126,26 @@ private:
 	enum AVCodecID m_codecId = AV_CODEC_ID_NONE;    ///< current codec id
 	AVCodecParameters *m_pPar = nullptr;            ///< current codec parameters
 	std::atomic<struct AVRational> m_timebase;      ///< current codec timebase
-	int m_trickpkts;                       ///< how many avpkt does the decoder need in trickspeed mode?
-	int m_sentTrickPkts = 0;               ///< how many avpkt have been sent to the decoder in trickspeed mode?
-	volatile bool m_newStream = false;     ///< flag for new stream
-	bool m_interlaced;                     ///< flag for interlaced stream
+	int m_trickpkts;                                ///< how many avpkt does the decoder need in trickspeed mode?
+	int m_sentTrickPkts = 0;                        ///< how many avpkt have been sent to the decoder in trickspeed mode?
+	volatile bool m_newStream = false;              ///< flag for new stream
+	bool m_interlaced;                              ///< flag for interlaced stream
 
-	cDecodingThread *m_pDecodingThread;    ///< pointer to decoding thread
-	int64_t m_inputPts = AV_NOPTS_VALUE;   ///< PTS of the first packet in the input buffer
-	std::vector<std::string> m_naluTypesAtStart;
-	int m_numIFrames = 0;
-	int m_logPackets = 0;
-	int m_dropInvalidPackets = 0;
-	std::set<int> m_dpbFrames;
-	int m_maxFrameNum = 1;
-	int m_log2MaxFrameNumMinus4 = -4;
-	int m_ppsPicParameterSetId = 0;
-	int m_ppsSeqParameterSetId = 0;
-	int m_ppsNumRefIdxL0DefaultActiveMinus1 = -1;
-	int m_ppsNumRefIdxL1DefaultActiveMinus1 = -1;
-	bool m_isResend = false;
+	cDecodingThread *m_pDecodingThread;             ///< pointer to decoding thread
+	int64_t m_inputPts = AV_NOPTS_VALUE;            ///< PTS of the first packet in the input buffer
+
+	// h264 parsing
+	std::vector<std::string> m_naluTypesAtStart;    ///< array of strings to log the H.264 frames at stream start
+	int m_numIFrames = 0;                           ///< counter for the arriving I-Frames at H.264 stream start
+	int m_logPackets = 0;                           ///< parse and log all frames until the number of given I-Frames arrived
+	int m_dropInvalidPackets = 0;                   ///< drop P-Frames with invalid references until the given number of I-Frames arrived
+	std::set<int> m_dpbFrames;                      ///< private set of reference frames (internal short-time decoded picture buffer)
+	int m_maxFrameNum = 1;                          ///< = 1 << Log2MaxFrameNumMinus4 + 4
+	int m_log2MaxFrameNumMinus4 = -4;               ///< cache Log2MaxFrameNumMinus4 from a previous SPS parsing
+	int m_ppsNumRefIdxL0DefaultActiveMinus1 = -1;   ///< cache NumRefIdxL0DefaultActiveMinuns1 from a previous PPS parsing
+	int m_ppsNumRefIdxL1DefaultActiveMinus1 = -1;   ///< cache NumRefIdxL1DefaultActiveMinuns1 from a previous PPS parsing
+	bool m_isResend = false;                        ///< track, if we already tried to send the AVPacket to the decoder
+	                                                ///< if so, skip the parsing
 
 	void RenderFrame(AVFrame *);
 	void CheckForcingFrameDecode(void);

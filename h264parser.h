@@ -55,15 +55,20 @@ private:
 
 public:
 	cH264Parser(AVPacket *, int, int, int);
+	void BuildInvalidReferenceString(int);
+	void BuildValidReferenceString(void);
+	void AddFrameNumber(int);
+	void AddInvalidReference(int, int);
+	void AddValidReference(int);
+	void PrintNalUnits(void);
+	void PrintStreamData(void);
+
+	std::string GetNalUnitString(void) { return m_naluString; };
 	int GetWidth(void) { return m_width; };
 	int GetHeight(void) { return m_height; };
 	bool IsMbaff(void) { return m_mbaff; };
 	bool HasSPS(void) { return m_hasSPS; };
 	bool HasPPS(void) { return m_hasPPS; };
-	void PrintNalUnits(void);
-	std::string GetNalUnitString(void) { return m_naluString; };
-	void PrintStreamData(void);
-
 	bool IsPSlice() const { return m_sliceType == 0; }
 	bool IsBSlice() const { return m_sliceType == 1; }
 	bool IsISlice() const { return m_sliceType == 2; }
@@ -74,11 +79,6 @@ public:
 	int GetLog2MaxFrameNumMinus4() const { return m_log2MaxFrameNumMinus4; }
 	int GetPpsNumRefIdxL0DefaultActiveMinus1(void) { return m_ppsNumRefIdxL0DefaultActiveMinus1; };
 	int GetPpsNumRefIdxL1DefaultActiveMinus1(void) { return m_ppsNumRefIdxL1DefaultActiveMinus1; };
-	void BuildInvalidReferenceString(int frameNumber);
-	void BuildValidReferenceString(void);
-	void AddFrameNumber(int);
-	void AddInvalidReference(int, int);
-	void AddValidReference(int);
 	int GetNumRefIdxL0Active(void) { return m_numRefIdxL0Active; };
 	int GetNumRefIdxL1Active(void) { return m_numRefIdxL1Active; };
 	bool HasInvalidReferences(void) { return m_hasInvalidReferences; };
@@ -93,30 +93,30 @@ private:
 	int m_nCurrentBit;
 
 	int m_nalutype = 0;
-	bool m_hasSPS = false;
-	bool m_hasPPS = false;
-	bool m_parseError = false;
-
 	int m_width = 0;
 	int m_height = 0;
-	bool m_mbaff = false;
-	std::string m_naluString;
-	std::set<int> m_invalidReferences;
-	std::set<int> m_validReferences;
-
-	int  m_sliceType = -1;      // normalized: 0=P, 2=I
-	int  m_frameNum = -1;
-	int  m_nalRefIdc = 0;
+	bool m_hasSPS = false;
+	bool m_hasPPS = false;
 	bool m_isIDR = false;
 	bool m_isReference = false;
-	int  m_log2MaxFrameNumMinus4 = -4; // from SPS
+	bool m_mbaff = false;
+	bool m_parseError = false;
+
+	std::string m_naluString;
+
+	int m_sliceType = -1;      // normalized: 0=P, 2=I
+	int m_frameNum = -1;
+	int m_nalRefIdc = 0;
+	std::set<int> m_invalidReferences;
+	std::set<int> m_validReferences;
 	std::vector<RefPicMod> m_refMods;
 	bool m_hasInvalidReferences = false;
 	bool m_hasInvalidBackwardReferences = false;
 	bool m_hasValidReferences = false;
 
-	int m_ppsNumRefIdxL0DefaultActiveMinus1 = -1; // from PPS
-	int m_ppsNumRefIdxL1DefaultActiveMinus1 = -1; // from PPS
+	int m_log2MaxFrameNumMinus4 = -4;             // saved from SPS
+	int m_ppsNumRefIdxL0DefaultActiveMinus1 = -1; // saved from PPS
+	int m_ppsNumRefIdxL1DefaultActiveMinus1 = -1; // saved from PPS
 	int m_numRefIdxL0Active;
 	int m_numRefIdxL1Active;
 

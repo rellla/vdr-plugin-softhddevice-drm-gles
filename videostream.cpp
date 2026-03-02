@@ -392,7 +392,7 @@ void cVideoStream::DecodeInput(void)
 	AVPacket *avpkt = m_packets.Peek();
 	bool dropPacket = false;
 
-	// log nal units of the frames until the second I Frame arrives
+	// log H.264 frames up to the given number of I-Frames
 	if (avpkt && m_codecId == AV_CODEC_ID_H264 && (m_logPackets || m_dropInvalidPackets) && !m_isResend) {
 		if (m_numIFrames < m_logPackets || m_numIFrames < m_dropInvalidPackets) {
 			cH264Parser h264Packet(m_packets.Peek(),
