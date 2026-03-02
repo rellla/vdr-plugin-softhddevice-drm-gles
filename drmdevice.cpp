@@ -192,86 +192,6 @@ static drmModeConnector *FindDrmConnector(int fd, drmModeRes *resources)
 }
 
 /**
- * Gets a property value
- */
-static int GetPropertyValue(int fdDrm, uint32_t objectID,
-                            uint32_t objectType, const char *propName, uint64_t *value)
-{
-	uint32_t i;
-	int found = 0;
-	drmModePropertyPtr Prop;
-	drmModeObjectPropertiesPtr objectProps =
-		drmModeObjectGetProperties(fdDrm, objectID, objectType);
-
-	if (!objectProps)
-		return -1;
-
-	for (i = 0; i < objectProps->count_props; i++) {
-		if ((Prop = drmModeGetProperty(fdDrm, objectProps->props[i])) == NULL)
-			LOGDEBUG2(L_DRM, "drmdevice: %s: Unable to query property", __FUNCTION__);
-
-		if (strcmp(propName, Prop->name) == 0) {
-			*value = objectProps->prop_values[i];
-			found = 1;
-		}
-
-		drmModeFreeProperty(Prop);
-
-		if (found)
-			break;
-	}
-
-	drmModeFreeObjectProperties(objectProps);
-
-	if (!found) {
-		LOGDEBUG2(L_DRM, "drmdevice: %s: Unable to find value for property \'%s\'.", __FUNCTION__, propName);
-		return -1;
-	}
-
-	return 0;
-}
-
-/**
- * Gets a property ID
- */
-static uint32_t GetPropertyID(int fdDrm, uint32_t objectID,
-                              uint32_t objectType, const char *propName)
-{
-	uint32_t i;
-	int found = 0;
-	int value = 0;
-
-	drmModePropertyPtr Prop;
-	drmModeObjectPropertiesPtr objectProps =
-		drmModeObjectGetProperties(fdDrm, objectID, objectType);
-
-	if (!objectProps)
-		return 0;
-
-	for (i = 0; i < objectProps->count_props; i++) {
-		if ((Prop = drmModeGetProperty(fdDrm, objectProps->props[i])) == NULL)
-			LOGDEBUG2(L_DRM, "drmdevice: %s: Unable to query property", __FUNCTION__);
-
-		if (strcmp(propName, Prop->name) == 0) {
-			value = objectProps->props[i];
-			found = 1;
-		}
-
-		drmModeFreeProperty(Prop);
-
-		if (found)
-			break;
-	}
-
-	drmModeFreeObjectProperties(objectProps);
-
-	if (!found)
-		LOGDEBUG2(L_DRM, "drmdevice: %s: Unable to find value for property \'%s\'.", __FUNCTION__, propName);
-
-	return value;
-}
-
-/**
  * Initiate the drm device
  *
  * @returns 0 on success, a negative value on error
@@ -384,7 +304,7 @@ int cDrmDevice::Init(void)
 		}
 	}
 
-	m_hdrMetadata = GetPropertyID(m_fdDrm, m_connectorId, DRM_MODE_OBJECT_CONNECTOR, "HDR_OUTPUT_METADATA");
+	m_hdrMetadata = GetPropertyID(m_connectorId, DRM_MODE_OBJECT_CONNECTOR, "HDR_OUTPUT_METADATA");
 	if (m_hdrMetadata != 0)
 		LOGDEBUG2(L_DRM, "drmdevice: %s: HDR output metadata ID %d in connector %d", __FUNCTION__, m_hdrMetadata, m_connectorId);
 
@@ -428,12 +348,10 @@ int cDrmDevice::Init(void)
 		char pixelformats[256];
 
 		if (plane->possible_crtcs & (1 << m_crtcIndex)) {
-			if (GetPropertyValue(m_fdDrm, planeRes->planes[j],
-						 DRM_MODE_OBJECT_PLANE, "type", &type)) {
+			if (GetPropertyValue(planeRes->planes[j], DRM_MODE_OBJECT_PLANE, "type", &type)) {
 				LOGDEBUG2(L_DRM, "drmdevice: %s: Failed to get property 'type'", __FUNCTION__);
 			}
-			if (GetPropertyValue(m_fdDrm, planeRes->planes[j],
-						 DRM_MODE_OBJECT_PLANE, "zpos", &zpos)) {
+			if (GetPropertyValue(planeRes->planes[j], DRM_MODE_OBJECT_PLANE, "zpos", &zpos)) {
 				LOGDEBUG2(L_DRM, "drmdevice: %s: Failed to get property 'zpos'", __FUNCTION__);
 			} else {
 				m_useZpos = true;
@@ -987,45 +905,6 @@ void cDrmDevice::Close(void)
 }
 
 /**
- * Create a property blob for mode info
- */
-int cDrmDevice::CreatePropertyBlobMode(uint32_t *modeID)
-{
-	return drmModeCreatePropertyBlob(m_fdDrm, &m_drmModeInfo, sizeof(m_drmModeInfo), modeID);
-}
-
-/**
- * Destroy a property blob for mode info
- */
-int cDrmDevice::DestroyPropertyBlobMode(uint32_t modeID)
-{
-	return drmModeDestroyPropertyBlob(m_fdDrm, modeID);
-}
-
-/**
- * Create a property blob for hdr info
- */
-int cDrmDevice::CreatePropertyBlobHdr(struct hdr_output_metadata *data, size_t size)
-{
-	int ret = drmModeCreatePropertyBlob(m_fdDrm, data, size, &m_hdrBlobId);
-	if (ret)
-		LOGDEBUG2(L_DRM, "drmdevice: %s: failed to create hdr property blob: id %d, data %p (%d) ret %d", __FUNCTION__, m_hdrBlobId, data, size, ret);
-
-	return ret;
-}
-
-/**
- * Destroy a property blob for hdr info
- */
-int cDrmDevice::DestroyPropertyBlobHdr(void)
-{
-	if (!m_hdrBlobId)
-		return -1;
-
-	return drmModeDestroyPropertyBlob(m_fdDrm, m_hdrBlobId);
-}
-
-/**
  * Add a property to a request
  */
 int cDrmDevice::SetPropertyRequest(drmModeAtomicReqPtr ModeReq,
@@ -1060,6 +939,84 @@ int cDrmDevice::SetPropertyRequest(drmModeAtomicReqPtr ModeReq,
 }
 
 /**
+ * Gets a property value
+ */
+int cDrmDevice::GetPropertyValue(uint32_t objectID, uint32_t objectType, const char *propName, uint64_t *value)
+{
+	uint32_t i;
+	int found = 0;
+	drmModePropertyPtr Prop;
+	drmModeObjectPropertiesPtr objectProps =
+		drmModeObjectGetProperties(m_fdDrm, objectID, objectType);
+
+	if (!objectProps)
+		return -1;
+
+	for (i = 0; i < objectProps->count_props; i++) {
+		if ((Prop = drmModeGetProperty(m_fdDrm, objectProps->props[i])) == NULL)
+			LOGDEBUG2(L_DRM, "drmdevice: %s: Unable to query property", __FUNCTION__);
+
+		if (strcmp(propName, Prop->name) == 0) {
+			*value = objectProps->prop_values[i];
+			found = 1;
+		}
+
+		drmModeFreeProperty(Prop);
+
+		if (found)
+			break;
+	}
+
+	drmModeFreeObjectProperties(objectProps);
+
+	if (!found) {
+		LOGDEBUG2(L_DRM, "drmdevice: %s: Unable to find value for property \'%s\'.", __FUNCTION__, propName);
+		return -1;
+	}
+
+	return 0;
+}
+
+/**
+ * Gets a property ID
+ */
+uint32_t cDrmDevice::GetPropertyID(uint32_t objectID, uint32_t objectType, const char *propName)
+{
+	uint32_t i;
+	int found = 0;
+	int value = 0;
+
+	drmModePropertyPtr Prop;
+	drmModeObjectPropertiesPtr objectProps =
+		drmModeObjectGetProperties(m_fdDrm, objectID, objectType);
+
+	if (!objectProps)
+		return 0;
+
+	for (i = 0; i < objectProps->count_props; i++) {
+		if ((Prop = drmModeGetProperty(m_fdDrm, objectProps->props[i])) == NULL)
+			LOGDEBUG2(L_DRM, "drmdevice: %s: Unable to query property", __FUNCTION__);
+
+		if (strcmp(propName, Prop->name) == 0) {
+			value = objectProps->props[i];
+			found = 1;
+		}
+
+		drmModeFreeProperty(Prop);
+
+		if (found)
+			break;
+	}
+
+	drmModeFreeObjectProperties(objectProps);
+
+	if (!found)
+		LOGDEBUG2(L_DRM, "drmdevice: %s: Unable to find value for property \'%s\'.", __FUNCTION__, propName);
+
+	return value;
+}
+
+/**
  * Saves information of a CRTC
  */
 void cDrmDevice::SaveCrtc(void)
@@ -1080,19 +1037,6 @@ void cDrmDevice::RestoreCrtc(void)
 }
 
 /**
- * Set a connector property
- */
-int cDrmDevice::SetConnectorHdrBlobProperty(void)
-{
-	int ret = drmModeConnectorSetProperty(m_fdDrm, m_connectorId, m_hdrMetadata, m_hdrBlobId);
-	if (ret)
-		LOGDEBUG2(L_DRM, "drmdevice: %s: failed to set hdr property blob: blob id %d connector_id %d, m_hdrMetadata %d ret %d",
-			__FUNCTION__, m_hdrBlobId, m_connectorId, m_hdrMetadata, ret);
-
-	return ret;
-}
-
-/**
  * Polls for a drm event
  */
 int cDrmDevice::HandleEvent(void)
@@ -1109,10 +1053,79 @@ void cDrmDevice::InitEvent(void)
 	m_drmEventCtx.version = 2;
 }
 
-/**
- * Gets a property value from the given plane
+/*
+ * drmModeAtomic* wrapper functions
  */
-int cDrmDevice::GetPlanePropertyValue(uint32_t objId, const char *propName, uint64_t *value)
+int cDrmDevice::SetConnectorCrtcId(drmModeAtomicReqPtr modeReq)
 {
-	return GetPropertyValue(m_fdDrm, objId, DRM_MODE_OBJECT_PLANE, propName, value);
+	return SetPropertyRequest(modeReq, m_connectorId, DRM_MODE_OBJECT_CONNECTOR, "CRTC_ID", m_crtcId);
+}
+
+int cDrmDevice::SetConnectorHdrOutputMetadata(drmModeAtomicReqPtr modeReq, uint32_t id)
+{
+	return SetPropertyRequest(modeReq, m_connectorId, DRM_MODE_OBJECT_CONNECTOR, "HDR_OUTPUT_METADATA", id);
+}
+
+int cDrmDevice::SetConnectorColorspace(drmModeAtomicReqPtr modeReq, uint32_t id)
+{
+	return SetPropertyRequest(modeReq, m_connectorId, DRM_MODE_OBJECT_CONNECTOR, "Colorspace", id);
+}
+
+int cDrmDevice::SetVideoPlaneColorEncoding(drmModeAtomicReqPtr modeReq, uint32_t id)
+{
+	return SetPropertyRequest(modeReq, m_videoPlane.GetId(), DRM_MODE_OBJECT_PLANE, "COLOR_ENCODING", id);
+}
+
+int cDrmDevice::SetVideoPlaneColorRange(drmModeAtomicReqPtr modeReq, uint32_t id)
+{
+	return SetPropertyRequest(modeReq, m_videoPlane.GetId(), DRM_MODE_OBJECT_PLANE, "COLOR_RANGE", id);
+}
+
+int cDrmDevice::GetVideoPlaneColorRange(uint64_t *value)
+{
+	return GetPropertyValue(m_videoPlane.GetId(), DRM_MODE_OBJECT_PLANE, "COLOR_RANGE", value);
+}
+
+int cDrmDevice::SetCrtcModeId(drmModeAtomicReqPtr modeReq, uint32_t id)
+{
+	return SetPropertyRequest(modeReq, m_crtcId, DRM_MODE_OBJECT_CRTC, "MODE_ID", id);
+}
+
+int cDrmDevice::SetCrtcActive(drmModeAtomicReqPtr modeReq, uint32_t id)
+{
+	return SetPropertyRequest(modeReq, m_crtcId, DRM_MODE_OBJECT_CRTC, "ACTIVE", id);
+}
+
+int cDrmDevice::CreateModeBlob(uint32_t *modeID)
+{
+	return drmModeCreatePropertyBlob(m_fdDrm, &m_drmModeInfo, sizeof(m_drmModeInfo), modeID);
+}
+
+int cDrmDevice::DestroyModeBlob(uint32_t modeID)
+{
+	return drmModeDestroyPropertyBlob(m_fdDrm, modeID);
+}
+
+int cDrmDevice::CreateHdrBlob(struct hdr_output_metadata *data, size_t size, uint32_t *blobID)
+{
+	int ret = drmModeCreatePropertyBlob(m_fdDrm, data, size, blobID);
+	if (ret)
+		LOGDEBUG2(L_DRM, "drmdevice: %s: failed to create hdr property blob: id %d, data %p (%d) ret %d", __FUNCTION__, blobID, data, size, ret);
+
+	return ret;
+}
+
+int cDrmDevice::SetConnectorHdrBlobProperty(uint32_t blobID)
+{
+	int ret = drmModeConnectorSetProperty(m_fdDrm, m_connectorId, m_hdrMetadata, blobID);
+	if (ret)
+		LOGDEBUG2(L_DRM, "drmdevice: %s: failed to set hdr property blob: blob id %d connector_id %d, m_hdrMetadata %d ret %d",
+			__FUNCTION__, blobID, m_connectorId, m_hdrMetadata, ret);
+
+	return ret;
+}
+
+int cDrmDevice::DestroyHdrBlob(uint32_t blobID)
+{
+	return drmModeDestroyPropertyBlob(m_fdDrm, blobID);
 }

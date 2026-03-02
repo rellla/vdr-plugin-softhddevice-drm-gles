@@ -102,18 +102,18 @@ class cVideoRender;
 class cHdrMetadata
 {
 public:
-	cHdrMetadata(cVideoRender *);
+	cHdrMetadata(cVideoRender *render) : m_pRender(render) { };
 	bool Build(struct hdr_output_metadata *,int, int, AVFrameSideData *, AVFrameSideData *);
 	int GetColorPrimaries(void) { return m_colorPrimaries; };
 	int GetColorTrc(void) { return m_colorTrc; };
 
 private:
-	cVideoRender *m_pRender;
-	int m_colorPrimaries = -1;
-	int m_colorTrc = -1;
-	AVMasteringDisplayMetadata m_mdSave = { };
-	AVContentLightMetadata m_ldSave = { };
-	struct colorspace m_hdr10;
+	cVideoRender *m_pRender;                       ///< pointer to cVideoRender object
+	int m_colorPrimaries = -1;                     ///< saved color primaries
+	int m_colorTrc = -1;                           ///< saved transfer charateristics
+	AVMasteringDisplayMetadata m_mdMetadata = { }; ///< saved mastering display metadata fron AVFrame sidedata
+	AVContentLightMetadata m_clMetadata = { };     ///< saved content light metadata fron AVFrame sidedata
+	struct colorspace m_hdr10;                     ///< hdr colorspace
 };
 
 #endif
