@@ -150,6 +150,7 @@ private:
 	void RenderFrame(AVFrame *);
 	void CheckForcingFrameDecode(void);
 	void OpenDecoder(void);
+	bool ParseH264Packet(AVPacket *);
 };
 
 /**
