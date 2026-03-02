@@ -1030,7 +1030,7 @@ void cSoftHdAudio::Exit(void)
 {
 	LOGDEBUG2(L_SOUND, "audio: %s", __FUNCTION__);
 
-	if (m_initialized) {
+	if (m_initialized && m_pAudioThread) {
 		if (m_pAudioThread->Active())
 			m_pAudioThread->Stop();
 		delete m_pAudioThread;
