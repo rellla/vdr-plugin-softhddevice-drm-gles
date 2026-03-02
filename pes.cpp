@@ -23,7 +23,7 @@
 #include "logger.h"
 #include "misc.h"
 
-#include "vdr/remux.h"
+#include <vdr/remux.h>
 
 extern "C" {
 #include <libavutil/avutil.h>
