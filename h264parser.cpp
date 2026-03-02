@@ -410,7 +410,7 @@ cH264Parser::cH264Parser(AVPacket *avpkt, int maxFrameNum, int refIdxL0, int ref
 					idc = ReadExponentialGolombCode();
 
 					if (idc == 0 || idc == 1) {
-						RefPicMod mod;
+						RefPicMod mod {};
 						mod.list = 0;
 						mod.idc = idc;
 						mod.abs_diff_pic_num_minus1 = ReadExponentialGolombCode();
@@ -418,7 +418,7 @@ cH264Parser::cH264Parser(AVPacket *avpkt, int maxFrameNum, int refIdxL0, int ref
 					// ignore long-term ?
 					/*
 					} else if (idc == 2) {
-						RefPicMod mod;
+						RefPicMod mod {};
 						mod.list = 0;
 						mod.idc = idc;
 						mod.long_term_pic_num = ReadExponentialGolombCode();
@@ -448,7 +448,7 @@ cH264Parser::cH264Parser(AVPacket *avpkt, int maxFrameNum, int refIdxL0, int ref
 				do {
 					idc = ReadExponentialGolombCode();
 					if (idc == 0 || idc == 1) {
-						RefPicMod mod;
+						RefPicMod mod {};
 						mod.list = 0;
 						mod.idc = idc;
 						mod.abs_diff_pic_num_minus1 = ReadExponentialGolombCode();
@@ -456,7 +456,7 @@ cH264Parser::cH264Parser(AVPacket *avpkt, int maxFrameNum, int refIdxL0, int ref
 					// ignore long-term ?
 					/*
 					} else if (idc == 2) {
-						RefPicMod mod;
+						RefPicMod mod {};
 						mod.list = 0;
 						mod.idc = idc;
 						mod.long_term_pic_num = ReadExponentialGolombCode();
@@ -474,7 +474,7 @@ cH264Parser::cH264Parser(AVPacket *avpkt, int maxFrameNum, int refIdxL0, int ref
 				do {
 					idc = ReadExponentialGolombCode();
 					if (idc == 0 || idc == 1) {
-						RefPicMod mod;
+						RefPicMod mod {};
 						mod.list = 1;
 						mod.idc = idc;
 						mod.abs_diff_pic_num_minus1 = ReadExponentialGolombCode();
@@ -482,7 +482,7 @@ cH264Parser::cH264Parser(AVPacket *avpkt, int maxFrameNum, int refIdxL0, int ref
 					// ignore long-term ?
 					/*
 					} else if (idc == 2) {
-						RefPicMod mod;
+						RefPicMod mod {};
 						mod.list = 1;
 						mod.idc = idc;
 						mod.long_term_pic_num = ReadExponentialGolombCode();
