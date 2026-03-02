@@ -39,8 +39,14 @@ extern "C" {
  ****************************************************************************/
 
 /**
- * Returns true, if we have a 0x000001 or 0x00000001 start code
- * in data at the offset position
+ * Check for a 0x000001 or 0x00000001 start code
+ *
+ * @param[in] data               pointer to the data stream
+ * @param[in] offset             start parsing at offset
+ * @param[in] size               size of data
+ * @param[out] startCodeLength   start code length (3 or 4)
+ *
+ * @returns true if a valid start code was detected, false otherwise
  */
 bool isValidStartCode(const uint8_t *data, int offset, int size, int &startCodeLength)
 {
@@ -59,12 +65,22 @@ bool isValidStartCode(const uint8_t *data, int offset, int size, int &startCodeL
 
 /**
  * Return the nal unit type
+ *
+ * @param data               pointer to the data stream
+ * @param offset             start parsing at offset
+ * @param startCodeLength    start code length (3 or 4)
+ *
+ * @returns the nal unit type
  */
 static int NalUnitType(const uint8_t *data, int offset, int startCodeLength)
 {
 	return data[offset + startCodeLength] & 0x1F;
 }
 
+/**
+ * Returns the SPS offset in the data stream
+ * or -1 if there is no SPS
+ */
 int cH264Parser::GetSPSOffset(void)
 {
 	int offset = -1;
@@ -84,6 +100,10 @@ int cH264Parser::GetSPSOffset(void)
 	return offset;
 }
 
+/**
+ * Returns the PPS offset in the data stream
+ * or -1 if there is no PPS
+ */
 int cH264Parser::GetPPSOffset(void)
 {
 	int offset = -1;
@@ -103,6 +123,10 @@ int cH264Parser::GetPPSOffset(void)
 	return offset;
 }
 
+/**
+ * Returns the slice offset in the data stream
+ * or -1 if there is no slice
+ */
 int cH264Parser::GetSliceOffset(void)
 {
 	int offset = -1;
@@ -125,7 +149,10 @@ int cH264Parser::GetSliceOffset(void)
 /**
  * Init the h264 parser and detect the nalu types
  *
- * @param avpkt      AVPacket to parse
+ * @param avpkt        AVPacket to parse
+ * @param maxFrameNum  log2MaxFrameNumMinus4 from a previous SPS parsing, will be overwritten if this packet contains SPS
+ * @param refIdxL0     ppsNumRefIdxL0DefaultActiveMinus1 from a previous PPS parsing, will be overwritten if this packet contains PPS
+ * @param refIdxL1     ppsNumRefIdxL1DefaultActiveMinus1 from a previous PPS parsing, will be overwritten if this packet contains PPS
  */
 cH264Parser::cH264Parser(AVPacket *avpkt, int maxFrameNum, int refIdxL0, int refIdxL1)
 	: m_pAvpkt(avpkt),
@@ -274,8 +301,8 @@ cH264Parser::cH264Parser(AVPacket *avpkt, int maxFrameNum, int refIdxL0, int ref
 		m_height = ((2 - frameMbsOnlyFlag)* (picHeightInMapUnitsMinusOne +1) * 16) -
 			subHeightC * ((frameCropBottomOffset * 2) + (frameCropTopOffset * 2));
 
-//		if (m_parseError)
-//			LOGWARNING("SPS parsing error");
+		//if (m_parseError)
+		//	LOGWARNING("SPS parsing error");
 	}
 
 	// part 3: parse h264 PPS
@@ -343,8 +370,8 @@ cH264Parser::cH264Parser(AVPacket *avpkt, int maxFrameNum, int refIdxL0, int ref
 		m_numRefIdxL0Active = m_ppsNumRefIdxL0DefaultActiveMinus1 + 1;
 		m_numRefIdxL1Active = m_ppsNumRefIdxL1DefaultActiveMinus1 + 1;
 
-//		if (m_parseError)
-//			LOGWARNING("PPS parsing error");
+		//if (m_parseError)
+		//	LOGWARNING("PPS parsing error");
 	}
 
 	// part 4: parse slice header
@@ -380,10 +407,10 @@ cH264Parser::cH264Parser(AVPacket *avpkt, int maxFrameNum, int refIdxL0, int ref
 
 		int frame_num_bits = m_log2MaxFrameNumMinus4 + 4;
 		m_frameNum = ReadBits(frame_num_bits);
-//		if (m_parseError) {
-//			LOGWARNING("Slice parsing error -> frameNum");
-//			return;
-//		}
+		//if (m_parseError) {
+		//	LOGWARNING("Slice parsing error -> frameNum");
+		//	return;
+		//}
 
 		if (m_isIDR)
 			ReadExponentialGolombCode(); // idr_pic_id
@@ -498,11 +525,17 @@ cH264Parser::cH264Parser(AVPacket *avpkt, int maxFrameNum, int refIdxL0, int ref
 		} else if (m_sliceType == 4) { // SI-slice
 			m_naluString += " -SI-   ";
 		}
-//		if (m_parseError)
-//			LOGWARNING("Slice parsing error");
+		//if (m_parseError)
+		//	LOGWARNING("Slice parsing error");
 	}
 }
 
+/**
+ * Adds an invalid reference
+ *
+ * @param modRef         number of the reference frame
+ * @param frameNumber    number of the frame to add
+ */
 void cH264Parser::AddInvalidReference(int modRef, int frameNumber)
 {
 	m_invalidReferences.insert(modRef);
@@ -512,12 +545,22 @@ void cH264Parser::AddInvalidReference(int modRef, int frameNumber)
 		m_hasInvalidBackwardReferences = true;
 }
 
+/**
+ * Adds a valid reference
+ *
+ * @param modRef         number of the reference frame
+ */
 void cH264Parser::AddValidReference(int modRef)
 {
 	m_validReferences.insert(modRef);
 	m_hasValidReferences = true;
 }
 
+/**
+ * Add a whitespace-separated list of all invalid references to the log output string
+ *
+ * @param frameNumber     only build the string up to the given frameNumber
+ */
 void cH264Parser::BuildInvalidReferenceString(int frameNumber)
 {
 	if (!m_hasInvalidReferences)
@@ -532,6 +575,9 @@ void cH264Parser::BuildInvalidReferenceString(int frameNumber)
 	}
 }
 
+/**
+ * Add a whitespace-separated list of all valid references to the log output string
+ */
 void cH264Parser::BuildValidReferenceString(void)
 {
 	if (!m_hasValidReferences)
@@ -544,6 +590,11 @@ void cH264Parser::BuildValidReferenceString(void)
 	}
 }
 
+/**
+ * Add the frame number to the log output string
+ *
+ * @param num    frame number to add to the string
+ */
 void cH264Parser::AddFrameNumber(int num)
 {
 	if (num != -1) {
@@ -575,6 +626,9 @@ void cH264Parser::PrintStreamData(void)
 	         data[27], data[28], data[29], data[30], data[31], data[32], data[33], data[34], m_pAvpkt->size);
 }
 
+/**
+ * Print the previously created log output string
+ */
 void cH264Parser::PrintNalUnits(void)
 {
 	LOGDEBUG2(L_CODEC, "H264Parser: %s %s (%d x %d)", __FUNCTION__,
