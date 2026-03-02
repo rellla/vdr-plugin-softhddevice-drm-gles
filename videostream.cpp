@@ -374,6 +374,81 @@ void cVideoStream::OpenDecoder(void)
 	m_dropInvalidPackets = m_pConfig->ConfigDropInvalidH264PFrames ? m_pConfig->ConfigDropInvalidH264PFrames + 1 : 0;
 }
 
+bool cVideoStream::ParseH264Packet(AVPacket *avpkt)
+{
+	cH264Parser h264Packet(avpkt,
+                               m_log2MaxFrameNumMinus4,
+                               m_ppsNumRefIdxL0DefaultActiveMinus1,
+                               m_ppsNumRefIdxL1DefaultActiveMinus1);
+
+	if (h264Packet.HasSPS()) {
+		m_maxFrameNum = 1 << (h264Packet.GetLog2MaxFrameNumMinus4() + 4);
+		m_log2MaxFrameNumMinus4 = h264Packet.GetLog2MaxFrameNumMinus4();
+	}
+
+	if (h264Packet.HasPPS()) {
+		m_ppsNumRefIdxL0DefaultActiveMinus1 = h264Packet.GetPpsNumRefIdxL0DefaultActiveMinus1();
+		m_ppsNumRefIdxL1DefaultActiveMinus1 = h264Packet.GetPpsNumRefIdxL1DefaultActiveMinus1();
+	}
+
+	int frameNumber = h264Packet.GetFrameNum();
+
+	if (h264Packet.IsReference()) {
+		h264Packet.AddFrameNumber(frameNumber);
+		m_dpbFrames.insert(frameNumber);
+	} else {
+		h264Packet.AddFrameNumber(-1);
+	}
+
+	bool dropPacket = false;
+	if (h264Packet.IsPSlice() || h264Packet.IsBSlice()) {
+		int numRefL0 = h264Packet.GetNumRefIdxL0Active();
+		int numRefL1 = h264Packet.GetNumRefIdxL1Active();
+
+		for (auto& mod : h264Packet.GetRefMods()) {
+			if (mod.idc != 0 && mod.idc != 1)
+				continue;
+
+			int activeRefs = (mod.list == 0) ? numRefL0 : numRefL1;
+			if (activeRefs <= 0)
+				continue;
+
+			// Compute the short-term reference frame number
+			int modRef = -1;
+			int diff = mod.abs_diff_pic_num_minus1 + 1;
+
+			if (mod.idc == 0) { // subtraction
+				modRef = (frameNumber - diff + m_maxFrameNum) % m_maxFrameNum;
+			} else if (mod.idc == 1) { // addition
+				modRef = (frameNumber + diff) % m_maxFrameNum;
+			}
+
+			// Check if this reference exists in the DPB
+			if (m_dpbFrames.find(modRef) == m_dpbFrames.end()) {
+				h264Packet.AddInvalidReference(modRef, frameNumber);
+			} else {
+				h264Packet.AddValidReference(modRef);
+			}
+		}
+
+		// only print invalid references for better readability
+		h264Packet.BuildInvalidReferenceString(frameNumber);
+		// h264Packet.BuildValidReferenceString();
+
+		if (h264Packet.HasInvalidBackwardReferences() && h264Packet.IsPSlice() &&  m_numIFrames < m_dropInvalidPackets) {
+			LOGDEBUG2(L_CODEC, "videostream %s: %s: invalid backward reference, drop P-Frame %d", m_identifier, __FUNCTION__, frameNumber);
+			dropPacket = true;
+		}
+	}
+
+	if (h264Packet.IsISlice())
+		m_numIFrames++;
+
+	m_naluTypesAtStart.push_back(h264Packet.GetNalUnitString());
+
+	return dropPacket;
+}
+
 /**
  * Decodes a reassembled codec packet.
  */
@@ -388,80 +463,13 @@ void cVideoStream::DecodeInput(void)
 	if (m_newStream)
 		OpenDecoder();
 
-	// send packet to decoder
 	AVPacket *avpkt = m_packets.Peek();
-	bool dropPacket = false;
 
 	// log H.264 frames up to the given number of I-Frames
+	bool dropPacket = false;
 	if (avpkt && m_codecId == AV_CODEC_ID_H264 && (m_logPackets || m_dropInvalidPackets) && !m_isResend) {
 		if (m_numIFrames < m_logPackets || m_numIFrames < m_dropInvalidPackets) {
-			cH264Parser h264Packet(m_packets.Peek(),
-		                               m_log2MaxFrameNumMinus4,
-		                               m_ppsNumRefIdxL0DefaultActiveMinus1,
-		                               m_ppsNumRefIdxL1DefaultActiveMinus1);
-			if (h264Packet.HasSPS()) {
-				m_maxFrameNum = 1 << (h264Packet.GetLog2MaxFrameNumMinus4() + 4);
-				m_log2MaxFrameNumMinus4 = h264Packet.GetLog2MaxFrameNumMinus4();
-			}
-
-			if (h264Packet.HasPPS()) {
-				m_ppsNumRefIdxL0DefaultActiveMinus1 = h264Packet.GetPpsNumRefIdxL0DefaultActiveMinus1();
-				m_ppsNumRefIdxL1DefaultActiveMinus1 = h264Packet.GetPpsNumRefIdxL1DefaultActiveMinus1();
-			}
-
-			int frameNumber = h264Packet.GetFrameNum();
-
-			if (h264Packet.IsReference()) {
-				h264Packet.AddFrameNumber(frameNumber);
-				m_dpbFrames.insert(frameNumber);
-			} else {
-				h264Packet.AddFrameNumber(-1);
-			}
-
-			if (h264Packet.IsPSlice() || h264Packet.IsBSlice()) {
-				int numRefL0 = h264Packet.GetNumRefIdxL0Active();
-				int numRefL1 = h264Packet.GetNumRefIdxL1Active();
-
-				for (auto& mod : h264Packet.GetRefMods()) {
-					if (mod.idc != 0 && mod.idc != 1)
-						continue;
-
-					int activeRefs = (mod.list == 0) ? numRefL0 : numRefL1;
-					if (activeRefs <= 0)
-						continue;
-
-					// Compute the short-term reference frame number
-					int modRef = -1;
-					int diff = mod.abs_diff_pic_num_minus1 + 1;
-
-					if (mod.idc == 0) { // subtraction
-						modRef = (frameNumber - diff + m_maxFrameNum) % m_maxFrameNum;
-					} else if (mod.idc == 1) { // addition
-						modRef = (frameNumber + diff) % m_maxFrameNum;
-					}
-
-					// Check if this reference exists in the DPB
-					if (m_dpbFrames.find(modRef) == m_dpbFrames.end()) {
-						h264Packet.AddInvalidReference(modRef, frameNumber);
-					} else {
-						h264Packet.AddValidReference(modRef);
-					}
-				}
-
-				// only print invalid references for better readability
-				h264Packet.BuildInvalidReferenceString(frameNumber);
-				// h264Packet.BuildValidReferenceString();
-
-				if (h264Packet.HasInvalidBackwardReferences() && h264Packet.IsPSlice() &&  m_numIFrames < m_dropInvalidPackets) {
-					LOGDEBUG2(L_CODEC, "videostream %s: %s: invalid backward reference, drop P-Frame %d", m_identifier, __FUNCTION__, frameNumber);
-					dropPacket = true;
-				}
-			}
-
-			if (h264Packet.IsISlice())
-				m_numIFrames++;
-
-			m_naluTypesAtStart.push_back(h264Packet.GetNalUnitString());
+			dropPacket = ParseH264Packet(avpkt);
 		} else if (m_logPackets) {
 			LOGDEBUG("videostream %s: %s: parsed H.264 stream:", m_identifier, __FUNCTION__);
 			for (std::size_t i = 0; i < m_naluTypesAtStart.size(); i++) {
@@ -471,11 +479,8 @@ void cVideoStream::DecodeInput(void)
 		}
 	}
 
-	if (dropPacket) {
-		avpkt = m_packets.Pop();
-		av_packet_free(&avpkt);
-		m_isResend = false;
-	} else {
+	// send packet to decoder
+	if (!dropPacket) {
 		ret = m_pDecoder->SendPacket(avpkt);
 
 		if (ret != AVERROR(EAGAIN) && ret != AVERROR_EOF) {
@@ -488,6 +493,10 @@ void cVideoStream::DecodeInput(void)
 
 		if (!ret && m_pRender->IsTrickSpeed())
 			CheckForcingFrameDecode();
+	} else {
+		avpkt = m_packets.Pop();
+		av_packet_free(&avpkt);
+		m_isResend = false;
 	}
 
 	// receive frame from decoder
