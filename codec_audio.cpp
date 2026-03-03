@@ -402,6 +402,9 @@ void cAudioDecoder::FlushBuffers(void)
 	if (m_pAudioCtx)
 		avcodec_flush_buffers(m_pAudioCtx);
 
+	m_spdifIndex = 0;
+	m_spdifRepeatCount = 0;
+
 	m_lastPts = AV_NOPTS_VALUE;
 	m_codecId = AV_CODEC_ID_NONE;
 }
