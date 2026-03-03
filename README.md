@@ -86,15 +86,8 @@ Requirements:
 
 - ffmpeg
 
-	Depending on upstreaming efforts a patched ffmpeg version may be needed (WIP LE version)
-
-	Have a look at https://github.com/LibreELEC/LibreELEC.tv/tree/master/packages/multimedia/ffmpeg
-	and choose the ffmpeg source and patches which matches your platform.
-	Most of them have not yet been upstreamed, so you probably need to build ffmpeg on your own.
-	LibreELEC supports Rockchip, Allwinner, Raspberry PI and (kind of) Amlogic.
-	Have a look at https://github.com/LibreELEC/LibreELEC.tv/tree/master/projects to find platform
-	specific patches.
-	https://github.com/jc-kynesim/rpi-ffmpeg is a very recent version for RPI4/RPI5 and probably amlogic.
+	Depending on upstreaming efforts a patched ffmpeg version may be needed to take advantage of
+	hardware accelerated decoding and deinterlacing (see below).
 
 - kernel
 
@@ -142,6 +135,43 @@ To disable OpenGL/ES support (if autodetected), simply build with
 	GLES=0 make
 
 In this case, VDR is using CPU based OSD rendering.
+
+
+FFmpeg:
+-------
+The plugin should work with any recent upstream ffmpeg version but may lack
+hardware decoder acceleration. If you want to drive the plugin with a hardware
+acclerated decoder, you may need to build ffmpeg on your own.
+
+LibreELEC is a good source to find out the current status of what is already upstreamed and supported.
+Have a look at https://github.com/LibreELEC/LibreELEC.tv/tree/master/packages/multimedia/ffmpeg
+and choose the ffmpeg source and patches which match your platform.
+Most of them have not yet been upstreamed, so you probably need to build ffmpeg on your own.
+LibreELEC supports Rockchip, Allwinner, Raspberry PI and (kind of) Amlogic.
+Have a look at https://github.com/LibreELEC/LibreELEC.tv/tree/master/projects to find platform
+specific patches.
+
+The following instructions may help you to setup ffmpeg (may be outdated):
+
+- Raspberry Pi, Amlogic:
+	- [rpi-ffmpeg](https://github.com/jc-kynesim/rpi-ffmpeg) is the very recent version for RPI4/RPI5 and Amlogic (For Raspberry Pi LibreELEC normally patches the upstream ffmpeg version to get the version from jc-kynesim)
+	- check out a recent branch (note: the master branch is not the one you want to have)
+	- most likely this branch has everything you need and you don't need any further patches (in doubt, check [how it is handled in LibreELEC](https://github.com/LibreELEC/LibreELEC.tv/tree/master/packages/multimedia/ffmpeg))
+	- build ffmpeg as usual with the "configure - make - make install" logic
+	- For Raspberry Pi building with the following configure options should enable hardware acceleration:
+
+			--disable-static --enable-shared --enable-pic --enable-bsfs --enable-filters --enable-v4l2_m2m --enable-libdrm --enable-libudev --enable-v4l2-request --enable-sand --enable-hwaccels --enable-neon --disable-vdpau --disable-vaapi --disable-mmal
+	- For Amlogic building with the following configure options should enable hardware acceleration:
+
+			--disable-static --enable-shared --enable-pic --enable-bsfs --enable-filters --enable-v4l2_m2m --enable-libdrm --enable-hwaccels --enable-neon --disable-vdpau --disable-vaapi --disable-libudev --disable-v4l2-request
+
+- Rockchip, Allwinner:
+	- use mainline ffmpeg with version mentioned in [LibreELEC package file](https://github.com/LibreELEC/LibreELEC.tv/blob/master/packages/multimedia/ffmpeg/package.mk)
+	- patch the mainline version with the [patchsets](https://github.com/LibreELEC/LibreELEC.tv/tree/master/packages/multimedia/ffmpeg/patches) which where mentioned for your platform in the package.mk
+	- build ffmpeg as usual with the "configure - make - make install" logic
+	- building with the following configure options should enable hardware acceleration:
+
+			--disable-static --enable-shared --enable-pic --enable-bsfs --enable-filters --enable-v4l2_m2m --enable-libdrm --enable-libudev --enable-v4l2-request --enable-hwaccels --enable-neon --disable-vdpau --disable-vaapi
 
 
 Resolution:
