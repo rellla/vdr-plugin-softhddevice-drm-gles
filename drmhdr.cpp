@@ -63,7 +63,7 @@ static inline uint16_t EncodeXYY(float xyy)
  *
  * @returns 0 on success, -1 on error
  */
-bool cHdrMetadata::Build(struct hdr_output_metadata *data, int colorPrimaries, int colorTrc, AVFrameSideData *sd1, AVFrameSideData *sd2)
+int cHdrMetadata::Build(struct hdr_output_metadata *data, int colorPrimaries, int colorTrc, AVFrameSideData *sd1, AVFrameSideData *sd2)
 {
 	if (!m_pRender->CanHandleHdr())
 		return -1;

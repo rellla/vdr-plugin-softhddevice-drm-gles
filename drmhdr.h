@@ -103,7 +103,7 @@ class cHdrMetadata
 {
 public:
 	cHdrMetadata(cVideoRender *render) : m_pRender(render) { };
-	bool Build(struct hdr_output_metadata *,int, int, AVFrameSideData *, AVFrameSideData *);
+	int Build(struct hdr_output_metadata *,int, int, AVFrameSideData *, AVFrameSideData *);
 	int GetColorPrimaries(void) { return m_colorPrimaries; };
 	int GetColorTrc(void) { return m_colorTrc; };
 

@@ -168,8 +168,7 @@ public:
 	// DRM
 	int DrmHandleEvent(void);
 	bool CanHandleHdr(void);
-	void SetEnableHdr(bool enable) { m_enableHdr = enable;
-	                                 m_needsModeset = true; };
+	void SetEnableHdr(bool enable) { m_enableHdr = enable; };
 
 	// Frame and buffer
 	bool DisplayFrame();
@@ -263,7 +262,6 @@ private:
 	cHdrMetadata m_pHdrMetadata;                             ///< hdr metadata object
 	bool m_hasDoneHdrModeset = false;                        ///< true, if we ever created an hdr blob and did a modesetting
 	std::atomic<bool> m_enableHdr = false;                   ///< hdr is enabled
-	std::atomic<bool> m_needsModeset = false;                ///< we need to do a modeset
 	drmColorRange m_originalColorRange = COLORRANGE_LIMITED; ///< initial color range
 	bool m_colorRangeStored = false;                         ///< true, if the original color range was stored
 
@@ -289,6 +287,9 @@ private:
 	int64_t PtsToMs(int64_t);
 	void PushFrame(AVFrame *, bool, std::atomic<cBufferStrategy*> &, std::atomic<cDecodingStrategy*> &, cQueue<cDrmBuffer> *, cDrmBufferPool *);
 	int GetFramePresentationCount(int64_t);
+	void SetHdrBlob(struct hdr_output_metadata);
+	void SetColorSpace(drmColorRange);
+	void RestoreColorSpace();
 };
 
 #endif
