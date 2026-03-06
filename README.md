@@ -242,6 +242,9 @@ Setup: /etc/vdr/setup.conf
 	softhddevice-drm-gles.HideMainMenuEntry = 0
 		0 = show softhddevice main menu entry, 1 = hide entry
 
+	softhddevice-drm-gles.VideoEnableHdr = 0
+		0 = disable HDR, 1 = enable HDR
+
 	softhddevice-drm-gles.MaxSizeGPUImageCache = 128
 		how many GPU memory should be used for image caching
 
