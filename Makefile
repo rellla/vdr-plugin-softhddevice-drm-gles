@@ -154,7 +154,7 @@ ifeq ($(GLES),1)
 OBJS += openglosd.o
 endif
 
-SRCS = $(wildcard *.c *.cpp) $(PLUGIN).cpp
+SRCS = $(wildcard $(OBJS:.o=.cpp)) $(PLUGIN).cpp
 
 ### The main target:
 
