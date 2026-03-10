@@ -292,7 +292,7 @@ Then, the frame with the first sync word is sent to the decoder, followed by the
 This synchronization mechanism is only done when a stream starts, or when the data after a frame does not start with the sync word.
 The latter can happen for example on bad reception when garbage is received.
 
-## Buffering
+## Buffering - A/V-Sync
 
 The audio and video data is buffered when VDR calls `SetPlayMode(pmAudioVideo)`, `Clear()` or when the buffer underruns during playback.
 
@@ -309,6 +309,117 @@ To calculate if the buffer fill levels are sufficient to start playback, the fol
 - When the fill threshold of that buffer is reached, truncate the above mentioned subset of the other buffer.
 - Wait until the display output queue is completely filled.
 - Start playback.
+
+
+```mermaid
+---
+displayMode: compact
+config:
+    gantt:
+        numberSectionStyles: 2
+        topAxis: true
+---
+gantt
+    title A/V-Sync: Video waits for audio buffer to be filled
+    dateFormat x
+    axisFormat %L
+    tickInterval 20millisecond
+section Threshold
+    GetBufferFillLevelThresholdMs()                        :             80, 530
+    If audioBuffer reaches -> start playback               : vert,      530,
+    GetFirstAudioPtsMsToPlay()                             : vert,       80,
+    If audioBuffer reaches -> start playback               : milestone, 530,
+    GetFirstAudioPtsMsToPlay()                             : milestone,  80,
+section Audio
+    audioBuffer             :              0, 480
+    m_pAudio->GetOutputPts(): milestone,   0,
+    m_pAudio->GetInputPts() : milestone, 480,
+section AudioFilllevel
+    to drop                    : crit,   0,  80
+    syncedAudioBufferFillLevel :        80, 480
+    to wait for                : crit, 480, 530
+section Video
+    videoBuffer                  :             80, 720
+    m_pRender->GetOutputPts()    : milestone,  80,
+    m_pVideoStream->GetInputPts(): milestone, 720,
+section VideoFilllevel
+    syncedVideoBufferFillLevel : 80, 720
+```
+
+```mermaid
+---
+displayMode: compact
+config:
+    gantt:
+        numberSectionStyles: 2
+        topAxis: true
+---
+gantt
+    title A/V-Sync: Audio waits for video buffer to be filled
+    dateFormat x
+    axisFormat %L
+    %% this next line doesn't recognise 'decade' or 'year', but will silently ignore
+    tickInterval 20millisecond
+section Threshold
+    GetBufferFillLevelThresholdMs()                        :             80, 530
+    If both buffers reach -> start playback                : vert,      530,
+    GetFirstAudioPtsMsToPlay()                             : vert,       80,
+    If both buffers reach -> start playback                : milestone, 530,
+    GetFirstAudioPtsMsToPlay()                             : milestone,  80,
+section Audio
+    audioBuffer             :             80, 720
+    m_pAudio->GetOutputPts(): milestone,  80,
+    m_pAudio->GetInputPts() : milestone, 720,
+section AudioFilllevel
+    syncedAudioBufferFillLevel : 80, 720
+section Video
+    videoBuffer                  :              0, 480
+    m_pRender->GetOutputPts()    : milestone,   0,
+    m_pVideoStream->GetInputPts(): milestone, 480,
+section VideoFilllevel
+    to drop                    : crit,   0,  80
+    syncedVideoBufferFillLevel :        80, 480
+    to wait for                : crit, 480, 530
+```
+
+```mermaid
+---
+displayMode: compact
+config:
+    themeCSS: " #trans { fill: Transparent; stroke: Transparent; }"
+    gantt:
+        numberSectionStyles: 2
+        topAxis: true
+---
+gantt
+    title A/V-Sync: Wait for audio and video buffer to be filled
+    dateFormat x
+    axisFormat %L
+    %% this next line doesn't recognise 'decade' or 'year', but will silently ignore
+    tickInterval 20millisecond
+section Threshold
+    GetBufferFillLevelThresholdMs()                        :             80, 530
+    after sync                                             : trans,      530, 720
+    If videoBuffer reaches -> start playback               : vert,      530,
+    GetFirstAudioPtsMsToPlay()                             : vert,       80,
+    If videoBuffer reaches -> start playback               : milestone, 530,
+    GetFirstAudioPtsMsToPlay()                             : milestone,  80,
+section Audio
+    audioBuffer             :             80, 400
+    m_pAudio->GetOutputPts(): milestone,  80,
+    m_pAudio->GetInputPts() : milestone, 400,
+section AudioFilllevel
+    syncedAudioBufferFillLevel :        80, 400
+    to wait for                : crit, 400, 530
+section Video
+    videoBuffer                  :              0, 480
+    m_pRender->GetOutputPts()    : milestone,   0,
+    m_pVideoStream->GetInputPts(): milestone, 480,
+section VideoFilllevel
+    to drop                    : crit,   0,  80
+    syncedVideoBufferFillLevel :        80, 480
+    to wait for                : crit, 480, 530
+```
 
 ### Example: Buffering a H.264 Live Stream
 
