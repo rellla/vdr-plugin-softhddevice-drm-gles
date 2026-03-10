@@ -21,6 +21,7 @@
 #ifndef __SOFTHDCONFIG_H
 #define __SOFTHDCONFIG_H
 
+#include <atomic>
 #include <mutex>
 
 /*****************************************************************************
@@ -87,6 +88,10 @@ public:
 	// stats
 	const char *CurrentDecoderName = "unknown";
 	const char *CurrentDecoderType = "unknown";
+	std::atomic<int> StatMaxShortTermAudioJitterMs = 0; ///< logged max audio jitter of the last 1000 packets
+	std::atomic<int> StatMaxLongTermAudioJitterMs = 0;  ///< logged max overall audio jitter since stream start
+	std::atomic<int> StatMaxShortTermVideoJitterMs = 0; ///< logged max video jitter of the last 1000 packets
+	std::atomic<int> StatMaxLongTermVideoJitterMs = 0;  ///< logged max overall video jitter since stream start
 
 	void PrintLogLevel(int);
 

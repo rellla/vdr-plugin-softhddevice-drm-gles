@@ -286,6 +286,18 @@ msgstr " Audio Einstellungen"
 msgid " Adjust a/v buffer size (ms)"
 msgstr " A/V Puffergröße anpassen (ms)"
 
+#, c-format
+msgid "   Current a/v buffer size: %dms"
+msgstr "   Aktuelle A/V Puffergröße : %dms"
+
+#, c-format
+msgid "   Audio jitter: %dms, max: %dms"
+msgstr "   Audio jitter: %dms, max: %dms"
+
+#, c-format
+msgid "   Video jitter: %dms, max: %dms"
+msgstr "   Video jitter: %dms, max: %dms"
+
 msgid " Video settings"
 msgstr " Video Einstellungen"
 
