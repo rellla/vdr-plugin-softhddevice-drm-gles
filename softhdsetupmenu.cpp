@@ -205,7 +205,7 @@ void cMenuSetupSoft::Create(void)
 	Add(CollapsedItem(tr("Expert settings"), m_cExpertMenu));
 	if (m_cExpertMenu) {
 		Add(SeparatorName(tr(" Audio settings")));
-		Add(new cMenuEditIntItem(tr(" Additional buffer size (ms)"), &m_cAdditionalBufferLengthMs, 0, 1000));
+		Add(new cMenuEditIntItem(tr(" Adjust a/v buffer size (ms)"), &m_cAdditionalBufferLengthMs, - (m_pDevice->GetMinBufferFillLevelThresholdMs() - 100), 1000));
 
 		Add(SeparatorName(tr(" Video settings")));
 		Add(new cMenuEditBoolItem(tr(" Disable deinterlacer"), &m_cDisableDeint, trVDR("no"), trVDR("yes")));
