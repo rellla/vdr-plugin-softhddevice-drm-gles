@@ -23,6 +23,7 @@
  * GNU Affero General Public License for more details.}
  */
 
+#include <chrono>
 #include <mutex>
 #include <variant>
 #include <libintl.h>
@@ -33,6 +34,7 @@ extern "C" {
 
 #include <vdr/dvbspu.h>
 #include <vdr/skins.h>
+#include <vdr/status.h>
 
 #include "audio.h"
 #include "codec_audio.h"
@@ -65,6 +67,9 @@ cSoftHdDevice::cSoftHdDevice(cSoftHdConfig *config)
 	  m_pipUseAlt(m_pConfig->ConfigPipUseAlt)
 {
 //	LOGDEBUG("device: %s:", __FUNCTION__);
+
+	m_channelSwitchStartTime = std::chrono::steady_clock::now();
+	m_dataReceivedTime = m_channelSwitchStartTime;
 }
 
 /**
@@ -122,6 +127,24 @@ void cSoftHdDevice::MakePrimaryDevice(bool on)
 		m_pOsdProvider = new cSoftOsdProvider(this); // no need to delete it, VDR does it
 
 	cDevice::MakePrimaryDevice(on);
+}
+
+/**
+ * Monitor a channel switch triggered by VDR (cStatus::ChannelSwitch())
+ *
+ * Save the timestamp when a channel switch is initiated (channelNum == 0)
+ * for later time measurement.
+ */
+void cSoftHdDevice::ChannelSwitch(const cDevice *device, int channelNum, bool liveView)
+{
+	if (device != cDevice::PrimaryDevice())
+		return;
+
+	if (!liveView)
+		return;
+
+	if (channelNum == 0)
+		m_channelSwitchStartTime = std::chrono::steady_clock::now();
 }
 
 /**
@@ -989,6 +1012,15 @@ int cSoftHdDevice::PlayAudio(const uchar *data, int size, uchar id)
 	if (IsDetached())
 		return size;
 
+	if (!m_receivedAudio && Transferring()) {
+		auto now = std::chrono::steady_clock::now();
+		auto timeUntilFirstPacketReceived = std::chrono::duration_cast<std::chrono::milliseconds>(now - m_channelSwitchStartTime).count();
+		LOGDEBUG("device: first audio packet arrives %dms after channel switch was triggered", timeUntilFirstPacketReceived);
+
+		if (!m_receivedVideo)
+			m_dataReceivedTime = now;
+	}
+
 	m_receivedAudio = true;
 
 	if (m_pAudio->IsBufferFull())
@@ -1094,6 +1126,15 @@ int cSoftHdDevice::PlayVideo(const uchar *data, int size)
 //	LOGDEBUG("device: %s: %p %d", __FUNCTION__, data, size);
 	if (IsDetached())
 		return size;
+
+	if (!m_receivedVideo && Transferring()) {
+		auto now = std::chrono::steady_clock::now();
+		auto timeUntilFirstPacketReceived = std::chrono::duration_cast<std::chrono::milliseconds>(now - m_channelSwitchStartTime).count();
+		LOGDEBUG("device: first video packet arrives %dms after channel switch was triggered", timeUntilFirstPacketReceived);
+
+		if (!m_receivedAudio)
+			m_dataReceivedTime = now;
+	}
 
 	m_receivedVideo = true;
 
@@ -1661,7 +1702,7 @@ int cSoftHdDevice::PlayVideoPkts(AVPacket * pkt)
  */
 void cSoftHdDevice::Detach(void)
 {
-	if (Replaying()) {
+	if (cDevice::Replaying()) {
 		LOGDEBUG("device: %s: Device is replaying, stop replay first", __FUNCTION__);
 		StopReplay();
 	}
