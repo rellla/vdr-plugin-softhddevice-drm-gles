@@ -622,6 +622,7 @@ bool cVideoRender::PageFlip(cDrmBuffer *buf, cDrmBuffer *pipBuf)
 
 /**
  * Display the frame (video and/or osd)
+ *
  * @return true if it shall be scheduled immediately again
  */
 bool cVideoRender::DisplayFrame()
@@ -629,14 +630,17 @@ bool cVideoRender::DisplayFrame()
 	if (m_pDevice->IsBufferingThresholdReached())
 		m_eventQueue.push_back(BufferingThresholdReachedEvent{});
 
-	if (m_pDevice->VideoStream()->GetAvPacketsFilled() == 0 && !m_videoPlaybackPaused && m_schedulePlaybackStartAtPtsMs == AV_NOPTS_VALUE && !IsTrickSpeed() && !IsStillpicture())
+	bool skipBufferUnderrunCheck = m_videoPlaybackPaused ||
+	                               m_pDevice->IsVideoOnlyPlayback() ||
+	                               IsTrickSpeed() ||
+	                               IsStillpicture() ||
+	                               m_schedulePlaybackStartAtPtsMs == AV_NOPTS_VALUE;
+	if (m_pDevice->VideoStream()->GetAvPacketsFilled() == 0 && !skipBufferUnderrunCheck)
 		m_eventQueue.push_back(BufferUnderrunEvent{VIDEO});
 
 	cDrmBuffer *drmBuffer = nullptr;
-	if (m_framePresentationCounter == 0) {
-		if (!m_videoPlaybackPaused || m_schedulePlaybackStartAtPtsMs != AV_NOPTS_VALUE)
-			drmBuffer = m_drmBufferQueue.Pop();
-	}
+	if ((!m_videoPlaybackPaused || m_schedulePlaybackStartAtPtsMs != AV_NOPTS_VALUE) && m_framePresentationCounter == 0)
+		drmBuffer = m_drmBufferQueue.Pop();
 
 	cDrmBuffer *pipBuf = m_pipDrmBufferQueue.Pop();
 

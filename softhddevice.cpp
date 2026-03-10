@@ -1183,7 +1183,24 @@ int cSoftHdDevice::PlayVideoInternal(cVideoStream *stream, cReassemblyBufferVide
  * During the BUFFERING state, this method determines when sufficient audio/video data
  * has been buffered to start playback.
  *
+ * ThresholdReached (Sync-Ability) is signalled
+ *   1) in audio only mode:
+ *      -> PlayAudio() was called
+ *      -> audio input has a valid pts
+ *      -> enough audio data is buffered
+ *   2) in video only mode:
+ *      -> PlayVideo() was called
+ *      -> video input has a valid pts
+ *      -> enough video data is buffered (which implies "a video frame reached the renderer")
+ *   3) in audio/video mode:
+ *      -> audio input has a valid pts
+ *      -> video input has a valid pts
+ *      -> video and audio has enough data buffered (calculated from the first output pts to play)
+ *      -> the render output buffer queue is completely filled once (which implies "a video frame reached the renderer")
+ *
  * @returns true if buffering threshold is reached and playback can start, false otherwise
+ *
+ * @note In order to signal ThresholdReached, both (audio and video) need to have a valid pts in audio + video mode!
  */
 bool cSoftHdDevice::IsBufferingThresholdReached()
 {
@@ -1199,9 +1216,11 @@ bool cSoftHdDevice::IsBufferingThresholdReached()
 	bool audioOnly = audioHasInputPts && !videoHasInputPts && m_receivedAudio && !m_receivedVideo;
 	bool videoOnly = !audioHasInputPts && videoHasInputPts && !m_receivedAudio && m_receivedVideo;
 
-	if ((audioOnly &&                      m_pAudio->GetInputPtsMs()       - m_pAudio->GetOutputPtsMs()  > GetBufferFillLevelThresholdMs()) ||
-	    (videoOnly && videoHasOutputPts && m_pVideoStream->GetInputPtsMs() - m_pRender->GetOutputPtsMs() > GetBufferFillLevelThresholdMs())) {
-		LOGDEBUG("device: %s: Detected audio or video only", __FUNCTION__);
+	if        (audioOnly &&                      m_pAudio->GetInputPtsMs() - m_pAudio->GetOutputPtsMs() > GetBufferFillLevelThresholdMs()) {
+		LOGDEBUG("device: %s: Detected audio only", __FUNCTION__);
+		return true;
+	} else if (videoOnly && videoHasOutputPts && m_pVideoStream->GetInputPtsMs() - m_pRender->GetOutputPtsMs() > GetBufferFillLevelThresholdMs()) {
+		LOGDEBUG("device: %s: Detected video only", __FUNCTION__);
 		return true;
 	} else if (!audioHasInputPts || !videoHasInputPts || !videoHasOutputPts)
 		return false; // Either no video or no audio received, yet. Or, video didn't make it to the output buffer, yet.
