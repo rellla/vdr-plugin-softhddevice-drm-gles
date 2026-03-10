@@ -268,7 +268,7 @@ void cSoftHdDevice::OnEventReceived(const Event& event)
 				[&invalid](const AttachEvent&) { invalid(); },
 				[&invalid](const BufferUnderrunEvent&) { invalid(); },
 				[this](const BufferingThresholdReachedEvent&) {
-					bool receivedAudio = m_pAudio->HasPts();
+					bool receivedAudio = m_pAudio->HasInputPts();
 					bool receivedVideo = m_pVideoStream->HasInputPts();
 
 					if (receivedAudio && receivedVideo) {
@@ -1190,20 +1190,20 @@ bool cSoftHdDevice::IsBufferingThresholdReached()
 	if (m_state != BUFFERING)
 		return false;
 
-	bool audioHasPts = m_pAudio->HasPts();
+	bool audioHasInputPts = m_pAudio->HasInputPts();
 	bool videoHasInputPts = m_pVideoStream->HasInputPts();
 	bool videoHasOutputPts = m_pRender->GetOutputPtsMs() != AV_NOPTS_VALUE;
 
 	// Assume audio only or video only if no PES fragment from the other stream has been received, while the buffering threshold of the other stream is reached.
 	// Check for buffer fill level only if at least one PES packet was reassembled and pushed to the respective decoder.
-	bool audioOnly = audioHasPts && !videoHasInputPts && m_receivedAudio && !m_receivedVideo;
-	bool videoOnly = !audioHasPts && videoHasInputPts && !m_receivedAudio && m_receivedVideo;
+	bool audioOnly = audioHasInputPts && !videoHasInputPts && m_receivedAudio && !m_receivedVideo;
+	bool videoOnly = !audioHasInputPts && videoHasInputPts && !m_receivedAudio && m_receivedVideo;
 
 	if ((audioOnly &&                      m_pAudio->GetInputPtsMs()       - m_pAudio->GetOutputPtsMs()  > GetBufferFillLevelThresholdMs()) ||
 	    (videoOnly && videoHasOutputPts && m_pVideoStream->GetInputPtsMs() - m_pRender->GetOutputPtsMs() > GetBufferFillLevelThresholdMs())) {
 		LOGDEBUG("device: %s: Detected audio or video only", __FUNCTION__);
 		return true;
-	} else if (!audioHasPts || !videoHasInputPts || !videoHasOutputPts)
+	} else if (!audioHasInputPts || !videoHasInputPts || !videoHasOutputPts)
 		return false; // Either no video or no audio received, yet. Or, video didn't make it to the output buffer, yet.
 
 	int64_t syncedAudioBufferFillLevelMs = m_pAudio->GetInputPtsMs() - GetFirstAudioPtsMsToPlay();

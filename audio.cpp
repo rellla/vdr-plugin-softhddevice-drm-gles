@@ -571,7 +571,7 @@ void cSoftHdAudio::DropSamplesOlderThanPtsMs(int64_t ptsMs)
 {
 	std::lock_guard<std::mutex> lock(m_mutex);
 
-	if (!HasPts())
+	if (!HasInputPts())
 		return;
 
 	int64_t dropMs = std::max((int64_t)0, ptsMs - GetOutputPtsMsInternal());

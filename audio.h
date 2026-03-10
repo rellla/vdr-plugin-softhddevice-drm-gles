@@ -67,7 +67,7 @@ public:
 	int64_t GetHardwareOutputPtsMs(void);
 	int64_t GetHardwareOutputPtsTimebaseUnits(void);
 	int GetPassthrough(void) const { return m_passthrough; }
-	bool HasPts(void) { return m_inputPts != AV_NOPTS_VALUE; }
+	bool HasInputPts(void) { return m_inputPts != AV_NOPTS_VALUE; }
 	int64_t GetInputPtsMs(void) { return PtsToMs(m_inputPts); }
 	int64_t GetOutputPtsMs(void);
 
