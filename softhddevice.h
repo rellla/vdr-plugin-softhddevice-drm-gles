@@ -213,6 +213,7 @@ public:
 	bool IsOsdProviderSet(void) const { return m_pOsdProvider != nullptr; }
 
 	bool IsBufferingThresholdReached(void);
+	bool IsVideoOnlyPlayback(void) { return m_playbackMode == VIDEO_ONLY; };
 
 	// pip wrapper functions
 	bool PipIsEnabled(void);
