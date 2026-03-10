@@ -23,6 +23,7 @@
  */
 
 #include <cerrno>
+#include <chrono>
 #include <cinttypes>
 #include <cstdint>
 #include <mutex>
@@ -716,6 +717,12 @@ bool cVideoRender::DisplayFrame()
 		}
 
 		pageFlipDone = PageFlip(drmBuffer, pipBuf);
+		if (m_startCounter == 1 && m_pDevice->Transferring()) {
+			auto now = std::chrono::steady_clock::now();
+			auto channelSwitchDurationMs = std::chrono::duration_cast<std::chrono::milliseconds>(now - m_pDevice->GetChannelSwitchStartTime()).count();
+			auto durationSinceFirstPacketMs = std::chrono::duration_cast<std::chrono::milliseconds>(now - m_pDevice->GetChannelSwitchFirstPacketTime()).count();
+			LOGDEBUG("channel switch done in %dms, %dms after first packet was received", channelSwitchDurationMs, durationSinceFirstPacketMs);
+		}
 
 		if (m_pCurrentlyDisplayed)
 			m_pCurrentlyDisplayed->PresentationFinished();
