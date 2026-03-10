@@ -635,7 +635,7 @@ bool cVideoRender::DisplayFrame()
 	                               m_pDevice->IsVideoOnlyPlayback() ||
 	                               IsTrickSpeed() ||
 	                               IsStillpicture() ||
-	                               m_schedulePlaybackStartAtPtsMs == AV_NOPTS_VALUE;
+	                               m_schedulePlaybackStartAtPtsMs != AV_NOPTS_VALUE;
 	if (m_pDevice->VideoStream()->GetAvPacketsFilled() == 0 && !skipBufferUnderrunCheck)
 		m_eventQueue.push_back(BufferUnderrunEvent{VIDEO});
 
