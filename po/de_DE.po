@@ -283,8 +283,8 @@ msgstr "Experteneinstellung"
 msgid " Audio settings"
 msgstr " Audio Einstellungen"
 
-msgid " Additional buffer size (ms)"
-msgstr " Zusätzlicher Puffer (ms)"
+msgid " Adjust a/v buffer size (ms)"
+msgstr " A/V Puffergröße anpassen (ms)"
 
 msgid " Video settings"
 msgstr " Video Einstellungen"

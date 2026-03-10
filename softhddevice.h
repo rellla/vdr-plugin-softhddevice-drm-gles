@@ -194,6 +194,7 @@ public:
 
 	// audio
 	int GetVideoAudioDelayMs(void) { return m_pConfig->ConfigVideoAudioDelayMs; };
+	int GetMinBufferFillLevelThresholdMs(void) { return MIN_BUFFER_FILL_LEVEL_THRESHOLD_MS; };
 	void SetPassthrough(int);
 	void ResetChannelId(void);
 
