@@ -1005,6 +1005,8 @@ int cSoftHdDevice::PlayAudio(const uchar *data, int size, uchar id)
 	if (Transferring()) { // compensation is only necessary with live streams
 		m_pAudio->ClockDriftCompensation();
 		m_audioJitterTracker.PacketReceived();
+		m_pConfig->StatMaxShortTermAudioJitterMs = m_audioJitterTracker.GetShortTermMaxJitterMs();
+		m_pConfig->StatMaxLongTermAudioJitterMs = m_audioJitterTracker.GetLongTermMaxJitterMs();
 	}
 
 	if (m_audioChannelID != id) {
@@ -1146,8 +1148,11 @@ int cSoftHdDevice::PlayVideoInternal(cVideoStream *stream, cReassemblyBufferVide
 		return size;
 	}
 
-	if (trackJitter)
+	if (trackJitter) {
 		m_videoJitterTracker.PacketReceived();
+		m_pConfig->StatMaxShortTermVideoJitterMs = m_videoJitterTracker.GetShortTermMaxJitterMs();
+		m_pConfig->StatMaxLongTermVideoJitterMs = m_videoJitterTracker.GetLongTermMaxJitterMs();
+	}
 
 	if (stream->GetCodecId() == AV_CODEC_ID_NONE) {
 		// The playback has just started

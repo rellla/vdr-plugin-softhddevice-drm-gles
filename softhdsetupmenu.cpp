@@ -207,6 +207,14 @@ void cMenuSetupSoft::Create(void)
 		Add(SeparatorName(tr(" Audio settings")));
 		Add(new cMenuEditIntItem(tr(" Adjust a/v buffer size (ms)"), &m_cAdditionalBufferLengthMs, - (m_pDevice->GetMinBufferFillLevelThresholdMs() - 100), 1000));
 
+		int shortTermAudioJitter = m_pConfig->StatMaxShortTermAudioJitterMs;
+		int longTermAudioJitter = m_pConfig->StatMaxLongTermAudioJitterMs;
+		int shortTermVideoJitter = m_pConfig->StatMaxShortTermVideoJitterMs;
+		int longTermVideoJitter = m_pConfig->StatMaxLongTermVideoJitterMs;
+		Add(new cOsdItem(cString::sprintf(tr("   Current a/v buffer size: %dms"), m_pDevice->GetMinBufferFillLevelThresholdMs() + m_cAdditionalBufferLengthMs), osUnknown, false));
+		Add(new cOsdItem(cString::sprintf(tr("   Audio jitter: %dms, max: %dms"), shortTermAudioJitter, longTermAudioJitter), osUnknown, false));
+		Add(new cOsdItem(cString::sprintf(tr("   Video jitter: %dms, max: %dms"), shortTermVideoJitter, longTermVideoJitter), osUnknown, false));
+
 		Add(SeparatorName(tr(" Video settings")));
 		Add(new cMenuEditBoolItem(tr(" Disable deinterlacer"), &m_cDisableDeint, trVDR("no"), trVDR("yes")));
 		Add(new cMenuEditBoolItem(tr(" Enable SW decoder fallback"), &m_cDecoderFallbackToSw, trVDR("no"), trVDR("yes")));
