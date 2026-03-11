@@ -1071,6 +1071,11 @@ int cDrmDevice::SetConnectorColorspace(drmModeAtomicReqPtr modeReq, uint32_t id)
 	return SetPropertyRequest(modeReq, m_connectorId, DRM_MODE_OBJECT_CONNECTOR, "Colorspace", id);
 }
 
+int cDrmDevice::SetConnectorBpc(drmModeAtomicReqPtr modeReq, uint32_t id)
+{
+	return SetPropertyRequest(modeReq, m_connectorId, DRM_MODE_OBJECT_CONNECTOR, "max bpc", id);
+}
+
 int cDrmDevice::SetVideoPlaneColorEncoding(drmModeAtomicReqPtr modeReq, uint32_t id)
 {
 	return SetPropertyRequest(modeReq, m_videoPlane.GetId(), DRM_MODE_OBJECT_PLANE, "COLOR_ENCODING", id);

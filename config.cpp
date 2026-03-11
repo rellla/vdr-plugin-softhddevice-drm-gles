@@ -60,6 +60,8 @@ bool cSoftHdConfig::SetupParse(const char *name, const char *value)
 	} else if (!strcasecmp(name, "VideoEnableHDR"))        { ConfigVideoEnableHDR = atoi(value);
 	} else if (!strcasecmp(name, "ParseH264StreamStart"))  { ConfigParseH264StreamStart = atoi(value);
 	} else if (!strcasecmp(name, "DropInvalidH264PFrames")){ ConfigDropInvalidH264PFrames = atoi(value);
+	} else if (!strcasecmp(name, "UseYCC"))                { ConfigUseYCC = atoi(value);
+	} else if (!strcasecmp(name, "Use10Bit"))              { ConfigUse10Bit = atoi(value);
 	} else if (!strcasecmp(name, "AudioDelay"))            { ConfigVideoAudioDelayMs = atoi(value);
 	} else if (!strcasecmp(name, "AudioPassthrough"))      { ConfigAudioPassthroughMask = abs(atoi(value)); ConfigAudioPassthroughState = atoi(value) > 0;
 	} else if (!strcasecmp(name, "AudioDownmix"))          { ConfigAudioDownmix = atoi(value);

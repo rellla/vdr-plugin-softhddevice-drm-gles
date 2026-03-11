@@ -226,6 +226,8 @@ void cMenuSetupSoft::Create(void)
 		Add(new cMenuEditBoolItem(tr(" H.264: Decoder needs video size for init"), &m_cParseH264Dimensions, trVDR("no"), trVDR("yes")));
 		Add(new cMenuEditIntItem(tr(" H.264: Parse stream until num I-Frames"), &m_cParseH264StreamStart, 0, 20));
 		Add(new cMenuEditIntItem(tr(" H.264: Drop invalid P-Frames until num I-Frames"), &m_cDropInvalidH264PFrames, 0, 20));
+		Add(new cMenuEditBoolItem(tr(" Colorspace: Use BT2020_YCC"), &m_cUseYCC, trVDR("no"), trVDR("yes")));
+		Add(new cMenuEditBoolItem(tr(" Colorspace: Use 10bit"), &m_cUse10Bit, trVDR("no"), trVDR("yes")));
 #ifdef USE_GLES
 		Add(SeparatorName(tr(" OSD settings")));
 		if (!m_pConfig->ConfigDisableOglOsd) {
@@ -386,6 +388,8 @@ cMenuSetupSoft::cMenuSetupSoft(cSoftHdDevice *device)
 	m_cDecoderFallbackToSwNumPkts = m_pConfig->ConfigDecoderFallbackToSwNumPkts;
 	m_cParseH264StreamStart = m_pConfig->ConfigParseH264StreamStart;
 	m_cDropInvalidH264PFrames = m_pConfig->ConfigDropInvalidH264PFrames;
+	m_cUse10Bit = m_pConfig->ConfigUse10Bit;
+	m_cUseYCC = m_pConfig->ConfigUseYCC;
 #ifdef USE_GLES
 	m_cMaxSizeGPUImageCache = m_pConfig->ConfigMaxSizeGPUImageCache;
 #endif
@@ -528,6 +532,9 @@ void cMenuSetupSoft::Store(void)
 	m_pDevice->SetDecoderFallbackToSw(m_pConfig->ConfigDecoderFallbackToSw);
 	SetupStore("ParseH264StreamStart", m_pConfig->ConfigParseH264StreamStart = m_cParseH264StreamStart);
 	SetupStore("DropInvalidH264PFrames", m_pConfig->ConfigDropInvalidH264PFrames = m_cDropInvalidH264PFrames);
+	SetupStore("Use10Bit", m_pConfig->ConfigUse10Bit = m_cUse10Bit);
+	SetupStore("UseYCC", m_pConfig->ConfigUseYCC = m_cUseYCC);
+
 #ifdef USE_GLES
 	SetupStore("MaxSizeGPUImageCache", m_pConfig->ConfigMaxSizeGPUImageCache = m_cMaxSizeGPUImageCache);
 #endif

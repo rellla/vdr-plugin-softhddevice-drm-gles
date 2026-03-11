@@ -65,7 +65,13 @@ class cSoftHdAudio;
 
 enum drmColorSpace {
 	COLORSPACE_BT709_YCC = 2,
-	COLORSPACE_BT2020_RGB = 9
+	COLORSPACE_BT2020_RGB = 9,
+	COLORSPACE_BT2020_YCC = 10
+};
+
+enum drmBitDepth {
+	COLOR_8BIT = 8,
+	COLOR_10BIT = 10
 };
 
 enum drmColorEncoding {

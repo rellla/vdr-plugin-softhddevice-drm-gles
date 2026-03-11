@@ -91,6 +91,7 @@ public:
 	int SetConnectorCrtcId(drmModeAtomicReqPtr);
 	int SetConnectorHdrOutputMetadata(drmModeAtomicReqPtr, uint32_t);
 	int SetConnectorColorspace(drmModeAtomicReqPtr, uint32_t);
+	int SetConnectorBpc(drmModeAtomicReqPtr, uint32_t);
 	int SetVideoPlaneColorEncoding(drmModeAtomicReqPtr, uint32_t);
 	int SetVideoPlaneColorRange(drmModeAtomicReqPtr, uint32_t);
 	int GetVideoPlaneColorRange(uint64_t *);

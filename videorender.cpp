@@ -226,7 +226,20 @@ void cVideoRender::SetColorSpace(drmColorRange colorRange)
 	m_pDrmDevice->SetCrtcActive(modeReq, 0);
 	if (m_pDrmDevice->ModeAtomicCommit(modeReq, flags, NULL) != 0)
 		LOGFATAL("videorender: %s: cannot set atomic mode (%d): %m", __FUNCTION__, errno);
-	m_pDrmDevice->SetConnectorColorspace(modeReq, m_pHdrMetadata.GetColorPrimaries() == AVCOL_PRI_BT2020 ? COLORSPACE_BT2020_RGB : COLORSPACE_BT709_YCC);
+
+	uint32_t colorspace = COLORSPACE_BT709_YCC;
+	if (m_pHdrMetadata.GetColorPrimaries() == AVCOL_PRI_BT2020) {
+		if (m_pConfig->ConfigUseYCC)
+			colorspace = COLORSPACE_BT2020_YCC;
+		else
+			colorspace = COLORSPACE_BT2020_RGB;
+	}
+	uint32_t bpc = COLOR_8BIT;
+	if (m_pHdrMetadata.GetColorPrimaries() == AVCOL_PRI_BT2020 && m_pConfig->ConfigUse10Bit)
+		bpc = COLOR_10BIT;
+
+	m_pDrmDevice->SetConnectorColorspace(modeReq, colorspace);
+	m_pDrmDevice->SetConnectorBpc(modeReq, bpc);
 	m_pDrmDevice->SetVideoPlaneColorEncoding(modeReq, m_pHdrMetadata.GetColorPrimaries() == AVCOL_PRI_BT2020 ? COLORENCODING_BT2020 : COLORENCODING_BT709);
 	m_pDrmDevice->SetVideoPlaneColorRange(modeReq, colorRange);
 
@@ -235,7 +248,7 @@ void cVideoRender::SetColorSpace(drmColorRange colorRange)
 	m_pDrmDevice->SetCrtcActive(modeReq, 1);
 
 	LOGDEBUG2(L_DRM, "videorender: %s: HDR: connector %d -> Colorspace %s", __FUNCTION__,
-		m_pDrmDevice->ConnectorId(), m_pHdrMetadata.GetColorPrimaries() == AVCOL_PRI_BT2020 ? "BT2020_RGB" : "BT709_YCC");
+		m_pDrmDevice->ConnectorId(), m_pHdrMetadata.GetColorPrimaries() == AVCOL_PRI_BT2020 ? "BT2020_YCC" : "BT709_YCC");
 
 	LOGDEBUG2(L_DRM, "videorender: %s: HDR: plane %d -> COLOR_ENCODING %s, COLOR_RANGE %s (Color %d)", __FUNCTION__,
 		m_pDrmDevice->VideoPlane()->GetId(), m_pHdrMetadata.GetColorPrimaries() == AVCOL_PRI_BT2020 ? "YCBCR_BT20202" : "YCBCR_BT709",
@@ -272,6 +285,7 @@ void cVideoRender::RestoreColorSpace(void)
 
 	m_pDrmDevice->SetConnectorHdrOutputMetadata(modeReq, 0);
 	m_pDrmDevice->SetConnectorColorspace(modeReq, COLORSPACE_BT709_YCC);
+	m_pDrmDevice->SetConnectorBpc(modeReq, COLOR_8BIT);
 	m_pDrmDevice->SetVideoPlaneColorEncoding(modeReq, COLORENCODING_BT709);
 	m_pDrmDevice->SetVideoPlaneColorRange(modeReq, m_colorRangeStored ? static_cast<uint64_t>(m_originalColorRange) : static_cast<uint64_t>(COLORRANGE_LIMITED));
 	m_pDrmDevice->SetCrtcModeId(modeReq, modeID);
