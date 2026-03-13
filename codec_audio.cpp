@@ -154,15 +154,17 @@ int cAudioDecoder::DecodePassthrough(const AVPacket * avpkt, AVFrame *frame)
 			return -1;
 		}
 
+		if (avpkt->size < 6)
+			return -1;
+
 		// build SPDIF header and append AC3 audio data to it
 		int bitstreamMode = avpkt->data[5] & 0x07;
 		spdif[0] = htole16(IEC61937_PREAMBLE1);
 		spdif[1] = htole16(IEC61937_PREAMBLE2);
 		spdif[2] = htole16(IEC61937_AC3 | bitstreamMode << 8);
 		spdif[3] = htole16(avpkt->size * 8);
-		// TODO: take endian into accout
 		swab(avpkt->data, spdif + 4, avpkt->size);
-		memset(spdif + 4 + avpkt->size / 2, 0, spdifSize - 8 - avpkt->size);
+		memset((uint8_t *)(spdif + 4) + avpkt->size, 0, spdifSize - 8 - avpkt->size);
 
 		m_pAudio->Enqueue(spdif, spdifSize, frame);
 		return 1;
@@ -181,6 +183,13 @@ int cAudioDecoder::DecodePassthrough(const AVPacket * avpkt, AVFrame *frame)
 
 		if (spdifSize < m_spdifIndex + avpkt->size + 8) {
 			LOGERROR("audiocodec: %s: too much data for spdif buffer!", __FUNCTION__);
+			ResetSpdif();
+			return -1;
+		}
+
+		if (avpkt->size < 5) {
+			LOGERROR("audiocodec: %s: avpkt size too small!", __FUNCTION__);
+			ResetSpdif();
 			return -1;
 		}
 
@@ -192,27 +201,38 @@ int cAudioDecoder::DecodePassthrough(const AVPacket * avpkt, AVFrame *frame)
 			repeat = eac3_repeat[fscod2];
 		}
 
+		if (repeat * avpkt->size > spdifSize - 8) {
+			LOGERROR("audiocodec: %s: spdif size too small!", __FUNCTION__);
+			ResetSpdif();
+			return -1;
+		}
+
 //		LOGDEBUG2(L_CODEC, "audiocodec: %s: E-AC3: set repeat to %d (fscod = %d) avpkt->size %d (spdifSize %d)",
 //			__FUNCTION__, repeat, fscod2, avpkt->size, spdifSize);
 
 		// pack upto repeat EAC-3 pakets into one IEC 61937 burst
-		// TODO: take endian into accout
-		swab(avpkt->data, spdif + 4 + m_spdifIndex, avpkt->size);
+		swab(avpkt->data, (uint8_t *)(spdif + 4) + m_spdifIndex, avpkt->size);
 		m_spdifIndex += avpkt->size;
 
 		if (++m_spdifRepeatCount < repeat)
 			return 1;
+
+		if (m_spdifRepeatCount > 6) {
+			ResetSpdif();
+			return -1;
+		}
 
 		// build SPDIF header and append E-AC3 audio data to it
 		spdif[0] = htole16(IEC61937_PREAMBLE1);
 		spdif[1] = htole16(IEC61937_PREAMBLE2);
 		spdif[2] = htole16(IEC61937_EAC3);
 		spdif[3] = htole16(m_spdifIndex * 8);
-		memset(spdif + 4 + m_spdifIndex / 2, 0, spdifSize - 8 - m_spdifIndex);
+		int pad = spdifSize - 8 - m_spdifIndex;
+		if (pad > 0)
+			memset((uint8_t *)(spdif + 4) + m_spdifIndex, 0, pad);
 
 		m_pAudio->Enqueue(spdif, spdifSize, frame);
-		m_spdifIndex = 0;
-		m_spdifRepeatCount = 0;
+		ResetSpdif();
 		return 1;
 	}
 
@@ -223,6 +243,11 @@ int cAudioDecoder::DecodePassthrough(const AVPacket * avpkt, AVFrame *frame)
 		uint8_t nbs;
 		int bsid;
 		int burstSz;
+
+		if (avpkt->size < 6) {
+			LOGERROR("audiocodec: %s: avpkt size too small!", __FUNCTION__);
+			return -1;
+		}
 
 		nbs = (uint8_t)((avpkt->data[4] & 0x01) << 6) |
 		               ((avpkt->data[5] >> 2) & 0x3f);
@@ -262,9 +287,8 @@ int cAudioDecoder::DecodePassthrough(const AVPacket * avpkt, AVFrame *frame)
 		spdif[3] = htole16(avpkt->size * 8);
 		spdif[4] = htole16(DTS_PREAMBLE_16BE_1);
 		spdif[5] = htole16(DTS_PREAMBLE_16BE_2);
-		// TODO: take endian into accout
-		swab(avpkt->data, spdif + 4, avpkt->size);
-		memset(spdif + 4 + avpkt->size, 0, burstSz - 8 - avpkt->size);
+		swab(avpkt->data, spdif + 6, avpkt->size);
+		memset((uint8_t *)(spdif + 6) + avpkt->size, 0, burstSz - 12 - avpkt->size);
 
 		m_pAudio->Enqueue(spdif, burstSz, frame);
 		return 1;
@@ -366,7 +390,7 @@ void cAudioDecoder::Decode(const AVPacket * avpkt)
 				m_lastPts = frame->pts;
 			} else if (m_lastPts != AV_NOPTS_VALUE) {
 				frame->pts = m_lastPts +
-					(int64_t)(frame->nb_samples / av_q2d(m_pAudioCtx->pkt_timebase) / frame->sample_rate);
+					av_rescale_q(frame->nb_samples, (AVRational){1, frame->sample_rate}, m_pAudioCtx->pkt_timebase);
 				m_lastPts = frame->pts;
 			}
 
@@ -404,6 +428,14 @@ void cAudioDecoder::FlushBuffers(void)
 
 	m_lastPts = AV_NOPTS_VALUE;
 	m_codecId = AV_CODEC_ID_NONE;
+
+	ResetSpdif();
+}
+
+void cAudioDecoder::ResetSpdif(void)
+{
+	m_spdifIndex = 0;
+	m_spdifRepeatCount = 0;
 }
 
 /**
