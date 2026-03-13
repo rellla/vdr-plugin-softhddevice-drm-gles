@@ -96,12 +96,13 @@ private:
 	int m_currentNumChannels;                   ///< current number of channels
 	int m_currentHwSampleRate;                  ///< current hw sample rate
 	int m_currentHwNumChannels;                 ///< current number of hw channels
-	uint16_t m_spdifOutput[MAX_FRAME_SIZE * 2]; ///< SPDIF output buffer
+	uint16_t m_spdifOutput[(MAX_FRAME_SIZE * 4 + 16) / 2]; ///< SPDIF output buffer
 	int m_spdifIndex;                           ///< index into SPDIF output buffer
 	int m_spdifRepeatCount;                     ///< SPDIF repeat counter
 
 	int DecodePassthrough(const AVPacket *, AVFrame *);
 	int UpdateFormat(void);
+	void ResetSpdif(void);
 };
 
 #endif
