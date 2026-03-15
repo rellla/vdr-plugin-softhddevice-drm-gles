@@ -123,6 +123,7 @@ void cAudioDecoder::Close(void)
 
 	m_codecId = AV_CODEC_ID_NONE;
 	m_lastPts = AV_NOPTS_VALUE;
+	m_lastBurstSize = 0;
 }
 
 /**
@@ -166,6 +167,7 @@ int cAudioDecoder::DecodePassthrough(const AVPacket * avpkt, AVFrame *frame)
 		swab(avpkt->data, spdif + 4, avpkt->size);
 		memset((uint8_t *)(spdif + 4) + avpkt->size, 0, spdifSize - 8 - avpkt->size);
 
+		m_lastBurstSize = spdifSize;
 		m_pAudio->Enqueue(spdif, spdifSize, frame);
 		return 1;
 	}
@@ -183,13 +185,13 @@ int cAudioDecoder::DecodePassthrough(const AVPacket * avpkt, AVFrame *frame)
 
 		if (spdifSize < m_spdifIndex + avpkt->size + 8) {
 			LOGERROR("audiocodec: %s: too much data for spdif buffer!", __FUNCTION__);
-			ResetSpdif();
+			ResetEAC3Spdif();
 			return -1;
 		}
 
 		if (avpkt->size < 5) {
 			LOGERROR("audiocodec: %s: avpkt size too small!", __FUNCTION__);
-			ResetSpdif();
+			ResetEAC3Spdif();
 			return -1;
 		}
 
@@ -203,7 +205,7 @@ int cAudioDecoder::DecodePassthrough(const AVPacket * avpkt, AVFrame *frame)
 
 		if (repeat * avpkt->size > spdifSize - 8) {
 			LOGERROR("audiocodec: %s: spdif size too small!", __FUNCTION__);
-			ResetSpdif();
+			ResetEAC3Spdif();
 			return -1;
 		}
 
@@ -218,7 +220,7 @@ int cAudioDecoder::DecodePassthrough(const AVPacket * avpkt, AVFrame *frame)
 			return 1;
 
 		if (m_spdifRepeatCount > 6) {
-			ResetSpdif();
+			ResetEAC3Spdif();
 			return -1;
 		}
 
@@ -231,8 +233,9 @@ int cAudioDecoder::DecodePassthrough(const AVPacket * avpkt, AVFrame *frame)
 		if (pad > 0)
 			memset((uint8_t *)(spdif + 4) + m_spdifIndex, 0, pad);
 
+		m_lastBurstSize = spdifSize;
 		m_pAudio->Enqueue(spdif, spdifSize, frame);
-		ResetSpdif();
+		ResetEAC3Spdif();
 		return 1;
 	}
 
@@ -290,11 +293,36 @@ int cAudioDecoder::DecodePassthrough(const AVPacket * avpkt, AVFrame *frame)
 		swab(avpkt->data, spdif + 6, avpkt->size);
 		memset((uint8_t *)(spdif + 6) + avpkt->size, 0, burstSz - 12 - avpkt->size);
 
+		m_lastBurstSize = burstSz;
 		m_pAudio->Enqueue(spdif, burstSz, frame);
 		return 1;
 	}
 
 	return 0;
+}
+
+void cAudioDecoder::ResetSpdif(void)
+{
+	if (!m_lastBurstSize)
+		return;
+
+	LOGDEBUG2(L_CODEC, "audiocodec: %s: send some pause bursts", __FUNCTION__);
+	SendPauseBursts(8, m_lastBurstSize);
+}
+
+void cAudioDecoder::SendPauseBursts(int count, int burstSize)
+{
+	uint16_t *spdif = m_spdifOutput;
+	for (int i = 0; i < count; i++) {
+		spdif[0] = htole16(IEC61937_PREAMBLE1);
+		spdif[1] = htole16(IEC61937_PREAMBLE2);
+		spdif[2] = htole16(IEC61937_NULL);
+		spdif[3] = 0x00;
+
+		memset((uint8_t *)(spdif + 4), 0, burstSize - 8);
+
+		m_pAudio->Enqueue(spdif, burstSize, nullptr);
+	}
 }
 
 /**
@@ -310,12 +338,17 @@ int cAudioDecoder::UpdateFormat(void)
 	int isPassthrough = 0;
 	int err;
 
-	LOGDEBUG2(L_SOUND, "audiocodec: %s: format change %s %dHz *%d channels%s%s%s%s%d", __FUNCTION__,
-		av_get_sample_fmt_name(m_pAudioCtx->sample_fmt), m_pAudioCtx->sample_rate, m_pAudioCtx->ch_layout.nb_channels,
+	LOGDEBUG2(L_SOUND, "audiocodec: %s: format change %s %dHz *%d channels -> %dHz *%d channels, passthrough%s%s%s (%d) ->%s%s%s (%d)", __FUNCTION__,
+		av_get_sample_fmt_name(m_pAudioCtx->sample_fmt),
+		m_currentSampleRate, m_currentNumChannels,
+		m_pAudioCtx->sample_rate, m_pAudioCtx->ch_layout.nb_channels,
+		m_currentPassthrough & CODEC_AC3 ? " AC3" : "",
+		m_currentPassthrough & CODEC_EAC3 ? " EAC3" : "",
+		m_currentPassthrough & CODEC_DTS ? " DTS" : "",
+		m_currentPassthrough ? m_currentPassthrough : 0,
 		m_passthroughMask & CODEC_AC3 ? " AC3" : "",
 		m_passthroughMask & CODEC_EAC3 ? " EAC3" : "",
 		m_passthroughMask & CODEC_DTS ? " DTS" : "",
-		m_passthroughMask ? " passthrough mask " : "",
 		m_passthroughMask ? m_passthroughMask : 0);
 
 	m_currentSampleRate = m_pAudioCtx->sample_rate;
@@ -337,6 +370,7 @@ int cAudioDecoder::UpdateFormat(void)
 		m_spdifRepeatCount = 0;
 		isPassthrough = 1;
 	}
+	m_lastBurstSize = 0;
 
 	if ((err = m_pAudio->Setup(m_pAudioCtx, m_currentHwSampleRate, m_currentHwNumChannels, isPassthrough))) {
 		// E-AC3 over HDMI: try without HBR
@@ -429,10 +463,10 @@ void cAudioDecoder::FlushBuffers(void)
 	m_lastPts = AV_NOPTS_VALUE;
 	m_codecId = AV_CODEC_ID_NONE;
 
-	ResetSpdif();
+	ResetEAC3Spdif();
 }
 
-void cAudioDecoder::ResetSpdif(void)
+void cAudioDecoder::ResetEAC3Spdif(void)
 {
 	m_spdifIndex = 0;
 	m_spdifRepeatCount = 0;
@@ -447,4 +481,7 @@ void cAudioDecoder::SetPassthrough(int mask)
 {
 	LOGDEBUG2(L_CODEC, "audiocodec: %s: %d", __FUNCTION__, mask);
 	m_passthroughMask = mask & (CODEC_AC3 | CODEC_EAC3 | CODEC_DTS);
+
+	if (!m_passthroughMask)
+		m_lastBurstSize = 0;
 }

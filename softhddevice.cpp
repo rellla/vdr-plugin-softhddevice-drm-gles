@@ -111,6 +111,7 @@ void cSoftHdDevice::ClearAudio(void)
 	LOGDEBUG("device: %s:", __FUNCTION__);
 	m_pAudioDecoder->FlushBuffers();
 	m_pAudio->FlushBuffers();
+	m_pAudioDecoder->ResetSpdif();
 	m_audioReassemblyBuffer.Reset();
 }
 

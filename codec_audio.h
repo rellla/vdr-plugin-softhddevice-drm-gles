@@ -41,7 +41,7 @@ extern "C" {
  */
 enum IEC61937
 {
-	IEC61937_NULL = 0x00,      ///< no data
+	IEC61937_NULL = 0x03,      ///< no data/ pause burst
 	IEC61937_AC3 = 0x01,       ///< AC-3 data
 	IEC61937_EAC3 = 0x15,      ///< E-AC-3 data
 	IEC61937_DTS1 = 0x0B,      ///< DTS type I (512 samples)
@@ -83,6 +83,7 @@ public:
 	void FlushBuffers(void);
 	void SetPassthrough(int);
 	AVCodecID GetCodecId() const { return m_codecId; };
+	void ResetSpdif(void);
 
 private:
 	cSoftHdAudio *m_pAudio;                     ///< audio module
@@ -99,10 +100,12 @@ private:
 	uint16_t m_spdifOutput[(MAX_FRAME_SIZE * 4 + 16) / 2]; ///< SPDIF output buffer
 	int m_spdifIndex;                           ///< index into SPDIF output buffer
 	int m_spdifRepeatCount;                     ///< SPDIF repeat counter
+	int m_lastBurstSize = 0;
 
 	int DecodePassthrough(const AVPacket *, AVFrame *);
 	int UpdateFormat(void);
-	void ResetSpdif(void);
+	void ResetEAC3Spdif(void);
+	void SendPauseBursts(int, int);
 };
 
 #endif
