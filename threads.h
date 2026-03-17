@@ -35,7 +35,6 @@ extern "C"
 #include "queue.h"
 
 class cDrmBuffer;
-class cSoftHdAudio;
 class cVideoRender;
 class cVideoStream;
 
@@ -72,22 +71,6 @@ public:
 private:
 	std::mutex m_mutex;
 	cVideoRender *m_pRender;
-
-protected:
-	virtual void Action(void);
-};
-
-/**
- * Audio thread class
- */
-class cAudioThread : public cThread
-{
-public:
-	cAudioThread(cSoftHdAudio *);
-	void Stop(void);
-
-private:
-	cSoftHdAudio *m_pAudio;
 
 protected:
 	virtual void Action(void);
