@@ -106,7 +106,7 @@ void cSoftHdDevice::Stop(void)
 /**
  * Clear all audio data from the decoder and ringbuffer
  */
-void cSoftHdDevice::ClearAudio(void)
+void cSoftHdDevice::FlushAudio(void)
 {
 	LOGDEBUG("device: %s:", __FUNCTION__);
 	m_pAudioDecoder->FlushBuffers();
@@ -332,10 +332,12 @@ void cSoftHdDevice::OnEventReceived(const Event& event)
 					int audioBehindVideoByMs;
 					switch (m_playbackMode) {
 						case AUDIO_ONLY:
+							m_pAudio->SetHwDelayBaseline();
 							m_pAudio->SetPaused(false);
 							break;
 						case AUDIO_AND_VIDEO:
 							audioBehindVideoByMs = m_pRender->GetOutputPtsMs() - m_pAudio->GetOutputPtsMs() - m_pConfig->ConfigVideoAudioDelayMs;
+							m_pAudio->SetHwDelayBaseline();
 							if (audioBehindVideoByMs > 0) {
 								m_pAudio->DropSamplesOlderThanPtsMs(m_pAudio->GetOutputPtsMs() + audioBehindVideoByMs);
 								m_pAudio->SetPaused(false);
@@ -355,6 +357,7 @@ void cSoftHdDevice::OnEventReceived(const Event& event)
 				[this](const PauseEvent&) {
 					m_pRender->SetPlaybackPaused(true);
 					m_pAudio->SetPaused(true);
+					m_pAudio->ResetHwDelayBaseline();
 				},
 				[this](const StopEvent&) {
 					SetState(STOP);
@@ -397,6 +400,7 @@ void cSoftHdDevice::OnEventReceived(const Event& event)
 				[this](const PauseEvent&) {
 					m_pRender->SetPlaybackPaused(true);
 					m_pAudio->SetPaused(true);
+					m_pAudio->ResetHwDelayBaseline();
 				},
 				[this](const StopEvent&) {
 					SetState(STOP);
@@ -448,6 +452,7 @@ void cSoftHdDevice::OnEventReceived(const Event& event)
 void cSoftHdDevice::OnEnteringState(State state) {
 	switch (state) {
 		case BUFFERING:
+			m_pAudio->ResetHwDelayBaseline();
 			// nothing
 			break;
 		case PLAY:
@@ -468,7 +473,7 @@ void cSoftHdDevice::OnEnteringState(State state) {
 			m_pRender->ResetBufferReuseStrategy();
 			break;
 		case STOP:
-			ClearAudio();
+			FlushAudio();
 
 			m_pVideoStream->CancelFilterThread();
 			m_pRender->DisplayBlackFrame();
@@ -527,8 +532,10 @@ void cSoftHdDevice::OnLeavingState(State state) {
 			m_pRender->SchedulePlaybackStartAtPtsMs(AV_NOPTS_VALUE);
 			m_pRender->SetPlaybackPaused(true);
 			m_pAudio->SetPaused(true);
+			m_pAudio->ResetHwDelayBaseline();
 			break;
 		case BUFFERING:
+			m_pAudio->SetHwDelayBaseline();
 			m_pRender->SetDisplayOneFrameThenPause(false);
 			break;
 		case TRICK_SPEED:
@@ -740,7 +747,7 @@ void cSoftHdDevice::Clear(void)
 	m_pRender->Reset();
 
 	m_pAudio->SetPaused(true);
-	ClearAudio();
+	FlushAudio();
 
 	SetState(BUFFERING);
 
