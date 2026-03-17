@@ -31,8 +31,9 @@ extern "C" {
 #include <libavcodec/avcodec.h>
 }
 
+#include <vdr/thread.h>
+
 #include "queue.h"
-#include "threads.h"
 
 #define VIDEO_BUFFER_SIZE (512 * 1024)  ///< video PES buffer default size
 #define VIDEO_PACKET_MAX 192            ///< max number of video packets held in the buffer
@@ -53,7 +54,7 @@ class cVideoRender;
 /**
  * cVideoStream - Video stream class
  */
-class cVideoStream
+class cVideoStream : public cThread
 {
 public:
 	virtual ~cVideoStream(void);
@@ -69,6 +70,11 @@ public:
 	bool PushAvPacket(AVPacket *avpkt);
 	void Flush(void);
 
+	// decoding thread
+	void Stop(void);
+	void Halt(void) { m_mutex.lock(); };
+	void Resume(void) { m_mutex.unlock(); };
+
 	// getters and setters
 	cVideoDecoder *Decoder(void) { return m_pDecoder; };
 	void StartDecoder();
@@ -81,11 +87,6 @@ public:
 	int64_t GetInputPts(void) { return m_inputPts; };
 	void ResetInputPts(void) { m_inputPts = AV_NOPTS_VALUE; };
 	void GetVideoSize(int *, int *, double *);
-
-	// decoding thread
-	void ExitDecodingThread(void);
-	void DecodingThreadHalt(void) { m_pDecodingThread->Halt(); };
-	void DecodingThreadResume(void) { m_pDecodingThread->Resume(); };
 
 	// Filter
 	void CancelFilterThread(void);
@@ -101,6 +102,7 @@ public:
 
 protected:
 	cVideoStream(cVideoRender *, cQueue<cDrmBuffer> *, cSoftHdConfig *, bool, std::function<void(AVFrame *)>);
+	virtual void Action(void);
 
 private:
 	cSoftHdConfig *m_pConfig;           ///< plugin config
@@ -109,9 +111,9 @@ private:
 	cFilterThread *m_pFilterThread;     ///< pointer to deinterlace filter thread
 	const char *m_identifier;           ///< identifier string for logging
 	std::string m_filterThreadName;     ///< filter thread name string (persists for object lifetime)
-	std::string m_decodingThreadName;   ///< decoding thread name string (persists for object lifetime)
 	std::function<void(AVFrame *)> m_frameOutput;   ///< function to output the frame
 	cQueue<cDrmBuffer> *m_pDrmBufferQueue;          ///< pointer to renderer's DRM buffer queue
+	std::mutex m_mutex;                 ///< mutex for decoding thread control
 
 	bool m_checkFilterThreadNeeded;                 ///< set, if we have to check, if filter thread is needed at start of playback
 	int m_hardwareQuirks;                           ///< hardware specific quirks
@@ -131,7 +133,6 @@ private:
 	volatile bool m_newStream = false;              ///< flag for new stream
 	bool m_interlaced;                              ///< flag for interlaced stream
 
-	cDecodingThread *m_pDecodingThread;             ///< pointer to decoding thread
 	int64_t m_inputPts = AV_NOPTS_VALUE;            ///< PTS of the first packet in the input buffer
 
 	// h264 parsing

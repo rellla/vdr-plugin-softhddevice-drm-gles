@@ -33,13 +33,14 @@ extern "C" {
 #include <libavutil/timestamp.h>
 }
 
+#include <vdr/thread.h>
+
 #include "codec_video.h"
 #include "config.h"
 #include "h264parser.h"
 #include "logger.h"
 #include "misc.h"
 #include "queue.h"
-#include "threads.h"
 #include "videostream.h"
 #include "videorender.h"
 
@@ -154,7 +155,8 @@ static int ReadHWPlatform(void)
  * cVideoStream constructor
  */
 cVideoStream::cVideoStream(cVideoRender *render, cQueue<cDrmBuffer> *drmBufferQueue, cSoftHdConfig *config, bool isPipStream, std::function<void(AVFrame *)> frameOutput)
-	: m_pConfig(config),
+	: cThread(isPipStream ? "shd PIP decode" : "shd main decode"),
+	  m_pConfig(config),
 	  m_pDecoder(nullptr),
 	  m_pRender(render),
 	  m_identifier(isPipStream ? "PIP" : "main"),
@@ -227,7 +229,7 @@ void cVideoStream::Exit(void)
 {
 	LOGDEBUG("videostream %s: %s:", m_identifier, __FUNCTION__);
 
-	ExitDecodingThread();
+	Stop();
 
 	if (m_pDecoder) {
 		m_pDecoder->Close();
@@ -261,9 +263,7 @@ void cVideoStream::StartDecoder()
 	LOGDEBUG2(L_CODEC, "videostream %s: %s", m_identifier, __FUNCTION__);
 
 	m_pDecoder = new cVideoDecoder(m_hardwareQuirks, m_identifier);
-
-	m_decodingThreadName = "shd " + std::string(m_identifier) + " decode";
-	m_pDecodingThread = new cDecodingThread(this, m_decodingThreadName.c_str());
+	Start();
 }
 
 /**
@@ -564,17 +564,33 @@ void cVideoStream::Open(AVCodecID codecId, AVCodecParameters *par, AVRational ti
  ****************************************************************************/
 
 /**
- * Stop decoding thread
+ * Decoding thread loop, which periodically tries to decode input
  */
-void cVideoStream::ExitDecodingThread(void)
+void cVideoStream::Action(void)
 {
-	LOGDEBUG("videostream %s: %s", m_identifier, __FUNCTION__);
+	LOGDEBUG("videostream: decoding thread started");
+	while(Running()) {
+		m_mutex.lock();
 
-	if (m_pDecodingThread->Active())
-		m_pDecodingThread->Stop();
+		DecodeInput();
 
-	if (m_pDecodingThread)
-		delete m_pDecodingThread;
+		m_mutex.unlock();
+
+		usleep(1000);
+	}
+	LOGDEBUG("videostream: decoding thread stopped");
+}
+
+/**
+ * Stop the decoding thread
+ */
+void cVideoStream::Stop(void)
+{
+	if (!Active())
+		return;
+
+	LOGDEBUG("videostream: stopping decoding thread");
+	Cancel(2);
 }
 
 /**

@@ -3,7 +3,6 @@
  * Thread classes
  *
  * This file defines all thread classes, which are
- *   - cDecodingThread
  *   - cFilterThread
  *
  * @copyright (c) 2009 - 2015 by Johns.  All Rights Reserved.
@@ -37,42 +36,6 @@ extern "C" {
 #include "threads.h"
 #include "videorender.h"
 #include "videostream.h"
-
-/*****************************************************************************
- * cDecodingThread class
- *
- * This thread decodes the video data
- ****************************************************************************/
-cDecodingThread::cDecodingThread(cVideoStream *stream, const char *name)
-	: cThread(name),
-	  m_pStream(stream)
-{
-	Start();
-}
-
-void cDecodingThread::Action(void)
-{
-	LOGDEBUG("threads: decoding thread started");
-	while(Running()) {
-		m_mutex.lock();
-
-		m_pStream->DecodeInput();
-
-		m_mutex.unlock();
-
-		usleep(1000);
-	}
-	LOGDEBUG("threads: decoding thread stopped");
-}
-
-void cDecodingThread::Stop(void)
-{
-	if (!Active())
-		return;
-
-	LOGDEBUG("threads: stopping decoding thread");
-	Cancel(2);
-}
 
 /*****************************************************************************
  * cFilterThread class

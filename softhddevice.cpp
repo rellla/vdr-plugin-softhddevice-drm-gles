@@ -205,7 +205,7 @@ void cSoftHdDevice::OnEventReceived(const Event& event)
 
 	if (m_state != DETACHED) {
 		m_pRender->Halt();
-		m_pVideoStream->DecodingThreadHalt();
+		m_pVideoStream->Halt();
 	}
 
 	bool needsResume = true;
@@ -428,7 +428,7 @@ void cSoftHdDevice::OnEventReceived(const Event& event)
 	}
 
 	if (needsResume) {
-		m_pVideoStream->DecodingThreadResume();
+		m_pVideoStream->Resume();
 		m_pRender->Resume();
 	}
 
@@ -489,7 +489,7 @@ void cSoftHdDevice::OnEnteringState(State state) {
 			m_pPipHandler = nullptr;
 
 			// resume the previously stopped threads
-			m_pVideoStream->DecodingThreadResume();
+			m_pVideoStream->Resume();
 			m_pRender->Resume();
 
 			// now do the detach
@@ -724,7 +724,7 @@ void cSoftHdDevice::Clear(void)
 		return;
 
 	m_pRender->Halt();
-	m_pVideoStream->DecodingThreadHalt();
+	m_pVideoStream->Halt();
 
 	m_pRender->SetDisplayOneFrameThenPause(true);
 	m_pVideoStream->CancelFilterThread();
@@ -744,7 +744,7 @@ void cSoftHdDevice::Clear(void)
 	SetState(BUFFERING);
 
 	m_pRender->Resume();
-	m_pVideoStream->DecodingThreadResume();
+	m_pVideoStream->Resume();
 }
 
 /**
@@ -1755,7 +1755,7 @@ int cSoftHdDevice::GetBufferFillLevelThresholdMs() {
  */
 void cSoftHdDevice::ResetPipStream(void)
 {
-	m_pPipStream->DecodingThreadHalt();
+	m_pPipStream->Halt();
 
 	m_pPipStream->CancelFilterThread();
 	m_pipReassemblyBuffer.Reset();
@@ -1765,7 +1765,7 @@ void cSoftHdDevice::ResetPipStream(void)
 	m_pRender->ResetPipBufferReuseStrategy();
 	m_pPipStream->CloseDecoder();
 
-	m_pPipStream->DecodingThreadResume();
+	m_pPipStream->Resume();
 }
 
 /**
