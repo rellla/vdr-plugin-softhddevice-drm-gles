@@ -47,8 +47,10 @@ extern "C" {
 #define QUIRK_CODEC_DISABLE_MPEG_HW     1 << 4     ///< set, if disable mpeg hardware decoder
 #define QUIRK_CODEC_DISABLE_H264_HW     1 << 5     ///< set, if disable h264 hardware decoder
 
+class cDrmBuffer;
 class cSoftHdConfig;
 class cVideoDecoder;
+class cVideoFilter;
 class cVideoRender;
 
 /**

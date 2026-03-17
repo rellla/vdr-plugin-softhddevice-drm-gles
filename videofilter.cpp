@@ -1,6 +1,6 @@
 /**
- * @file threads.cpp
- * Thread classes
+ * @file videofilter.cpp
+ * Deinterlace and scaling filters
  *
  * @copyright (c) 2009 - 2015 by Johns.  All Rights Reserved.
  * @copyright (c) 2018 by zille.  All Rights Reserved.
@@ -30,7 +30,7 @@ extern "C" {
 
 #include "logger.h"
 #include "misc.h"
-#include "threads.h"
+#include "videofilter.h"
 #include "videorender.h"
 
 /*****************************************************************************
