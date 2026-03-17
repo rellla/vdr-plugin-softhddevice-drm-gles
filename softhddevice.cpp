@@ -204,7 +204,7 @@ void cSoftHdDevice::OnEventReceived(const Event& event)
 	LOGDEBUG("device: received %s", EventToString(event));
 
 	if (m_state != DETACHED) {
-		m_pRender->DisplayThreadHalt();
+		m_pRender->Halt();
 		m_pVideoStream->DecodingThreadHalt();
 	}
 
@@ -429,7 +429,7 @@ void cSoftHdDevice::OnEventReceived(const Event& event)
 
 	if (needsResume) {
 		m_pVideoStream->DecodingThreadResume();
-		m_pRender->DisplayThreadResume();
+		m_pRender->Resume();
 	}
 
 	uint64_t stopStateChange = cTimeMs::Now();
@@ -490,7 +490,7 @@ void cSoftHdDevice::OnEnteringState(State state) {
 
 			// resume the previously stopped threads
 			m_pVideoStream->DecodingThreadResume();
-			m_pRender->DisplayThreadResume();
+			m_pRender->Resume();
 
 			// now do the detach
 			m_pPipStream->Exit();
@@ -723,7 +723,7 @@ void cSoftHdDevice::Clear(void)
 	if (IsDetached())
 		return;
 
-	m_pRender->DisplayThreadHalt();
+	m_pRender->Halt();
 	m_pVideoStream->DecodingThreadHalt();
 
 	m_pRender->SetDisplayOneFrameThenPause(true);
@@ -743,7 +743,7 @@ void cSoftHdDevice::Clear(void)
 
 	SetState(BUFFERING);
 
-	m_pRender->DisplayThreadResume();
+	m_pRender->Resume();
 	m_pVideoStream->DecodingThreadResume();
 }
 
