@@ -1,6 +1,6 @@
 /**
- * @file threads.h
- * Thread classes header file
+ * @file videofilter.h
+ * Deinterlace and scaling filter header file
  *
  * @copyright (c) 2025 by Andreas Baierl. All Rights Reserved.
  *

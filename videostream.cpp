@@ -41,6 +41,7 @@ extern "C" {
 #include "logger.h"
 #include "misc.h"
 #include "queue.h"
+#include "videofilter.h"
 #include "videostream.h"
 #include "videorender.h"
 
