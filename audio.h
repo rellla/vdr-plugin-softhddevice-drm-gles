@@ -59,13 +59,14 @@ public:
 	void SetPaused(bool);
 	bool IsPaused(void) { return m_paused; };
 	void Filter(AVFrame *, AVCodecContext *);
-	void Enqueue(uint16_t *, int, AVFrame *);
+	void EnqueueSpdif(uint16_t *, int, AVFrame *);
 	bool IsBufferFull(void) { return m_pRingbuffer.FreeBytes() <= AUDIO_MIN_BUFFER_FREE; }
 
 	void FlushBuffers(void);
 	int GetUsedBytes(void);
 	int GetFreeBytes(void);
 	int64_t GetHardwareOutputPtsMs(void);
+	int64_t GetHardwareOutputDelayMs(void);
 	int64_t GetHardwareOutputPtsTimebaseUnits(void);
 	int GetPassthrough(void) const { return m_passthrough; }
 	bool HasInputPts(void) { return m_inputPts != AV_NOPTS_VALUE; }
@@ -84,10 +85,13 @@ public:
 	void SetTimebase(AVRational *timebase) { m_pTimebase = timebase; };
 
 	void FlushAlsaBuffers(void);
+	void DropAlsaBuffers(void);
 	bool CyclicCall(void);
 	void DropSamplesOlderThanPtsMs(int64_t);
 	void ProcessEvents(void);
 	void ClockDriftCompensation(void);
+	void ResetHwDelayBaseline(void);
+	void SetHwDelayBaseline(void);
 
 	void Stop(void);
 
@@ -127,6 +131,10 @@ private:
 	const char *m_pPCMDevice;               ///< PCM device name
 	const char *m_pPassthroughDevice;       ///< passthrough device name
 	bool m_appendAES;                       ///< flag ato utomatic append AES
+	int m_spdifBurstSize = 0;               ///< size of the current spdif burst
+	std::vector<uint16_t> m_pauseBurst;     ///< holds the burst data itself
+	snd_pcm_sframes_t m_hwBaseline = 0;     ///< saves the hw delay (pause bursts) once a real audio frame to correctly do the AV-Sync
+	bool m_firstRealAudioReceived = false;  ///< false, as long as no real audio was sent - used to trigger the baseline set
 
 	// Normalizer
 	bool m_normalize;                       ///< flag to use volume normalize
@@ -175,7 +183,11 @@ private:
 	void SoftAmplify(int16_t *, int);
 	int InitFilter(AVCodecContext *);
 
+	void Enqueue(uint16_t *, int, AVFrame *);
 	void EnqueueFrame(AVFrame *);
+	bool SendAudio(int);
+	bool SendPause(void);
+	void BuildPauseBurst(void);
 
 	// alsa
 	snd_pcm_t *m_pAlsaPCMHandle;         ///< alsa pcm handle
@@ -198,6 +210,7 @@ private:
 	int MsToFrames(int milliseconds) { return (int64_t)milliseconds * m_hwSampleRate / 1000; }
 	int FramesToMs(int frames) { return (int64_t)frames * 1000 / m_hwSampleRate; }
 	double FramesToMsDouble(int frames) { return (double)frames * 1000 / m_hwSampleRate; }
+	void FlushAlsaBuffersInternal(bool);
 
 	int64_t GetOutputPtsMsInternal(void);
 };

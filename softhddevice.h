@@ -283,7 +283,7 @@ private:
 	bool m_forceDetached = false; ///< start the plugin in detached state
 
 	int PlayVideoInternal(cVideoStream *, cReassemblyBufferVideo *, const uchar *, int, bool);
-	void ClearAudio(void);
+	void FlushAudio(void);
 	void OnEventReceived(const Event&);
 	void HandleStillPicture(const uchar *data, int size);
 	int64_t GetFirstAudioPtsMsToPlay();

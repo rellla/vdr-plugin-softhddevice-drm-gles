@@ -166,7 +166,7 @@ int cAudioDecoder::DecodePassthrough(const AVPacket * avpkt, AVFrame *frame)
 		swab(avpkt->data, spdif + 4, avpkt->size);
 		memset((uint8_t *)(spdif + 4) + avpkt->size, 0, spdifSize - 8 - avpkt->size);
 
-		m_pAudio->Enqueue(spdif, spdifSize, frame);
+		m_pAudio->EnqueueSpdif(spdif, spdifSize, frame);
 		return 1;
 	}
 
@@ -195,10 +195,11 @@ int cAudioDecoder::DecodePassthrough(const AVPacket * avpkt, AVFrame *frame)
 
 		// check if we need to pack multiple packets
 		int fscod = (avpkt->data[4] >> 6) & 0x3;
+		int numblkscod = 6;
 		if (fscod != 0x3) {
-			int fscod2 = (avpkt->data[4] >> 4) & 0x3;
+			numblkscod = (avpkt->data[4] >> 4) & 0x3;
 			static const uint8_t eac3_repeat[4] = { 6, 3, 2, 1 };
-			repeat = eac3_repeat[fscod2];
+			repeat = eac3_repeat[numblkscod];
 		}
 
 		if (repeat * avpkt->size > spdifSize - 8) {
@@ -207,12 +208,12 @@ int cAudioDecoder::DecodePassthrough(const AVPacket * avpkt, AVFrame *frame)
 			return -1;
 		}
 
-//		LOGDEBUG2(L_CODEC, "audiocodec: %s: E-AC3: set repeat to %d (fscod = %d) avpkt->size %d (spdifSize %d)",
-//			__FUNCTION__, repeat, fscod2, avpkt->size, spdifSize);
-
 		// pack upto repeat EAC-3 pakets into one IEC 61937 burst
 		swab(avpkt->data, (uint8_t *)(spdif + 4) + m_spdifIndex, avpkt->size);
 		m_spdifIndex += avpkt->size;
+
+//		LOGDEBUG2(L_CODEC, "audiocodec: %s: E-AC3: set repeat to %d (fscod = %d, numblkscode = %d) avpkt->size %d (spdifSize %d) (repeatCount gets %d) (m_spdifIndex = %d)",
+//			__FUNCTION__, repeat, fscod, numblkscod, avpkt->size, spdifSize, m_spdifRepeatCount + 1, m_spdifIndex);
 
 		if (++m_spdifRepeatCount < repeat)
 			return 1;
@@ -231,7 +232,7 @@ int cAudioDecoder::DecodePassthrough(const AVPacket * avpkt, AVFrame *frame)
 		if (pad > 0)
 			memset((uint8_t *)(spdif + 4) + m_spdifIndex, 0, pad);
 
-		m_pAudio->Enqueue(spdif, spdifSize, frame);
+		m_pAudio->EnqueueSpdif(spdif, spdifSize, frame);
 		ResetSpdif();
 		return 1;
 	}
@@ -290,7 +291,7 @@ int cAudioDecoder::DecodePassthrough(const AVPacket * avpkt, AVFrame *frame)
 		swab(avpkt->data, spdif + 6, avpkt->size);
 		memset((uint8_t *)(spdif + 6) + avpkt->size, 0, burstSz - 12 - avpkt->size);
 
-		m_pAudio->Enqueue(spdif, burstSz, frame);
+		m_pAudio->EnqueueSpdif(spdif, burstSz, frame);
 		return 1;
 	}
 

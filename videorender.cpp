@@ -532,7 +532,7 @@ int cVideoRender::CommitBuffer(cDrmBuffer *buf, cDrmBuffer *pip)
  */
 void cVideoRender::LogDroppedDuped(int64_t audioPtsMs, int64_t videoPtsMs, int audioBehindVideoByMs)
 {
-	LOGDEBUG2(L_AV_SYNC, "Frame %s (drop %d, dup %d) Pkts %d Frames %d UsedBytes %d audio %s video %s Delay %dms diff %dms",
+	LOGDEBUG2(L_AV_SYNC, "Frame %s (drop %d, dup %d) Pkts %d Frames %d UsedBytes %d audio %s video %s Delay %dms kernel buffer delay %dms diff %dms",
 		audioBehindVideoByMs > 0 ? "duped" : "dropped",
 		m_framesDropped,
 		m_framesDuped,
@@ -542,6 +542,7 @@ void cVideoRender::LogDroppedDuped(int64_t audioPtsMs, int64_t videoPtsMs, int a
 		Timestamp2String(audioPtsMs, 1),
 		Timestamp2String(videoPtsMs, 1),
 		m_pDevice->GetVideoAudioDelayMs(),
+		m_pAudio->GetHardwareOutputDelayMs(),
 		audioBehindVideoByMs);
 
 	if (audioBehindVideoByMs > 0)
