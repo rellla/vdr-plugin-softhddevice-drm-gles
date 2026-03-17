@@ -34,6 +34,7 @@ extern "C" {
 #include <vdr/thread.h>
 
 #include "queue.h"
+#include "videofilter.h"
 
 #define VIDEO_BUFFER_SIZE (512 * 1024)  ///< video PES buffer default size
 #define VIDEO_PACKET_MAX 192            ///< max number of video packets held in the buffer
@@ -50,7 +51,6 @@ extern "C" {
 class cDrmBuffer;
 class cSoftHdConfig;
 class cVideoDecoder;
-class cVideoFilter;
 class cVideoRender;
 
 /**
@@ -110,11 +110,10 @@ private:
 	cSoftHdConfig *m_pConfig;           ///< plugin config
 	cVideoDecoder *m_pDecoder;          ///< video decoder
 	cVideoRender *m_pRender;            ///< video renderer
-	cVideoFilter *m_pVideoFilter;       ///< pointer to deinterlace/scaling video filter thread
 	const char *m_identifier;           ///< identifier string for logging
-	std::string m_filterThreadName;     ///< filter thread name string (persists for object lifetime)
 	std::function<void(AVFrame *)> m_frameOutput;   ///< function to output the frame
 	cQueue<cDrmBuffer> *m_pDrmBufferQueue;          ///< pointer to renderer's DRM buffer queue
+	cVideoFilter m_videoFilter;         ///< pointer to deinterlace/scaling video filter thread
 	std::mutex m_mutex;                 ///< mutex for decoding thread control
 
 	bool m_checkFilterThreadNeeded;                 ///< set, if we have to check, if filter thread is needed at start of playback
