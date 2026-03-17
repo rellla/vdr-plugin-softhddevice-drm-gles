@@ -5,7 +5,6 @@
  * This file defines all thread classes, which are
  *   - cDecodingThread
  *   - cDisplayThread
- *   - cAudioThread
  *   - cFilterThread
  *
  * @copyright (c) 2009 - 2015 by Johns.  All Rights Reserved.
@@ -34,7 +33,6 @@ extern "C" {
 
 #include <vdr/thread.h>
 
-#include "audio.h"
 #include "logger.h"
 #include "misc.h"
 #include "threads.h"
@@ -115,39 +113,6 @@ void cDisplayThread::Stop(void)
 		return;
 
 	LOGDEBUG("threads: stopping display thread");
-	Cancel(2);
-}
-
-/*****************************************************************************
- * cAudioThread class
- *
- * This thread is decodes the audio data and moves it to hardware
- ****************************************************************************/
-cAudioThread::cAudioThread(cSoftHdAudio *audio)
-	: cThread("softhd audio"),
-	  m_pAudio(audio)
-{
-	Start();
-}
-
-void cAudioThread::Action(void)
-{
-	LOGDEBUG("threads: audio thread started");
-	while (Running()) {
-		m_pAudio->CyclicCall();
-		m_pAudio->ProcessEvents();
-
-		usleep(10000);
-	}
-	LOGDEBUG("threads: audio thread stopped");
-}
-
-void cAudioThread::Stop(void)
-{
-	if (!Active())
-		return;
-
-	LOGDEBUG("threads: stopping audio thread");
 	Cancel(2);
 }
 

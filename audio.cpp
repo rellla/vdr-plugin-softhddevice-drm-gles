@@ -40,6 +40,8 @@ extern "C" {
 #include <libavutil/opt.h>
 }
 
+#include <vdr/thread.h>
+
 #include "audio.h"
 #include "config.h"
 #include "event.h"
@@ -49,7 +51,6 @@ extern "C" {
 #include "pidcontroller.h"
 #include "ringbuffer.h"
 #include "softhddevice.h"
-#include "threads.h"
 
 /******************************************************************************
  * cSoftHdAudio class
@@ -59,7 +60,8 @@ extern "C" {
  * cSoftHdAudio constructor
  */
 cSoftHdAudio::cSoftHdAudio(cSoftHdDevice *device)
-	: m_pDevice(device),
+	: cThread("softhd audio"),
+	  m_pDevice(device),
 	  m_pConfig(m_pDevice->Config()),
 	  m_pEventReceiver(device),
 	  m_downmix(m_pConfig->ConfigAudioDownmix),
@@ -1030,15 +1032,13 @@ void cSoftHdAudio::Exit(void)
 {
 	LOGDEBUG2(L_SOUND, "audio: %s", __FUNCTION__);
 
-	if (m_initialized && m_pAudioThread) {
-		if (m_pAudioThread->Active())
-			m_pAudioThread->Stop();
-		delete m_pAudioThread;
+	Stop();
 
-		avfilter_graph_free(&m_pFilterGraph);
+	if (!m_initialized)
+		return;
 
-		AlsaExit();
-	}
+	avfilter_graph_free(&m_pFilterGraph);
+	AlsaExit();
 	m_initialized = false;
 }
 
@@ -1097,6 +1097,34 @@ void cSoftHdAudio::FlushAlsaBuffers(void)
 /******************************************************************************
  * Thread playback
  *****************************************************************************/
+
+/**
+ * Audio thread loop, started with Start().
+ * Tries to periodically send frames to the hardware and checks for events (underruns)
+ */
+void cSoftHdAudio::Action(void)
+{
+	LOGDEBUG("audio: thread started");
+	while (Running()) {
+		CyclicCall();
+		ProcessEvents();
+
+		usleep(10000);
+	}
+	LOGDEBUG("audio: thread stopped");
+}
+
+/**
+ * Stop the thread
+ */
+void cSoftHdAudio::Stop(void)
+{
+	if (!Active())
+		return;
+
+	LOGDEBUG("audio: stopping thread");
+	Cancel(2);
+}
 
 /**
  * Cyclic audio playback call
@@ -1180,6 +1208,17 @@ bool cSoftHdAudio::CyclicCall()
 	}
 
 	return true;
+}
+
+/**
+ * Process queued events and forward to event receiver
+ */
+void cSoftHdAudio::ProcessEvents()
+{
+	for (Event event : m_eventQueue)
+		m_pEventReceiver->OnEventReceived(event);
+
+	m_eventQueue.clear();
 }
 
 /**
@@ -1440,10 +1479,8 @@ int cSoftHdAudio::AlsaSetup(int channels, int sample_rate, int passthrough)
 	int err;
 	unsigned bufferTimeUs = 100'000;
 
-	if (m_pAudioThread) {
-		m_pAudioThread->Stop();
-		delete m_pAudioThread;
-
+	if (Active()) {
+		Stop();
 		FlushAlsaBuffers();
 	}
 
@@ -1516,7 +1553,7 @@ int cSoftHdAudio::AlsaSetup(int channels, int sample_rate, int passthrough)
 		m_alsaUseMmap ? "yes" : "no",
 		bufferTimeUs / 1000);
 
-	m_pAudioThread = new cAudioThread(this);
+	Start();
 
 	return 0;
 }
@@ -1563,17 +1600,6 @@ void cSoftHdAudio::AlsaExit(void)
 		m_pAlsaMixer = NULL;
 		m_pAlsaMixerElem = NULL;
 	}
-}
-
-/**
- * Process queued events and forward to event receiver
- */
-void cSoftHdAudio::ProcessEvents()
-{
-	for (Event event : m_eventQueue)
-		m_pEventReceiver->OnEventReceived(event);
-
-	m_eventQueue.clear();
 }
 
 /**

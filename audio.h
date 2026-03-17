@@ -33,6 +33,8 @@ extern "C" {
 
 #include <alsa/asoundlib.h>
 
+#include <vdr/thread.h>
+
 #include "event.h"
 #include "filllevel.h"
 #include "pidcontroller.h"
@@ -41,14 +43,13 @@ extern "C" {
 #define NORMALIZE_MAX_INDEX 128 ///< number of average values
 #define AV_SYNC_BORDER_MS 5000  ///< absolute max a/v difference in ms which should trigger a resync
 
-class cAudioThread;
 class cSoftHdConfig;
 class cSoftHdDevice;
 
 /**
  * cSoftHdAudio - Audio class
  */
-class cSoftHdAudio {
+class cSoftHdAudio : public cThread {
 public:
 	cSoftHdAudio(cSoftHdDevice *);
 
@@ -88,6 +89,11 @@ public:
 	void ProcessEvents(void);
 	void ClockDriftCompensation(void);
 
+	void Stop(void);
+
+protected:
+	virtual void Action(void);
+
 private:
 	constexpr static int AUDIO_MIN_BUFFER_FREE = 3072 * 8 * 8; ///< Minimum free space in audio buffer 8 packets for 8 channels
 	cSoftHdDevice *m_pDevice;               ///< pointer to device
@@ -98,9 +104,6 @@ private:
 	std::chrono::steady_clock::time_point m_lastPidInvocation;  ///< last time the PID controller was invoked
 	int m_alsaBufferSizeFrames = 0;         ///< alsa buffer size in frames
 	int m_packetCounter = 0;                ///< packet counter for logging
-
-	// thread
-	cAudioThread *m_pAudioThread = nullptr; ///< pointer to audio thread
 
 	// common audio, alsa
 	bool m_initialized = false;             ///< class initialized
