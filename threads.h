@@ -39,25 +39,6 @@ class cVideoRender;
 class cVideoStream;
 
 /**
- * Decoding thread class
- */
-class cDecodingThread : public cThread
-{
-public:
-	cDecodingThread(cVideoStream *, const char *);
-	void Stop(void);
-	void Halt(void) { m_mutex.lock(); };
-	void Resume(void) { m_mutex.unlock(); };
-
-private:
-	std::mutex m_mutex;
-	cVideoStream *m_pStream;
-
-protected:
-	virtual void Action(void);
-};
-
-/**
  * Filter thread class
  */
 class cFilterThread : public cThread
