@@ -58,25 +58,6 @@ protected:
 };
 
 /**
- * Display thread class
- */
-class cDisplayThread : public cThread
-{
-public:
-	cDisplayThread(cVideoRender *);
-	void Stop(void);
-	void Halt(void) { m_mutex.lock(); };
-	void Resume(void) { m_mutex.unlock(); };
-
-private:
-	std::mutex m_mutex;
-	cVideoRender *m_pRender;
-
-protected:
-	virtual void Action(void);
-};
-
-/**
  * Filter thread class
  */
 class cFilterThread : public cThread

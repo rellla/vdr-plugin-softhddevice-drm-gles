@@ -55,7 +55,6 @@ extern "C" {
 #include "misc.h"
 #include "queue.h"
 #include "softhddevice.h"
-#include "threads.h"
 #include "videorender.h"
 #include "videostream.h"
 
@@ -69,7 +68,8 @@ extern "C" {
  * @param device         pointer to cSoftHdDevice
  */
 cVideoRender::cVideoRender(cSoftHdDevice *device)
-	: m_pDevice(device),
+	: cThread("softhd display"),
+	  m_pDevice(device),
 	  m_pAudio(m_pDevice->Audio()),
 	  m_pConfig(m_pDevice->Config()),
 	  m_pDrmDevice(new cDrmDevice(this, m_pConfig->ConfigDisplayResolution)),
@@ -94,8 +94,7 @@ cVideoRender::~cVideoRender(void)
 {
 	LOGDEBUG2(L_DRM, "videorender: %s", __FUNCTION__);
 
-	if (m_pDisplayThread)
-		delete m_pDisplayThread;
+	Stop();
 
 	delete m_pDrmDevice;
 }
@@ -621,6 +620,45 @@ bool cVideoRender::PageFlip(cDrmBuffer *buf, cDrmBuffer *pipBuf)
 	}
 }
 
+/*****************************************************************************
+ * Thread
+ ****************************************************************************/
+
+/**
+ * Thread loop, which tries to display frames and processes events
+ */
+void cVideoRender::Action(void)
+{
+	LOGDEBUG("videorender: display thread started");
+	while(Running()) {
+		m_mutex.lock();
+
+		bool scheduleImmediately = DisplayFrame();
+
+		m_mutex.unlock();
+
+		ProcessEvents();
+
+		if (scheduleImmediately)
+			usleep(100); // yield thread. give control also to threads with lower priority.
+		else
+			usleep(1000);
+	}
+	LOGDEBUG("videorender: display thread stopped");
+}
+
+/**
+ * Stop the thread
+ */
+void cVideoRender::Stop(void)
+{
+	if (!Active())
+		return;
+
+	LOGDEBUG("videorender: stopping display thread");
+	Cancel(2);
+}
+
 /**
  * Display the frame (video and/or osd)
  *
@@ -896,22 +934,6 @@ void cVideoRender::OsdDrawARGB(int xi, int yi,
 #endif
 	m_pBufOsd->MarkDirty();
 	m_osdShown = true;
-}
-
-/*****************************************************************************
- * Thread
- ****************************************************************************/
-
-/**
- * Stop display thread
- */
-void cVideoRender::ExitDisplayThread(void)
-{
-	LOGDEBUG("videorender: %s", __FUNCTION__);
-
-	Reset();
-	if (m_pDisplayThread->Active())
-		m_pDisplayThread->Stop();
 }
 
 /**
@@ -1360,7 +1382,7 @@ void cVideoRender::Init(void)
 	// init variables page flip
 	m_pDrmDevice->InitEvent();
 
-	m_pDisplayThread = new cDisplayThread(this);
+	Start();
 }
 
 /**
@@ -1368,10 +1390,13 @@ void cVideoRender::Init(void)
  */
 void cVideoRender::Exit(void)
 {
+	LOGDEBUG("videorender: %s", __FUNCTION__);
+
 	cDrmPlane *videoPlane = m_pDrmDevice->VideoPlane();
 	cDrmPlane *osdPlane = m_pDrmDevice->OsdPlane();
 
-	ExitDisplayThread();
+	Reset();
+	Stop();
 
 	// restore saved CRTC configuration
 	m_pDrmDevice->RestoreCrtc();

@@ -51,7 +51,6 @@ extern "C" {
 #include "grab.h"
 #include "misc.h"
 #include "queue.h"
-#include "threads.h"
 
 #ifndef USE_GLES
 class cDrmDevice;
@@ -118,7 +117,7 @@ public:
 /**
  * cVideoRender - Video render class
  */
-class cVideoRender
+class cVideoRender : public cThread
 {
 public:
 	cVideoRender(cSoftHdDevice *);
@@ -126,6 +125,9 @@ public:
 
 	void Init(void);
 	void Exit(void);
+	void Stop(void);
+	void Halt(void) { m_mutex.lock(); };
+	void Resume(void) { m_mutex.unlock(); };
 
 	void SetVideoOutputPosition(const cRect &);
 	void SetScreenSize(int, int, double);
@@ -159,11 +161,6 @@ public:
 	cGrabBuffer *GetGrabbedVideoBuffer(void) { return &m_grabVideo; };
 	cGrabBuffer *GetGrabbedOsdBuffer(void) { return &m_grabOsd; };
 	cGrabBuffer *GetGrabbedPipBuffer(void) { return &m_grabPip; };
-
-	// Threads
-	void ExitDisplayThread(void);
-	void DisplayThreadHalt(void) { m_pDisplayThread->Halt(); };
-	void DisplayThreadResume(void) { m_pDisplayThread->Resume(); };
 
 	// DRM
 	int DrmHandleEvent(void);
@@ -201,11 +198,14 @@ public:
 	void ClearPipDecoderToDisplayQueue(void);
 	void SetPipSize(bool);
 
+protected:
+	virtual void Action(void);
+
 private:
 	cSoftHdDevice *m_pDevice;           ///< pointer to cSoftHdDevice
 	cSoftHdAudio *m_pAudio;             ///< pointer to cSoftHdAudio
 	cSoftHdConfig *m_pConfig;           ///< pointer to cSoftHdConfig
-	cDisplayThread *m_pDisplayThread;   ///< pointer to display thread
+	std::mutex m_mutex;                 ///< mutex for thread control
 	std::vector<Event> m_eventQueue;    ///< event queue for incoming events
 	double m_refreshRateHz;             ///< screen refresh rate in Hz
 

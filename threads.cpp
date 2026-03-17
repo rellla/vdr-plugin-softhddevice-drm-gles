@@ -4,7 +4,6 @@
  *
  * This file defines all thread classes, which are
  *   - cDecodingThread
- *   - cDisplayThread
  *   - cFilterThread
  *
  * @copyright (c) 2009 - 2015 by Johns.  All Rights Reserved.
@@ -72,47 +71,6 @@ void cDecodingThread::Stop(void)
 		return;
 
 	LOGDEBUG("threads: stopping decoding thread");
-	Cancel(2);
-}
-
-/*****************************************************************************
- * cDisplayThread class
- *
- * This thread is responsible for displaying the video and osd
- ****************************************************************************/
-cDisplayThread::cDisplayThread(cVideoRender *render)
-	: cThread("softhd display"),
-	  m_pRender(render)
-{
-	Start();
-}
-
-void cDisplayThread::Action(void)
-{
-	LOGDEBUG("threads: display thread started");
-	while(Running()) {
-		m_mutex.lock();
-
-		bool scheduleImmediately = m_pRender->DisplayFrame();
-
-		m_mutex.unlock();
-
-		m_pRender->ProcessEvents();
-
-		if (scheduleImmediately)
-			usleep(100); // yield thread. give control also to threads with lower priority.
-		else
-			usleep(1000);
-	}
-	LOGDEBUG("threads: display thread stopped");
-}
-
-void cDisplayThread::Stop(void)
-{
-	if (!Active())
-		return;
-
-	LOGDEBUG("threads: stopping display thread");
 	Cancel(2);
 }
 
