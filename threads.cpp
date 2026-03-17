@@ -2,9 +2,6 @@
  * @file threads.cpp
  * Thread classes
  *
- * This file defines all thread classes, which are
- *   - cFilterThread
- *
  * @copyright (c) 2009 - 2015 by Johns.  All Rights Reserved.
  * @copyright (c) 2018 by zille.  All Rights Reserved.
  * @copyright (c) 2025 by Andreas Baierl. All Rights Reserved.
@@ -35,14 +32,13 @@ extern "C" {
 #include "misc.h"
 #include "threads.h"
 #include "videorender.h"
-#include "videostream.h"
 
 /*****************************************************************************
- * cFilterThread class
+ * cVideoFilter class
  *
  * This thread handles video filters like deinterlacer or scale filter
  ****************************************************************************/
-cFilterThread::cFilterThread(cVideoRender *videoRender, cQueue<cDrmBuffer> *drmBufferQueue, const char *name, std::function<void(AVFrame *)> frameOutput)
+cVideoFilter::cVideoFilter(cVideoRender *videoRender, cQueue<cDrmBuffer> *drmBufferQueue, const char *name, std::function<void(AVFrame *)> frameOutput)
 	: cThread(name),
 	  m_pRender(videoRender),
 	  m_frameOutput(frameOutput),
@@ -55,7 +51,7 @@ cFilterThread::cFilterThread(cVideoRender *videoRender, cQueue<cDrmBuffer> *drmB
  *
  * @param pixFmt            AV pixel format
  */
-void cFilterThread::SetFilterOutputPixFormat(AVPixelFormat pixFmt)
+void cVideoFilter::SetFilterOutputPixFormat(AVPixelFormat pixFmt)
 {
 	int ret;
 	enum AVPixelFormat pixFmts[] = { pixFmt, AV_PIX_FMT_NONE };
@@ -69,7 +65,7 @@ void cFilterThread::SetFilterOutputPixFormat(AVPixelFormat pixFmt)
 #endif
 
 	if (ret < 0)
-		LOGFATAL("filter thread: %s: Cannot set output pixel format (%d)", __FUNCTION__, ret);
+		LOGFATAL("video filter: %s: Cannot set output pixel format (%d)", __FUNCTION__, ret);
 }
 
 /**
@@ -79,14 +75,14 @@ void cFilterThread::SetFilterOutputPixFormat(AVPixelFormat pixFmt)
  * @param frame                  AVFrame to take init parameters from
  * @param enableDeinterlacer     true, if the deinterlacer should be used
  */
-void cFilterThread::InitAndStart(const AVCodecContext *videoCtx, AVFrame *frame, bool enableDeinterlacer)
+void cVideoFilter::InitAndStart(const AVCodecContext *videoCtx, AVFrame *frame, bool enableDeinterlacer)
 {
 	int ret;
 	char args[512];
 	const char *filterDescr = NULL;
 	m_pFilterGraph = avfilter_graph_alloc();
 	if (!m_pFilterGraph)
-		LOGFATAL("filter thread: %s: Cannot alloc filter graph", __FUNCTION__);
+		LOGFATAL("video filter: %s: Cannot alloc filter graph", __FUNCTION__);
 
 	m_numFramesToFilter = 0;
 	m_filterBug = false;
@@ -112,11 +108,11 @@ void cFilterThread::InitAndStart(const AVCodecContext *videoCtx, AVFrame *frame,
 	} else if (frame->format == AV_PIX_FMT_YUV420P) {
 		filterDescr = "scale";
 	} else
-		LOGFATAL("filter thread: %s: Unexpected pixel format: %d", __FUNCTION__, frame->format);
+		LOGFATAL("video filter: %s: Unexpected pixel format: %d", __FUNCTION__, frame->format);
 
 	m_pBuffersinkCtx = avfilter_graph_alloc_filter(m_pFilterGraph, buffersink, "out");
 	if (!m_pBuffersinkCtx)
-		LOGFATAL("filter thread: %s: Cannot create buffer sink", __FUNCTION__);
+		LOGFATAL("video filter: %s: Cannot create buffer sink", __FUNCTION__);
 
 	// if we have a 576i stream without a valid sample_aspect_ratio (0/1) force it to be 64/45
 	// wich "stretches" a 576i stream to 1920/1080 size
@@ -124,7 +120,7 @@ void cFilterThread::InitAndStart(const AVCodecContext *videoCtx, AVFrame *frame,
 	AVRational sar = videoCtx->sample_aspect_ratio;
 	if (videoCtx->sample_aspect_ratio.num == 0 && videoCtx->height == 576) {
 		sar = (AVRational){64, 45};
-		LOGDEBUG2(L_CODEC, "filter thread: %s: Observed 576i material with a sar 0/1, stretch it with sar %d/%d", __FUNCTION__, sar.num, sar.den);
+		LOGDEBUG2(L_CODEC, "video filter: %s: Observed 576i material with a sar 0/1, stretch it with sar %d/%d", __FUNCTION__, sar.num, sar.den);
 	}
 
 	if (frame->format == AV_PIX_FMT_DRM_PRIME) {
@@ -132,7 +128,7 @@ void cFilterThread::InitAndStart(const AVCodecContext *videoCtx, AVFrame *frame,
 
 		m_pBuffersrcCtx = avfilter_graph_alloc_filter(m_pFilterGraph, buffersrc, "in");
 		if (!m_pBuffersrcCtx)
-			LOGFATAL("filter thread: %s: Cannot create buffer src", __FUNCTION__);
+			LOGFATAL("video filter: %s: Cannot create buffer src", __FUNCTION__);
 
 		AVBufferSrcParameters *par = av_buffersrc_parameters_alloc();
 		memset(par, 0, sizeof(*par));
@@ -144,20 +140,20 @@ void cFilterThread::InitAndStart(const AVCodecContext *videoCtx, AVFrame *frame,
 		par->height = videoCtx->height;
 		par->sample_aspect_ratio = sar;
 
-		LOGDEBUG2(L_CODEC, "filter thread: %s: filter=\"%s\" fmt %d, hw ctx %p, tb %d/%d, wxh %dx%d, sar %d/%d",
+		LOGDEBUG2(L_CODEC, "video filter: %s: filter=\"%s\" fmt %d, hw ctx %p, tb %d/%d, wxh %dx%d, sar %d/%d",
 			__FUNCTION__, filterDescr,
 			par->format, par->hw_frames_ctx, par->time_base.num, par->time_base.den,
 			par->width, par->height, par->sample_aspect_ratio.num, par->sample_aspect_ratio.den);
 
 		ret = av_buffersrc_parameters_set(m_pBuffersrcCtx, par);
 		if (ret < 0)
-			LOGFATAL("filter thread: %s: Cannot av_buffersrc_parameters_set (%d)", __FUNCTION__, ret);
+			LOGFATAL("video filter: %s: Cannot av_buffersrc_parameters_set (%d)", __FUNCTION__, ret);
 
 		av_free(par);
 
 		ret = avfilter_init_dict(m_pBuffersrcCtx, NULL);
 		if (ret < 0)
-			LOGFATAL("filter thread: %s: Cannot initialize buffer src (%d)", __FUNCTION__, ret);
+			LOGFATAL("video filter: %s: Cannot initialize buffer src (%d)", __FUNCTION__, ret);
 	} else {
 		SetFilterOutputPixFormat(AV_PIX_FMT_NV12);
 
@@ -167,16 +163,16 @@ void cFilterThread::InitAndStart(const AVCodecContext *videoCtx, AVFrame *frame,
 			videoCtx->pkt_timebase.num ? videoCtx->pkt_timebase.den : 1,
 			sar.num, sar.den);
 
-		LOGDEBUG2(L_CODEC, "filter thread: %s: filter=\"%s\" args=\"%s\"", __FUNCTION__, filterDescr, args);
+		LOGDEBUG2(L_CODEC, "video filter: %s: filter=\"%s\" args=\"%s\"", __FUNCTION__, filterDescr, args);
 
 		ret = avfilter_graph_create_filter(&m_pBuffersrcCtx, buffersrc, "in", args, NULL, m_pFilterGraph);
 		if (ret < 0)
-			LOGFATAL("filter thread: %s: Cannot create buffer src", __FUNCTION__);
+			LOGFATAL("video filter: %s: Cannot create buffer src", __FUNCTION__);
 	}
 
 	ret = avfilter_init_dict(m_pBuffersinkCtx, NULL);
 	if (ret < 0)
-		LOGFATAL("filter thread: %s: Cannot initialize buffer sink (%d)", __FUNCTION__, ret);
+		LOGFATAL("video filter: %s: Cannot initialize buffer sink (%d)", __FUNCTION__, ret);
 
 	AVFilterInOut *outputs = avfilter_inout_alloc();
 	AVFilterInOut *inputs  = avfilter_inout_alloc();
@@ -193,7 +189,7 @@ void cFilterThread::InitAndStart(const AVCodecContext *videoCtx, AVFrame *frame,
 
 	ret = avfilter_graph_parse_ptr(m_pFilterGraph, filterDescr, &inputs, &outputs, NULL);
 	if (ret < 0) {
-		LOGFATAL("filter thread: %s: avfilter_graph_parse_ptr failed (%d)", __FUNCTION__, ret);
+		LOGFATAL("video filter: %s: avfilter_graph_parse_ptr failed (%d)", __FUNCTION__, ret);
 	}
 
 	avfilter_inout_free(&inputs);
@@ -201,14 +197,14 @@ void cFilterThread::InitAndStart(const AVCodecContext *videoCtx, AVFrame *frame,
 
 	ret = avfilter_graph_config(m_pFilterGraph, NULL);
 	if (ret < 0)
-		LOGFATAL("filter thread: %s: avfilter_graph_config failed (%d)", __FUNCTION__, ret);
+		LOGFATAL("video filter: %s: avfilter_graph_config failed (%d)", __FUNCTION__, ret);
 
 	Start();
 }
 
-void cFilterThread::Action(void)
+void cVideoFilter::Action(void)
 {
-	LOGDEBUG("threads: video filter thread started");
+	LOGDEBUG("video filter: thread started");
 
 	while (Running()) {
 		if (m_frames.IsEmpty()) {
@@ -225,7 +221,7 @@ void cFilterThread::Action(void)
 		// add frame to filter
 		int ret;
 		if ((ret = av_buffersrc_add_frame_flags(m_pBuffersrcCtx, frame, AV_BUFFERSRC_FLAG_KEEP_REF)) < 0)
-			LOGWARNING("filter thread: %s: can't add_frame: %s", __FUNCTION__, av_err2str(ret));
+			LOGWARNING("video filter: %s: can't add_frame: %s", __FUNCTION__, av_err2str(ret));
 
 		av_frame_free(&frame);
 
@@ -233,7 +229,7 @@ void cFilterThread::Action(void)
 		while (Running()) {
 			AVFrame *filtFrame = av_frame_alloc();
 			if (!filtFrame)
-				LOGFATAL("filter thread: %s: can't allocate frame", __FUNCTION__);
+				LOGFATAL("video filter: %s: can't allocate frame", __FUNCTION__);
 
 			ret = av_buffersink_get_frame(m_pBuffersinkCtx, filtFrame);
 
@@ -241,7 +237,7 @@ void cFilterThread::Action(void)
 				av_frame_free(&filtFrame);
 				break;
 			} else if (ret < 0) {
-				LOGERROR("filter thread: %s: can't get filtered frame: %s", __FUNCTION__, av_err2str(ret));
+				LOGERROR("video filter: %s: can't get filtered frame: %s", __FUNCTION__, av_err2str(ret));
 				av_frame_free(&filtFrame);
 				break;
 			}
@@ -258,23 +254,23 @@ void cFilterThread::Action(void)
 				av_frame_free(&filtFrame);
 		}
 	}
-	LOGDEBUG("threads: filter thread stopped");
+	LOGDEBUG("video filter: thread stopped");
 }
 
 /**
  * Put a frame in the buffer to be filtered
  */
-void cFilterThread::PushFrame(AVFrame *frame)
+void cVideoFilter::PushFrame(AVFrame *frame)
 {
 	m_frames.Push(frame);
 }
 
-void cFilterThread::Stop(void)
+void cVideoFilter::Stop(void)
 {
 	if (!Active())
 		return;
 
-	LOGDEBUG("threads: stopping filter thread");
+	LOGDEBUG("video filter: stopping thread");
 	Cancel(2);
 	m_filterBug = false;
 	m_numFramesToFilter = 0;

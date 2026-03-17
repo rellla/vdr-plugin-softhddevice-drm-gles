@@ -108,7 +108,7 @@ private:
 	cSoftHdConfig *m_pConfig;           ///< plugin config
 	cVideoDecoder *m_pDecoder;          ///< video decoder
 	cVideoRender *m_pRender;            ///< video renderer
-	cFilterThread *m_pFilterThread;     ///< pointer to deinterlace filter thread
+	cVideoFilter *m_pVideoFilter;       ///< pointer to deinterlace/scaling video filter thread
 	const char *m_identifier;           ///< identifier string for logging
 	std::string m_filterThreadName;     ///< filter thread name string (persists for object lifetime)
 	std::function<void(AVFrame *)> m_frameOutput;   ///< function to output the frame
