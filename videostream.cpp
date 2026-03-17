@@ -168,7 +168,7 @@ cVideoStream::cVideoStream(cVideoRender *render, cQueue<cDrmBuffer> *drmBufferQu
 	  m_parseH264Dimensions(config->ConfigParseH264Dimensions)
 {
 	m_filterThreadName = "shd " + std::string(m_identifier) + " filter";
-	m_pFilterThread = new cFilterThread(render, m_pDrmBufferQueue, m_filterThreadName.c_str(), frameOutput);
+	m_pVideoFilter = new cVideoFilter(render, m_pDrmBufferQueue, m_filterThreadName.c_str(), frameOutput);
 	m_hardwareQuirks = ReadHWPlatform();
 	m_decoderFallbackToSwNumPkts = config->ConfigDecoderFallbackToSw ? config->ConfigDecoderFallbackToSwNumPkts : 0;
 
@@ -184,8 +184,8 @@ cVideoStream::~cVideoStream(void)
 {
 	LOGDEBUG("videostream %s:", __FUNCTION__);
 
-	if (m_pFilterThread)
-		delete m_pFilterThread;
+	if (m_pVideoFilter)
+		delete m_pVideoFilter;
 }
 
 /**
@@ -457,7 +457,7 @@ void cVideoStream::DecodeInput(void)
 	AVFrame *frame = nullptr;
 	int ret = 0;
 
-	if (m_codecId == AV_CODEC_ID_NONE || m_packets.IsEmpty() || m_pDrmBufferQueue->IsFull() || m_pFilterThread->IsInputBufferFull())
+	if (m_codecId == AV_CODEC_ID_NONE || m_packets.IsEmpty() || m_pDrmBufferQueue->IsFull() || m_pVideoFilter->IsInputBufferFull())
 		return;
 
 	if (m_newStream)
@@ -597,8 +597,8 @@ void cVideoStream::Stop(void)
  * Stop filter thread
  */
 void cVideoStream::CancelFilterThread(void) {
-	if (m_pFilterThread->Active())
-		m_pFilterThread->Stop();
+	if (m_pVideoFilter->Active())
+		m_pVideoFilter->Stop();
 
 	m_checkFilterThreadNeeded = true;
 	SetDeinterlacerDeactivated(false);
@@ -650,18 +650,18 @@ void cVideoStream::RenderFrame(AVFrame * frame)
 		// - AV_PIX_FMT_YUV420P, progressive -> scale filter to get NV12 frames
 		// - AV_PIX_FMT_DRM_PRIME, interlaced, hw deinterlacer available -> hw deinterlacer
 		if (frame->format == AV_PIX_FMT_YUV420P || (frame->format == AV_PIX_FMT_DRM_PRIME && useDeinterlacer))
-			m_pFilterThread->InitAndStart(m_pDecoder->GetContext(), frame, useDeinterlacer);
+			m_pVideoFilter->InitAndStart(m_pDecoder->GetContext(), frame, useDeinterlacer);
 
 		m_checkFilterThreadNeeded = false;
 	}
 
-	if (m_pFilterThread->Active())
-		m_pFilterThread->PushFrame(frame);
+	if (m_pVideoFilter->Active())
+		m_pVideoFilter->PushFrame(frame);
 	else {
 		// AV_PIX_FMT_DRM_PRIME, interlaced, hw deinterlacer not available
 		// AV_PIX_FMT_DRM_PRIME, progressive
 		// -> put the frame directly into render buffer
-		if (!m_pFilterThread->GetNumFramesToFilter())
+		if (!m_pVideoFilter->GetNumFramesToFilter())
 			m_frameOutput(frame);
 	}
 }

@@ -20,7 +20,6 @@
 #ifndef __THREADS_H
 #define __THREADS_H
 
-#include <mutex>
 #include <functional>
 
 extern "C"
@@ -36,15 +35,14 @@ extern "C"
 
 class cDrmBuffer;
 class cVideoRender;
-class cVideoStream;
 
 /**
- * Filter thread class
+ * Video filter class
  */
-class cFilterThread : public cThread
+class cVideoFilter : public cThread
 {
 public:
-	cFilterThread(cVideoRender *, cQueue<cDrmBuffer> *, const char *, std::function<void(AVFrame *)>);
+	cVideoFilter(cVideoRender *, cQueue<cDrmBuffer> *, const char *, std::function<void(AVFrame *)>);
 	void InitAndStart(const AVCodecContext *, AVFrame *, bool);
 	void Stop(void);
 	void PushFrame(AVFrame *);
