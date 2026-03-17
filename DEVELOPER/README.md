@@ -134,9 +134,9 @@ This section shows the complete data flow of video frames from VDR through the p
 The video pipeline consists of 4 main threads:
 
 1. 🔵**VDR Thread** - Receives video data from VDR
-2. 🟣**cDecodingThread** - Decodes video packets using FFmpeg
-3. 🟠**cFilterThread** - Applies filters (deinterlacing, scaling)
-4. 🟢**cDisplayThread** - Syncs with audio and commits frames to DRM/KMS
+2. 🟣**Decoding Thread** - Decodes video packets using FFmpeg
+3. 🟠**Filter Thread** - Applies filters (deinterlacing, scaling)
+4. 🟢**Display Thread** - Syncs with audio and commits frames to DRM/KMS
 
 - 🔴 Hardware (DRM/KMS display hardware)
 - 🟡 Buffers (frame buffers and queues)
