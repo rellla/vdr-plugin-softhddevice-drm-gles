@@ -76,6 +76,9 @@ msgstr "Video"
 msgid " Enable HDR"
 msgstr " Aktiviere HDR"
 
+msgid " Display mode"
+msgstr " Bildschirmmodus"
+
 msgid "Audio"
 msgstr "Audio"
 
@@ -331,3 +334,9 @@ msgstr " OSD Einstellungen"
 
 msgid " GPU mem used for image caching (MB)"
 msgstr " GPU-Speichergröße für Bild-Zwischenspeicher (MB)"
+
+msgid "default"
+msgstr "standard"
+
+msgid "auto adjust"
+msgstr "automatisch anpassen"
