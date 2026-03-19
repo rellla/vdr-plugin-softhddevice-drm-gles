@@ -40,6 +40,7 @@ protected:
 	// Video
 	int m_cVideoMenu;
 	int m_cVideoEnableHDR;
+	int m_cVideoDisplayMode;
 
 	// Audio
 	int m_cAudioMenu;
@@ -113,8 +114,11 @@ private:
 	cSoftHdConfig *m_pConfig;
 	cSoftHdAudio *m_pAudioDevice;
 
+	std::vector<const char *>m_displayMode;
+
 	inline cOsdItem * CollapsedItem(const char *, int &, const char * = NULL);
 	void Create(void);
+	void BuildDisplayModeList(void);
 
 protected:
 	virtual void Store(void);

@@ -37,6 +37,7 @@ public:
 
 	// Video
 	int ConfigVideoEnableHDR = 0;               ///< enable HDR
+	int ConfigVideoDisplayMode = 0;             ///< display mode (default, auto adjust)
 
 	// Audio
 	bool ConfigAudioSoftvol = false;            ///< config use software volume
