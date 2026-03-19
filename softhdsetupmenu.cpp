@@ -76,6 +76,7 @@ void cMenuSetupSoft::Create(void)
 	Add(CollapsedItem(tr("Video"), m_cVideoMenu));
 	if (m_cVideoMenu) {
 		Add(new cMenuEditBoolItem(tr(" Enable HDR"), &m_cVideoEnableHDR, trVDR("no"), trVDR("yes")));
+		Add(new cMenuEditStraItem(tr(" Display mode"), &m_cVideoDisplayMode, m_displayMode.size(), m_displayMode.data()));
 	}
 
 	//
@@ -296,8 +297,11 @@ cMenuSetupSoft::cMenuSetupSoft(cSoftHdDevice *device)
 	//
 	// Video
 	//
+	BuildDisplayModeList();
+
 	m_cVideoMenu = 0;
 	m_cVideoEnableHDR          = m_pConfig->ConfigVideoEnableHDR;
+	m_cVideoDisplayMode        = m_pConfig->ConfigVideoDisplayMode;
 
 	//
 	// Audio
@@ -383,6 +387,15 @@ cMenuSetupSoft::cMenuSetupSoft(cSoftHdDevice *device)
 	Create();
 }
 
+void cMenuSetupSoft::BuildDisplayModeList(void)
+{
+	m_displayMode.push_back(tr("default"));
+	m_displayMode.push_back(tr("auto adjust"));
+	for (int i = 2; i < 10; i++) {
+		m_displayMode.push_back(cString::sprintf("mode %d", i));
+	}
+}
+
 /**
  * Store settings
  */
@@ -398,6 +411,8 @@ void cMenuSetupSoft::Store(void)
 	//
 	SetupStore("VideoEnableHDR", m_pConfig->ConfigVideoEnableHDR = m_cVideoEnableHDR);
 	m_pDevice->SetEnableHdr(m_pConfig->ConfigVideoEnableHDR);
+	SetupStore("VideoDisplayMode", m_pConfig->ConfigVideoDisplayMode = m_cVideoDisplayMode);
+	// m_pDevice->SetDisplayMode(m_pConfig->ConfigVideoVideoDisplayMode);
 
 	//
 	// Audio
