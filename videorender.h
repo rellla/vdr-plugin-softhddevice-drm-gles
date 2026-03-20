@@ -137,6 +137,7 @@ public:
 	void Reset();
 	void SetPlaybackPaused(bool pause) { m_videoPlaybackPaused = pause; };
 	void SetScheduleAudioResume(bool resume) { m_resumeAudioScheduled = resume; };
+	void ScheduleVideoPlaybackPauseAt(int64_t ptsMs) { m_videoPlaybackPauseScheduledAt = ptsMs; };
 
 	void ProcessEvents(void);
 	void ResetBufferReuseStrategy() { delete m_bufferReuseStrategy; m_bufferReuseStrategy = nullptr; };
@@ -247,6 +248,7 @@ private:
 	bool m_osdShown = false;            ///< set, if osd is shown currently
 	std::atomic<bool> m_videoPlaybackPaused = true;                       ///< set, if playback is frozen (used for pause)
 	std::atomic<bool> m_resumeAudioScheduled = false;                     ///< set, if audio resume is scheduled after a pause
+	std::atomic<int64_t> m_videoPlaybackPauseScheduledAt = AV_NOPTS_VALUE; ///< if set, video will be paused at the given pts
 	std::atomic<bool> m_displayOneFrameThenPause = false;                 ///< set, if only one frame shall be displayed and then pause playback
 	std::atomic<int64_t> m_schedulePlaybackStartAtPtsMs = AV_NOPTS_VALUE; ///< if set, frames with PTS older than this will be dropped
 	std::atomic<int64_t> m_scheduleResyncAtPtsMs = AV_NOPTS_VALUE;        ///< if set, a resync (enter state BUFFERING) will be forced at the given pts

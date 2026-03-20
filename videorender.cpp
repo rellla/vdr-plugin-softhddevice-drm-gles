@@ -671,6 +671,7 @@ bool cVideoRender::DisplayFrame()
 		m_eventQueue.push_back(BufferingThresholdReachedEvent{});
 
 	bool skipBufferUnderrunCheck = m_videoPlaybackPaused ||
+	                               m_videoPlaybackPauseScheduledAt != AV_NOPTS_VALUE ||
 	                               m_pDevice->IsVideoOnlyPlayback() ||
 	                               IsTrickSpeed() ||
 	                               IsStillpicture() ||
@@ -722,7 +723,11 @@ bool cVideoRender::DisplayFrame()
 					m_scheduleResyncAtPtsMs = AV_NOPTS_VALUE;
 				}
 
-				if (m_resumeAudioScheduled && audioBehindVideoByMs >= 0 && !skipSync) { // resume audio from pause
+				if (m_videoPlaybackPauseScheduledAt != AV_NOPTS_VALUE && m_videoPlaybackPauseScheduledAt < videoPtsMs) {
+					LOGDEBUG2(L_AV_SYNC, "videorender: %s: pause was scheduled at %s)!", __FUNCTION__, Timestamp2String(videoPtsMs, 1));
+					m_videoPlaybackPauseScheduledAt = AV_NOPTS_VALUE;
+					m_displayOneFrameThenPause = true;
+				} else if (m_resumeAudioScheduled && audioBehindVideoByMs >= 0 && !skipSync) { // resume audio from pause
 					LOGDEBUG2(L_AV_SYNC, "videorender: resuming audio playback: video %s, audio %s", Timestamp2String(videoPtsMs, 1), Timestamp2String(audioPtsMs, 1));
 					m_pAudio->SetPaused(false);
 					m_resumeAudioScheduled = false;

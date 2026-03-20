@@ -1395,7 +1395,7 @@ void cSoftHdAudio::SetHwDelayBaseline(void)
 		if (snd_pcm_delay(m_pAlsaPCMHandle, &delayFrames) >= 0)
 			m_hwBaseline = delayFrames;
 
-		LOGDEBUG2(L_SOUND, "audio: %s: first real audio was sent, hwBaseline %ld frames", __FUNCTION__, m_hwBaseline);
+		LOGDEBUG2(L_SOUND, "audio: %s: first real audio was sent, hwBaseline %ld frames (%dms)", __FUNCTION__, m_hwBaseline, FramesToMs(m_hwBaseline));
 		m_firstRealAudioReceived = true;
 	}
 }
@@ -1769,12 +1769,13 @@ int cSoftHdAudio::AlsaSetup(int channels, int sample_rate, int passthrough)
 	}
 
 	snd_pcm_state_t state = snd_pcm_state(m_pAlsaPCMHandle);
-	LOGINFO("audio: alsa set up:\n"
+	LOGINFO("audio: %s:\n"
 		"           Channels %d SampleRate %d%s\n"
 		"           HWChannels %d HWSampleRate %d SampleFormat %s\n"
 		"           mmap: %s\n"
 		"           AlsaBufferTime %dms, pcm state: %s, start threshold %d\n"
 		"           periodSize %d frames, bufferSize %d frames",
+		__FUNCTION__,
 		channels, sample_rate, passthrough ? " -> passthrough" : "",
 		m_hwNumChannels, m_hwSampleRate,
 		snd_pcm_format_name(SND_PCM_FORMAT_S16),
