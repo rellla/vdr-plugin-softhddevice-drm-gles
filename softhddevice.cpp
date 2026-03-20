@@ -355,7 +355,11 @@ void cSoftHdDevice::OnEventReceived(const Event& event)
 					}
 				},
 				[this](const PauseEvent&) {
-					m_pRender->SetPlaybackPaused(true);
+					if (m_playbackMode == AUDIO_AND_VIDEO)
+						m_pRender->ScheduleVideoPlaybackPauseAt(m_pAudio->GetOutputPtsMs() - m_pConfig->ConfigVideoAudioDelayMs);
+					else
+						m_pRender->SetPlaybackPaused(true);
+
 					m_pAudio->SetPaused(true);
 					m_pAudio->ResetHwDelayBaseline();
 				},
