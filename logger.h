@@ -87,6 +87,8 @@ private:
 	cSoftHdLogger(const cSoftHdLogger &) = delete;
 	cSoftHdLogger& operator=(const cSoftHdLogger &) = delete;
 
+	static constexpr int MAX_LOGMESSAGE_SIZE = 512; ///< max size of the log message
+
 	std::atomic<int> m_logLevel = 0; ///< loglevel (see Logger flags above)
 };
 
