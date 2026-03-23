@@ -1678,7 +1678,6 @@ void cSoftHdAudio::AlsaSetVolume(int volume)
 int cSoftHdAudio::AlsaSetup(int channels, int sample_rate, int passthrough)
 {
 	snd_pcm_hw_params_t *hwparams;
-	snd_pcm_sw_params_t *swparams;
 	int err;
 	unsigned bufferTimeUs = 100'000;
 
@@ -1695,18 +1694,12 @@ int cSoftHdAudio::AlsaSetup(int channels, int sample_rate, int passthrough)
 		return -1;
 	}
 
-	snd_pcm_sw_params_alloca(&swparams);
-	if ((err = snd_pcm_sw_params_current(m_pAlsaPCMHandle, swparams)) < 0) {
-		LOGERROR("audio: %s: Read SW config failed! %s", __FUNCTION__, snd_strerror(err));
-		return -1;
-	}
-
 	if (!snd_pcm_hw_params_test_access(m_pAlsaPCMHandle, hwparams, SND_PCM_ACCESS_MMAP_INTERLEAVED)) {
 		m_alsaUseMmap = true;
 	}
 
 	m_hwSampleRate = sample_rate;
-	if ((err = snd_pcm_hw_params_set_rate_near(m_pAlsaPCMHandle, hwparams, &m_hwSampleRate, 0) < 0)) {
+	if ((err = snd_pcm_hw_params_set_rate_near(m_pAlsaPCMHandle, hwparams, &m_hwSampleRate, 0)) < 0) {
 		LOGERROR("audio: %s: SampleRate %d not supported! %s", __FUNCTION__, sample_rate, snd_strerror(err));
 		return -1;
 	}
@@ -1736,11 +1729,6 @@ int cSoftHdAudio::AlsaSetup(int channels, int sample_rate, int passthrough)
 		LOGWARNING("audio: %s: getting max bufferSize not supported! %s", __FUNCTION__, snd_strerror(err));
 	}
 
-	snd_pcm_uframes_t startThreshold = 0;
-	if ((err = snd_pcm_sw_params_get_start_threshold(swparams, &startThreshold)) < 0) {
-		LOGWARNING("audio: %s: getting start threshold not supported! %s", __FUNCTION__, snd_strerror(err));
-	}
-
 	m_alsaBufferSizeFrames = MsToFrames(bufferTimeUs / 1000);
 
 /*	err = snd_pcm_hw_params_test_format(m_pAlsaPCMHandle, hwparams, SND_PCM_FORMAT_S16);
@@ -1757,13 +1745,13 @@ int cSoftHdAudio::AlsaSetup(int channels, int sample_rate, int passthrough)
 			"           Channels %d SampleRate %d\n"
 			"           HWChannels %d HWSampleRate %d SampleFormat %s\n"
 			"           mmap: %s\n"
-			"           AlsaBufferTime %dms pcm state: %s, start threshold %d\n"
+			"           AlsaBufferTime %dms pcm state: %s\n"
 			"           periodSize %d frames, bufferSize %d frames",
 			__FUNCTION__,
 			snd_strerror(err), channels, sample_rate, m_hwNumChannels,
 			m_hwSampleRate, snd_pcm_format_name(SND_PCM_FORMAT_S16),
 			m_alsaUseMmap ? "yes" : "no",
-			bufferTimeUs / 1000, snd_pcm_state_name(state), startThreshold,
+			bufferTimeUs / 1000, snd_pcm_state_name(state),
 			periodSize, bufferSize);
 		return -1;
 	}
@@ -1773,14 +1761,14 @@ int cSoftHdAudio::AlsaSetup(int channels, int sample_rate, int passthrough)
 		"           Channels %d SampleRate %d%s\n"
 		"           HWChannels %d HWSampleRate %d SampleFormat %s\n"
 		"           mmap: %s\n"
-		"           AlsaBufferTime %dms, pcm state: %s, start threshold %d\n"
+		"           AlsaBufferTime %dms, pcm state: %s\n"
 		"           periodSize %d frames, bufferSize %d frames",
 		__FUNCTION__,
 		channels, sample_rate, passthrough ? " -> passthrough" : "",
 		m_hwNumChannels, m_hwSampleRate,
 		snd_pcm_format_name(SND_PCM_FORMAT_S16),
 		m_alsaUseMmap ? "yes" : "no",
-		bufferTimeUs / 1000, snd_pcm_state_name(state), startThreshold,
+		bufferTimeUs / 1000, snd_pcm_state_name(state),
 		periodSize, bufferSize);
 
 	Start();
