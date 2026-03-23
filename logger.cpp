@@ -73,7 +73,7 @@ void cSoftHdLogger::LogFatal(const char *format, ...)
 		abort();
 
 	va_list ap;
-	char fmt[256];
+	char fmt[MAX_LOGMESSAGE_SIZE];
 
 	pid_t threadId = syscall(__NR_gettid);
 	snprintf(fmt, sizeof(fmt), "[%d] [softhddevice] %s", threadId, format);
@@ -94,7 +94,7 @@ void cSoftHdLogger::LogError(const char *format, ...)
 		return;
 
 	va_list ap;
-	char fmt[256];
+	char fmt[MAX_LOGMESSAGE_SIZE];
 
 	pid_t threadId = syscall(__NR_gettid);
 	snprintf(fmt, sizeof(fmt), "[%d] [softhddevice] %s", threadId, format);
@@ -113,7 +113,7 @@ void cSoftHdLogger::LogWarning(const char *format, ...)
 		return;
 
 	va_list ap;
-	char fmt[256];
+	char fmt[MAX_LOGMESSAGE_SIZE];
 
 	pid_t threadId = syscall(__NR_gettid);
 	snprintf(fmt, sizeof(fmt), "[%d] [softhddevice] %s", threadId, format);
@@ -132,7 +132,7 @@ void cSoftHdLogger::LogInfo(const char *format, ...)
 		return;
 
 	va_list ap;
-	char fmt[256];
+	char fmt[MAX_LOGMESSAGE_SIZE];
 
 	pid_t threadId = syscall(__NR_gettid);
 	snprintf(fmt, sizeof(fmt), "[%d] [softhddevice] %s", threadId, format);
@@ -151,7 +151,7 @@ void cSoftHdLogger::LogDebug(const char *format, ...)
 		return;
 
 	va_list ap;
-	char fmt[256];
+	char fmt[MAX_LOGMESSAGE_SIZE];
 
 	pid_t threadId = syscall(__NR_gettid);
 	snprintf(fmt, sizeof(fmt), "[%d] [softhddevice] %s", threadId, format);
@@ -170,7 +170,7 @@ void cSoftHdLogger::LogDebug2(const int cat, const char *format, ...)
 		return;
 
 	va_list ap;
-	char fmt[256];
+	char fmt[MAX_LOGMESSAGE_SIZE];
 	char prefix[20] = "";
 
 	switch (m_logLevel & cat) {
@@ -231,7 +231,7 @@ void cSoftHdLogger::LogFFmpeg(const char *fmt, va_list vl)
 
 	av_log_set_level(AV_LOGLEVEL);
 
-	char format[256];
+	char format[MAX_LOGMESSAGE_SIZE];
 	char prefix[20] = "";
 	pid_t threadId = syscall(__NR_gettid);
 
