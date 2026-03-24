@@ -274,6 +274,7 @@ private:
 	bool m_pipUseAlt;                ///< use alternative pip position
 	bool m_drmCanDisplayPip = true;  ///< true, if the drm device is able to display a pip video
 	bool m_disablePip = false;       ///< true, if pip was disabled by the user
+	int m_volume = 0;                ///< track the volume in the device (for attach)
 
 	int m_screenWidth;
 	int m_screenHeight;

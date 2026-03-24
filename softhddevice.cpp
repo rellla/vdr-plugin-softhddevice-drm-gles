@@ -239,6 +239,7 @@ void cSoftHdDevice::OnEventReceived(const Event& event)
 			std::visit(overload{
 				[this](const PlayEvent&) {
 					m_pAudio->LazyInit();
+					m_pAudio->SetVolume((m_volume * 1000) / 255);
 					SetState(BUFFERING);
 					m_pRender->ResetFrameCounter();
 					m_pVideoStream->ResetFilterThreadNeededCheck();
@@ -1106,6 +1107,7 @@ void cSoftHdDevice::SetVolumeDevice(int volume)
 		return;
 
 	LOGDEBUG("device: %s: %d", __FUNCTION__, volume);
+	m_volume = volume;
 	m_pAudio->SetVolume((volume * 1000) / 255);
 }
 

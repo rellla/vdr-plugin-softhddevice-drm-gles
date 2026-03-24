@@ -147,7 +147,7 @@ private:
 	// Amplifier
 	int m_amplifier;                        ///< software volume amplify factor
 	int m_stereoDescent;                    ///< volume descent for stereo
-	int m_volume;                           ///< current volume (0 .. 1000)
+	int m_volume = 0;                       ///< current volume (0 .. 1000)
 
 	// Equalizer
 	int m_useEqualizer;                     ///< flag to use equalizer
