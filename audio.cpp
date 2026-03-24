@@ -76,7 +76,6 @@ cSoftHdAudio::cSoftHdAudio(cSoftHdDevice *device)
 	SetCompression(m_pConfig->ConfigAudioCompression, m_pConfig->ConfigAudioMaxCompression);
 	SetStereoDescent(m_pConfig->ConfigAudioStereoDescent);
 	SetEq(m_pConfig->ConfigAudioEqBand, m_pConfig->ConfigAudioEq);
-
 }
 
 /******************************************************************************
