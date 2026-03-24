@@ -1668,6 +1668,7 @@ void cOglThread::Stop(void)
 		}
 	}
 	Cancel(2);
+	Cleanup();
 	m_stalled = false;
 }
 
@@ -1862,8 +1863,6 @@ void cOglThread::Action(void)
 			m_stalled = false;
 	}
 
-	LOGDEBUG2(L_OPENGL, "openglosd: %s: Cleaning up OpenGL stuff", __FUNCTION__);
-	Cleanup();
 	LOGDEBUG2(L_OPENGL, "openglosd: %s: OpenGL worker thread ended", __FUNCTION__);
 }
 
@@ -1942,6 +1941,8 @@ void cOglThread::DeleteVertexBuffers(void)
 
 void cOglThread::Cleanup(void)
 {
+	LOGDEBUG2(L_OPENGL, "openglosd: %s: Cleaning up OpenGL stuff", __FUNCTION__);
+
 	DeleteVertexBuffers();
 	delete cOglOsd::OutputFramebuffer;
 	cOglOsd::OutputFramebuffer = NULL;
