@@ -1257,7 +1257,7 @@ bool cSoftHdAudio::CyclicCall()
 	std::lock_guard<std::mutex> lock2(m_mutex);
 
 	// query available space in alsa buffer
-	int freeAlsaBufferFrames = snd_pcm_avail(m_pAlsaPCMHandle);
+	int freeAlsaBufferFrames = snd_pcm_avail_update(m_pAlsaPCMHandle);
 	if (freeAlsaBufferFrames < 0) {
 		if (freeAlsaBufferFrames == -EAGAIN) {
 			LOGDEBUG2(L_SOUND, "audio: %s: -EAGAIN", __FUNCTION__);
