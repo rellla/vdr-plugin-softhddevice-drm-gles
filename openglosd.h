@@ -24,6 +24,7 @@
 
 #include <cstdio>
 #include <memory>
+#include <mutex>
 #include <queue>
 
 #include <ft2build.h>
@@ -336,6 +337,7 @@ public:
 	virtual ~cOglCmd(void) {};
 	virtual const char* Description(void) = 0;
 	virtual bool Execute(void) = 0;
+	virtual bool NeedsLockingAgainstStateChange(void) { return false; };
 protected:
 	cOglFb *m_pFramebuffer;
 };
@@ -423,6 +425,7 @@ public:
 	virtual ~cOglCmdCopyBufferToOutputFb(void) {};
 	virtual const char* Description(void) { return "Copy buffer to OutputFramebuffer"; }
 	virtual bool Execute(void);
+	bool NeedsLockingAgainstStateChange(void) { return true; };
 private:
 	cOglOutputFb *m_pOutputFramebuffer;
 	GLfloat m_x, m_y;
@@ -643,12 +646,15 @@ public:
 	cOglThread(cCondWait *startWait, int maxCacheSize, cSoftHdDevice *device);
 	virtual ~cOglThread(void) {};
 
+	void RequestStop(void);
 	void Stop(void);
 	void DoCmd(cOglCmd*);
 	int StoreImage(const cImage &);
 	void DropImageData(int);
 	sOglImage *GetImageRef(int);
 	int MaxTextureSize(void) { return m_maxTextureSize; };
+	void LockOutputFb(void) { m_mutex.lock(); };
+	void UnlockOutputFb(void) { m_mutex.unlock(); };
 protected:
 	virtual void Action(void);
 private:
@@ -661,6 +667,7 @@ private:
 	long m_memCached = 0;
 	long m_maxCacheSize;
 	cVideoRender *m_pRender;
+	std::mutex m_mutex;
 
 	bool InitOpenGL(void);
 	bool InitShaders(void);
@@ -668,6 +675,7 @@ private:
 	bool InitVertexBuffers(void);
 	void DeleteVertexBuffers(void);
 	void Cleanup(void);
+	void CleanupImageCache(void);
 	int GetFreeSlot(void);
 	void ClearSlot(int slot);
 	void eglAcquireContext(void);

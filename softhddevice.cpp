@@ -199,16 +199,28 @@ bool cSoftHdDevice::CanReplay(void) const
 void cSoftHdDevice::OnEventReceived(const Event& event)
 {
 	uint64_t startStateChange = cTimeMs::Now();
-	std::lock_guard<std::mutex> lock(m_mutex);
-
 	LOGDEBUG("device: STATE MACHINE received %s", EventToString(event));
+	bool needsResume = false;
+
+#ifdef USE_GLES
+	// Lock the GL thread before the state machine lock, because cmdCopyBufferToOutputFb() calls
+	// cSoftHdDevice::OsdDrawARGB(), which itself locks the state machine mutex and we can end
+	// up in a deadlock then.
+	// We can safely unlock the thread again after the state change, because cSoftHdDevice::OsdDrawARGB()
+	// always tests if we are in detached mode and this new state is probably set then.
+	bool needsOglResume = false;
+	if (m_pOsdProvider && m_state != DETACHED)
+		needsOglResume = m_pOsdProvider->LockOpenGlThread();
+#endif
+
+	{ // locked state machine context
+	std::lock_guard<std::mutex> lock(m_mutex);
 
 	if (m_state != DETACHED) {
 		m_pRender->Halt();
 		m_pVideoStream->Halt();
+		needsResume = true;
 	}
-
-	bool needsResume = true;
 
 	auto invalid = [this, &event]() {
 		LOGWARNING("device: Invalid event '%s' in state '%s' received", EventToString(event), StateToString(m_state));
@@ -441,6 +453,12 @@ void cSoftHdDevice::OnEventReceived(const Event& event)
 		m_pRender->Resume();
 	}
 
+	} // end of locked state machine context
+#ifdef USE_GLES
+	if (m_pOsdProvider && needsOglResume)
+		m_pOsdProvider->UnlockOpenGlThread();
+#endif
+
 	uint64_t stopStateChange = cTimeMs::Now();
 	LOGDEBUG("device: STATE MACHINE state change done in %d ms", (int)(stopStateChange - startStateChange));
 }
@@ -506,12 +524,20 @@ void cSoftHdDevice::OnEnteringState(State state) {
 			m_pPipStream->Exit();
 			delete m_pPipStream;
 
+#ifdef USE_GLES
+			// The opengl thread was probably locked before cmdCopyBufferToOutputFb().
+			// 1) set running to false
+			// 2) continue the thread (which will skip the waiting cmd->Execute())
+			// 3) do the real thread cancel and cleanup
+			// We need to keep this order to prevent a deadlock!
+			m_pOsdProvider->RequestStopOpenGlThread();
+			m_pOsdProvider->UnlockOpenGlThread();
+			m_pOsdProvider->StopOpenGlThread();
+#endif
 			m_pRender->Exit(); // render must be stopped before videostream!
 			m_pVideoStream->Exit();
 			m_pAudio->Exit(); // audio must be stopped after renderer!
-#ifdef USE_GLES
-			m_pOsdProvider->StopOpenGlThread();
-#endif
+
 			delete m_pAudioDecoder; // includes a Close()
 			delete m_pVideoStream;
 			delete m_pGrab;
