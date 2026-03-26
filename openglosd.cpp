@@ -1660,13 +1660,24 @@ cOglThread::cOglThread(cCondWait *startWait, int maxCacheSize, cSoftHdDevice *de
 	Start();
 }
 
-void cOglThread::Stop(void)
+void cOglThread::CleanupImageCache(void)
 {
 	for (int i = 0; i < OGL_MAX_OSDIMAGES; i++) {
 		if (m_imageCache[i].used) {
 			DropImageData(i);
 		}
 	}
+}
+
+void cOglThread::RequestStop(void)
+{
+	CleanupImageCache();
+	Cancel(-1);
+}
+
+void cOglThread::Stop(void)
+{
+	CleanupImageCache();
 	Cancel(2);
 	Cleanup();
 	m_stalled = false;
@@ -1849,7 +1860,18 @@ void cOglThread::Action(void)
 			timeReset = false;
 		}
 
+		{ // start of locked context
+		std::unique_lock<std::mutex> lock(m_mutex, std::defer_lock);
+
+		if (cmd->NeedsLockingAgainstStateChange())
+			lock.lock();
+
+		if (!Running())
+			continue;
+
 		cmd->Execute();
+		} // end of locked context
+
 		LOGDEBUG2(L_OPENGL_TIME_ALL, "openglosd: %s: \"%-*s\", %dms, %d commands left, time %" PRIu64 "",
 			__FUNCTION__, 15, cmd->Description(), (int)(cTimeMs::Now() - start), (int)(m_commands.size()), cTimeMs::Now());
 
@@ -1863,7 +1885,7 @@ void cOglThread::Action(void)
 			m_stalled = false;
 	}
 
-	LOGDEBUG2(L_OPENGL, "openglosd: %s: OpenGL worker thread ended", __FUNCTION__);
+	LOGINFO("OpenGL worker thread stopped");
 }
 
 void cOglThread::eglAcquireContext(void)

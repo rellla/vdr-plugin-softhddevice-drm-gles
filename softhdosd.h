@@ -72,7 +72,10 @@ public:
 	virtual cOsd * CreateOsd(int, int, uint);
 	virtual bool ProvidesTrueColor(void);
 #ifdef USE_GLES
+	void RequestStopOpenGlThread(void);
 	void StopOpenGlThread(void);
+	bool LockOpenGlThread(void);
+	void UnlockOpenGlThread(void);
 	const cImage *GetImageData(int ImageHandle);
 	void OsdSizeChanged(void);
 #endif

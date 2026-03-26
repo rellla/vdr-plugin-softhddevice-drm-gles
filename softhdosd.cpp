@@ -425,15 +425,47 @@ bool cSoftOsdProvider::StartOpenGlThread(void) {
 }
 
 /**
- * Stop the OpenGL thread
+ * Initiate a stop of the OpenGL thread without waiting
+ */
+void cSoftOsdProvider::RequestStopOpenGlThread(void) {
+	if (m_pOglThread) {
+		LOGDEBUG2(L_OPENGL, "osdprovider: %s: request stopping OpenGL worker thread", __FUNCTION__);
+		m_pOglThread->RequestStop();
+	}
+}
+
+/**
+ * Stop the OpenGL thread and cancel it if necessary
  */
 void cSoftOsdProvider::StopOpenGlThread(void) {
 	if (m_pOglThread) {
-		LOGDEBUG2(L_OPENGL, "osdprovider: %s: stopping OpenGL worker thread", __FUNCTION__);
+		LOGDEBUG2(L_OPENGL, "osdprovider: %s: stop OpenGL worker thread", __FUNCTION__);
 		m_pOglThread->Stop();
-		LOGINFO("OpenGL worker thread stopped");
 	}
 	m_pOglThread.reset();
+}
+
+/**
+ * Lock the OpenGL thread
+ */
+bool cSoftOsdProvider::LockOpenGlThread(void) {
+	if (m_pOglThread) {
+		LOGDEBUG2(L_OPENGL, "osdprovider: %s: lock OpenGL worker thread", __FUNCTION__);
+		m_pOglThread->LockOutputFb();
+		return true;
+	}
+
+	return false;
+}
+
+/**
+ * Unlock the OpenGL thread
+ */
+void cSoftOsdProvider::UnlockOpenGlThread(void) {
+	if (m_pOglThread) {
+		LOGDEBUG2(L_OPENGL, "osdprovider: %s: unlock OpenGL worker thread", __FUNCTION__);
+		m_pOglThread->UnlockOutputFb();
+	}
 }
 
 /**
