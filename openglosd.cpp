@@ -1871,12 +1871,16 @@ void cOglThread::eglAcquireContext(void)
 	EGL_CHECK(eglMakeCurrent(m_pRender->EglDisplay(), m_pRender->EglSurface(), m_pRender->EglSurface(), m_pRender->EglContext()));
 }
 
+/**
+ * @todo: InitOpenGL has no "return false", but cOglThread::Action() checks
+ *        against the return value.
+ */
 bool cOglThread::InitOpenGL(void)
 {
 	LOGDEBUG2(L_OPENGL, "openglosd: %s: Init OpenGL context", __FUNCTION__);
 
 	// Wait for the EGL context to be created
-	while(!m_pRender->GlInitiated()) {
+	while(!m_pRender || !m_pRender->GlInitiated()) {
 		LOGDEBUG2(L_OPENGL, "openglosd: %s: wait for EGL context", __FUNCTION__);
 		usleep(20000);
 	}
