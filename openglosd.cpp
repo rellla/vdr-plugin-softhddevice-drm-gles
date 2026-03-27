@@ -1871,11 +1871,6 @@ void cOglThread::eglAcquireContext(void)
 	EGL_CHECK(eglMakeCurrent(m_pRender->EglDisplay(), m_pRender->EglSurface(), m_pRender->EglSurface(), m_pRender->EglContext()));
 }
 
-void cOglThread::eglReleaseContext(void)
-{
-	EGL_CHECK(eglMakeCurrent(m_pRender->EglDisplay(), EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT));
-}
-
 bool cOglThread::InitOpenGL(void)
 {
 	LOGDEBUG2(L_OPENGL, "openglosd: %s: Init OpenGL context", __FUNCTION__);
