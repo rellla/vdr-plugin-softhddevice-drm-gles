@@ -495,7 +495,7 @@ cOglFont::cOglFont(const char *fontName, int charHeight)
 	m_height = (m_face->size->metrics.ascender - m_face->size->metrics.descender + 63) / 64;
 	m_bottom = abs((m_face->size->metrics.descender - 63) / 64);
 	m_pAtlas = new cOglFontAtlas(m_face, m_size);
-	LOGDEBUG2(L_OPENGL, "openglosd: %s: Created new font: %s (%d) height: %d, bottom: %d - %d chars (%d - %d)", __FUNCTION__, m_name, m_size, m_height, m_bottom, count, minIndex, maxIndex);
+	LOGDEBUG2(L_OPENGL, "openglosd: %s: Created new font: %s (%d) height: %d, bottom: %d - %d chars (%d - %d)", __FUNCTION__, fontName, m_size, m_height, m_bottom, count, minIndex, maxIndex);
 }
 
 cOglFont::~cOglFont(void)
