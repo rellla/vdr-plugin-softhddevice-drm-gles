@@ -5,6 +5,26 @@ A software and GPU emulated HD output device for VDR
 (https://github.com/rellla/vdr-plugin-softhddevice-drm-gles)
 
 
+Features:
+---------
+- Hardware accelerated video decoding (depending on hardware and FFmpeg support)
+  - MPEG2
+  - H.264
+  - HEVC (10bit)
+- Hardware accelerated video deinterlacing (depending on hardware and FFmpeg support)
+- Software fallback for decoding and deinterlacing
+- Optional GPU accelerated OSD composing (OpenGL/ES)
+- Audio decoding with alsa (PCM)
+- Audio passthrough support (AC3, E-AC3, DTS)
+- UHD support
+- HDR display support
+- Picture-in-picture support (depending on hardware)
+- Integrated minimalistic media player
+- Grabbing support
+- Detach/Attach support (release display, audio and GPU resources, but keep VDR running)
+- Many adjustable (expert) settings via setup menu
+
+
 Why do we need another softhddevice version?
 --------------------------------------------
 This was basically a fork of https://github.com/zillevdr/vdr-plugin-softhddevice-drm.git
@@ -14,13 +34,15 @@ The target of this version are embedded devices, see supported hardware.
 
 The difference in function to the original fork is, that it adds some additional features
 like resized video, hardware accelerated OSD rendering, support for Rpi4/5 and Amlogic
-devices, detach/attach functionalizy  and a few more things. Read the commit history for detailed
-info. There are a bunch of changes in the code, especially the drm handling was re-written and has
-changed to fully respect the atomic modesetting API now. Though everything should work
-like it does with the original code, it's not guaranteed, that some bugs crept in.
+devices, detach/attach functionality and many more things. Read the commit history for detailed
+info.
+
+The main difference in design is, that the code base was moved to a class orientated,
+mostly C++-based code. Moving between the different states (Detach, Buffering, Play, Stop, ...)
+is implemented with a state machine. AV-Sync and buffering have been completely rewritten.
 
 As a principle, this softhddevice version is only dealing with mainline versions and standards,
-which means you can (and have to) use mainline (or to be mainlined) kernel, ffmpeg and  mesa version.
+which means you can (and have to) use mainline (or to be mainlined) kernel, FFmpeg and mesa version.
 This code does not work with vendor provided software or even closed source binaries.
 
 www.LibreELEC.tv is good source to look for what is possible with mainlined media related software.
@@ -31,17 +53,24 @@ kodi on, you'll find everything you need.
 
 How does it internally work?
 ----------------------------
-Video decoding is done with ffmpeg. If your hardware has some hardware decoder
-and/or deinterlacer which is supported by ffmpeg, the video is hardware decoded
+- FFmpeg for video decoding and deinterlacing
+- Alsa for audio output
+- Kernel mode setting with DRM (zero-copy)
+- OSD rendering with OpenGL/ES
+
+Video decoding is done with FFmpeg. If your hardware has some hardware decoder
+and/or deinterlacer which is supported by FFmpeg, the video is hardware decoded
 (depending on the codec), otherwise software decoding/ deinterlacing is done.
-For software deinterlacing ffmpeg's bwdif (Bob Weaver Deinterlacing Filter) is
-used. This is the highest quality software deinterlacer available in ffmpeg.
+For software deinterlacing FFmpeg's bwdif (Bob Weaver Deinterlacing Filter) is
+used. This is the highest quality software deinterlacer available in FFmpeg.
 The OSD is either composed with OpenGL/ES or with CPU (see below).
 Both, video and OSD are rendered directly on seperate drm planes with kms.
 When the video is hardware decoded, we don't need much CPU, because everything is done
 with a zero-copy approach. That's the same for OpenGL/ES OSD.
+Audio output is handled by Alsa.
 
-[See developer page](DEVELOPER/README.md)
+See the [developer page](DEVELOPER/README.md) for helpful descriptions, graphs and diagrams
+of VDR and softhddevice internals to see how things work together.
 
 A doxygen documentation is available [here](https://rellla.github.io/vdr-plugin-softhddevice-drm-gles/)
 and is updated on every commit automatically.
@@ -79,17 +108,17 @@ Requirements:
 
 - No running X!
 
-- vdr (version >=2.6.6)
+- VDR (version >=2.6.6)
 
 	Video Disk Recorder - turns a pc into a powerful set top box
 	for DVB (http://www.tvdr.de/).
 
-- ffmpeg
+- FFmpeg
 
-	Depending on upstreaming efforts a patched ffmpeg version may be needed to take advantage of
+	Depending on upstreaming efforts a patched FFmpeg version may be needed to take advantage of
 	hardware accelerated decoding and deinterlacing (see below).
 
-- kernel
+- Kernel
 
 	Depending on upstreaming efforts a patched kernel may be needed (WIP LE version)
 
@@ -139,25 +168,25 @@ In this case, VDR is using CPU based OSD rendering.
 
 FFmpeg:
 -------
-The plugin should work with any recent upstream ffmpeg version but may lack
+The plugin should work with any recent upstream FFmpeg version but may lack
 hardware decoder acceleration. If you want to drive the plugin with a hardware
-acclerated decoder, you may need to build ffmpeg on your own.
+acclerated decoder, you may need to build FFmpeg on your own.
 
 LibreELEC is a good source to find out the current status of what is already upstreamed and supported.
 Have a look at https://github.com/LibreELEC/LibreELEC.tv/tree/master/packages/multimedia/ffmpeg
-and choose the ffmpeg source and patches which match your platform.
-Most of them have not yet been upstreamed, so you probably need to build ffmpeg on your own.
+and choose the FFmpeg source and patches which match your platform.
+Most of them have not yet been upstreamed, so you probably need to build FFmpeg on your own.
 LibreELEC supports Rockchip, Allwinner, Raspberry PI and (kind of) Amlogic.
 Have a look at https://github.com/LibreELEC/LibreELEC.tv/tree/master/projects to find platform
 specific patches.
 
-The following instructions may help you to setup ffmpeg (may be outdated):
+The following instructions may help you to setup FFmpeg (may be outdated):
 
 - Raspberry Pi, Amlogic:
-	- [rpi-ffmpeg](https://github.com/jc-kynesim/rpi-ffmpeg) is the very recent version for RPI4/RPI5 and Amlogic (For Raspberry Pi LibreELEC normally patches the upstream ffmpeg version to get the version from jc-kynesim)
+	- [rpi-ffmpeg](https://github.com/jc-kynesim/rpi-ffmpeg) is the very recent version for RPI4/RPI5 and Amlogic (For Raspberry Pi LibreELEC normally patches the upstream FFmpeg version to get the version from jc-kynesim)
 	- check out a recent branch (note: the master branch is not the one you want to have)
 	- most likely this branch has everything you need and you don't need any further patches (in doubt, check [how it is handled in LibreELEC](https://github.com/LibreELEC/LibreELEC.tv/tree/master/packages/multimedia/ffmpeg))
-	- build ffmpeg as usual with the "configure - make - make install" logic
+	- build FFmpeg as usual with the "configure - make - make install" logic
 	- For Raspberry Pi building with the following configure options should enable hardware acceleration:
 
 			--disable-static --enable-shared --enable-pic --enable-bsfs --enable-filters --enable-v4l2_m2m --enable-libdrm --enable-libudev --enable-v4l2-request --enable-sand --enable-hwaccels --enable-neon --disable-vdpau --disable-vaapi --disable-mmal
@@ -166,9 +195,9 @@ The following instructions may help you to setup ffmpeg (may be outdated):
 			--disable-static --enable-shared --enable-pic --enable-bsfs --enable-filters --enable-v4l2_m2m --enable-libdrm --enable-hwaccels --enable-neon --disable-vdpau --disable-vaapi --disable-libudev --disable-v4l2-request
 
 - Rockchip, Allwinner:
-	- use mainline ffmpeg with version mentioned in [LibreELEC package file](https://github.com/LibreELEC/LibreELEC.tv/blob/master/packages/multimedia/ffmpeg/package.mk)
+	- use mainline FFmpeg with version mentioned in [LibreELEC package file](https://github.com/LibreELEC/LibreELEC.tv/blob/master/packages/multimedia/ffmpeg/package.mk)
 	- patch the mainline version with the [patchsets](https://github.com/LibreELEC/LibreELEC.tv/tree/master/packages/multimedia/ffmpeg/patches) which where mentioned for your platform in the package.mk
-	- build ffmpeg as usual with the "configure - make - make install" logic
+	- build FFmpeg as usual with the "configure - make - make install" logic
 	- building with the following configure options should enable hardware acceleration:
 
 			--disable-static --enable-shared --enable-pic --enable-bsfs --enable-filters --enable-v4l2_m2m --enable-libdrm --enable-libudev --enable-v4l2-request --enable-hwaccels --enable-neon --disable-vdpau --disable-vaapi
@@ -213,7 +242,7 @@ Commandline arguments:
 ----------------------
 Use vdr -h to see the command line arguments supported by the plugin.
 
-	-a audio_device
+	-a audio_device (e.g. hw:0,1)
 	-p device for pass-through
 	-c audio mixer channel name
 	-d display resolution (e.g. 1920x1080@50)
@@ -223,7 +252,7 @@ Use vdr -h to see the command line arguments supported by the plugin.
 		disable-pip (to force disabling the pip feature)
 
 
-Setup:	environment
+Setup: environment
 -------------------
 
 	ALSA_DEVICE=default
@@ -267,7 +296,7 @@ Setup: /etc/vdr/setup.conf
 
 	softhddevice-drm-gles.AudioDownmix = 0
 		0 = none, 1 = downmix
-		Use ffmpeg downmix of AC-3/EAC-3 audio to stereo.
+		Use FFmpeg downmix of AC-3/EAC-3 audio to stereo.
 
 	softhddevice-drm-gles.AudioSoftvol = 0
 		0 = off, use hardware volume control
