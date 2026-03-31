@@ -719,24 +719,25 @@ void cSoftHdAudio::Enqueue(uint16_t *buffer, int count, AVFrame *frame)
  * @param passthrough       passthrough enabled
  *
  * @retval 0                everything ok
- * @retval err              something gone wrong
+ * @retval -1               something gone wrong in AlsaSetup
+ * @retval 1                no parameter change, no setup needed
  */
 int cSoftHdAudio::Setup(AVCodecContext *ctx, int samplerate, int channels, int passthrough)
 {
 	int err = 0;
 
-	if (samplerate != (int)m_hwSampleRate ||
-	   (channels != (int)m_hwNumChannels && !(m_downmix && m_hwNumChannels == 2))) {
-
-		err = AlsaSetup(channels, samplerate, passthrough);
-		if (err) {
-			LOGERROR("audio: %s: failed!", __FUNCTION__);
-			return err;
-		}
-	}
 	m_pTimebase = &ctx->pkt_timebase;
 
-	return 0;
+	// skip setup, nothing changed
+	if (samplerate == (int)m_hwSampleRate &&
+	   (channels == (int)m_hwNumChannels || (m_downmix && m_hwNumChannels == 2)))
+		return 1;
+
+	err = AlsaSetup(channels, samplerate, passthrough);
+	if (err)
+		LOGERROR("audio: %s: failed!", __FUNCTION__);
+
+	return err;
 }
 
 /**
@@ -1670,7 +1671,6 @@ void cSoftHdAudio::AlsaSetVolume(int volume)
  * @param passthrough   use pass-through (AC-3, ...) device
  *
  * @retval 0            everything ok
- * @retval 1            didn't support hw channels, downmix set -> retest
  * @retval -1           something gone wrong
  *
  * @todo FIXME: remove pointer for freq + channels
