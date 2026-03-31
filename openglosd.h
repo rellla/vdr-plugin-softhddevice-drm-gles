@@ -379,7 +379,7 @@ public:
 class cOglCmdRenderFbToBufferFb : public cOglCmd
 {
 public:
-	cOglCmdRenderFbToBufferFb(cOglFb *fb, cOglFb *buffer, GLint x, GLint y, GLint transparency, GLint drawPortX, GLint drawPortY, GLint dirtyX, GLint dirtyTop, GLint dirtyWidth, GLint dirtyHeight, bool alphablending, cSoftHdDevice *device)
+	cOglCmdRenderFbToBufferFb(cOglFb *fb, cOglFb *buffer, GLint x, GLint y, GLint transparency, GLint drawPortX, GLint drawPortY, GLint dirtyX, GLint dirtyTop, GLint dirtyWidth, GLint dirtyHeight, bool alphablending)
 		: cOglCmd(fb),
 		  m_pBuffer(buffer),
 		  m_x((GLfloat)x),
@@ -392,8 +392,7 @@ public:
 		  m_dirtyTop(dirtyTop),
 		  m_dirtyWidth(dirtyWidth),
 		  m_dirtyHeight(dirtyHeight),
-		  m_alphablending(alphablending),
-		  m_pDevice(device) {};
+		  m_alphablending(alphablending) {};
 	virtual ~cOglCmdRenderFbToBufferFb(void) {};
 	virtual const char* Description(void) { return "Render Framebuffer to Buffer"; }
 	virtual bool Execute(void);
@@ -408,7 +407,6 @@ private:
 	GLint m_dirtyWidth;
 	GLint m_dirtyHeight;
 	bool m_alphablending;
-	cSoftHdDevice *m_pDevice;
 };
 
 class cOglCmdCopyBufferToOutputFb : public cOglCmd

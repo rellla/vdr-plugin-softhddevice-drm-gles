@@ -2482,8 +2482,7 @@ void cOglOsd::Flush(void)
 			                                                  m_pDirtyViewport.Top(),
 			                                                  m_pDirtyViewport.Width(),
 			                                                  m_pDirtyViewport.Height(),
-			                                                  alphablending,
-			                                                  m_pDevice));
+			                                                  alphablending));
 		}
 	}
 	// copy the private buffer to output framebuffer
