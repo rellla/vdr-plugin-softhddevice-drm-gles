@@ -309,15 +309,7 @@ int cAudioDecoder::DecodePassthrough(const AVPacket * avpkt, AVFrame *frame)
 int cAudioDecoder::UpdateFormat(void)
 {
 	int isPassthrough = 0;
-	int err;
-
-	LOGDEBUG2(L_SOUND, "audiocodec: %s: format change %s %dHz *%d channels%s%s%s%s%d", __FUNCTION__,
-		av_get_sample_fmt_name(m_pAudioCtx->sample_fmt), m_pAudioCtx->sample_rate, m_pAudioCtx->ch_layout.nb_channels,
-		m_passthroughMask & CODEC_AC3 ? " AC3" : "",
-		m_passthroughMask & CODEC_EAC3 ? " EAC3" : "",
-		m_passthroughMask & CODEC_DTS ? " DTS" : "",
-		m_passthroughMask ? " passthrough mask " : "",
-		m_passthroughMask ? m_passthroughMask : 0);
+	int err = 0;
 
 	m_currentSampleRate = m_pAudioCtx->sample_rate;
 	m_currentHwSampleRate = m_pAudioCtx->sample_rate;
@@ -339,20 +331,30 @@ int cAudioDecoder::UpdateFormat(void)
 		isPassthrough = 1;
 	}
 
-	if ((err = m_pAudio->Setup(m_pAudioCtx, m_currentHwSampleRate, m_currentHwNumChannels, isPassthrough))) {
+	if ((err = m_pAudio->Setup(m_pAudioCtx, m_currentHwSampleRate, m_currentHwNumChannels, isPassthrough)) < 0) {
 		// E-AC3 over HDMI: try without HBR
 		m_currentHwSampleRate /= 4;
 
 		if (m_pAudioCtx->codec_id != AV_CODEC_ID_EAC3 ||
-			(err = m_pAudio->Setup(m_pAudioCtx, m_currentHwSampleRate, m_currentHwNumChannels, isPassthrough))) {
-
+		  ((err = m_pAudio->Setup(m_pAudioCtx, m_currentHwSampleRate, m_currentHwNumChannels, isPassthrough)) < 0)) {
+			LOGERROR("audiocodec: %s: format change update error", __FUNCTION__);
 			m_currentHwSampleRate = 0;
 			m_currentHwNumChannels = 0;
-			LOGERROR("audiocodec: %s: format change update error", __FUNCTION__);
 			return err;
 		}
 	}
-	return 0;
+
+	if (!err) {
+		LOGDEBUG2(L_SOUND, "audiocodec: %s: format change %s %dHz *%d channels%s%s%s%s%d", __FUNCTION__,
+			av_get_sample_fmt_name(m_pAudioCtx->sample_fmt), m_pAudioCtx->sample_rate, m_pAudioCtx->ch_layout.nb_channels,
+			m_passthroughMask & CODEC_AC3 ? " AC3" : "",
+			m_passthroughMask & CODEC_EAC3 ? " EAC3" : "",
+			m_passthroughMask & CODEC_DTS ? " DTS" : "",
+			m_passthroughMask ? " passthrough mask " : "",
+			m_passthroughMask ? m_passthroughMask : 0);
+	}
+
+	return err;
 }
 
 /**
