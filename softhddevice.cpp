@@ -38,7 +38,7 @@ extern "C" {
 #include "pes.h"
 #include "pipreceiver.h"
 #include "softhddevice.h"
-#include "softhdosd.h"
+#include "softhdosdprovider.h"
 #include "videorender.h"
 #include "videostream.h"
 
