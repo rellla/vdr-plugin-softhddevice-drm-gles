@@ -43,13 +43,6 @@ extern "C" {
 #include "videostream.h"
 
 /**
- * Output Device Implementation
- *
- * @defgroup device Device
- * @{
- */
-
-/**
  * Create the device
  *
  * Initializes some member variables
@@ -1002,6 +995,8 @@ void cSoftHdDevice::SetScreenSize(int width, int height, double refreshRateHz)
  *
  * @param data        pointer to stream data
  * @param offset      print from here
+ *
+ * @ingroup device
  */
 static void PrintStreamData(const uchar *payload)
 {
@@ -1843,5 +1838,3 @@ void cSoftHdDevice::PipSetSize(void) { m_pPipHandler->SetSize(); };
 
 /** Enable HDR display mode */
 void cSoftHdDevice::SetEnableHdr(bool enable) { m_pRender->SetEnableHdr(enable); };
-
-/** @} */

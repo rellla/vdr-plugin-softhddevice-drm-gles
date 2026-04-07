@@ -31,13 +31,6 @@ extern "C" {
 //#define NUM_CAPTURE_BUFFERS 10
 //#define NUM_OUTPUT_BUFFERS 10
 
-/**
- * FFMpeg Video Decoder Frontend
- *
- * @defgroup videodecoder Video Decoder
- * @{
- */
-
 /********************************************************************************
  * Static functions
  *******************************************************************************/
@@ -51,6 +44,8 @@ extern "C" {
  *                      valid format, the formats are ordered by quality
  *
  * @return              the negotiated pixel format
+ *
+ * @ingroup videodecoder
  */
 static enum AVPixelFormat GetFormat(AVCodecContext * videoCtx,
                                     const enum AVPixelFormat *fmt)
@@ -80,6 +75,8 @@ static enum AVPixelFormat GetFormat(AVCodecContext * videoCtx,
  * @param codec    codec for which we should find a hw config
  *
  * @return         AVCodecHWConfig if found, NULL otherwise
+ *
+ * @ingroup videodecoder
  */
 static const AVCodecHWConfig *FindHWConfig(const AVCodec *codec)
 {
@@ -103,6 +100,8 @@ static const AVCodecHWConfig *FindHWConfig(const AVCodec *codec)
  * @param codecId                 video codec id
  *
  * @return                        AVCodec if found, NULL otherwise
+ *
+ * @ingroup videodecoder
  */
 static const AVCodec *FindHWDecoder(enum AVCodecID codecId)
 {
@@ -129,6 +128,8 @@ static const AVCodec *FindHWDecoder(enum AVCodecID codecId)
  * @param codecId                 video codec id
  *
  * @return                        AVCodec if found, NULL otherwise
+ *
+ * @ingroup videodecoder
  */
 static const AVCodec *FindSWDecoder(enum AVCodecID codecId)
 {
@@ -543,7 +544,7 @@ int cVideoDecoder::ReceiveFrame(AVFrame **frame)
  * @retval 0                      success
  * @retval -1                     reopen decoder failed
  *
- * @todo:
+ * @todo
  * This is just a temporary implementation
  * RPi's ffmpeg decoder is broken. In order to get the same result if
  * we want to flush the decoder, we need to close and reopen it.
@@ -594,5 +595,3 @@ bool cVideoDecoder::IsKeyFrame(AVFrame *frame)
 	return frame->flags & AV_FRAME_FLAG_KEY;
 #endif
 }
-
-/** @} */

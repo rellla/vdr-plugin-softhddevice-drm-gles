@@ -20,15 +20,12 @@ extern "C"
 }
 
 /**
- * @addtogroup misc
- * @{
- */
-
-/**
  * PES Packet Parser
  *
  * This class parses PES (Packetized Elementary Stream) packets
  * to extract header information, PTS, and payload data.
+ *
+ * @ingroup misc
  */
 class cPes {
 public:
@@ -60,6 +57,8 @@ protected:
  * Video PES Packet Parser
  *
  * Specialized parser for video PES packets with stream IDs in the range 0xE0-0xEF.
+ *
+ * @ingroup misc
  */
 class cPesVideo : public cPes {
 public:
@@ -73,6 +72,8 @@ private:
  *
  * Specialized parser for audio PES packets with stream IDs in the range 0xC0-0xCF,
  * or private stream ID 0xBD which may contain audio data.
+ *
+ * @ingroup misc
  */
 class cPesAudio : public cPes {
 public:
@@ -89,6 +90,8 @@ private:
  * Manages a byte buffer along with a map of PTS (Presentation Time Stamp) values
  * associated with specific positions in the buffer. This is used for maintaining
  * temporal information when reassembling fragmented streams.
+ *
+ * @ingroup misc
  */
 class cPtsTrackingBuffer {
 public:
@@ -111,6 +114,8 @@ private:
  *
  * Reassembles fragmented elementary streams into complete AVPackets.
  * Handles codec detection and PTS tracking across fragments.
+ *
+ * @ingroup misc
  */
 class cReassemblyBuffer {
 public:
@@ -133,6 +138,8 @@ protected:
  *
  * Reassembles video elementary streams (MPEG2, H.264, HEVC) by detecting
  * frame start codes and codec headers.
+ *
+ * @ingroup misc
  */
 class cReassemblyBufferVideo : public cReassemblyBuffer {
 public:
@@ -151,6 +158,8 @@ private:
 
 /**
  * Information about a detected audio sync word
+ *
+ * @ingroup misc
  */
 struct SyncWordInfo {
 	AVCodecID codecId;     ///< Detected codec ID
@@ -162,6 +171,8 @@ struct SyncWordInfo {
  *
  * Reassembles audio elementary streams by detecting sync words and validating
  * frame headers. Supports MP2, AAC (LATM/ADTS), AC3, and E-AC3 codecs.
+ *
+ * @ingroup misc
  */
 class cReassemblyBufferAudio : public cReassemblyBuffer {
 public:
@@ -176,7 +187,5 @@ private:
 	static constexpr int MAX_HEADER_SIZE = 6;
 	bool m_ptsInvalid = false;   ///< flag indicating if PTS is invalid for current buffer, because it was truncated
 };
-
-/** @} */
 
 #endif

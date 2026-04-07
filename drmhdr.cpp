@@ -24,11 +24,7 @@ extern "C" {
 #include "logger.h"
 #include "videorender.h"
 
-/**
- * @addtogroup drm
- * @{
- */
-
+/** @ingroup drm */
 enum hdrMetadataEotf {
 	EOTF_TRADITIONAL_GAMMA_SDR,
 	EOTF_TRADITIONAL_GAMMA_HDR,
@@ -36,10 +32,12 @@ enum hdrMetadataEotf {
 	EOTF_HLG,
 };
 
+/** @ingroup drm */
 enum metadataId {
 	METADATA_TYPE1,
 };
 
+/** @ingroup drm */
 static inline uint16_t EncodeXYY(float xyy)
 {
 	return static_cast<uint16_t>(xyy * 50000.0f + 0.5f);
@@ -186,5 +184,3 @@ int cHdrMetadata::Build(struct hdr_output_metadata *data, int colorPrimaries, in
 
 	return 0;
 }
-
-/** @} */

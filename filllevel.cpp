@@ -13,11 +13,6 @@
 #include "logger.h"
 
 /**
- * @addtogroup misc
- * @{
- */
-
-/**
  * Resets the filter state.
  */
 void cBufferFillLevelLowPassFilter::Reset(void)
@@ -95,5 +90,3 @@ const char* cBufferFillLevelLowPassFilter::StateToString(State state)
 	}
 	return "Unknown";
 }
-
-/** @} */

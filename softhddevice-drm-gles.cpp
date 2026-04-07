@@ -28,9 +28,7 @@
 #include "softhdsetupmenu.h"
 
 /**
- * Main Plugin Interface
- *
- * @defgroup plugin Main Plugin
+ * @addtogroup plugin
  * @{
  */
 
@@ -47,7 +45,9 @@ static const char *const DESCRIPTION = trNOOP("A software and GPU emulated HD de
 static const char *const MAINMENUENTRY = trNOOP("Softhddevice");
                                                ///< what is displayed in the main menu entry
 
-cSoftHdMenu *cSoftHdMenu::pSoftHdMenu = NULL;
+cSoftHdMenu *cSoftHdMenu::pSoftHdMenu = NULL;  ///< Main Menu Instance
+
+/** @} */
 
 /*****************************************************************************
  * cPluginSoftHdDevice
@@ -227,6 +227,8 @@ bool cPluginSoftHdDevice::Service(const char *id, void *data)
 
 /**
  * SVDRP commands help text
+ *
+ * @ingroup plugin
  */
 static const char *SVDRPHelpText[] = {
 	"PLAY Url\n" "    Play the media from the given url.\n",
@@ -373,7 +375,5 @@ cString cPluginSoftHdDevice::SVDRPCommand(const char *command, const char *optio
 
 	return NULL;
 }
-
-/** @} */
 
 VDRPLUGINCREATOR(cPluginSoftHdDevice);	// Don't touch this!

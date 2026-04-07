@@ -34,12 +34,15 @@ class cVideoDecoder;
 class cVideoRender;
 
 /**
- * @addtogroup video
- * @{
+ * Video Input Stream
+ *
+ * @defgroup video Video Input Stream
  */
 
 /**
  * Hardware quirks, that are set depending on the hardware used
+ *
+ * @ingroup video
  */
 enum HardwareQuirks {
 	QUIRK_NO_HW_DEINT             = 1 << 0,     ///< set, if no hw deinterlacer available
@@ -53,6 +56,8 @@ enum HardwareQuirks {
 
 /**
  * Video Input Stream
+ *
+ * @ingroup video
  */
 class cVideoStream : public cThread {
 public:
@@ -156,6 +161,8 @@ private:
 
 /**
  * Main Video Stream
+ *
+ * @ingroup video
  */
 class cMainVideoStream : public cVideoStream {
 public:
@@ -165,6 +172,8 @@ public:
 
 /**
  * PiP Video Stream
+ *
+ * @ingroup video
  */
 class cPipVideoStream : public cVideoStream {
 public:
@@ -172,7 +181,5 @@ public:
 		: cVideoStream(render, buf, config, true, fn) {};
 	void SetDeinterlacerDeactivated(bool) override {}; // deinterlacing is permanently disabled
 };
-
-/** @} */
 
 #endif

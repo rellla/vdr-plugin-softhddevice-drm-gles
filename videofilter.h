@@ -29,12 +29,14 @@ class cDrmBuffer;
 class cVideoRender;
 
 /**
- * @addtogroup filter
- * @{
+ * Deinterlace and Scaling Filters
+ * @defgroup filter Video filters
  */
 
 /**
  * Video Filter
+ *
+ * @ingroup filter
  */
 class cVideoFilter : public cThread {
 public:
@@ -61,7 +63,5 @@ private:
 	void Action(void);
 	void SetFilterOutputPixFormat(AVPixelFormat);
 };
-
-/** @} */
 
 #endif

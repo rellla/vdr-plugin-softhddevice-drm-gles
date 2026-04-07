@@ -39,13 +39,6 @@
 #include "videorender.h"
 
 /**
- * DRM Display Interface
- *
- * @defgroup drm DRM Module
- * @{
- */
-
-/**
  * Create a drm device
  *
  * @param render         pointer to cVideoRender object
@@ -63,6 +56,7 @@ cDrmDevice::~cDrmDevice(void)
 	LOGDEBUG2(L_DRM, "drmdevice: %s", __FUNCTION__);
 }
 
+/** @ingroup drm */
 static int get_resources(int fd, drmModeRes **resources)
 {
 	*resources = drmModeGetResources(fd);
@@ -104,14 +98,17 @@ static int TestCaps(int fd)
 	return 0;
 }
 
-#define MAX_DRM_DEVICES 64
 /**
  * Find and open a suitable device with the wanted capabilities
  *
  * @return          the file descriptor of the opened device
+ *
+ * @ingroup drm
  */
 static int FindDrmDevice(drmModeRes **resources)
 {
+	int MAX_DRM_DEVICES = 64;
+
 	drmDevicePtr devices[MAX_DRM_DEVICES] = { NULL };
 	int num_devices, fd = -1;
 
@@ -153,6 +150,8 @@ static int FindDrmDevice(drmModeRes **resources)
 
 /**
  * Find a suitable connector, preferably a connected one
+ *
+ * @ingroup drm
  */
 static drmModeConnector *FindDrmConnector(int fd, drmModeRes *resources)
 {
@@ -613,6 +612,7 @@ int cDrmDevice::InitGbm(int w, int h, uint32_t format, uint64_t modifier)
 PFNEGLGETPLATFORMDISPLAYEXTPROC get_platform_display = NULL;
 PFNEGLCREATEPLATFORMWINDOWSURFACEEXTPROC get_platform_surface = NULL;
 
+/** @ingroup drm */
 static const EGLint context_attribute_list[] =
 {
 	EGL_CONTEXT_CLIENT_VERSION, 2,
@@ -621,6 +621,8 @@ static const EGLint context_attribute_list[] =
 
 /**
  * Get a suitable EGLConfig
+ *
+ * @ingroup drm
  */
 EGLConfig cDrmDevice::GetEGLConfig(void)
 {
@@ -732,6 +734,8 @@ int cDrmDevice::InitEGL(void)
 
 /**
  * Callback function to destroy a drm buffer which stays in the gbm_bo's user data
+ *
+ * @ingroup drm
  */
 static void drm_fb_destroy_callback(struct gbm_bo *bo, void *data)
 {
@@ -856,6 +860,8 @@ cDrmBuffer *cDrmDevice::GetBufFromBo(struct gbm_bo *bo)
  * @param encoder         drm encoder
  *
  * @return                CRTC_ID
+ *
+ * @ingroup drm
  */
 static int32_t FindCrtcForEncoder(const drmModeRes *resources, const drmModeEncoder *encoder)
 {
@@ -1180,5 +1186,3 @@ int cDrmDevice::DestroyHdrBlob(uint32_t blobID)
 {
 	return drmModeDestroyPropertyBlob(m_fdDrm, blobID);
 }
-
-/** @} */

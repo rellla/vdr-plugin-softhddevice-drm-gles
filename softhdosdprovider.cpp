@@ -24,13 +24,6 @@
 #include "softhdosd.h"
 #include "softhdosdprovider.h"
 
-/**
- * OSD Provider
- *
- * @addtogroup osd
- * @{
- */
-
 /*****************************************************************************
  * OSD provider
  ****************************************************************************/
@@ -214,5 +207,3 @@ void cSoftOsdProvider::DropImageData(int imgHandle)
 		m_pOglThread->DropImageData(imgHandle);
 }
 #endif
-
-/** @} */

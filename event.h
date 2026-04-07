@@ -13,11 +13,13 @@
 #include <variant>
 #include <vdr/tools.h>
 
-/**
+/********************************************************************************
  * Event Handler
  *
  * Controls the state machine.
- *
+ *******************************************************************************/
+
+/**
  * @addtogroup misc
  * @{
  */
@@ -79,14 +81,16 @@ using Event = std::variant<
 	ResyncEvent
 >;
 
+/** @} */
+
 /**
  * Event Receiver
+ *
+ * @ingroup misc
  */
 class IEventReceiver {
 public:
 	virtual void OnEventReceived(const Event&) = 0;
 };
-
-/** @} */
 
 #endif

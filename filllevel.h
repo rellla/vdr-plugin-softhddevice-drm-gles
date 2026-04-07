@@ -13,12 +13,9 @@
 #include <mutex>
 
 /**
- * @addtogroup misc
- * @{
- */
-
-/**
  * Fill Level Low Pass Filter
+ *
+ * @ingroup misc
  */
 class cBufferFillLevelLowPassFilter {
 public:
@@ -56,7 +53,5 @@ private:
 
 	const char* StateToString(State d);
 };
-
-/** @} */
 
 #endif

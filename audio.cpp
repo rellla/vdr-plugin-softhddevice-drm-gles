@@ -14,17 +14,6 @@
  * @license{AGPL-3.0-or-later}
  */
 
-/**
- * Audio and Alsa Interface
- *
- * @addtogroup audio Audio Module
- * @{
- *
- * This file defines cSoftHdAudio, which holds all functions
- * we need to deal with audio, e.g.handling the audio stream
- * and sending it to hardware.
- */
-
 #include <chrono>
 #include <cmath>
 #include <cstdint>
@@ -81,7 +70,7 @@ cSoftHdAudio::cSoftHdAudio(cSoftHdDevice *device)
  * Audio filter and manipulation
  *****************************************************************************/
 
- /**
+/**
  * Reorder audio frame
  *
  * ffmpeg L  R  C   Ls Rs           -> alsa L R  Ls Rs C
@@ -91,6 +80,10 @@ cSoftHdAudio::cSoftHdAudio(cSoftHdDevice *device)
  * @param buf[IN,OUT]   sample buffer
  * @param size          size of sample buffer in bytes
  * @param channels      number of channels interleaved in sample buffer
+ *
+ * @ingroup audio
+ *
+ * @todo Do we really need to reorder anything??
  */
 static void ReorderAudioFrame(uint16_t * buf, int size, int channels)
 {
@@ -1783,6 +1776,8 @@ int cSoftHdAudio::AlsaSetup(int channels, int sample_rate, int passthrough)
 
 /**
  * Empty log callback
+ *
+ * @ingroup audio
  */
 static void AlsaNoopCallback( __attribute__ ((unused))
 	const char *file, __attribute__ ((unused))
@@ -1868,5 +1863,3 @@ void cSoftHdAudio::ClockDriftCompensation(void)
 	else
 		m_fillLevel.UpdateAvgBufferFillLevel(hardwareBufferFillLevelFrames);
 }
-
-/** @} */

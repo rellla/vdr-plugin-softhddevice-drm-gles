@@ -31,13 +31,6 @@ extern "C" {
 
 #include "logger.h"
 
-/**
- * Miscellaneous Helper Functions
- *
- * @defgroup misc Miscellaneous
- * @{
- */
-
 /*****************************************************************************
  * cSoftHdLogger class
  ****************************************************************************/
@@ -250,5 +243,3 @@ void cSoftHdLogger::LogFFmpegCallback([[maybe_unused]] void *ptr, [[maybe_unused
 	if (auto logger = GetLogger())
 		logger->LogFFmpeg(fmt, vl);
 }
-
-/** @} */

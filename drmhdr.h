@@ -99,8 +99,12 @@ static inline struct colorspace *colorspace_lookup(const char *name)
     return NULL;
 }
 
+/** @} */
+
 /**
  * HDR Metadata
+ *
+ * @ingroup drm
  */
 class cHdrMetadata {
 public:
@@ -117,7 +121,5 @@ private:
 	AVContentLightMetadata m_clMetadata = { };     ///< saved content light metadata fron AVFrame sidedata
 	struct colorspace m_hdr10;                     ///< hdr colorspace
 };
-
-/** @} */
 
 #endif

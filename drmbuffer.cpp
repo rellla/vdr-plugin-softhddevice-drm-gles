@@ -31,11 +31,6 @@ extern "C" {
 #include "logger.h"
 #include "pool.h"
 
-/**
- * @addtogroup drm
- * @{
- */
-
 /*****************************************************************************
  * Drm Buffer
  ****************************************************************************/
@@ -479,5 +474,3 @@ void cDrmBufferPool::DestroyAllExcept(cDrmBuffer *exceptBuf)
 		}
 	}
 }
-
-/** @} */

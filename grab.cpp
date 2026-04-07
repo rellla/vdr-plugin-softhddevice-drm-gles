@@ -280,6 +280,17 @@ static int BlitVideo(uint8_t *dst, uint8_t *src, int dstW, int dstH, int dstX, i
 	return 0;
 }
 
+/**
+ * Call rgb to jpeg for C Plugin
+ */
+extern "C" uint8_t * CreateJpeg(uint8_t * image, int *size, int quality,
+	int width, int height)
+{
+	return (uint8_t *) RgbToJpeg((uchar *) image, width, height, *size, quality);
+}
+
+/** @} */
+
 /*****************************************************************************
  * cGrabBuffer class
  ****************************************************************************/
@@ -423,15 +434,6 @@ uint8_t *cSoftHdGrab::GetGrab(int *size, int *width, int *height, int *x, int *y
 }
 
 /**
- * Call rgb to jpeg for C Plugin
- */
-extern "C" uint8_t * CreateJpeg(uint8_t * image, int *size, int quality,
-	int width, int height)
-{
-	return (uint8_t *) RgbToJpeg((uchar *) image, width, height, *size, quality);
-}
-
-/**
  * Start the conversion
  *
  * This does the following:
@@ -544,5 +546,3 @@ bool cSoftHdGrab::ProcessGrab(void)
 
 	return true;
 }
-
-/** @} */

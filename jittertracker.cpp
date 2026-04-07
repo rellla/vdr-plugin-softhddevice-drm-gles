@@ -14,11 +14,6 @@
 #include "logger.h"
 
 /**
- * @addtogroup misc
- * @{
- */
-
-/**
  * Called each time a packet is received.
  *
  * Calculates the diff in PTS to the last received packet and compares that
@@ -79,5 +74,3 @@ void cJitterTracker::Reset(void)
 	m_firstPacket = true;
 	m_secondPacket = true;
 }
-
-/** @} */

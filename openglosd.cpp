@@ -41,13 +41,6 @@
 #include "softhddevice.h"
 #include "videorender.h"
 
-/**
- * OpenGL OSD
- *
- * @addtogroup osd OSD
- * @{
- */
-
 // This maybe useful for skin developing and marks the rects of the single draws
 #ifdef GRIDPOINTS
 #define GRIDPOINTSTEXT      1
@@ -60,9 +53,13 @@
 #define GRIDPOINTCLR        0xFFFF0000
 #endif
 
-/****************************************************************************************
- * Helpers
- ***************************************************************************************/
+/**
+ * OpenGL Color Conversion Helper
+ *
+ * Translates color from ARGB value to glm::vec4
+ *
+ * @ingroup osd
+ */
 static void ConvertColor(const GLint &colARGB, glm::vec4 &col) {
 	col.a = ((colARGB & 0xFF000000) >> 24) / 255.0;
 	col.r = ((colARGB & 0x00FF0000) >> 16) / 255.0;
@@ -70,11 +67,23 @@ static void ConvertColor(const GLint &colARGB, glm::vec4 &col) {
 	col.b = ((colARGB & 0x000000FF)      ) / 255.0;
 }
 
+/**
+ * OpenGL Shaders Array
+ *
+ * @ingroup osd
+ */
+static cOglShader *Shaders[stCount];
+
+/**
+ * OpenGL Vertex Buffers Array
+ *
+ * @ingroup osd
+ */
+static cOglVb *VertexBuffers[vbCount];
+
 /****************************************************************************************
  * cOglShader
  ***************************************************************************************/
-static cOglShader *Shaders[stCount];
-
 void cOglShader::Use(void)
 {
 	GL_CHECK(glUseProgram(m_id));
@@ -726,7 +735,6 @@ void cOglOutputFb::Unbind(void)
 /****************************************************************************************
  * cOglVb
  ***************************************************************************************/
-static cOglVb *VertexBuffers[vbCount];
 
 bool cOglVb::Init(void)
 {
@@ -2543,5 +2551,3 @@ void cOglOsd::DrawScaledBitmap(int x, int y, const cBitmap &Bitmap, double Facto
 
 	m_pOglPixmaps[0]->DrawBitmap(cPoint(xNew, yNew), *b);
 }
-
-/** @} */

@@ -21,12 +21,9 @@ class cSoftHdConfig;
 class cSoftHdDevice;
 
 /**
- * @addtogroup menu
- * @{
- */
-
-/**
  * Plugin Setup Menu
+ *
+ * @ingroup menu
  */
 class cMenuSetupSoft : public cMenuSetupPage {
 public:
@@ -122,7 +119,5 @@ private:
 protected:
 	virtual void Store(void);
 };
-
-/** @} */
 
 #endif

@@ -11,8 +11,10 @@
  */
 
 /**
- * @addtogroup audio
- * @{
+ * Audio and Alsa Interface
+ * @defgroup audio Audio Module
+ *
+ * Handles the audio stream and ALSA interface
  */
 
 #ifndef __AUDIO_H
@@ -42,6 +44,8 @@ class cSoftHdDevice;
 
 /**
  * Audio Interface
+ *
+ * @ingroup audio
  */
 class cSoftHdAudio : public cThread {
 public:
@@ -209,7 +213,5 @@ private:
 	int FramesToMs(int frames) { return (int64_t)frames * 1000 / m_hwSampleRate; }
 	double FramesToMsDouble(int frames) { return (double)frames * 1000 / m_hwSampleRate; }
 };
-
-/** @} */
 
 #endif

@@ -22,14 +22,16 @@ extern "C" {
 class cSoftHdAudio;
 
 /**
- * @addtogroup audiodecoder
- * @{
+ * @defgroup audiodecoder Audio Decoder
+ * FFmpeg Based Audio Decoder Frontend
  */
 
 /**
  * Bits used for the passthrough mask
  *
  * 0x01 and 0x02 are kept unused for compatibility with an existing setup.conf
+ *
+ * @ingroup audiodecoder
  */
 enum PassthroughMask {
 	CODEC_AC3  = (1 << 2), ///< AC-3 bit mask
@@ -39,6 +41,8 @@ enum PassthroughMask {
 
 /**
  * IEC Data type
+ *
+ * @ingroup audiodecoder
  */
 enum IEC61937Type {
 	IEC61937_NULL   = 0x00, ///< no data
@@ -53,6 +57,8 @@ enum IEC61937Type {
 
 /**
  * IEC Preambles
+ *
+ * @ingroup audiodecoder
  */
 enum IEC61937Preamble {
 	IEC61937_PREAMBLE1  = 0xF872,
@@ -63,6 +69,8 @@ enum IEC61937Preamble {
 
 /**
  * Codec frame sizes for spdif
+ *
+ * @ingroup audiodecoder
  */
 enum CodecFrameSizes {
 	DTS1_FRAME_SIZE   = 512,
@@ -77,6 +85,16 @@ enum CodecFrameSizes {
 
 /**
  * Audio Decoder
+ *
+ * FFmpeg Based Audio Decoder Frontend
+ *
+ * Handles:
+ * - Audio packet decoding using FFmpeg
+ * - SPDIF passthrough
+ * - Format changes
+ * - Audio frame delivery to cSoftHdAudio
+ *
+ * @ingroup audiodecoder
  */
 class cAudioDecoder {
 public:
@@ -109,7 +127,5 @@ private:
 	int UpdateFormat(void);
 	void ResetSpdif(void);
 };
-
-/** @} */
 
 #endif

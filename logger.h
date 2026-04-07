@@ -17,6 +17,11 @@
 #include <memory>
 
 /**
+ * Miscellaneous Helper Functions
+ * @defgroup misc Miscellaneous
+ */
+
+/**
  * @addtogroup misc
  * @{
  */
@@ -65,10 +70,14 @@ enum LogFlags {
 	L_FFMPEG          = (1 << 14), ///< ffmpeg logs
 };
 
+/** @} */
+
 /**
  * Logger
  *
  * Plugin specific logging implementation which does not depend on VDR loglevels
+ *
+ * @ingroup misc
  */
 class cSoftHdLogger {
 public:
@@ -92,7 +101,5 @@ private:
 
 	std::atomic<int> m_logLevel = 0; ///< loglevel mask (see enum LogFlags)
 };
-
-/** @} */
 
 #endif

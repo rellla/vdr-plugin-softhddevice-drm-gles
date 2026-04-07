@@ -39,12 +39,16 @@ inline const char* GrabtypeToString(Grabtype t) {
     return "Unknown";
 }
 
+/** @} */
+
 /**
  * Grabbing Buffer
  *
  * Holds the data for a grabbed buffer.
  * The grab is triggered by VDR/ cSoftHdDevice, data is set by the renderer
  * and composed by cSoftHdDevice again.
+ *
+ * @ingroup misc
  */
 class cGrabBuffer {
 public:
@@ -75,6 +79,8 @@ private:
  * Grabbing Processor
  *
  * Handles the grabbing workflow from triggering the grab to returning the result
+ *
+ * @ingroup misc
  */
 class cSoftHdGrab {
 public:
@@ -101,7 +107,5 @@ private:
 	bool ProcessGrab(void);
 	uint8_t *GetGrab(int *, int *, int *, int *, int *, Grabtype);
 };
-
-/** @} */
 
 #endif

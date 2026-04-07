@@ -23,15 +23,6 @@
 #include "softhdmenu.h"
 
 /**
- * Plugin Menus
- *
- * Main Menu
- *
- * @defgroup menu Menus
- * @{
- */
-
-/**
  * Build main or playlist menu
  */
 cSoftHdMenu::cSoftHdMenu(const char *title, cSoftHdDevice *device,
@@ -59,6 +50,8 @@ cSoftHdMenu::~cSoftHdMenu()
  * Create a seperator item
  *
  * @param label       text inside separator
+ *
+ * @ingroup menu
  */
 static inline cOsdItem *SeparatorName(const char *label)
 {
@@ -69,6 +62,8 @@ static inline cOsdItem *SeparatorName(const char *label)
  * Create a seperator item
  *
  * @param label       text inside separator
+ *
+ * @ingroup menu
  */
 static inline cOsdItem *SeparatorSpace(void)
 {
@@ -113,6 +108,11 @@ void cSoftHdMenu::MainMenu(void)
 	Display();
 }
 
+/**
+ * Hotkeys
+ *
+ * @ingroup menu
+ */
 enum Hotkeys {
 	PIPKEYBASE = 100,
 	PIPTOGGLEONOFF,
@@ -520,5 +520,3 @@ bool cSoftHdMenu::IsValidMediaFile(const char *name)
 
 	return false;
 }
-
-/** @} */

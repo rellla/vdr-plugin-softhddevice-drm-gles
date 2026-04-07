@@ -21,10 +21,10 @@ extern "C" {
 }
 
 /**
- * @addtogroup misc
- * @{
+ * H.264 Nal unit types
+ *
+ * @ingroup misc
  */
-
 typedef enum {
 	NALU_TYPE_NON_IDR = (1 << 0),
 	NALU_TYPE_PART_A  = (1 << 1),
@@ -39,6 +39,8 @@ typedef enum {
 
 /**
  * H.264 Parser
+ *
+ * @ingroup misc
  */
 class cH264Parser {
 private:
@@ -125,7 +127,5 @@ private:
 	int GetSliceOffset(void);
 	void ConvertEBSPtoRBSP(const uint8_t *, int);
 };
-
-/** @} */
 
 #endif

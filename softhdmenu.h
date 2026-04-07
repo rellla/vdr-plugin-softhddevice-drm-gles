@@ -20,10 +20,15 @@
 class cSoftHdDevice;
 
 /**
- * @addtogroup menu
- * @{
+ * Plugin Menus
+ * @defgroup menu Menus
  */
 
+/**
+ * Hotkey States
+ *
+ * @ingroup menu
+ */
 typedef enum {
 	Initial,
 	Blue,
@@ -32,6 +37,8 @@ typedef enum {
 
 /**
  * Plugin Main Menu
+ *
+ * @ingroup menu
  */
 class cSoftHdMenu : public cOsdMenu {
 public:
@@ -61,7 +68,5 @@ private:
 	std::string m_lastItem;
 	std::string m_playlist;
 };
-
-/** @} */
 
 #endif

@@ -19,12 +19,14 @@
 class cSoftHdDevice;
 
 /**
- * @addtogroup osd
- * @{
+ * OSD Rendering Interface
+ * @defgroup osd OSD
  */
 
 /**
- * Software Based OSD
+ * Software Based OSD (CPU)
+ *
+ * @ingroup osd
  */
 class cSoftOsd:public cOsd {
 public:
@@ -40,7 +42,5 @@ private:
 	bool m_dirty = false;            ///< flag to force redrawing everything
 	int m_osdLevel;                  ///< current osd level
 };
-
-/** @} */
 
 #endif

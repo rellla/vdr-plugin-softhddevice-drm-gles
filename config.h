@@ -18,13 +18,13 @@
 
 /**
  * Plugin Configuration
- *
- * @addtogroup config
- * @{
+ * @defgroup config Plugin Configuration
  */
 
 /**
  * Plugin Configuration
+ *
+ * @ingroup config
  */
 class cSoftHdConfig {
 public:
@@ -101,7 +101,5 @@ private:
 	int m_decoderNeedsMaxPackets = 0;
 	std::mutex m_mutex;
 };
-
-/** @} */
 
 #endif

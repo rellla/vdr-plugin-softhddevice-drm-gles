@@ -10,16 +10,13 @@
 #ifndef PID_CONTROLLER_H
 #define PID_CONTROLLER_H
 
-/**
- * @addtogroup audio
- * @{
- */
-
 // Comment this in to transmit PID controller data for tuning/visualization. See DEVELOPER/README.md for instructions.
 // #define PID_CONTROLLER_TUNING_AID_ADDRESS "192.168.2.22"
 
 /**
  * PID Controller
+ *
+ * @ingroup audio
  */
 class cPidController {
 public:
@@ -53,7 +50,5 @@ private:
 	void SendTuningAidData(double, double, double, double, double, double);
 #endif
 };
-
-/** @} */
 
 #endif

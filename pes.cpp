@@ -191,6 +191,9 @@ static const std::map<AVCodecID, CodecInfo> AudioCodecMap = {
 	}}
 };
 
+
+/** @} */
+
 /**
  * Create a PES packet parser
  *
@@ -708,5 +711,3 @@ int64_t cPtsTrackingBuffer::GetPts(void)
 
 	return m_pts.begin()->second;
 }
-
-/** @} */

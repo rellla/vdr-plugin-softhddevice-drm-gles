@@ -25,11 +25,6 @@
 #include "logger.h"
 
 /**
- * @addtogroup drm
- * @{
- */
-
-/**
  * Fill the plane properties
  *
  * This "caches" the properties within the class
@@ -223,5 +218,3 @@ void cDrmPlane::DumpParameters(const char *id)
 	LOGERROR("  SRC H  : %" PRIu64 "",          GetSrcH());
 	LOGERROR("  ZPOS   : %" PRIu64 "",          GetZpos());
 }
-
-/** @} */

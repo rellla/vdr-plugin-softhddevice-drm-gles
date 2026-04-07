@@ -21,11 +21,6 @@
 #endif
 
 /**
- * @addtogroup audio
- * @{
- */
-
-/**
  * Create a PID Controller.
  *
  * @param kp            Proportional gain
@@ -143,5 +138,3 @@ void cPidController::SendTuningAidData(double pTerm, double iTerm, double dTerm,
 	sendto(sock, payload, len, 0, (struct sockaddr*)&dest_addr, sizeof(dest_addr));
 }
 #endif
-
-/** @} */

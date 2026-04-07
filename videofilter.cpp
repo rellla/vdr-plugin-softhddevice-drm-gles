@@ -26,12 +26,13 @@ extern "C" {
 #include "videorender.h"
 
 /**
- * Deinterlace and Scaling Filters
+ * Initiate Filter
  *
- * @defgroup filter Video filters
- * @{
+ * @param videoRender     renderer
+ * @param drmBufferQueue  drm buffer queue
+ * @param name            stream name
+ * @param frameOutput     frame output function
  */
-
 cVideoFilter::cVideoFilter(cVideoRender *videoRender, cQueue<cDrmBuffer> *drmBufferQueue, const char *name, std::function<void(AVFrame *)> frameOutput)
 	: cThread(name),
 	  m_pRender(videoRender),
@@ -284,5 +285,3 @@ void cVideoFilter::Stop(void)
 
 	avfilter_graph_free(&m_pFilterGraph);
 }
-
-/** @} */

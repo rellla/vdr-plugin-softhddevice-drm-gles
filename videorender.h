@@ -52,8 +52,13 @@ class cSoftHdConfig;
 class cSoftHdAudio;
 
 /**
+ * Video Renderer
+ *
+ * @defgroup render Video Renderer
+ */
+
+/**
  * @addtogroup render
- * @{
  */
 
 #define AV_SYNC_THRESHOLD_AUDIO_BEHIND_VIDEO_MS 35 ///< threshold in ms, when to duplicate video frames to keep audio and video in sync
@@ -74,8 +79,12 @@ enum drmColorRange {
 	COLORRANGE_FULL = 1
 };
 
+/** @} */
+
 /**
  * DRM Buffer Getting-Strategy
+ *
+ * @ingroup render
  */
 class cBufferStrategy {
 public:
@@ -85,6 +94,8 @@ public:
 
 /**
  * DRM Buffer: Get a Buffer to Use Once
+ *
+ * @ingroup render
  */
 class cBufferStrategyUseOnce : public cBufferStrategy {
 public:
@@ -93,6 +104,8 @@ public:
 
 /**
  * DRM Buffer: Get a Hardware Buffer to Reuse
+ *
+ * @ingroup render
  */
 class cBufferStrategyReuseHardware : public cBufferStrategy {
 public:
@@ -101,6 +114,8 @@ public:
 
 /**
  * DRM Buffer: Get a Software Buffer to Reuse
+ *
+ * @ingroup render
  */
 class cBufferStrategyReuseSoftware : public cBufferStrategy {
 public:
@@ -109,6 +124,8 @@ public:
 
 /**
  * Strategy to Prepare DRM Buffer for Decoding
+ *
+ * @ingroup render
  */
 class cDecodingStrategy {
 public:
@@ -118,6 +135,8 @@ public:
 
 /**
  * Prepare DRM Buffer for Software Decoding
+ *
+ * @ingroup render
  */
 class cDecodingStrategySoftware : public cDecodingStrategy {
 public:
@@ -126,6 +145,8 @@ public:
 
 /**
  * Prepare DRM Buffer for Hardware Decoding
+ *
+ * @ingroup render
  */
 class cDecodingStrategyHardware : public cDecodingStrategy {
 public:
@@ -136,6 +157,8 @@ public:
  * Video Renderer
  *
  * This part is responsible to put all the parts together and display them on the screen
+ *
+ * @ingroup render
  */
 class cVideoRender : public cThread {
 public:
@@ -312,7 +335,5 @@ private:
 	void SetColorSpace(drmColorRange);
 	void RestoreColorSpace();
 };
-
-/** @} */
 
 #endif
