@@ -27,13 +27,6 @@ extern "C" {
 #include "misc.h"
 
 /**
- * FFMpeg Audio Decoder Frontend
- *
- * @defgroup audiodecoder Audio Decoder
- * @{
- */
-
-/**
  * Create a new audio decoder for the given audio context
  *
  * @param audio    audio context
@@ -430,6 +423,9 @@ void cAudioDecoder::FlushBuffers(void)
 	ResetSpdif();
 }
 
+/**
+ * Rest the internal SPDIF burst buffer
+ */
 void cAudioDecoder::ResetSpdif(void)
 {
 	m_spdifIndex = 0;
@@ -446,5 +442,3 @@ void cAudioDecoder::SetPassthroughMask(int mask)
 	LOGDEBUG2(L_CODEC, "audiocodec: %s: %d", __FUNCTION__, mask);
 	m_passthroughMask = mask & (CODEC_AC3 | CODEC_EAC3 | CODEC_DTS);
 }
-
-/** @} */

@@ -32,8 +32,12 @@ typedef volatile int atomic_t;  ///< atomic type, 24 bit useable
 #define atomic_add(val, ptr) __atomic_add_fetch(ptr, val, __ATOMIC_SEQ_CST)
 #define atomic_sub(val, ptr) __atomic_sub_fetch(ptr, val, __ATOMIC_SEQ_CST)
 
+/** @} */
+
 /**
  * Ringbuffer (FIFO) Implementation
+ *
+ * @ingroup audio
  */
 class cSoftHdRingbuffer {
 public:
@@ -59,7 +63,5 @@ private:
 	// The only thing modified by both
 	atomic_t m_filled;            ///< how many of the buffer is used
 };
-
-/** @} */
 
 #endif

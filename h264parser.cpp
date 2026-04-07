@@ -27,14 +27,7 @@ extern "C" {
 #include "misc.h"
 
 /**
- * H.264 Parser
- *
- * @addtogroup misc
- * @{
- */
-
-/**
- * Check for a 0x000001 or 0x00000001 start code
+ * H.264 Parser Helper to check for a 0x000001 or 0x00000001 start code
  *
  * @param[in] data               pointer to the data stream
  * @param[in] offset             start parsing at offset
@@ -43,6 +36,8 @@ extern "C" {
  *
  * @retval true     if a valid start code was detected
  * @retval false    no valid startcode was detected
+ *
+ * @ingroup misc
  */
 bool isValidStartCode(const uint8_t *data, int offset, int size, int &startCodeLength)
 {
@@ -60,18 +55,24 @@ bool isValidStartCode(const uint8_t *data, int offset, int size, int &startCodeL
 }
 
 /**
- * Return the nal unit type
+ * H.264 Parser Helper to get the nal unit type
  *
  * @param data               pointer to the data stream
  * @param offset             start parsing at offset
  * @param startCodeLength    start code length (3 or 4)
  *
  * @return the nal unit type
+ *
+ * @ingroup misc
  */
 static int NalUnitType(const uint8_t *data, int offset, int startCodeLength)
 {
 	return data[offset + startCodeLength] & 0x1F;
 }
+
+/********************************************************************************
+ * H.264 Parser
+ *******************************************************************************/
 
 /**
  * Get the SPS offset
@@ -741,5 +742,3 @@ void cH264Parser::ConvertEBSPtoRBSP(const uint8_t *src, int length)
 			zeroCount = 0;
 	}
 }
-
-/** @} */

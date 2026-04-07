@@ -19,12 +19,14 @@
 class cSoftHdDevice;
 
 /**
- * @addtogroup pip
- * @{
+ * Picture-in-Picture
+ * @defgroup pip PiP Handler
  */
 
 /**
  * Receiver for PiP Stream
+ *
+ * @ingroup pip
  */
 class cPipReceiver : public cReceiver {
 public:
@@ -47,6 +49,8 @@ private:
 
 /**
  * PiP Stream Handler
+ *
+ * @ingroup pip
  */
 class cPipHandler {
 public:
@@ -76,7 +80,5 @@ private:
 	void HandleEnable(bool);
 	void HandleChannelChange(int);
 };
-
-/** @} */
 
 #endif

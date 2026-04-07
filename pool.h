@@ -14,12 +14,9 @@
 #include <vector>
 
 /**
- * @addtogroup misc
- * {
- */
-
-/**
  * Pool Implementation Template Class
+ *
+ * @ingroup misc
  */
 template <typename T>
 class cPool {
@@ -36,7 +33,5 @@ public:
 		}
 	}
 };
-
-/** @} */
 
 #endif

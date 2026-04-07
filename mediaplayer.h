@@ -22,13 +22,14 @@ class cSoftHdAudio;
 class cSoftHdDevice;
 
 /**
- * @addtogroup mediaplayer
- * @{
+ * Mediaplayer Related Stuff
+ * @defgroup mediaplayer Mediaplayer
  */
 
 /**
  * Playlist Entry
  *
+ * @ingroup mediaplayer
  */
 class cPlaylistEntry {
 public:
@@ -50,6 +51,8 @@ private:
  * Media Player
  *
  * player for mediaplayer mode
+ *
+ * @ingroup mediaplayer
  */
 class cSoftHdPlayer : public cPlayer, cThread {
 public:
@@ -96,6 +99,8 @@ private:
 
 /**
  * Media Player Control
+ *
+ * @ingroup mediaplayer
  */
 class cSoftHdControl : public cControl {
 public:
@@ -117,7 +122,5 @@ private:
 	cSoftHdDevice *m_pDevice;
 	bool m_closing = false;
 };
-
-/** @} */
 
 #endif

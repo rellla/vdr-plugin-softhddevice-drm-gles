@@ -15,9 +15,11 @@
 #ifndef __SOFTHDDEVICE_OPENGLSHADER_H
 #define __SOFTHDDEVICE_OPENGLSHADER_H
 
-/**
+/********************************************************************************
  * Shaders for Hardware Accelerated OpenGL OSD
- *
+ *******************************************************************************/
+
+/**
  * @addtogroup osd
  * @{
  */

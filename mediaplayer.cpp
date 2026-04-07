@@ -33,11 +33,12 @@ extern "C" {
 #include "softhdmenu.h"
 
 /**
- * Mediaplayer Related Stuff
- *
- * @defgroup mediaplayer Mediaplayer
+ * @addtogroup mediaplayer
  * @{
  */
+cSoftHdControl *cSoftHdControl::m_pControl = NULL; ///< Control instance
+cSoftHdPlayer *cSoftHdControl::m_pPlayer = NULL; //< Player instance
+/** @} */
 
 /*****************************************************************************
  * cPlaylistEntry
@@ -76,6 +77,8 @@ std::string cPlaylistEntry::OsdItemString(void)
  * Returns true, if the playlist is a m3u playlist
  *
  * @param source          file or playlist to be played
+ *
+ * @ingroup mediaplayer
  */
 static bool IsM3UPlaylist(char *source)
 {
@@ -358,9 +361,6 @@ void cSoftHdPlayer::Play(const char *url)
  * cSoftHdControl (cControl mediaplayer)
  ****************************************************************************/
 
-cSoftHdControl *cSoftHdControl::m_pControl = NULL;
-cSoftHdPlayer *cSoftHdControl::m_pPlayer = NULL;
-
 /**
  * Create a new control interface and corresponding player
  *
@@ -476,5 +476,3 @@ eOSState cSoftHdControl::ProcessKey(eKeys key)
 
 	return osContinue;
 }
-
-/** @} */

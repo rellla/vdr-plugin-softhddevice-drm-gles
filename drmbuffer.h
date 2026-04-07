@@ -23,17 +23,14 @@ extern "C" {
 
 #include "pool.h"
 
-/**
- * @addtogroup drm
- * @{
- */
-
+/** @ingroup drm */
 struct format_plane_info {
 	uint8_t bitspp;
 	uint8_t xsub;
 	uint8_t ysub;
 };
 
+/** @ingroup drm */
 struct format_info {
 	uint32_t format;
 	const char *fourcc;
@@ -43,6 +40,8 @@ struct format_info {
 
 /**
  * DRM Buffer
+ *
+ * @ingroup drm
  */
 class cDrmBuffer {
 public:
@@ -134,6 +133,8 @@ private:
 
 /**
  * DRM Buffer Pool
+ *
+ * @ingroup drm
  */
 class cDrmBufferPool : public cPool<cDrmBuffer> {
 public:
@@ -146,6 +147,5 @@ private:
 	constexpr static int RENDERBUFFERS = 36;    ///< number of render video buffers
 };
 
-/** @} */
 
 #endif

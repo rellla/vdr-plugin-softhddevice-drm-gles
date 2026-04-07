@@ -45,8 +45,9 @@ class cSoftHdDevice;
 class cVideoRender;
 
 /**
- * @addtogroup osd
- * @{
+ * OpenGL OSD (GPU)
+ *
+ * @ingroup osd
  */
 
 #define BORDERCOLOR 0x00000000 ///< This is needed for the GLES2 GL_CLAMP_TO_BORDER workaround
@@ -67,9 +68,11 @@ enum eShaderType {
 };
 
 /**
- * Vertex/Fragment Shader
+ * OpenGL OSD Vertex/Fragment Shader
  *
  * Represents a shader and keeps everything we need to set variable within the shader
+ *
+ * @ingroup osd
  */
 class cOglShader {
 public:
@@ -93,7 +96,9 @@ private:
 };
 
 /**
- * Single Glyph of a Font
+ * OpenGL OSD Glyph of a Font
+ *
+ * @ingroup osd
  */
 class cOglGlyph : public cListObject {
 public:
@@ -132,9 +137,11 @@ protected:
 };
 
 /**
- * Glyph on a Texture Atlas
+ * OpenGL OSD Glyph on a Texture Atlas
  *
  * A glyph of a font-atlas (texture-atlas) needs some more infos like offset on the texture
+ *
+ * @ingroup osd
  */
 class cOglAtlasGlyph : public cOglGlyph {
 public:
@@ -157,7 +164,7 @@ private:
 #define MAX_CHARCODE 255
 
 /**
- * Texture Atlas for a Font
+ * OpenGL OSD Texture Atlas for a Font
  *
  * Represents a texture atlas keeping a range of glyphs on one texture per font and size
  * instead of having one texture per glyph. This technique makes dealing with huge
@@ -167,6 +174,8 @@ private:
  *
  * The font atlas is prepared once at the time the new font or sized is accessed for the
  * first time. We may have a little delay at startup, which is negligible.
+ *
+ * @ingroup osd
  */
 class cOglFontAtlas {
 public:
@@ -184,9 +193,11 @@ private:
 };
 
 /**
- * OpenGL Representation of a VDR Font
+ * OpenGL OSD Representation of a VDR Font
  *
  * Represents a OSD font (one per size and font family) using FreeType
+ *
+ * @ingroup osd
  */
 class cOglFont : public cListObject {
 public:
@@ -218,9 +229,11 @@ private:
 };
 
 /**
- * OpenGL Framebuffer/ Texture Object
+ * OpenGL OSD Framebuffer/ Texture Object
  *
  * A framebuffer object which can be rendered onto (pixmap)
+ *
+ * @ingroup osd
  */
 class cOglFb {
 public:
@@ -252,6 +265,8 @@ private:
  * Main Framebuffer/ Texture Object for OSD
  *
  * Output Framebuffer Object - holds the texture which is our "OSD output framebuffer"
+ *
+ * @ingroup osd
  */
 class cOglOutputFb : public cOglFb {
 public:
@@ -275,9 +290,11 @@ enum eVertexBufferType {
 };
 
 /**
- * Vertex Buffers
+ * OpenGL OSD Vertex Buffers
  *
  * Describes and handles the OpenGL vertices for the different drawing commands
+ *
+ * @ingroup osd
  */
 class cOglVb {
 public:
@@ -316,6 +333,8 @@ private:
  *
  * Every draw action is transposed to one of the following cOglCmd* methods,
  * which are sent to the command queue, executed by cOglThread.
+ *
+ * @ingroup osd
  */
 class cOglCmd {
 public:
@@ -329,6 +348,11 @@ protected:
 	cOglFb *m_pFramebuffer;
 };
 
+/**
+ * OpenGL command: Init the output framebuffer
+ *
+ * @ingroup osd
+ */
 class cOglCmdInitOutputFb : public cOglCmd {
 public:
 	cOglCmdInitOutputFb(cOglOutputFb *oFb)
@@ -341,6 +365,11 @@ private:
 	cOglOutputFb *m_pOutputFramebuffer;
 };
 
+/**
+ * OpenGL command: Init a framebuffer
+ *
+ * @ingroup osd
+ */
 class cOglCmdInitFb : public cOglCmd {
 public:
 	cOglCmdInitFb(cOglFb *fb, cCondWait *wait = NULL)
@@ -353,6 +382,11 @@ private:
 	cCondWait *m_wait;
 };
 
+/**
+ * OpenGL command: Delete a framebuffer
+ *
+ * @ingroup osd
+ */
 class cOglCmdDeleteFb : public cOglCmd {
 public:
 	cOglCmdDeleteFb(cOglFb *fb)
@@ -362,6 +396,11 @@ public:
 	virtual bool Execute(void);
 };
 
+/**
+ * OpenGL command: Render a framebuffer to another framebuffer
+ *
+ * @ingroup osd
+ */
 class cOglCmdRenderFbToBufferFb : public cOglCmd {
 public:
 	cOglCmdRenderFbToBufferFb(cOglFb *fb, cOglFb *buffer, GLint x, GLint y, GLint transparency, GLint drawPortX, GLint drawPortY, GLint dirtyX, GLint dirtyTop, GLint dirtyWidth, GLint dirtyHeight, bool alphablending)
@@ -394,6 +433,11 @@ private:
 	bool m_alphablending;
 };
 
+/**
+ * OpenGL command: Render a framebuffer to the output framebuffer
+ *
+ * @ingroup osd
+ */
 class cOglCmdCopyBufferToOutputFb : public cOglCmd {
 public:
 	cOglCmdCopyBufferToOutputFb(cOglFb *fb, cOglOutputFb *oFb, GLint x, GLint y, int active, cSoftHdDevice *device)
@@ -416,6 +460,11 @@ private:
 	cSoftHdDevice *m_pDevice;
 };
 
+/**
+ * OpenGL command: Fill a polygon
+ *
+ * @ingroup osd
+ */
 class cOglCmdFill : public cOglCmd {
 public:
 	cOglCmdFill(cOglFb *fb, GLint color)
@@ -428,6 +477,11 @@ private:
 	GLint m_color;
 };
 
+/**
+ * OpenGL command: Fill a framebuffer
+ *
+ * @ingroup osd
+ */
 class cOglCmdBufferFill : public cOglCmd {
 public:
 	cOglCmdBufferFill(cOglFb *fb, GLint color)
@@ -440,6 +494,11 @@ private:
 	GLint m_color;
 };
 
+/**
+ * OpenGL command: Draw a rectangle
+ *
+ * @ingroup osd
+ */
 class cOglCmdDrawRectangle : public cOglCmd {
 public:
 	cOglCmdDrawRectangle( cOglFb *fb, GLint x, GLint y, GLint width, GLint height, GLint color)
@@ -458,6 +517,11 @@ private:
 	GLint m_color;
 };
 
+/**
+ * OpenGL command: Draw an ellipse
+ *
+ * @ingroup osd
+ */
 class cOglCmdDrawEllipse : public cOglCmd {
 public:
 	cOglCmdDrawEllipse( cOglFb *fb, GLint x, GLint y, GLint width, GLint height, GLint color, GLint quadrants)
@@ -482,6 +546,11 @@ private:
 	GLfloat *CreateVerticesHalf(int &);
 };
 
+/**
+ * OpenGL command: Draw a slope
+ *
+ * @ingroup osd
+ */
 class cOglCmdDrawSlope : public cOglCmd {
 public:
 	cOglCmdDrawSlope( cOglFb *fb, GLint x, GLint y, GLint width, GLint height, GLint color, GLint type)
@@ -502,6 +571,11 @@ private:
 	GLint m_type;
 };
 
+/**
+ * OpenGL command: Draw a text
+ *
+ * @ingroup osd
+ */
 class cOglCmdDrawText : public cOglCmd {
 public:
 	cOglCmdDrawText(cOglFb *fb, GLint x, GLint y, unsigned int *symbols, GLint limitX, const char *name, int fontSize, tColor colorText, int length)
@@ -527,6 +601,11 @@ private:
 	unsigned int *m_pSymbols;
 };
 
+/**
+ * OpenGL command: Draw an image
+ *
+ * @ingroup osd
+ */
 class cOglCmdDrawImage : public cOglCmd {
 public:
 	cOglCmdDrawImage(cOglFb *fb, tColor *argb, GLint width, GLint height, GLint x, GLint y, bool overlay = true, double scaleX = 1.0f, double scaleY = 1.0f)
@@ -551,6 +630,11 @@ private:
 	GLint m_borderColor;
 };
 
+/**
+ * OpenGL command: Draw a texture
+ *
+ * @ingroup osd
+ */
 class cOglCmdDrawTexture : public cOglCmd {
 public:
 	cOglCmdDrawTexture(cOglFb *fb, sOglImage *imageRef, GLint x, GLint y, double scaleX = 1.0f, double scaleY = 1.0f)
@@ -571,6 +655,11 @@ private:
 	GLint m_borderColor;
 };
 
+/**
+ * OpenGL command: Store image in the cache
+ *
+ * @ingroup osd
+ */
 class cOglCmdStoreImage : public cOglCmd {
 public:
 	cOglCmdStoreImage(sOglImage *imageRef, tColor *argb)
@@ -585,6 +674,11 @@ private:
 	tColor *m_pData;
 };
 
+/**
+ * OpenGL command: Drop image from cache
+ *
+ * @ingroup osd
+ */
 class cOglCmdDropImage : public cOglCmd {
 public:
 	cOglCmdDropImage(sOglImage *imageRef, cCondWait *wait)
@@ -613,6 +707,8 @@ private:
  * for commands on the queue, pops them and sends them to the hardware.
  *
  * On startup it initiates all necessary OpenGL bits.
+ *
+ * @ingroup osd
  */
 class cOglThread : public cThread {
 public:
@@ -656,6 +752,8 @@ private:
 
 /**
  * OpenGL Implementation of a cPixmap
+ *
+ * @ingroup osd
  */
 class cOglPixmap : public cPixmap {
 public:
@@ -704,7 +802,9 @@ private:
 };
 
 /**
- * Hardware Accelerated OpenGL OSD Implementation
+ * OpenGL OSD Implementation (GPU accelerated)
+ *
+ * @ingroup osd
  */
 class cOglOsd : public cOsd {
 public:
@@ -729,7 +829,5 @@ private:
 	cRect m_pDirtyViewport;                        ///< the dirty viewport
 	cSoftHdDevice *m_pDevice;                      ///< pointer to cSofthdDevice
 };
-
-/** @} */
 
 #endif

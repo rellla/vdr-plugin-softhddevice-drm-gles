@@ -20,16 +20,11 @@
 #include <vdr/osd.h>
 
 /**
- * Dummy OSD
- *
- * @addtogroup osd
- * @{
- */
-
-/**
  * Dummy Pixmap for Skins
  *
  * This pixmap just inits but does nothing else
+ *
+ * @ingroup osd
  */
 class cDummyPixmap : public cPixmap {
 public:
@@ -60,6 +55,8 @@ public:
  * Dummy OSD
  *
  * This OSD just inits and can create a dummy pixmap but really nothing else
+ *
+ * @ingroup osd
  */
 class cDummyOsd : public cOsd {
 private:
@@ -91,7 +88,5 @@ public:
 	virtual void DrawSlope([[maybe_unused]] int x1, [[maybe_unused]] int y1, [[maybe_unused]] int x2, [[maybe_unused]] int y2, [[maybe_unused]] tColor Color, [[maybe_unused]] int Type) {}
 	virtual void Flush(void) {}
 };
-
-/** @} */
 
 #endif

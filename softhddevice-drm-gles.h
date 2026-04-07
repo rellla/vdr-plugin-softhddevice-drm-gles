@@ -26,12 +26,14 @@ class cSoftHdDevice;
 class cSoftHdConfig;
 
 /**
- * @addtogroup plugin
- * @{
+ * Main Plugin Interface
+ * @defgroup plugin Main Plugin
  */
 
 /**
  * Main Plugin Class
+ *
+ * @ingroup plugin
  */
 class cPluginSoftHdDevice : public cPlugin {
 public:
@@ -55,7 +57,5 @@ private:
 	cSoftHdDevice *m_pDevice;          ///< pointer to cSoftHdDevice object
 	cSoftHdConfig *m_pConfig;          ///< pointer to cSoftHdConfig object
 };
-
-/** @} */
 
 #endif

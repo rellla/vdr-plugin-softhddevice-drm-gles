@@ -20,13 +20,6 @@
 #include "softhdosd.h"
 
 /**
- * Software Based OSD (CPU)
- *
- * @addtogroup osd
- * @{
- */
-
-/**
  * Initializes a software based OSD with the given coordinates
  *
  * @param left     x-coordinate of osd on display
@@ -288,5 +281,3 @@ void cSoftOsd::Flush(void)
 	}
 	m_dirty = false;
 }
-
-/** @} */

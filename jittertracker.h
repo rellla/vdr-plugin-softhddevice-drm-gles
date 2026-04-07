@@ -14,12 +14,9 @@
 #include <chrono>
 
 /**
- * @addtogroup misc
- * @{
- */
-
-/**
  * Jitter Tracker
+ *
+ * @ingroup misc
  */
 class cJitterTracker {
 public:
@@ -39,7 +36,5 @@ private:
 	bool m_secondPacket = true;
 	const char *m_identifier;
 };
-
-/** @} */
 
 #endif

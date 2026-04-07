@@ -23,13 +23,6 @@
 #include "logger.h"
 
 /**
- * Plugin Configuration
- *
- * @defgroup config Configuration
- * @{
- */
-
-/**
  * Parse setup parameters
  *
  * @param name      paramter name (case sensetive)
@@ -149,5 +142,3 @@ int cSoftHdConfig::GetDecoderNeedsMaxPackets(void)
 	std::lock_guard<std::mutex> lock(m_mutex);
 	return m_decoderNeedsMaxPackets;
 }
-
-/** @} */

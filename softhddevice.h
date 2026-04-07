@@ -46,6 +46,11 @@ class cVideoRender;
 class cVideoStream;
 
 /**
+ * Output Device Implementation
+ * @defgroup device Device
+ */
+
+/**
  * @addtogroup device
  * @{
  */
@@ -100,8 +105,12 @@ enum PlaybackMode {
 	VIDEO_ONLY
 };
 
+/** @} */
+
 /**
  * Output Device Implementation
+ *
+ * @ingroup device
  */
 class cSoftHdDevice : public cDevice, public IEventReceiver, public cStatus {
 public:
@@ -291,7 +300,5 @@ private:
 	void OnEnteringState(State);
 	void OnLeavingState(State);
 };
-
-/** @} */
 
 #endif

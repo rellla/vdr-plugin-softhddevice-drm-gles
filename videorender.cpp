@@ -51,13 +51,6 @@ extern "C" {
 #include "videostream.h"
 
 /**
- * Video Renderer
- *
- * @defgroup render Video Renderer
- * @{
- */
-
-/**
  * Create the video renderer
  *
  * @param device         pointer to cSoftHdDevice
@@ -117,6 +110,7 @@ void cVideoRender::ClearPipDecoderToDisplayQueue(void)
 	m_pCurrentlyPipDisplayed = nullptr;
 }
 
+/** @ingroup render */
 struct sRect {
 	uint64_t x;
 	uint64_t y;
@@ -660,7 +654,7 @@ void cVideoRender::Stop(void)
  *
  * @return true if it shall be scheduled immediately again
  */
-bool cVideoRender::DisplayFrame()
+bool cVideoRender::DisplayFrame(void)
 {
 	if (m_pDevice->IsBufferingThresholdReached())
 		m_eventQueue.push_back(BufferingThresholdReachedEvent{});
@@ -790,6 +784,9 @@ bool cVideoRender::DisplayFrame()
 	return pageFlipDone;
 }
 
+/**
+ * Display a black video frame
+ */
 void cVideoRender::DisplayBlackFrame(void)
 {
 	LOGDEBUG2(L_DRM, "videorender: %s: closing, set a black FB", __FUNCTION__);
@@ -803,6 +800,9 @@ void cVideoRender::DisplayBlackFrame(void)
 	}
 }
 
+/**
+ * Convert a PTS to milliseconds
+ */
 int64_t cVideoRender::PtsToMs(int64_t pts)
 {
 	std::lock_guard<std::mutex> lock(m_timebaseMutex);
@@ -818,6 +818,9 @@ int cVideoRender::DrmHandleEvent(void)
 	return m_pDrmDevice->HandleEvent();
 }
 
+/**
+ * Return true, if the device can handle HDR
+ */
 bool cVideoRender::CanHandleHdr(void)
 {
 	return m_pDrmDevice->CanHandleHdr();
@@ -1484,5 +1487,3 @@ AVFrame *cDecodingStrategyHardware::PrepareDrmBuffer(cDrmBuffer *buf, int drmDev
 
 	return frame;
 }
-
-/** @} */

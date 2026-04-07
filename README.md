@@ -1,5 +1,5 @@
-Readme - softhddevice-drm-gles
-==============================
+softhddevice-drm-gles
+=====================
 
 A software and GPU emulated HD output device for VDR  
 (https://github.com/rellla/vdr-plugin-softhddevice-drm-gles)

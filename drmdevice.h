@@ -31,12 +31,14 @@ class cDrmBuffer;
 class cVideoRender;
 
 /**
- * @addtogroup drm
- * @{
+ * DRM Display Interface
+ * @defgroup drm DRM Module
  */
 
 /**
  * DRM Device
+ *
+ * @ingroup drm
  */
 class cDrmDevice {
 public:
@@ -141,7 +143,5 @@ private:
 	int InitGbm(int, int, uint32_t, uint64_t);
 #endif
 };
-
-/** @} */
 
 #endif

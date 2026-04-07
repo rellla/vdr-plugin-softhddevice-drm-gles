@@ -38,13 +38,6 @@ extern "C" {
 #include "videorender.h"
 
 /**
- * Video Input Stream
- *
- * @defgroup video Video Input Stream
- * @{
- */
-
-/**
  * Helper function to read a line from a given file
  *
  * @param[out] buf           pointer to the data
@@ -52,6 +45,8 @@ extern "C" {
  * @param[in] file           the filepointer to be read on
  *
  * @return the number of characters read
+ *
+ * @ingroup video
  */
 static size_t ReadLineFromFile(char *buf, size_t size, const char * file)
 {
@@ -75,6 +70,8 @@ static size_t ReadLineFromFile(char *buf, size_t size, const char * file)
  * Helper function to find out which platform we are on
  *
  * @return the hardware quirks of the device
+ *
+ * @ingroup video
  */
 static int ReadHWPlatform(void)
 {
@@ -661,5 +658,3 @@ void cVideoStream::RenderFrame(AVFrame * frame)
 			m_frameOutput(frame);
 	}
 }
-
-/** @} */

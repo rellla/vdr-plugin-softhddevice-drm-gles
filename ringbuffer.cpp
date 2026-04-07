@@ -22,11 +22,6 @@
 #include "ringbuffer.h"
 
 /**
- * @addtogroup audio
- * @{
- */
-
-/**
  * cSoftHdRingbuffer constructor
  *
  * Init a new ring buffer
@@ -292,5 +287,3 @@ size_t cSoftHdRingbuffer::UsedBytes(void)
 {
 	return atomic_read(&m_filled);
 }
-
-/** @} */

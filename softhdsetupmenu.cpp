@@ -24,18 +24,11 @@
 #include "softhdsetupmenu.h"
 
 /**
- * Plugin Menus
- *
- * Setup Menu
- *
- * @addtogroup menu
- * @{
- */
-
-/**
  * Create a seperator named item
  *
  * @param label       text inside separator
+ *
+ * @ingroup menu
  */
 static inline cOsdItem *SeparatorName(const char *label)
 {
@@ -529,5 +522,3 @@ void cMenuSetupSoft::Store(void)
 	SetupStore("MaxSizeGPUImageCache", m_pConfig->ConfigMaxSizeGPUImageCache = m_cMaxSizeGPUImageCache);
 #endif
 }
-
-/** @} */

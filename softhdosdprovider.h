@@ -26,12 +26,9 @@ class cOglThread;
 class cSoftHdDevice;
 
 /**
- * @addtogroup osd
- * @{
- */
-
-/**
  * Plugin OSD provider
+ *
+ * @ingroup osd
  */
 class cSoftOsdProvider:public cOsdProvider {
 public:
@@ -63,7 +60,5 @@ protected:
 	virtual void DropImageData(int ImageHandle);
 #endif
 };
-
-/** @} */
 
 #endif

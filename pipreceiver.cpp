@@ -17,13 +17,6 @@
 #include "pipreceiver.h"
 #include "softhddevice.h"
 
-/**
- * Picture-in-Picture
- *
- * @defgroup pip PiP
- * @{
- */
-
 /*****************************************************************************
  * cPipReceiver class
  ****************************************************************************/
@@ -62,9 +55,6 @@ void cPipReceiver::Activate(bool on)
 	m_pTsToPesVideo.Reset();
 }
 
-#define MAXRETRIES    20 // max. number of retries for a single TS packet
-#define RETRYWAITMS    5 // time between two retries
-#define ERRORDELTASEC 60 // seconds before reporting lost packages again
 /**
  * Receive data from the receiver
  *
@@ -72,6 +62,10 @@ void cPipReceiver::Activate(bool on)
  */
 void cPipReceiver::Receive(const uchar *data, int size)
 {
+	const int MAXRETRIES = 20;    // max. number of retries for a single TS packet
+	const int RETRYWAITMS = 5;    // time between two retries
+	const int ERRORDELTASEC = 60; // seconds before reporting lost packages again
+
 	for (int i = 0; i < MAXRETRIES; i++) {
 		if (ParseTs(data, size) > 0)
 			return;
@@ -439,5 +433,3 @@ void cPipHandler::SwapPosition(void)
 {
 	m_pEventReceiver->OnEventReceived(PipEvent{PIPSWAPPOSITION});
 }
-
-/** @} */

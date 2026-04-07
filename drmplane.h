@@ -16,12 +16,9 @@
 #include <xf86drmMode.h>
 
 /**
- * @addtogroup drm
- * @{
- */
-
-/**
  * DRM Plane
+ *
+ * @ingroup drm
  */
 class cDrmPlane {
 public:
@@ -86,7 +83,5 @@ private:
 
 	int SetPropertyRequest(drmModeAtomicReqPtr, const char *, uint64_t);
 };
-
-/** @} */
 
 #endif

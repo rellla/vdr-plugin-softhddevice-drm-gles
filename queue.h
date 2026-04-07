@@ -15,11 +15,6 @@
 #include <mutex>
 
 /**
- * @addtogroup misc
- * @{
- */
-
-/**
  * Thread-safe Queue
  *
  * This class provides a thread-safe queue implementation using std::deque
@@ -27,6 +22,8 @@
  * and bounded capacity management.
  *
  * @tparam T The type of elements stored in the queue
+ *
+ * @ingroup misc
  */
 template <typename T>
 class cQueue {
@@ -132,7 +129,5 @@ private:
 	std::mutex m_mutex;        ///< Mutex for thread-safe access
 	size_t m_maxSize;          ///< Maximum queue capacity
 };
-
-/** @} */
 
 #endif

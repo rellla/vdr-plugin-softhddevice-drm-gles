@@ -20,14 +20,19 @@ extern "C" {
 }
 
 /**
- * Video Decoder
- *
- * @addtogroup videodecoder
- * @{
+ * FFmpeg Based Video Decoder Frontend
+ * @defgroup videodecoder VideoDecoder
  */
 
 /**
  * Video Decoder
+ *
+ * FFmpeg based Video Decoder Frontend
+ *
+ * Handles:
+ * - Video packet decoding using FFmpeg
+ *
+ * @ingroup videodecoder
  */
 class cVideoDecoder {
 public:
@@ -62,7 +67,5 @@ private:
 	int GetExtraData(const AVPacket *);
 	bool IsKeyFrame(AVFrame *);
 };
-
-/** @} */
 
 #endif
