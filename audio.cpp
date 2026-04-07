@@ -18,6 +18,8 @@
 #include <cmath>
 #include <cstdint>
 #include <mutex>
+#include <string>
+#include <sstream>
 #include <vector>
 
 #include <alsa/asoundlib.h>
@@ -69,72 +71,6 @@ cSoftHdAudio::cSoftHdAudio(cSoftHdDevice *device)
 /******************************************************************************
  * Audio filter and manipulation
  *****************************************************************************/
-
-/**
- * Reorder audio frame
- *
- * ffmpeg L  R  C   Ls Rs           -> alsa L R  Ls Rs C
- * ffmpeg L  R  C   LFE Ls Rs       -> alsa L R  Ls Rs C  LFE
- * ffmpeg L  R  C   LFE Ls Rs Rl Rr -> alsa L R  Ls Rs C  LFE Rl Rr
- *
- * @param buf[IN,OUT]   sample buffer
- * @param size          size of sample buffer in bytes
- * @param channels      number of channels interleaved in sample buffer
- *
- * @ingroup audio
- *
- * @todo Do we really need to reorder anything??
- */
-static void ReorderAudioFrame(uint16_t * buf, int size, int channels)
-{
-	int i;
-	int c;
-	int ls;
-	int rs;
-	int lfe;
-
-	switch (channels) {
-		case 5:
-			size /= 2;
-			for (i = 0; i < size; i += 5) {
-				c = buf[i + 2];
-				ls = buf[i + 3];
-				rs = buf[i + 4];
-				buf[i + 2] = ls;
-				buf[i + 3] = rs;
-				buf[i + 4] = c;
-			}
-			break;
-		case 6:
-			size /= 2;
-			for (i = 0; i < size; i += 6) {
-				c = buf[i + 2];
-				lfe = buf[i + 3];
-//				ls = buf[i + 4];	tested from jsffm
-//				rs = buf[i + 5];
-//				buf[i + 2] = ls;
-//				buf[i + 3] = rs;
-				buf[i + 2] = lfe;
-				buf[i + 3] = c;
-//				buf[i + 4] = c;
-//				buf[i + 5] = lfe;
-			}
-			break;
-		case 8:
-			size /= 2;
-			for (i = 0; i < size; i += 8) {
-				c = buf[i + 2];
-				lfe = buf[i + 3];
-				ls = buf[i + 4];
-				rs = buf[i + 5];
-				buf[i + 2] = ls;
-				buf[i + 3] = rs;
-				buf[i + 4] = c;
-				buf[i + 5] = lfe;
-			}
-			break;
-	}
-}
 
 /**
  * Normalize audio samples
@@ -379,10 +315,153 @@ void cSoftHdAudio::SetEq(int band[18], int onoff)
 }
 
 /**
+ * FFmpeg does not have channels called "RL" or "RR"
+ * So "rename" Alsas RL (rear left) and RR (rear right) to
+ * FFmpegs BL (back left) and BR (back right) to make the channelmap
+ * filter parser happy.
+ *
+ * @ingroup audio
+ */
+static const char *alsaToFFmpegChannel(const char *alsaName)
+{
+	if (!strcmp(alsaName, "RL")) return "BL";
+	if (!strcmp(alsaName, "RR")) return "BR";
+
+	return alsaName;
+}
+
+/**
+ * Put Alsa channel layout in a dynamic array of strings
+ *
+ * @param pcmHandle      current Alsa PCM Handle
+ *
+ * @return alsa channel layout as an array of strings
+ *
+ * @ingroup audio
+ */
+static std::vector<std::string> GetAlsaChannelLayoutAsArray(snd_pcm_t *pcmHandle)
+{
+	std::vector<std::string> layout;
+	snd_pcm_chmap_t *map = snd_pcm_get_chmap(pcmHandle);
+	if (!map)
+		return layout;
+
+	for (unsigned int i = 0; i < map->channels; i++) {
+		const char *name = alsaToFFmpegChannel(snd_pcm_chmap_name(static_cast<snd_pcm_chmap_position>(map->pos[i])));
+		if (!name)
+			continue;
+		layout.push_back(std::string(name));
+	}
+	free(map);
+	return layout;
+}
+
+/**
+ * Put FFmpeg channel layout in a dynamic array of strings
+ *
+ * @param layout      current FFmpeg channel layout
+ *
+ * @return ffmpeg layout as an array of strings
+ *
+ * @ingroup audio
+ */
+static std::vector<std::string> GetFFmpegChannelLayoutAsArray(const AVChannelLayout &layout)
+{
+	std::vector<std::string> names;
+	char buf[16];
+
+	for (int i = 0; i < layout.nb_channels; i++) {
+		enum AVChannel ch = av_channel_layout_channel_from_index(&layout, i);
+		int ret = av_channel_name(buf, sizeof(buf), ch);
+		if (ret < 0)
+			continue;
+		names.push_back(std::string(buf));
+	}
+	return names;
+}
+
+/**
+ * Check, if FFmpeg and Alsa channel layout match
+ *
+ * @param ff      Array of FFmpeg channel layout
+ * @param alsa    Array of Alsa channel layout
+ *
+ * @return true if the channel layouts match
+ *
+ * @ingroup audio
+ */
+static bool LayoutsMatch(const std::vector<std::string> &ff, const std::vector<std::string> &alsa)
+{
+	if (ff.size() != alsa.size())
+		return false;
+
+	for (size_t i = 0; i < ff.size(); i++) {
+		if (ff[i] != alsa[i])
+			return false;
+	}
+
+	return true;
+}
+
+/**
+ * Build the "|"-separated mappings list for the channelmap filter
+ *
+ * @param pcmHandle      current Alsa PCM Handle
+ * @param layout         current FFmpeg channel layout
+ *
+ * @return mapping string to feed into the channelmap filter
+ *
+ * @ingroup audio
+ */
+static std::string BuildChannelMapFilter(snd_pcm_t *pcmHandle, const AVChannelLayout &layout)
+{
+	auto ff = GetFFmpegChannelLayoutAsArray(layout);
+	auto alsa = GetAlsaChannelLayoutAsArray(pcmHandle);
+
+	if (ff.size() != alsa.size()) {
+		LOGWARNING("audio: %s: FFmpeg and Alsa channel count differs: FFmpeg %zu ALSA %zu", __FUNCTION__, ff.size(), alsa.size());
+		return "";
+	}
+
+	std::string ffString;
+	for (size_t i = 0; i < ff.size(); i++) {
+		ffString += ff[i];
+		if (i < ff.size() - 1)
+			ffString += " ";
+	}
+
+	std::string alsaString;
+	for (size_t i = 0; i < alsa.size(); i++) {
+		alsaString += alsa[i];
+		if (i < alsa.size() - 1)
+			alsaString += " ";
+	}
+
+	if (LayoutsMatch(ff, alsa)) {
+		LOGDEBUG2(L_SOUND, "audio: %s: FFmpeg and Alsa channel layouts match: %s", __FUNCTION__, ffString.c_str());
+		return "";
+	}
+
+	std::stringstream ss;
+	for (size_t i = 0; i < ff.size(); i++) {
+		if (i != 0)
+			ss << "|";
+		ss << ff[i] << "-" << alsa[i];
+	}
+
+	LOGDEBUG2(L_SOUND, "audio: %s: FFmpeg Channel Layout: %s", __FUNCTION__, ffString.c_str());
+	LOGDEBUG2(L_SOUND, "audio: %s: Alsa Channel Layout  : %s", __FUNCTION__, alsaString.c_str());
+	LOGDEBUG2(L_SOUND, "audio: %s: Layouts don't match, map FFmpeg to Alsa: %s", __FUNCTION__, ss.str().c_str());
+
+	return ss.str();
+}
+
+/**
  * Init audio filters
  *
  * The following alsa filters are set:
  *   - abuffer
+ *   - channelmap
  *   - superequalizer
  *   - aformat
  *   - abuffersink
@@ -394,7 +473,8 @@ void cSoftHdAudio::SetEq(int band[18], int onoff)
 int cSoftHdAudio::InitFilter(AVCodecContext *audioCtx)
 {
 	const AVFilter  *abuffer;
-	AVFilterContext *pfilterCtx[3];
+	AVFilterContext *pFilterCtx[4];
+	const AVFilter *channelmap;
 	const AVFilter *eq;
 	const AVFilter *aformat;
 	const AVFilter *abuffersink;
@@ -453,6 +533,39 @@ int cSoftHdAudio::InitFilter(AVCodecContext *audioCtx)
 		return -1;
 	}
 
+	// channelmap
+	//
+	// Map FFmpeg channel layout to Alsa channel layout.
+	// Depending on the hardware, e.g. FC and LFE have to be swapped.
+	// This is the case for HDMI on RPI4, so we need to do the following:
+	//    FL-FL|FR-FR|FC-LFE|LFE-FC|BL-BL|BR-BR
+	//
+	// The channel mapping is skipped, if
+	//   - a stereo downmix is forced (downmix will be done later in aformat filter)
+	//   - channel count differs, aformat will handle downmix later
+	if (!(m_downmix && m_hwNumChannels == 2)) {
+		std::string channelMapString;
+		channelMapString = BuildChannelMapFilter(m_pAlsaPCMHandle, audioCtx->ch_layout);
+
+		if (!channelMapString.empty()) {
+			if (!(channelmap = avfilter_get_by_name("channelmap"))) {
+				LOGWARNING("audio: %s: Could not find the channelmap filter.", __FUNCTION__);
+				return -1;
+			}
+			if (!(pFilterCtx[numFilter] = avfilter_graph_alloc_filter(m_pFilterGraph, channelmap, "channelmap"))) {
+				LOGWARNING("audio: %s: Could not allocate the channelmap instance.", __FUNCTION__);
+				return -1;
+			}
+			snprintf(optionsStr, sizeof(optionsStr),"map=%s", channelMapString.c_str());
+			if (avfilter_init_str(pFilterCtx[numFilter], optionsStr) < 0) {
+				LOGWARNING("audio: %s: Could not initialize the channelmap filter \"%s\"", __FUNCTION__, optionsStr);
+				avfilter_graph_free(&m_pFilterGraph);
+				return -1;
+			}
+			numFilter++;
+		}
+	}
+
 	// superequalizer
 	if (m_useEqualizer) {
 		if (!(eq = avfilter_get_by_name("superequalizer"))) {
@@ -460,7 +573,7 @@ int cSoftHdAudio::InitFilter(AVCodecContext *audioCtx)
 			avfilter_graph_free(&m_pFilterGraph);
 			return -1;
 		}
-		if (!(pfilterCtx[numFilter] = avfilter_graph_alloc_filter(m_pFilterGraph, eq, "superequalizer"))) {
+		if (!(pFilterCtx[numFilter] = avfilter_graph_alloc_filter(m_pFilterGraph, eq, "superequalizer"))) {
 			LOGWARNING("audio: %s: Could not allocate the superequalizer instance.", __FUNCTION__);
 			avfilter_graph_free(&m_pFilterGraph);
 			return -1;
@@ -472,7 +585,7 @@ int cSoftHdAudio::InitFilter(AVCodecContext *audioCtx)
 			m_equalizerBand[6], m_equalizerBand[7], m_equalizerBand[8], m_equalizerBand[9],
 			m_equalizerBand[10], m_equalizerBand[11], m_equalizerBand[12], m_equalizerBand[13],
 			m_equalizerBand[14], m_equalizerBand[15], m_equalizerBand[16], m_equalizerBand[17]);
-		if (avfilter_init_str(pfilterCtx[numFilter], optionsStr) < 0) {
+		if (avfilter_init_str(pFilterCtx[numFilter], optionsStr) < 0) {
 			LOGWARNING("audio: %s: Could not initialize the superequalizer filter.", __FUNCTION__);
 			avfilter_graph_free(&m_pFilterGraph);
 			return -1;
@@ -482,18 +595,34 @@ int cSoftHdAudio::InitFilter(AVCodecContext *audioCtx)
 
 	// aformat
 	AVChannelLayout channel_layout;
-	av_channel_layout_default(&channel_layout, m_hwNumChannels);
+	if (m_downmix && m_hwNumChannels == 2) {
+		// explicit stereo downmix
+		av_channel_layout_default(&channel_layout, 2);
+	} else {
+		if (av_channel_layout_copy(&channel_layout, &audioCtx->ch_layout) < 0) {
+			LOGWARNING("audio: %s: Could not copy channel layout", __FUNCTION__);
+			return -1;
+		}
+
+		// clamp channels if the hardware doesn't support them
+		if (channel_layout.nb_channels > (int)m_hwNumChannels) {
+			LOGDEBUG2(L_SOUND, "audio: %s: clamp channels from %d -> %d", __FUNCTION__, channel_layout.nb_channels, m_hwNumChannels);
+			av_channel_layout_uninit(&channel_layout);
+			av_channel_layout_default(&channel_layout, m_hwNumChannels);
+		}
+	}
 	av_channel_layout_describe(&channel_layout, channelLayout, sizeof(channelLayout));
 	av_channel_layout_uninit(&channel_layout);
-	// should use IN layout if more then 2 ch!?
+
 	LOGDEBUG2(L_SOUND, "audio: %s: OUT m_downmix %d m_hwNumChannels %d m_hwSampleRate %d channelLayout %s bytes_per_sample %d",
 			  __FUNCTION__, m_downmix, m_hwNumChannels, m_hwSampleRate, channelLayout, av_get_bytes_per_sample(AV_SAMPLE_FMT_S16));
+
 	if (!(aformat = avfilter_get_by_name("aformat"))) {
 		LOGWARNING("audio: %s: Could not find the aformat filter.", __FUNCTION__);
 		avfilter_graph_free(&m_pFilterGraph);
 		return -1;
 	}
-	if (!(pfilterCtx[numFilter] = avfilter_graph_alloc_filter(m_pFilterGraph, aformat, "aformat"))) {
+	if (!(pFilterCtx[numFilter] = avfilter_graph_alloc_filter(m_pFilterGraph, aformat, "aformat"))) {
 		LOGWARNING("audio: %s: Could not allocate the aformat instance.", __FUNCTION__);
 		avfilter_graph_free(&m_pFilterGraph);
 		return -1;
@@ -501,7 +630,7 @@ int cSoftHdAudio::InitFilter(AVCodecContext *audioCtx)
 	snprintf(optionsStr, sizeof(optionsStr),
 		"sample_fmts=%s:sample_rates=%d:channel_layouts=%s",
 		av_get_sample_fmt_name(AV_SAMPLE_FMT_S16), m_hwSampleRate, channelLayout);
-	if (avfilter_init_str(pfilterCtx[numFilter], optionsStr) < 0) {
+	if (avfilter_init_str(pFilterCtx[numFilter], optionsStr) < 0) {
 		LOGWARNING("audio: %s: Could not initialize the aformat filter.", __FUNCTION__);
 		avfilter_graph_free(&m_pFilterGraph);
 		return -1;
@@ -514,12 +643,12 @@ int cSoftHdAudio::InitFilter(AVCodecContext *audioCtx)
 		avfilter_graph_free(&m_pFilterGraph);
 		return -1;
 	}
-	if (!(pfilterCtx[numFilter] = avfilter_graph_alloc_filter(m_pFilterGraph, abuffersink, "sink"))) {
+	if (!(pFilterCtx[numFilter] = avfilter_graph_alloc_filter(m_pFilterGraph, abuffersink, "sink"))) {
 		LOGWARNING("audio: %s: Could not allocate the abuffersink instance.", __FUNCTION__);
 		avfilter_graph_free(&m_pFilterGraph);
 		return -1;
 	}
-	if (avfilter_init_str(pfilterCtx[numFilter], NULL) < 0) {
+	if (avfilter_init_str(pFilterCtx[numFilter], NULL) < 0) {
 		LOGWARNING("audio: %s: Could not initialize the abuffersink instance.", __FUNCTION__);
 		avfilter_graph_free(&m_pFilterGraph);
 		return -1;
@@ -529,9 +658,9 @@ int cSoftHdAudio::InitFilter(AVCodecContext *audioCtx)
 	// Connect the filters
 	for (i = 0; i < numFilter; i++) {
 		if (i == 0) {
-			err = avfilter_link(m_pBuffersrcCtx, 0, pfilterCtx[i], 0);
+			err = avfilter_link(m_pBuffersrcCtx, 0, pFilterCtx[i], 0);
 		} else {
-			err = avfilter_link(pfilterCtx[i - 1], 0, pfilterCtx[i], 0);
+			err = avfilter_link(pFilterCtx[i - 1], 0, pFilterCtx[i], 0);
 		}
 	}
 	if (err < 0) {
@@ -547,7 +676,7 @@ int cSoftHdAudio::InitFilter(AVCodecContext *audioCtx)
 		return -1;
 	}
 
-	m_pBuffersinkCtx = pfilterCtx[numFilter - 1];
+	m_pBuffersinkCtx = pFilterCtx[numFilter - 1];
 	m_filterChanged = 0;
 	m_filterReady = 1;
 
@@ -608,13 +737,11 @@ void cSoftHdAudio::EnqueueFrame(AVFrame *frame)
 	int byteCount = frame->nb_samples * frame->ch_layout.nb_channels * m_bytesPerSample;
 	buffer = (uint16_t *)frame->data[0];
 
-	if (m_compression) {		// in place operation
+	if (m_compression)     // in place operation
 		Compress(buffer, byteCount);
-	}
-	if (m_normalize) {			// in place operation
+
+	if (m_normalize)       // in place operation
 		Normalize(buffer, byteCount);
-	}
-	ReorderAudioFrame(buffer, byteCount, frame->ch_layout.nb_channels);
 
 	Enqueue((uint16_t *)buffer, byteCount, frame);
 
@@ -1712,7 +1839,6 @@ int cSoftHdAudio::AlsaSetup(int channels, int sample_rate, int passthrough)
 	if ((int)m_hwNumChannels != channels && !passthrough) {
 		m_downmix = 1;
 	}
-
 	if ((err = snd_pcm_hw_params_set_buffer_time_near(m_pAlsaPCMHandle, hwparams, &bufferTimeUs, NULL)) < 0) {
 		LOGWARNING("audio: %s: bufferTime %d not supported! %s", __FUNCTION__, bufferTimeUs, snd_strerror(err));
 	}
@@ -1754,15 +1880,23 @@ int cSoftHdAudio::AlsaSetup(int channels, int sample_rate, int passthrough)
 		return -1;
 	}
 
+	auto alsaMap = GetAlsaChannelLayoutAsArray(m_pAlsaPCMHandle);
+	std::string channelMapString;
+	for (size_t i = 0; i < alsaMap.size(); i++) {
+		channelMapString += alsaMap[i];
+		if (i < alsaMap.size() - 1)
+			channelMapString += " ";
+	}
+
 	snd_pcm_state_t state = snd_pcm_state(m_pAlsaPCMHandle);
 	LOGINFO("audio: %s:\n"
-		"           Channels %d SampleRate %d%s\n"
+		"           Channels %d (%s) SampleRate %d%s\n"
 		"           HWChannels %d HWSampleRate %d SampleFormat %s\n"
 		"           mmap: %s\n"
 		"           AlsaBufferTime %dms, pcm state: %s\n"
 		"           periodSize %d frames, bufferSize %d frames",
 		__FUNCTION__,
-		channels, sample_rate, passthrough ? " -> passthrough" : "",
+		channels, channelMapString.c_str(), sample_rate, passthrough ? " -> passthrough" : "",
 		m_hwNumChannels, m_hwSampleRate,
 		snd_pcm_format_name(SND_PCM_FORMAT_S16),
 		m_alsaUseMmap ? "yes" : "no",
