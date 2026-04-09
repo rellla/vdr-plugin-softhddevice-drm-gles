@@ -13,7 +13,7 @@
 #ifndef __CODEC_VIDEO_H
 #define __CODEC_VIDEO_H
 
-#include <vdr/thread.h>
+#include <mutex>
 
 extern "C" {
 #include <libavcodec/avcodec.h>
@@ -53,7 +53,7 @@ private:
 	AVCodecContext *m_pVideoCtx = nullptr;  ///< video codec context
 	const char *m_identifier;               ///< identifier for logging
 	const char *m_pCodecString = "unknown"; ///< codec (long) name string
-	cMutex m_mutex;                         ///< mutex to lock codec context (TODO: is this needed?)
+	std::mutex m_mutex;                     ///< mutex to lock codec context
 	int m_cntPacketsSent;                   ///< number of packets sent to decoder
 	int m_cntFramesReceived;                ///< number of decoded frames received from decoder
 	int m_cntStartKeyFrames;                ///< number of keyframes arrived while starting the coded
