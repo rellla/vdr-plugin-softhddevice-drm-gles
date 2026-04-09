@@ -98,7 +98,7 @@ void cAudioDecoder::Open(AVCodecID codecId, AVCodecParameters *par, AVRational t
 	m_currentHwSampleRate = 0;
 	m_currentNumChannels = 0;
 	m_currentHwNumChannels = 0;
-	m_currentPassthrough = 0;
+	m_currentPassthroughMask = 0;
 }
 
 /**
@@ -136,7 +136,7 @@ int cAudioDecoder::DecodePassthrough(const AVPacket * avpkt, AVFrame *frame)
 	m_pAudio->SetTimebase(&m_pAudioCtx->pkt_timebase);
 
 	// AC3 passthrough
-	if (m_passthroughMask & CODEC_AC3 && m_pAudioCtx->codec_id == AV_CODEC_ID_AC3) {
+	if (m_currentPassthroughMask & CODEC_AC3 && m_pAudioCtx->codec_id == AV_CODEC_ID_AC3) {
 		uint16_t *spdif = m_spdifOutput;
 		int spdifSize = AC3_FRAME_SIZE * 4; // frames * channels * (samplesize / 8)
 
@@ -162,7 +162,7 @@ int cAudioDecoder::DecodePassthrough(const AVPacket * avpkt, AVFrame *frame)
 	}
 
 	// EAC3 passthrough
-	if (m_passthroughMask & CODEC_EAC3 && m_pAudioCtx->codec_id == AV_CODEC_ID_EAC3) {
+	if (m_currentPassthroughMask & CODEC_EAC3 && m_pAudioCtx->codec_id == AV_CODEC_ID_EAC3) {
 		uint16_t *spdif = m_spdifOutput;
 		int spdifSize = EAC3_FRAME_SIZE * 4; // frames * channels * (samplesize / 8)
 		int repeat = 1;
@@ -229,7 +229,7 @@ int cAudioDecoder::DecodePassthrough(const AVPacket * avpkt, AVFrame *frame)
 	}
 
 	// DTS passthrough
-	if (m_passthroughMask & CODEC_DTS && m_pAudioCtx->codec_id == AV_CODEC_ID_DTS) {
+	if (m_currentPassthroughMask & CODEC_DTS && m_pAudioCtx->codec_id == AV_CODEC_ID_DTS) {
 		uint16_t *spdif = m_spdifOutput;
 
 		uint8_t nbs;
@@ -306,11 +306,11 @@ int cAudioDecoder::UpdateFormat(void)
 	m_currentHwSampleRate = m_pAudioCtx->sample_rate;
 	m_currentNumChannels = m_pAudioCtx->ch_layout.nb_channels;
 	m_currentHwNumChannels = m_pAudioCtx->ch_layout.nb_channels;
-	m_currentPassthrough = m_passthroughMask;
+	m_currentPassthroughMask = m_passthroughMask;
 
-	if ((m_currentPassthrough & CODEC_AC3  && m_pAudioCtx->codec_id == AV_CODEC_ID_AC3) ||
-	    (m_currentPassthrough & CODEC_EAC3 && m_pAudioCtx->codec_id == AV_CODEC_ID_EAC3) ||
-	    (m_currentPassthrough & CODEC_DTS  && m_pAudioCtx->codec_id == AV_CODEC_ID_DTS)) {
+	if ((m_currentPassthroughMask & CODEC_AC3  && m_pAudioCtx->codec_id == AV_CODEC_ID_AC3) ||
+	    (m_currentPassthroughMask & CODEC_EAC3 && m_pAudioCtx->codec_id == AV_CODEC_ID_EAC3) ||
+	    (m_currentPassthroughMask & CODEC_DTS  && m_pAudioCtx->codec_id == AV_CODEC_ID_DTS)) {
 
 		// E-AC3 over HDMI: some receivers need HBR
 		if (m_pAudioCtx->codec_id == AV_CODEC_ID_EAC3)
@@ -390,9 +390,9 @@ void cAudioDecoder::Decode(const AVPacket * avpkt)
 				m_lastPts = frame->pts;
 			}
 
-			if (m_currentPassthrough != m_passthroughMask ||
-				m_currentNumChannels != m_pAudioCtx->ch_layout.nb_channels ||
-				m_currentSampleRate != m_pAudioCtx->sample_rate) {
+			if (m_currentPassthroughMask != m_passthroughMask ||
+			    m_currentNumChannels     != m_pAudioCtx->ch_layout.nb_channels ||
+			    m_currentSampleRate      != m_pAudioCtx->sample_rate) {
 				UpdateFormat();
 			}
 
