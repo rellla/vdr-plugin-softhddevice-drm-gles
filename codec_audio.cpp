@@ -356,6 +356,8 @@ int cAudioDecoder::UpdateFormat(void)
 /**
  * Decode an audio packet
  *
+ * This function holds the decoding loop
+ *
  * @param avpkt        audio packet to decode
  */
 void cAudioDecoder::Decode(const AVPacket * avpkt)
@@ -371,15 +373,18 @@ void cAudioDecoder::Decode(const AVPacket * avpkt)
 
 	do {
 		retSend = avcodec_send_packet(m_pAudioCtx, avpkt);
-		if (retSend < 0)
+		if (retSend < 0 && retSend != AVERROR(EAGAIN))
 			LOGERROR("audiocodec: %s: avcodec_send_packet error: %s", __FUNCTION__, av_err2str(retSend));
 
-		retRec = avcodec_receive_frame(m_pAudioCtx, frame);
+		do {
+			retRec = avcodec_receive_frame(m_pAudioCtx, frame);
 
-		if (retRec < 0) {
-			if (retRec != AVERROR(EAGAIN))
-				LOGERROR("audiocodec: %s: avcodec_receive_frame error: %s", __FUNCTION__, av_err2str(retRec));
-		} else {
+			if (retRec < 0) {
+				if (retRec != AVERROR(EAGAIN))
+					LOGERROR("audiocodec: %s: avcodec_receive_frame error: %s", __FUNCTION__, av_err2str(retRec));
+				continue;
+			}
+
 			if (m_lastPts == AV_NOPTS_VALUE && avpkt->pts == AV_NOPTS_VALUE) {
 				// the first AVPacket has no valid PTS, if its PES packet has been truncated while searching for the sync word
 				av_frame_unref(frame);
@@ -409,12 +414,9 @@ void cAudioDecoder::Decode(const AVPacket * avpkt)
 
 			if (DecodePassthrough(avpkt, frame)) {
 				av_frame_unref(frame);
-				return;
-			}
-
-			m_pAudio->Filter(frame, m_pAudioCtx);
-		}
-
+			} else
+				m_pAudio->Filter(frame, m_pAudioCtx);
+		} while (retRec == 0);
 	} while (retSend == AVERROR(EAGAIN));
 }
 
