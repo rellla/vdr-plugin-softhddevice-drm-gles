@@ -42,7 +42,7 @@ class cVideoRender;
  */
 class cDrmDevice {
 public:
-	cDrmDevice(cVideoRender *, const char *);
+	cDrmDevice(cVideoRender *, const char *, const char *);
 	~cDrmDevice(void);
 
 	int Init(void);
@@ -111,6 +111,7 @@ private:
 	drmModeCrtc *m_drmModeCrtcSaved;       ///< saved CRTC infos
 	drmEventContext m_drmEventCtx;         ///< drm event context
 
+	const char *m_userDrmDevice = nullptr; ///< user requested drm device
 	int m_userReqDisplayWidth = 0;         ///< user requested display width
 	int m_userReqDisplayHeight;            ///< user requested display height
 	uint32_t m_userReqDisplayRefreshRate;  ///< user requested display refresh rate
