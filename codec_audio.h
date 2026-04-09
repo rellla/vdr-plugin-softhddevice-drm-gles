@@ -115,7 +115,7 @@ private:
 	AVFrame *m_pFrame;                          ///< decoded ffmpeg audio frame
 	int64_t m_lastPts = AV_NOPTS_VALUE;         ///< last seen PTS
 	int m_passthroughMask;                      ///< passthrough mask to be set
-	int m_currentPassthrough;                   ///< current passthrough mask
+	int m_currentPassthroughMask;               ///< current passthrough mask
 	int m_currentSampleRate;                    ///< current sample rate
 	int m_currentNumChannels;                   ///< current number of channels
 	int m_currentHwSampleRate;                  ///< current hw sample rate
