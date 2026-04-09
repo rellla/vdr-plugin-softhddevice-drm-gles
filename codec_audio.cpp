@@ -15,6 +15,7 @@
  */
 
 #include <cstdint>
+#include <mutex>
 #include <unistd.h>
 
 extern "C" {
@@ -59,6 +60,8 @@ cAudioDecoder::~cAudioDecoder(void)
  */
 void cAudioDecoder::Open(AVCodecID codecId, AVCodecParameters *par, AVRational timebase)
 {
+	std::lock_guard<std::mutex> lock(m_mutex);
+
 	const AVCodec *codec;
 
 	m_codecId = codecId;
@@ -103,6 +106,8 @@ void cAudioDecoder::Open(AVCodecID codecId, AVCodecParameters *par, AVRational t
  */
 void cAudioDecoder::Close(void)
 {
+	std::lock_guard<std::mutex> lock(m_mutex);
+
 	LOGDEBUG2(L_CODEC, "audiocodec: %s", __FUNCTION__);
 	if (m_pAudioCtx)
 		avcodec_free_context(&m_pAudioCtx);
@@ -350,6 +355,8 @@ int cAudioDecoder::UpdateFormat(void)
  */
 void cAudioDecoder::Decode(const AVPacket * avpkt)
 {
+	std::lock_guard<std::mutex> lock(m_mutex);
+
 	int retSend, retRec;
 	AVFrame *frame;
 
@@ -413,6 +420,8 @@ void cAudioDecoder::Decode(const AVPacket * avpkt)
  */
 void cAudioDecoder::FlushBuffers(void)
 {
+	std::lock_guard<std::mutex> lock(m_mutex);
+
 	LOGDEBUG2(L_CODEC, "audiocodec: %s", __FUNCTION__);
 	if (m_pAudioCtx)
 		avcodec_flush_buffers(m_pAudioCtx);

@@ -14,6 +14,7 @@
 #define __CODEC_AUDIO_H
 
 #include <cstdint>
+#include <mutex>
 
 extern "C" {
 #include <libavcodec/avcodec.h>
@@ -122,6 +123,7 @@ private:
 	uint16_t m_spdifOutput[(MAX_FRAME_SIZE * 4 + 16) / 2]; ///< SPDIF output buffer
 	int m_spdifIndex;                           ///< index into SPDIF output buffer
 	int m_spdifRepeatCount;                     ///< SPDIF repeat counter
+	std::mutex m_mutex;                         ///< decoder mutex
 
 	int DecodePassthrough(const AVPacket *, AVFrame *);
 	int UpdateFormat(void);
