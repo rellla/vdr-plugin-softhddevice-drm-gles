@@ -1091,19 +1091,18 @@ int cSoftHdDevice::PlayAudio(const uchar *data, int size, uchar id)
 
 	AVPacket *avpkt;
 	do {
-		avpkt = m_audioReassemblyBuffer.PopAvPacket();
+		if (!(avpkt = m_audioReassemblyBuffer.PopAvPacket()))
+			break;
 
-		if (avpkt) {
-			if (m_pAudioDecoder->GetCodecId() == AV_CODEC_ID_NONE && m_audioReassemblyBuffer.GetCodec() != AV_CODEC_ID_NONE) {
-				// The playback has just started
-				m_pAudioDecoder->Close();
-				m_pAudioDecoder->Open(m_audioReassemblyBuffer.GetCodec());
-			}
-
-			m_pAudioDecoder->Decode(avpkt);
-			AVPacket *copy = avpkt;
-			av_packet_free(&copy);
+		if (m_pAudioDecoder->GetCodecId() == AV_CODEC_ID_NONE && m_audioReassemblyBuffer.GetCodec() != AV_CODEC_ID_NONE) {
+			// The playback has just started
+			m_pAudioDecoder->Close();
+			m_pAudioDecoder->Open(m_audioReassemblyBuffer.GetCodec());
 		}
+
+		m_pAudioDecoder->Decode(avpkt);
+		AVPacket *copy = avpkt;
+		av_packet_free(&copy);
 	} while (avpkt != nullptr);
 
 	return size;
