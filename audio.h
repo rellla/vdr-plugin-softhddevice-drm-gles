@@ -87,8 +87,6 @@ public:
 	void ResetHwDelayBaseline(void);
 	void SetHwDelayBaseline(void);
 
-	void Stop(void);
-
 protected:
 	virtual void Action(void);
 
@@ -137,6 +135,7 @@ private:
 	bool SendAudio(int);
 	bool SendPause(void);
 	void BuildPauseBurst(void);
+	void Stop(void);
 
 	// Normalizer
 	bool m_normalize;                       ///< flag to use volume normalize
