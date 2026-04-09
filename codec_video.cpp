@@ -190,12 +190,12 @@ int cVideoDecoder::Open(enum AVCodecID codecId, AVCodecParameters * par,
 	if (!swCodecForced)
 		codec = FindHWDecoder(codecId);
 
-	if (!codec) {
+	if (codec) {
+		m_isHardwareDecoder = true;
+	} else {
 		if (!swCodecForced)
 			LOGDEBUG2(L_CODEC, "videocodec: %s: no HW decoder found for codec \"%s\", try software decoder%s", __FUNCTION__, avcodec_get_name(codecId), swCodecForced ? " (forced)" : "");
 		codec = FindSWDecoder(codecId);
-	} else {
-		m_isHardwareDecoder = true;
 	}
 
 	if (!codec) {
@@ -224,10 +224,8 @@ int cVideoDecoder::Open(enum AVCodecID codecId, AVCodecParameters * par,
 		m_pVideoCtx->pix_fmt = AV_PIX_FMT_DRM_PRIME;
 	}
 
-	if (par) {
-		if ((avcodec_parameters_to_context(m_pVideoCtx, par)) < 0)
-			LOGERROR("videocodec: %s: %s: insert parameters to context failed!", m_identifier, __FUNCTION__);
-	}
+	if (par && (avcodec_parameters_to_context(m_pVideoCtx, par) < 0))
+		LOGERROR("videocodec: %s: %s: insert parameters to context failed!", m_identifier, __FUNCTION__);
 
 	m_pVideoCtx->codec_id = codecId;
 	m_pVideoCtx->get_format = GetFormat;
@@ -254,10 +252,8 @@ int cVideoDecoder::Open(enum AVCodecID codecId, AVCodecParameters * par,
 		}
 	}
 
-	if (codec->capabilities & AV_CODEC_CAP_FRAME_THREADS ||
-		AV_CODEC_CAP_SLICE_THREADS) {
+	if (codec->capabilities & AV_CODEC_CAP_FRAME_THREADS || AV_CODEC_CAP_SLICE_THREADS)
 		m_pVideoCtx->thread_count = !m_isHardwareDecoder ? 4 : 1;
-	}
 
 	if (codec->capabilities & AV_CODEC_CAP_SLICE_THREADS)
 		m_pVideoCtx->thread_type = FF_THREAD_SLICE;
