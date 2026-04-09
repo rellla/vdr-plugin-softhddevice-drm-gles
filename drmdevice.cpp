@@ -44,8 +44,9 @@
  * @param render         pointer to cVideoRender object
  * @param resolution     display resolution string set by user
  */
-cDrmDevice::cDrmDevice(cVideoRender *render, const char* resolution)
-	: m_pRender(render)
+cDrmDevice::cDrmDevice(cVideoRender *render, const char* resolution, const char* device)
+	: m_pRender(render),
+	  m_userDrmDevice(device)
 {
 	if (resolution)
 		sscanf(resolution, "%dx%d@%d", &m_userReqDisplayWidth, &m_userReqDisplayHeight, &m_userReqDisplayRefreshRate);
@@ -96,6 +97,31 @@ static int TestCaps(int fd)
 		return 1;
 
 	return 0;
+}
+
+/**
+ * Open the given device
+ *
+ * @param deviceName        name of the device (e.g. "/dev/dri/card0")
+ *
+ * @retval file handle      on success
+ * @retval -1               if open failed
+ *
+ * @ingroup drm
+ */
+static int OpenDrmDevice(const char* device, drmModeRes **resources)
+{
+	int fd = -1;
+
+	if ((fd = open(device, O_RDWR)) < 0)
+		return -1;
+
+	if (TestCaps(fd) || get_resources(fd, resources)) {
+		close(fd);
+		return -1;
+	}
+
+	return fd;
 }
 
 /**
@@ -192,17 +218,28 @@ static drmModeConnector *FindDrmConnector(int fd, drmModeRes *resources)
  */
 int cDrmDevice::Init(void)
 {
-	drmModeRes *resources;
+	drmModeRes *resources = nullptr;
 	drmModeConnector *connector;
-	drmModeEncoder *encoder = NULL;
-	drmModeModeInfo *drmmode = NULL;
+	drmModeEncoder *encoder = nullptr;
+	drmModeModeInfo *drmmode = nullptr;
 	drmModePlane *plane;
 	drmModePlaneRes *planeRes;
 	int i;
 	uint32_t j, k;
 
-	// find a drm device
-	m_fdDrm = FindDrmDevice(&resources);
+	// first try to open the user given drm device
+	if (m_userDrmDevice) {
+		LOGDEBUG2(L_DRM, "drmdevice: %s: Try open user requested device %s", __FUNCTION__, m_userDrmDevice);
+		m_fdDrm = OpenDrmDevice(m_userDrmDevice, &resources);
+	}
+
+	// if manually set device failed, try to find a drm device
+	if (m_fdDrm < 0) {
+		if (m_userDrmDevice)
+			LOGWARNING("drmdevice: %s: Could not open user requested device %s, try other devices!", __FUNCTION__, m_userDrmDevice);
+		m_fdDrm = FindDrmDevice(&resources);
+	}
+
 	if (m_fdDrm < 0) {
 		LOGERROR("drmdevice: %s: Could not open device!", __FUNCTION__);
 		return -1;

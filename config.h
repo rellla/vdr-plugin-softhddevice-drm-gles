@@ -91,6 +91,7 @@ public:
 	const char *ConfigAudioPCMDevice = nullptr;         ///< audio PCM device
 	const char *ConfigAudioPassthroughDevice = nullptr; ///< audio passthrough device
 	const char *ConfigAudioMixerChannel = nullptr;      ///< audio mixer channel name
+	const char *ConfigDrmDevice = nullptr;              ///< user requested drm device (e.g. "/dev/dri/card0")
 	const char *ConfigDisplayResolution = nullptr;      ///< display resolution (syntax: "1920x1080@50")
 #ifdef USE_GLES
 	int ConfigDisableOglOsd = 0;                ///< config disable ogl osd

@@ -161,6 +161,7 @@ Use vdr -h to see the command line arguments supported by the plugin.
 	-a audio_device (e.g. hw:0,1)
 	-p device for pass-through (e.g. hw:0,1)
 	-c audio mixer channel name (e.g. PCM)
+	-o drm device (e.g. /dev/dri/card0)
 	-d display resolution (e.g. 1920x1080@50)
 	-D	start plugin in detached state
 	-w workarounds
