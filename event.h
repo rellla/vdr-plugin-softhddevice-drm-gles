@@ -65,6 +65,7 @@ struct ScheduleResyncAtPtsMsEvent {
 	int64_t pts;
 };
 struct ResyncEvent {};
+struct DisplayChangeEvent {};
 
 using Event = std::variant<
 	PlayEvent,
@@ -78,7 +79,8 @@ using Event = std::variant<
 	BufferingThresholdReachedEvent,
 	PipEvent,
 	ScheduleResyncAtPtsMsEvent,
-	ResyncEvent
+	ResyncEvent,
+	DisplayChangeEvent
 >;
 
 /** @} */

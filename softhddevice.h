@@ -85,6 +85,7 @@ inline const char* EventToString(const Event& e) {
 		[](const PipEvent&) -> const char* { return "PipEvent"; },
 		[](const ScheduleResyncAtPtsMsEvent&) -> const char* { return "ScheduleResyncAtPtsMsEvent"; },
 		[](const ResyncEvent&) -> const char* { return "ResyncEvent"; },
+		[](const DisplayChangeEvent&) -> const char* { return "DisplayChangeEvent"; },
 	}, e);
 }
 

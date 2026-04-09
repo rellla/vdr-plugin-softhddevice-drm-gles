@@ -245,6 +245,7 @@ void cSoftHdDevice::OnEventReceived(const Event& event)
 				[&invalid](const PipEvent&) { invalid(); },
 				[&invalid](const ScheduleResyncAtPtsMsEvent&) { invalid(); },
 				[&invalid](const ResyncEvent&) { invalid(); },
+				[&invalid](const DisplayChangeEvent&) { invalid(); },
 			}, event);
 			needsResume = false;
 			break;
@@ -276,6 +277,9 @@ void cSoftHdDevice::OnEventReceived(const Event& event)
 				},
 				[&invalid](const ScheduleResyncAtPtsMsEvent&) { invalid(); },
 				[&invalid](const ResyncEvent&) { invalid(); },
+				[&invalid](const DisplayChangeEvent&) {
+					invalid(); // change display settings
+				},
 			}, event);
 			break;
 		case State::BUFFERING:
@@ -336,6 +340,9 @@ void cSoftHdDevice::OnEventReceived(const Event& event)
 					m_pRender->ScheduleResyncAtPtsMs(s.pts);
 				},
 				[&invalid](const ResyncEvent&) { invalid(); },
+				[&invalid](const DisplayChangeEvent&) {
+					invalid(); // change display settings
+				},
 			}, event);
 			break;
 		case State::PLAY:
@@ -407,6 +414,9 @@ void cSoftHdDevice::OnEventReceived(const Event& event)
 				[this](const ResyncEvent&) {
 					SetState(BUFFERING);
 				},
+				[&invalid](const DisplayChangeEvent&) {
+					invalid(); // change display settings
+				},
 			}, event);
 			break;
 		case State::TRICK_SPEED:
@@ -445,6 +455,9 @@ void cSoftHdDevice::OnEventReceived(const Event& event)
 				},
 				[&invalid](const ScheduleResyncAtPtsMsEvent&) { invalid(); },
 				[&invalid](const ResyncEvent&) { invalid(); },
+				[&invalid](const DisplayChangeEvent&) {
+					invalid(); // change display settings
+				},
 			}, event);
 			break;
 	}
