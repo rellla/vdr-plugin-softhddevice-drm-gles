@@ -108,9 +108,12 @@ void cAudioDecoder::Close(void)
 {
 	std::lock_guard<std::mutex> lock(m_mutex);
 
+	if (!m_pAudioCtx)
+		return;
+
 	LOGDEBUG2(L_CODEC, "audiocodec: %s", __FUNCTION__);
-	if (m_pAudioCtx)
-		avcodec_free_context(&m_pAudioCtx);
+
+	avcodec_free_context(&m_pAudioCtx);
 
 	m_codecId = AV_CODEC_ID_NONE;
 	m_lastPts = AV_NOPTS_VALUE;
