@@ -66,19 +66,21 @@ void cAudioDecoder::Open(AVCodecID codecId, AVCodecParameters *par, AVRational t
 
 	m_codecId = codecId;
 
-	if (codecId == AV_CODEC_ID_AC3) {
-		if (!(codec = avcodec_find_decoder_by_name("ac3_fixed"))) {
+	switch (codecId) {
+	case AV_CODEC_ID_AC3:
+		if (!(codec = avcodec_find_decoder_by_name("ac3_fixed")))
 			LOGFATAL("audiocodec: %s: codec ac3_fixed ID %#06x not found", __FUNCTION__, codecId);
-		}
-	} else if (codecId == AV_CODEC_ID_AAC) {
-		if (!(codec = avcodec_find_decoder_by_name("aac_fixed"))) {
+		break;
+	case AV_CODEC_ID_AAC:
+		if (!(codec = avcodec_find_decoder_by_name("aac_fixed")))
 			LOGFATAL("audiocodec: %s: codec aac_fixed ID %#06x not found", __FUNCTION__, codecId);
-		}
-	} else {
+		break;
+	default:
 		if (!(codec = avcodec_find_decoder(codecId))) {
 			LOGFATAL("audiocodec: %s: codec %s ID %#06x not found", __FUNCTION__,
 			avcodec_get_name(codecId), codecId);
 		}
+		break;
 	}
 
 	if (!(m_pAudioCtx = avcodec_alloc_context3(codec)))
