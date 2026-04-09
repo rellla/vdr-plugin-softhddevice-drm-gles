@@ -34,30 +34,26 @@ bool cSoftHdConfig::SetupParse(const char *name, const char *value)
 {
 	//LOGDEBUG("config: %s: '%s' = '%s'", __FUNCTION__, name, value);
 
+	// General
 	if        (!strcasecmp(name, "HideMainMenuEntry"))     { ConfigHideMainMenuEntry = atoi(value);
-	} else if (!strcasecmp(name, "AdditionalBufferLengthMs")) { ConfigAdditionalBufferLengthMs = atoi(value);
-	} else if (!strcasecmp(name, "LogLevel"))              { ConfigLogLevels = abs(atoi(value));
-	                                                         ConfigLogState = atoi(value) > 0;
-                                                                 PrintLogLevel(ConfigLogState ? ConfigLogLevels : 0);
-	                                                         cSoftHdLogger::GetLogger()->SetLogLevel(ConfigLogState ? ConfigLogLevels : 0);
-	} else if (!strcasecmp(name, "DisableDeint"))          { ConfigDisableDeint = atoi(value);
-	} else if (!strcasecmp(name, "DecoderNeedsIFrame"))    { ConfigDecoderNeedsIFrame = atoi(value);
-	} else if (!strcasecmp(name, "ParseH264Dimensions"))   { ConfigParseH264Dimensions = atoi(value);
-	} else if (!strcasecmp(name, "DecoderFallbackToSw"))   { ConfigDecoderFallbackToSw = atoi(value);
-	} else if (!strcasecmp(name, "DecoderFallbackToSwNumPkts")) { ConfigDecoderFallbackToSwNumPkts = atoi(value);
+
+	// Video
 	} else if (!strcasecmp(name, "VideoEnableHDR"))        { ConfigVideoEnableHDR = atoi(value);
-	} else if (!strcasecmp(name, "ParseH264StreamStart"))  { ConfigParseH264StreamStart = atoi(value);
-	} else if (!strcasecmp(name, "DropInvalidH264PFrames")){ ConfigDropInvalidH264PFrames = atoi(value);
-	} else if (!strcasecmp(name, "AudioDelay"))            { ConfigVideoAudioDelayMs = atoi(value);
-	} else if (!strcasecmp(name, "AudioPassthrough"))      { ConfigAudioPassthroughMask = abs(atoi(value)); ConfigAudioPassthroughState = atoi(value) > 0;
-	} else if (!strcasecmp(name, "AudioDownmix"))          { ConfigAudioDownmix = atoi(value);
+
+	// Audio
 	} else if (!strcasecmp(name, "AudioSoftvol"))          { ConfigAudioSoftvol = atoi(value);
+	} else if (!strcasecmp(name, "AudioDownmix"))          { ConfigAudioDownmix = atoi(value);
+	} else if (!strcasecmp(name, "AudioPassthrough"))      { ConfigAudioPassthroughMask = abs(atoi(value));
+	                                                         ConfigAudioPassthroughState = atoi(value) > 0;
+	} else if (!strcasecmp(name, "AudioAutoAES"))          { ConfigAudioAutoAES = atoi(value);
+	} else if (!strcasecmp(name, "AudioDelay"))            { ConfigVideoAudioDelayMs = atoi(value);
 	} else if (!strcasecmp(name, "AudioNormalize"))        { ConfigAudioNormalize = atoi(value);
 	} else if (!strcasecmp(name, "AudioMaxNormalize"))     { ConfigAudioMaxNormalize = atoi(value);
 	} else if (!strcasecmp(name, "AudioCompression"))      { ConfigAudioCompression = atoi(value);
 	} else if (!strcasecmp(name, "AudioMaxCompression"))   { ConfigAudioMaxCompression = atoi(value);
 	} else if (!strcasecmp(name, "AudioStereoDescent"))    { ConfigAudioStereoDescent = atoi(value);
-	} else if (!strcasecmp(name, "AudioAutoAES"))          { ConfigAudioAutoAES = atoi(value);
+
+	// Audio Equalizer
 	} else if (!strcasecmp(name, "AudioEq"))               { ConfigAudioEq = atoi(value);
 	} else if (!strcasecmp(name, "AudioEqBand01b"))        { ConfigAudioEqBand[0] = atoi(value);
 	} else if (!strcasecmp(name, "AudioEqBand02b"))        { ConfigAudioEqBand[1] = atoi(value);
@@ -77,6 +73,8 @@ bool cSoftHdConfig::SetupParse(const char *name, const char *value)
 	} else if (!strcasecmp(name, "AudioEqBand16b"))        { ConfigAudioEqBand[15] = atoi(value);
 	} else if (!strcasecmp(name, "AudioEqBand17b"))        { ConfigAudioEqBand[16] = atoi(value);
 	} else if (!strcasecmp(name, "AudioEqBand18b"))        { ConfigAudioEqBand[17] = atoi(value);
+
+	// PiP
 	} else if (!strcasecmp(name, "PipScalePercent"))       { ConfigPipScalePercent = atoi(value);
 	} else if (!strcasecmp(name, "PipLeftPercent"))        { ConfigPipLeftPercent = atoi(value);
 	} else if (!strcasecmp(name, "PipTopPercent"))         { ConfigPipTopPercent = atoi(value);
@@ -84,6 +82,22 @@ bool cSoftHdConfig::SetupParse(const char *name, const char *value)
 	} else if (!strcasecmp(name, "PipAltScalePercent"))    { ConfigPipAltScalePercent = atoi(value);
 	} else if (!strcasecmp(name, "PipAltLeftPercent"))     { ConfigPipAltLeftPercent = atoi(value);
 	} else if (!strcasecmp(name, "PipAltTopPercent"))      { ConfigPipAltTopPercent = atoi(value);
+
+	// Logging
+	} else if (!strcasecmp(name, "LogLevel"))              { ConfigLogLevels = abs(atoi(value));
+	                                                         ConfigLogState = atoi(value) > 0;
+                                                                 PrintLogLevel(ConfigLogState ? ConfigLogLevels : 0);
+	                                                         cSoftHdLogger::GetLogger()->SetLogLevel(ConfigLogState ? ConfigLogLevels : 0);
+
+	// Expert Settings
+	} else if (!strcasecmp(name, "AdditionalBufferLengthMs"))   { ConfigAdditionalBufferLengthMs = atoi(value);
+	} else if (!strcasecmp(name, "DisableDeint"))               { ConfigDisableDeint = atoi(value);
+	} else if (!strcasecmp(name, "DecoderFallbackToSw"))        { ConfigDecoderFallbackToSw = atoi(value);
+	} else if (!strcasecmp(name, "DecoderFallbackToSwNumPkts")) { ConfigDecoderFallbackToSwNumPkts = atoi(value);
+	} else if (!strcasecmp(name, "DecoderNeedsIFrame"))         { ConfigDecoderNeedsIFrame = atoi(value);
+	} else if (!strcasecmp(name, "ParseH264Dimensions"))        { ConfigParseH264Dimensions = atoi(value);
+	} else if (!strcasecmp(name, "ParseH264StreamStart"))       { ConfigParseH264StreamStart = atoi(value);
+	} else if (!strcasecmp(name, "DropInvalidH264PFrames"))     { ConfigDropInvalidH264PFrames = atoi(value);
 #ifdef USE_GLES
 	} else if (!strcasecmp(name, "MaxSizeGPUImageCache"))  { ConfigMaxSizeGPUImageCache = atoi(value);
 #endif
