@@ -224,7 +224,7 @@ int cVideoDecoder::Open(enum AVCodecID codecId, AVCodecParameters * par,
 		m_pVideoCtx->pix_fmt = AV_PIX_FMT_DRM_PRIME;
 	}
 
-	if (par && (avcodec_parameters_to_context(m_pVideoCtx, par) < 0))
+	if (par && avcodec_parameters_to_context(m_pVideoCtx, par) < 0)
 		LOGERROR("videocodec: %s: %s: insert parameters to context failed!", m_identifier, __FUNCTION__);
 
 	m_pVideoCtx->codec_id = codecId;
@@ -252,7 +252,7 @@ int cVideoDecoder::Open(enum AVCodecID codecId, AVCodecParameters * par,
 		}
 	}
 
-	if (codec->capabilities & AV_CODEC_CAP_FRAME_THREADS || AV_CODEC_CAP_SLICE_THREADS)
+	if (codec->capabilities & (AV_CODEC_CAP_FRAME_THREADS | AV_CODEC_CAP_SLICE_THREADS))
 		m_pVideoCtx->thread_count = !m_isHardwareDecoder ? 4 : 1;
 
 	if (codec->capabilities & AV_CODEC_CAP_SLICE_THREADS)
