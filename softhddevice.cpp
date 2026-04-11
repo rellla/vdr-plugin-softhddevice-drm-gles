@@ -1442,11 +1442,11 @@ void cSoftHdDevice::ScaleVideo(const cRect & rect)
  */
 const char *cSoftHdDevice::CommandLineHelp(void)
 {
-	return "  -a device\taudio device (fe. alsa: hw:0,0)\n"
-	       "  -p device\taudio device for pass-through (hw:0,1)\n"
-	       "  -c channel\taudio mixer channel name (fe. PCM)\n"
-	       "  -o device\tdrm device (fe. /dev/dri0)\n"
-	       "  -d resolution\tdisplay resolution (fe. 1920x1080@50)\n"
+	return "  -a device\taudio device (e.g. alsa: hw:0,0)\n"
+	       "  -p device\taudio device for pass-through (e.g. hw:0,1)\n"
+	       "  -c channel\taudio mixer channel name (e.g. PCM)\n"
+	       "  -o device\tdrm device (e.g. /dev/dri/card0)\n"
+	       "  -d resolution\tdisplay resolution (e.g. 1920x1080@50)\n"
 	       "  -D start in detached state\n"
 	       "  -w workaround\tenable/disable workarounds\n"
 #ifdef USE_GLES
