@@ -14,6 +14,8 @@
  * @license{AGPL-3.0-or-later}
  */
 
+#include <libintl.h>
+
 #include <vdr/player.h>
 #include <vdr/plugin.h>
 
@@ -112,13 +114,76 @@ const char *cPluginSoftHdDevice::CommandLineHelp(void)
 }
 
 /**
- * Process the command line arguments
+ * Process the command line arguments.
+ *
+ * @param argc	number of arguments
+ * @param argv	arguments vector
  */
 bool cPluginSoftHdDevice::ProcessArgs(int argc, char *argv[])
 {
 //	LOGDEBUG("plugin: %s:", __FUNCTION__);
 
-	return m_pDevice->ProcessArgs(argc, argv);
+	//
+	// Parse arguments.
+	//
+
+	for (;;) {
+#ifdef USE_GLES
+		switch (getopt(argc, argv, "-a:c:p:o:d:Dw:")) {
+#else
+		switch (getopt(argc, argv, "-a:c:p:o:d:D")) {
+#endif
+		case 'a':           // audio device for pcm
+			m_pConfig->ConfigAudioPCMDevice = optarg;
+			continue;
+		case 'c':           // channel of audio mixer
+			m_pConfig->ConfigAudioMixerChannel = optarg;
+			continue;
+		case 'p':           // pass-through audio device
+			m_pConfig->ConfigAudioPassthroughDevice = optarg;
+			continue;
+		case 'o':           // set display drm device
+			m_pConfig->ConfigDrmDevice = optarg;
+			continue;
+		case 'd':           // set display output
+			m_pConfig->ConfigDisplayResolution = optarg;
+			continue;
+		case 'D':           // start plugin in detached state
+			m_pDevice->SetStartDetached();
+			continue;
+		case 'w':           // workarounds
+			if (!strcasecmp("disable-pip", optarg)) {
+				m_pDevice->SetDisablePip();
+#ifdef USE_GLES
+			} else if (!strcasecmp("disable-ogl-osd", optarg)) {
+				m_pDevice->SetDisableOglOsd();
+#endif
+			} else {
+				fprintf(stderr, gettext("Workaround '%s' unsupported\n"),
+				optarg);
+				return 0;
+			}
+			continue;
+		case EOF:
+			break;
+		case '-':
+			fprintf(stderr, gettext("We need no long options\n"));
+			return 0;
+		case ':':
+			fprintf(stderr, gettext("Missing argument for option '%c'\n"), optopt);
+			return 0;
+		default:
+			fprintf(stderr, gettext("Unknown option '%c'\n"), optopt);
+			return 0;
+		}
+		break;
+	}
+
+	while (optind < argc) {
+		fprintf(stderr, gettext("Unhandled argument '%s'\n"), argv[optind++]);
+	}
+
+	return 1;
 }
 
 /**

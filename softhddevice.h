@@ -170,7 +170,6 @@ public:
 	// wrapped by cPluginSoftHdDevice
 	//
 	const char *CommandLineHelp(void);  // wrapped by cPluginSoftHdDevice::CommandLineHelp()
-	int ProcessArgs(int, char *[]);     // wrapped by cPluginSoftHdDevice::ProcessArgs()
 	bool Initialize(void);
 	int Start(void);
 	void Stop(void);
@@ -223,11 +222,13 @@ public:
 	bool IsDetached(void) const;
 	void ResetOsdProvider(void) { m_pOsdProvider = nullptr; }
 	bool IsOsdProviderSet(void) const { return m_pOsdProvider != nullptr; }
+	void SetStartDetached(void) { m_forceDetached = true; };
 
 	bool IsBufferingThresholdReached(void);
 	bool IsVideoOnlyPlayback(void) { return m_playbackMode == VIDEO_ONLY; };
 
 	// pip wrapper functions
+	void SetDisablePip(void) { m_disablePip = true; };
 	bool PipIsEnabled(void);
 	void PipEnable(void);
 	void PipDisable(void);
