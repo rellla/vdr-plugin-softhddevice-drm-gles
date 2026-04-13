@@ -133,7 +133,7 @@ public:
 		}
 
 		if (m_deviceName)
-			LOGDEBUG("%s found%s%s", m_deviceName,
+			LOGDEBUG("%s found%s%s%s%s", m_deviceName,
 			    m_quirks & QUIRK_NO_HW_DEINT ?                 ", hw deinterlacer disabled" : "",
 			    m_quirks & QUIRK_CODEC_FLUSH_WORKAROUND ?      ", flush workaround" : "",
 			    m_quirks & QUIRK_CODEC_NEEDS_DIMENSION_PARSE ? ", parse H.264 dimensions" : "",
