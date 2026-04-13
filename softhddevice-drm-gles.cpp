@@ -125,14 +125,12 @@ bool cPluginSoftHdDevice::ProcessArgs(int argc, char *argv[])
  * Initializes the DVB devices
  *
  * Must be called before accessing any DVB functions
- *
- * @retval true (always)
  */
 bool cPluginSoftHdDevice::Initialize(void)
 {
 //	LOGDEBUG("plugin: %s:", __FUNCTION__);
 
-	return true;
+	return m_pDevice->Initialize();
 }
 
 /**

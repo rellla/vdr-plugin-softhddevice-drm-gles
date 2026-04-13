@@ -33,6 +33,7 @@ extern "C" {
 #include "config.h"
 #include "event.h"
 #include "grab.h"
+#include "hardwaredevice.h"
 #include "jittertracker.h"
 #include "logger.h"
 #include "pes.h"
@@ -68,7 +69,19 @@ cSoftHdDevice::cSoftHdDevice(cSoftHdConfig *config)
 cSoftHdDevice::~cSoftHdDevice(void)
 {
 	LOGDEBUG("device: %s:", __FUNCTION__);
+	delete m_pHardwareDevice;
 	delete m_pSpuDecoder;
+}
+
+/**
+ * Initialize the device
+ */
+bool cSoftHdDevice::Initialize(void)
+{
+	LOGDEBUG("device: %s:", __FUNCTION__);
+	m_pHardwareDevice = new cHardwareDevice(); // deleted in destructor
+
+	return true;
 }
 
 /**
@@ -575,11 +588,11 @@ void cSoftHdDevice::OnLeavingState(State state) {
 			m_pAudio = new cSoftHdAudio(this);
 			m_pRender = new cVideoRender(this);
 			m_pGrab = new cSoftHdGrab(m_pRender);
-			m_pVideoStream = new cMainVideoStream(m_pRender, m_pRender->GetMainOutputBuffer(), m_pConfig, std::bind(&cVideoRender::PushMainFrame, m_pRender, std::placeholders::_1));
+			m_pVideoStream = new cMainVideoStream(m_pRender, m_pHardwareDevice->GetQuirks(), m_pRender->GetMainOutputBuffer(), m_pConfig, std::bind(&cVideoRender::PushMainFrame, m_pRender, std::placeholders::_1));
 			m_pAudioDecoder = new cAudioDecoder(m_pAudio);
 			m_pRender->Init(); // starts display thread
 			m_pVideoStream->StartDecoder(); // starts decoding thread
-			m_pPipStream = new cPipVideoStream(m_pRender, m_pRender->GetPipOutputBuffer(), m_pConfig, std::bind(&cVideoRender::PushPipFrame, m_pRender, std::placeholders::_1));
+			m_pPipStream = new cPipVideoStream(m_pRender, m_pHardwareDevice->GetQuirks(), m_pRender->GetPipOutputBuffer(), m_pConfig, std::bind(&cVideoRender::PushPipFrame, m_pRender, std::placeholders::_1));
 			m_pPipStream->StartDecoder(); // starts decoding thread
 			m_pPipHandler = new cPipHandler(this);
 			// Audio is init lazily (includes starting thread)
