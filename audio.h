@@ -122,8 +122,7 @@ private:
 
 	bool m_softVolume;                      ///< flag to use soft volume
 	int m_passthrough;                      ///< passthrough mask
-	const char *m_pPCMDevice;               ///< PCM device name
-	const char *m_pPassthroughDevice;       ///< passthrough device name
+	const char *m_pAlsaPCMDevice;           ///< Alsa PCM device name
 	bool m_appendAES;                       ///< flag ato utomatic append AES
 	int m_spdifBurstSize = 0;               ///< size of the current spdif burst
 	std::vector<uint16_t> m_pauseBurst;     ///< holds the burst data itself
@@ -191,9 +190,9 @@ private:
 	bool m_alsaUseMmap;                  ///< use mmap
 
 	int AlsaSetup(int, int, int);
-	char *OpenAlsaDevice(const char *, int);
-	char *FindAlsaDevice(const char *, const char *, int);
-	void AlsaInitPCMDevice(void);
+	char *OpenAlsaDevice(const char *);
+	char *FindAlsaDevice(const char *, const char *);
+	void AlsaInitDevice(void);
 	void AlsaInitMixer(void);
 	void AlsaSetVolume(int);
 	void AlsaInit(void);

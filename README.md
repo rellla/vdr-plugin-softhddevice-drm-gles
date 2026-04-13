@@ -160,7 +160,6 @@ Use vdr -h to see the command line arguments supported by the plugin.
 All command line arguments are optional. The plugin tries to set suitable default values.
 
 	-a arg     audio device (e.g. hw:0,1)
-	-p arg     audio device for pass-through* (e.g. hw:0,1)
 	-c arg     audio mixer channel name (e.g. PCM)
 	-o arg     drm device (e.g. /dev/dri/card0)
 	-x arg     drm connector name (e.g. HDMI-A-1)
@@ -177,8 +176,6 @@ Environment values have a higher priority than command line arguments.
 
 	ALSA_DEVICE=default
 		alsa PCM device name
-	ALSA_PASSTHROUGH_DEVICE=
-		alsa pass-though (AC-3,E-AC-3,DTS,...) device name
 	ALSA_MIXER=default
 		alsa control device name
 	ALSA_MIXER_CHANNEL=PCM
