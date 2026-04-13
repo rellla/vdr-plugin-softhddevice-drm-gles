@@ -36,7 +36,7 @@ extern "C" {
  */
 class cVideoDecoder {
 public:
-	cVideoDecoder(int, const char *);
+	cVideoDecoder(const char *);
 	int Open(enum AVCodecID, AVCodecParameters *, AVRational, bool, int, int);
 	void Close(void);
 	int SendPacket(const AVPacket *);
@@ -48,6 +48,7 @@ public:
 	const char *Name(void) { return m_pCodecString; };
 	int GetPacketsSent(void) { return m_cntPacketsSent; };
 	int GetFramesReceived(void) { return m_cntFramesReceived; };
+	void SetSkipKeyFramesNum(int num) { m_skipKeyFramesNum = num; };
 
 private:
 	AVCodecContext *m_pVideoCtx = nullptr;  ///< video codec context
@@ -61,7 +62,7 @@ private:
 	                                        ///< in ReceiveFrame() before sending them to the renderer)
 	int m_lastCodedWidth;                   ///< save coded width while closing for a directly reopen
 	int m_lastCodedHeight;                  ///< save coded height while closing for a directly reopen
-	int m_hardwareQuirks;                   ///< hardware specific quirks needed for decoder
+	int m_skipKeyFramesNum = 0;             ///< number of Keyframes (= I-Frames in VDR) to be skipped at stream start (hardware specific quirk)
 	bool m_isHardwareDecoder = false;       ///< true, if this is a hardware decoder
 
 	int GetExtraData(const AVPacket *);

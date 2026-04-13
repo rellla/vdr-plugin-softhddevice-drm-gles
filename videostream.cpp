@@ -146,7 +146,10 @@ void cVideoStream::StartDecoder()
 {
 	LOGDEBUG2(L_CODEC, "videostream %s: %s", m_identifier, __FUNCTION__);
 
-	m_pDecoder = new cVideoDecoder(m_hardwareQuirks, m_identifier);
+	m_pDecoder = new cVideoDecoder(m_identifier);
+	if (m_hardwareQuirks & QUIRK_CODEC_SKIP_FIRST_FRAMES)
+		m_pDecoder->SetSkipKeyFramesNum(QUIRK_CODEC_SKIP_NUM_FRAMES);
+
 	Start();
 }
 
