@@ -30,8 +30,6 @@ enum HardwareQuirks {
 	QUIRK_CODEC_NEEDS_DIMENSION_PARSE = 1 << 2,     ///< set, if codec needs some infos for init (coded_width and coded_height)
 	QUIRK_CODEC_SKIP_FIRST_FRAMES     = 1 << 3,     ///< set, if codec should skip first I-Frames
 	QUIRK_CODEC_SKIP_NUM_FRAMES       = 2     ,     ///< skip QUIRK_CODEC_SKIP_NUM_FRAMES, in case QUIRK_CODEC_SKIP_FIRST_FRAMES is set
-	QUIRK_CODEC_DISABLE_MPEG_HW       = 1 << 4,     ///< set, if disable mpeg hardware decoder (currently unused)
-	QUIRK_CODEC_DISABLE_H264_HW       = 1 << 5      ///< set, if disable h264 hardware decoder (currently unused)
 };
 
 /**
