@@ -57,8 +57,7 @@ cSoftHdAudio::cSoftHdAudio(cSoftHdDevice *device)
 	  m_downmix(m_pConfig->ConfigAudioDownmix),
 	  m_softVolume(m_pConfig->ConfigAudioSoftvol),
 	  m_passthrough(m_pConfig->ConfigAudioPassthroughState ? m_pConfig->ConfigAudioPassthroughMask : 0),
-	  m_pPCMDevice(m_pConfig->ConfigAudioPCMDevice),
-	  m_pPassthroughDevice(m_pConfig->ConfigAudioPassthroughDevice),
+	  m_pAlsaPCMDevice(m_pConfig->ConfigAudioPCMDevice),
 	  m_appendAES(m_pConfig->ConfigAudioAutoAES),
 	  m_pMixerChannel(m_pConfig->ConfigAudioMixerChannel)
 {
@@ -333,7 +332,7 @@ static const char *alsaToFFmpegChannel(const char *alsaName)
 /**
  * Put Alsa channel layout in a dynamic array of strings
  *
- * @param pcmHandle      current Alsa PCM Handle
+ * @param pcmHandle      current Alsa PCM handle
  *
  * @return alsa channel layout as an array of strings
  *
@@ -406,7 +405,7 @@ static bool LayoutsMatch(const std::vector<std::string> &ff, const std::vector<s
 /**
  * Build the "|"-separated mappings list for the channelmap filter
  *
- * @param pcmHandle      current Alsa PCM Handle
+ * @param pcmHandle      current Alsa PCM handle
  * @param layout         current FFmpeg channel layout
  *
  * @return mapping string to feed into the channelmap filter
@@ -1553,11 +1552,10 @@ void cSoftHdAudio::ProcessEvents(void)
  * Open an alsa device
  *
  * @param device             alsa device to be opened
- * @param passthrough        set, if this is a passthrough device
  *
  * @return   the alsa device if successful, NULL otherwise
  */
-char *cSoftHdAudio::OpenAlsaDevice(const char *device, int passthrough)
+char *cSoftHdAudio::OpenAlsaDevice(const char *device)
 {
 	int err;
 	char tmp[80];
@@ -1565,9 +1563,9 @@ char *cSoftHdAudio::OpenAlsaDevice(const char *device, int passthrough)
 	if (!device)
 		return NULL;
 
-	LOGDEBUG2(L_SOUND, "audio: %s: try opening %sdevice '%s'", __FUNCTION__, passthrough ? "pass-through " : "", device);
+	LOGDEBUG2(L_SOUND, "audio: %s: try opening %sdevice '%s'", __FUNCTION__, m_passthrough ? "pass-through " : "", device);
 
-	if (passthrough && m_appendAES) {
+	if (m_passthrough && m_appendAES) {
 		if (!(strchr(device, ':'))) {
 			sprintf(tmp, "%s:AES0=%d,AES1=%d,AES2=0,AES3=%d",
 				device,
@@ -1594,7 +1592,7 @@ char *cSoftHdAudio::OpenAlsaDevice(const char *device, int passthrough)
 		return NULL;
 	}
 
-	LOGDEBUG2(L_SOUND, "audio: %s: opened %sdevice '%s'", __FUNCTION__, passthrough ? "pass-through " : "", device);
+	LOGDEBUG2(L_SOUND, "audio: %s: opened %sdevice '%s'", __FUNCTION__, m_passthrough ? "pass-through " : "", device);
 
 	return (char *)device;
 }
@@ -1604,12 +1602,11 @@ char *cSoftHdAudio::OpenAlsaDevice(const char *device, int passthrough)
  *
  * @param devname          interface identification (e.g. "pcm")
  * @param hint             string to compare with device name hints
- * @param passthrough      set, if we want a passthrough device
  *
  * @return   an opened alsa device name if successful, NULL otherwise
  *           NOTE: Returned string is allocated and must be freed by caller
  */
-char *cSoftHdAudio::FindAlsaDevice(const char *devname, const char *hint, int passthrough)
+char *cSoftHdAudio::FindAlsaDevice(const char *devname, const char *hint)
 {
 	char **hints;
 	int err;
@@ -1627,7 +1624,7 @@ char *cSoftHdAudio::FindAlsaDevice(const char *devname, const char *hint, int pa
 		name = snd_device_name_get_hint(*n, "NAME");
 
 		if (name && strstr(name, hint)) {
-			if (OpenAlsaDevice(name, passthrough)) {
+			if (OpenAlsaDevice(name)) {
 				snd_device_name_free_hint((void **)hints);
 				return name;
 			}
@@ -1645,7 +1642,7 @@ char *cSoftHdAudio::FindAlsaDevice(const char *devname, const char *hint, int pa
 /**
  * Search for an alsa pcm device and open it
  */
-void cSoftHdAudio::AlsaInitPCMDevice(void)
+void cSoftHdAudio::AlsaInitDevice(void)
 {
 	char *device = NULL;
 	bool freeDevice = false;  // track if device needs to be freed
@@ -1653,49 +1650,41 @@ void cSoftHdAudio::AlsaInitPCMDevice(void)
 	LOGDEBUG2(L_SOUND, "audio: %s: passthrough %d", __FUNCTION__, m_passthrough);
 
 	// try user set device
-	if (m_passthrough)
-		device = OpenAlsaDevice(getenv("ALSA_PASSTHROUGH_DEVICE"), m_passthrough);
-
-	if (!device && m_passthrough)
-		device = OpenAlsaDevice(m_pPassthroughDevice, m_passthrough);
-
+	device = OpenAlsaDevice(getenv("ALSA_DEVICE"));
 	if (!device)
-		device = OpenAlsaDevice(getenv("ALSA_DEVICE"), m_passthrough);
-
-	if (!device)
-		device = OpenAlsaDevice(m_pPCMDevice, m_passthrough);
+		device = OpenAlsaDevice(m_pAlsaPCMDevice);
 
 	// walkthrough hdmi: devices
 	if (!device) {
 		LOGDEBUG2(L_SOUND, "audio: %s: Try hdmi: devices...", __FUNCTION__);
-		device = FindAlsaDevice("pcm", "hdmi:", m_passthrough);
+		device = FindAlsaDevice("pcm", "hdmi:");
 		freeDevice = (device != NULL);  // FindAlsaDevice allocates memory
 	}
 
 	// Rockchip mainline kernel
 	if (!device) {
 		LOGDEBUG2(L_SOUND, "audio: %s: Try default:CARD=hdmisound devices...", __FUNCTION__);
-		device = FindAlsaDevice("pcm", "default:CARD=hdmisound", m_passthrough);
+		device = FindAlsaDevice("pcm", "default:CARD=hdmisound");
 		freeDevice = (device != NULL);  // FindAlsaDevice allocates memory
 	}
 
 	// walkthrough default: devices
 	if (!device) {
 		LOGDEBUG2(L_SOUND, "audio: %s: Try default: devices...", __FUNCTION__);
-		device = FindAlsaDevice("pcm", "default:", m_passthrough);
+		device = FindAlsaDevice("pcm", "default:");
 		freeDevice = (device != NULL);  // FindAlsaDevice allocates memory
 	}
 
 	// try default device
 	if (!device) {
 		LOGDEBUG2(L_SOUND, "audio: %s: Try default device...", __FUNCTION__);
-		device = OpenAlsaDevice("default", m_passthrough);
+		device = OpenAlsaDevice("default");
 	}
 
 	// use null device
 	if (!device) {
 		LOGDEBUG2(L_SOUND, "audio: %s: Try null device...", __FUNCTION__);
-		device = OpenAlsaDevice("null", m_passthrough);
+		device = OpenAlsaDevice("null");
 	}
 
 	if (!device)
@@ -1934,7 +1923,7 @@ void cSoftHdAudio::AlsaInit(void)
 	snd_lib_error_set_handler(AlsaNoopCallback);
 #endif
 
-	AlsaInitPCMDevice();
+	AlsaInitDevice();
 	AlsaInitMixer();
 }
 
