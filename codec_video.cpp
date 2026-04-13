@@ -179,22 +179,17 @@ int cVideoDecoder::Open(enum AVCodecID codecId, AVCodecParameters * par,
 	const AVCodec *codec = nullptr;
 	m_isHardwareDecoder = false;
 
-	bool swCodecForced = forceSoftwareDecoder;
-	if ((m_hardwareQuirks & QUIRK_CODEC_DISABLE_MPEG_HW && codecId == AV_CODEC_ID_MPEG2VIDEO) ||
-	    (m_hardwareQuirks & QUIRK_CODEC_DISABLE_H264_HW && codecId == AV_CODEC_ID_H264))
-		swCodecForced = true;
-
 	LOGDEBUG2(L_CODEC, "videocodec: %s: %s: Try to open decoder for codec \"%s\"%s", m_identifier, __FUNCTION__,
-		avcodec_get_name(codecId), swCodecForced ? " (sw decoding forced)" : "");
+		avcodec_get_name(codecId), forceSoftwareDecoder ? " (sw decoding forced)" : "");
 
-	if (!swCodecForced)
+	if (!forceSoftwareDecoder)
 		codec = FindHWDecoder(codecId);
 
 	if (codec) {
 		m_isHardwareDecoder = true;
 	} else {
-		if (!swCodecForced)
-			LOGDEBUG2(L_CODEC, "videocodec: %s: no HW decoder found for codec \"%s\", try software decoder%s", __FUNCTION__, avcodec_get_name(codecId), swCodecForced ? " (forced)" : "");
+		if (!forceSoftwareDecoder)
+			LOGDEBUG2(L_CODEC, "videocodec: %s: no HW decoder found for codec \"%s\", try software decoder%s", __FUNCTION__, avcodec_get_name(codecId), forceSoftwareDecoder ? " (forced)" : "");
 		codec = FindSWDecoder(codecId);
 	}
 
@@ -289,7 +284,7 @@ int cVideoDecoder::Open(enum AVCodecID codecId, AVCodecParameters * par,
 		codec->long_name ? codec->long_name : codec->name,
 		codec->name,
 		avcodec_get_name(codecId),
-		swCodecForced ? " (sw decoding forced)" : "",
+		forceSoftwareDecoder ? " (sw decoding forced)" : "",
 		m_isHardwareDecoder ? "hardware" : "software",
 		m_pVideoCtx->thread_count,
 		m_isHardwareDecoder ? " 🤩" : "");
