@@ -169,7 +169,6 @@ public:
 	//
 	// wrapped by cPluginSoftHdDevice
 	//
-	const char *CommandLineHelp(void);  // wrapped by cPluginSoftHdDevice::CommandLineHelp()
 	bool Initialize(void);
 	int Start(void);
 	void Stop(void);
