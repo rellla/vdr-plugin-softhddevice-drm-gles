@@ -24,9 +24,9 @@ extern "C" {
 }
 
 #include "codec_video.h"
+#include "hardwaredevice.h"
 #include "logger.h"
 #include "misc.h"
-#include "videostream.h"
 
 //#define NUM_CAPTURE_BUFFERS 10
 //#define NUM_OUTPUT_BUFFERS 10

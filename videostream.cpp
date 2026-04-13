@@ -30,119 +30,13 @@ extern "C" {
 #include "codec_video.h"
 #include "config.h"
 #include "h264parser.h"
+#include "hardwaredevice.h"
 #include "logger.h"
 #include "misc.h"
 #include "queue.h"
 #include "videofilter.h"
 #include "videostream.h"
 #include "videorender.h"
-
-/**
- * Helper function to read a line from a given file
- *
- * @param[out] buf           pointer to the data
- * @param[out] size          size of the data at buf
- * @param[in] file           the filepointer to be read on
- *
- * @return the number of characters read
- *
- * @ingroup video
- */
-static size_t ReadLineFromFile(char *buf, size_t size, const char * file)
-{
-	FILE *fd = NULL;
-	size_t character;
-
-	fd = fopen(file, "r");
-	if (fd == NULL) {
-		LOGERROR("videostream: %s: Can't open %s", __FUNCTION__, file);
-		return 0;
-	}
-
-	character = getline(&buf, &size, fd);
-
-	fclose(fd);
-
-	return character;
-}
-
-/**
- * Helper function to find out which platform we are on
- *
- * @return the hardware quirks of the device
- *
- * @ingroup video
- */
-static int ReadHWPlatform(void)
-{
-	char *txt_buf;
-	char *read_ptr;
-	size_t bufsize = 128;
-	size_t read_size;
-
-	txt_buf = (char *) calloc(bufsize, sizeof(char));
-	int hardwareQuirks = 0;
-
-	read_size = ReadLineFromFile(txt_buf, bufsize, "/sys/firmware/devicetree/base/compatible");
-	if (!read_size) {
-		free((void *)txt_buf);
-		return 0;
-	}
-
-	read_ptr = txt_buf;
-	// be aware: device tree string can contain \x0 bytes, so every C-string function
-	// thinks, we already reached the string's terminating null bytes
-	// so copy the string into a temporary string without the "\0"
-	char *_txt_buf = (char *) calloc(bufsize, sizeof(char));
-	char *_read_ptr = _txt_buf;
-	for (size_t i = 0; i < bufsize; i++) {
-		if (memcmp(read_ptr, "\0", sizeof(char))) {
-			memcpy(_read_ptr, read_ptr, sizeof(char));
-			_read_ptr++;
-		}
-		read_ptr++;
-	}
-
-	read_ptr = txt_buf;
-	LOGDEBUG2(L_DRM, "videostream: %s: found \"%s\", set hardware quirks", __FUNCTION__, _txt_buf);
-
-	while(read_size) {
-		if (strstr(read_ptr, "bcm2836")) {
-			LOGDEBUG2(L_DRM, "videostream: %s: bcm2836 (Raspberry Pi 2 Model B) found", __FUNCTION__);
-			hardwareQuirks |= QUIRK_CODEC_FLUSH_WORKAROUND;
-			break;
-		}
-		if (strstr(read_ptr, "bcm2837")) {
-			LOGDEBUG2(L_DRM, "videostream: %s: bcm2837 (Raspberry Pi 2 Model B v1.2/ 3 Model B, Raspberry Pi 3 Compute Module 3) found", __FUNCTION__);
-			hardwareQuirks |= QUIRK_CODEC_FLUSH_WORKAROUND;
-			break;
-		}
-		if (strstr(read_ptr, "bcm2711")) {
-			LOGDEBUG2(L_DRM, "videostream: %s: bcm2711 (Raspberry Pi 4 Model B, Compute Module 4, Pi 400) found", __FUNCTION__);
-			hardwareQuirks |= QUIRK_CODEC_FLUSH_WORKAROUND;
-			break;
-		}
-		if (strstr(read_ptr, "bcm2712")) {
-			LOGDEBUG2(L_DRM, "videostream: %s: bcm2712 (Raspberry Pi 5, Compute Module 5, Pi 500) found", __FUNCTION__);
-			hardwareQuirks |= QUIRK_CODEC_FLUSH_WORKAROUND;
-			break;
-		}
-		if (strstr(read_ptr, "amlogic")) {
-			LOGDEBUG2(L_DRM, "videostream: %s: amlogic found, disable HW deinterlacer", __FUNCTION__);
-			hardwareQuirks |= QUIRK_CODEC_NEEDS_EXT_INIT
-			               |  QUIRK_CODEC_SKIP_FIRST_FRAMES
-			               |  QUIRK_NO_HW_DEINT;
-			break;
-		}
-
-		read_size -= (strlen(read_ptr) + 1);
-		read_ptr = (char *)&read_ptr[(strlen(read_ptr) + 1)];
-	}
-	free((void *)_txt_buf);
-	free((void *)txt_buf);
-
-	return hardwareQuirks;
-}
 
 /*****************************************************************************
  * cVideoStream class
@@ -151,7 +45,7 @@ static int ReadHWPlatform(void)
 /**
  * Create a video stream
  */
-cVideoStream::cVideoStream(cVideoRender *render, cQueue<cDrmBuffer> *drmBufferQueue, cSoftHdConfig *config, bool isPipStream, std::function<void(AVFrame *)> frameOutput)
+cVideoStream::cVideoStream(cVideoRender *render, int hardwareQuirks, cQueue<cDrmBuffer> *drmBufferQueue, cSoftHdConfig *config, bool isPipStream, std::function<void(AVFrame *)> frameOutput)
 	: cThread(isPipStream ? "shd PIP decode" : "shd main decode"),
 	  m_pConfig(config),
 	  m_pDecoder(nullptr),
@@ -160,12 +54,12 @@ cVideoStream::cVideoStream(cVideoRender *render, cQueue<cDrmBuffer> *drmBufferQu
 	  m_frameOutput(frameOutput),
 	  m_pDrmBufferQueue(drmBufferQueue),
 	  m_videoFilter(render, m_pDrmBufferQueue, isPipStream ? "shd PIP filter" : "shd main filter", frameOutput),
+	  m_hardwareQuirks(hardwareQuirks),
 	  m_userDisabledDeinterlacer(config->ConfigDisableDeint),
 	  m_deinterlacerDeactivated(isPipStream ? true : false),
 	  m_startDecodingWithIFrame(config->ConfigDecoderNeedsIFrame),
 	  m_parseH264Dimensions(config->ConfigParseH264Dimensions)
 {
-	m_hardwareQuirks = ReadHWPlatform();
 	m_decoderFallbackToSwNumPkts = config->ConfigDecoderFallbackToSw ? config->ConfigDecoderFallbackToSwNumPkts : 0;
 
 	LOGDEBUG("videostream %s: %s", __FUNCTION__, m_identifier);
@@ -325,7 +219,7 @@ void cVideoStream::OpenDecoder(void)
 
 	bool needsParsing = m_startDecodingWithIFrame ||
 	                    m_parseH264Dimensions ||
-	                   (m_hardwareQuirks & QUIRK_CODEC_NEEDS_EXT_INIT);
+	                   (m_hardwareQuirks & QUIRK_CODEC_NEEDS_DIMENSION_PARSE);
 
 	if (needsParsing && m_codecId == AV_CODEC_ID_H264) {
 		cH264Parser h264Packet(m_packets.Peek(),
@@ -347,7 +241,7 @@ void cVideoStream::OpenDecoder(void)
 		}
 
 		// amlogic h264 decoder needs width an height for correct decoder open
-		if ((m_hardwareQuirks & QUIRK_CODEC_NEEDS_EXT_INIT) || m_parseH264Dimensions) {
+		if ((m_hardwareQuirks & QUIRK_CODEC_NEEDS_DIMENSION_PARSE) || m_parseH264Dimensions) {
 			width = h264Packet.GetWidth();
 			height = h264Packet.GetHeight();
 			LOGDEBUG2(L_CODEC, "videostream %s: %s: Parsed width %d height %d", m_identifier, __FUNCTION__, width, height);

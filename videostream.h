@@ -40,21 +40,6 @@ class cVideoRender;
  */
 
 /**
- * Hardware quirks, that are set depending on the hardware used
- *
- * @ingroup video
- */
-enum HardwareQuirks {
-	QUIRK_NO_HW_DEINT             = 1 << 0,     ///< set, if no hw deinterlacer available
-	QUIRK_CODEC_FLUSH_WORKAROUND  = 1 << 1,     ///< set, if we have to close and reopen the codec instead of avcodec_flush_buffers (rpi)
-	QUIRK_CODEC_NEEDS_EXT_INIT    = 1 << 2,     ///< set, if codec needs some infos for init (coded_width and coded_height)
-	QUIRK_CODEC_SKIP_FIRST_FRAMES = 1 << 3,     ///< set, if codec should skip first I-Frames
-	QUIRK_CODEC_SKIP_NUM_FRAMES   = 2     ,     ///< skip QUIRK_CODEC_SKIP_NUM_FRAMES, in case QUIRK_CODEC_SKIP_FIRST_FRAMES is set
-	QUIRK_CODEC_DISABLE_MPEG_HW   = 1 << 4,     ///< set, if disable mpeg hardware decoder
-	QUIRK_CODEC_DISABLE_H264_HW   = 1 << 5      ///< set, if disable h264 hardware decoder
-};
-
-/**
  * Video Input Stream
  *
  * @ingroup video
@@ -99,14 +84,13 @@ public:
 
 	virtual void SetDeinterlacerDeactivated(bool deactivate) { m_deinterlacerDeactivated = deactivate; };
 	bool IsDeinterlacerDeactivated(void) { return m_deinterlacerDeactivated; };
-	int HardwareQuirks(void) { return m_hardwareQuirks; };
 	void DisableDeint(bool disable) { m_userDisabledDeinterlacer = disable; };
 	void SetStartDecodingWithIFrame(bool enable) { m_startDecodingWithIFrame = enable; };
 	void SetParseH264Dimensions(bool enable) { m_parseH264Dimensions = enable; };
 	void SetDecoderFallbackToSwNumPkts(int numPackets) { m_decoderFallbackToSwNumPkts = numPackets; };
 
 protected:
-	cVideoStream(cVideoRender *, cQueue<cDrmBuffer> *, cSoftHdConfig *, bool, std::function<void(AVFrame *)>);
+	cVideoStream(cVideoRender *, int, cQueue<cDrmBuffer> *, cSoftHdConfig *, bool, std::function<void(AVFrame *)>);
 	virtual void Action(void);
 
 private:
@@ -166,8 +150,8 @@ private:
  */
 class cMainVideoStream : public cVideoStream {
 public:
-	cMainVideoStream(cVideoRender *render, cQueue<cDrmBuffer> *buf, cSoftHdConfig *config, std::function<void(AVFrame *)> fn)
-		: cVideoStream(render, buf, config, false, fn) {};
+	cMainVideoStream(cVideoRender *render, int hardwareQuirks, cQueue<cDrmBuffer> *buf, cSoftHdConfig *config, std::function<void(AVFrame *)> fn)
+		: cVideoStream(render, hardwareQuirks, buf, config, false, fn) {};
 };
 
 /**
@@ -177,8 +161,8 @@ public:
  */
 class cPipVideoStream : public cVideoStream {
 public:
-	cPipVideoStream(cVideoRender *render, cQueue<cDrmBuffer> *buf, cSoftHdConfig *config, std::function<void(AVFrame *)> fn)
-		: cVideoStream(render, buf, config, true, fn) {};
+	cPipVideoStream(cVideoRender *render, int hardwareQuirks, cQueue<cDrmBuffer> *buf, cSoftHdConfig *config, std::function<void(AVFrame *)> fn)
+		: cVideoStream(render, hardwareQuirks, buf, config, true, fn) {};
 	void SetDeinterlacerDeactivated(bool) override {}; // deinterlacing is permanently disabled
 };
 

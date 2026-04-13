@@ -31,6 +31,7 @@ extern "C"
 
 #include "config.h"
 #include "event.h"
+#include "hardwaredevice.h"
 #include "jittertracker.h"
 #include "pes.h"
 
@@ -170,6 +171,7 @@ public:
 	//
 	const char *CommandLineHelp(void);  // wrapped by cPluginSoftHdDevice::CommandLineHelp()
 	int ProcessArgs(int, char *[]);     // wrapped by cPluginSoftHdDevice::ProcessArgs()
+	bool Initialize(void);
 	int Start(void);
 	void Stop(void);
 
@@ -257,6 +259,7 @@ private:
 	cSoftHdAudio *m_pAudio;                         ///< pointer to cSoftHdAudio object
 	cAudioDecoder *m_pAudioDecoder = nullptr;       ///< pointer to cAudioDecoder object
 	cSoftOsdProvider *m_pOsdProvider = nullptr;     ///< pointer to cSoftOsdProvider object
+	cHardwareDevice *m_pHardwareDevice;             ///< pointer to hardware device description
 	cReassemblyBufferVideo m_videoReassemblyBuffer; ///< video pes reassembly buffer
 	cReassemblyBufferAudio m_audioReassemblyBuffer; ///< audio pes reassembly buffer
 	cJitterTracker m_audioJitterTracker{"audio"};   ///< audio jitter tracker
