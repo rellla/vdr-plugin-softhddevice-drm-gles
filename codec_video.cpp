@@ -24,7 +24,6 @@ extern "C" {
 }
 
 #include "codec_video.h"
-#include "hardwaredevice.h"
 #include "logger.h"
 #include "misc.h"
 
@@ -139,13 +138,11 @@ static const AVCodec *FindSWDecoder(enum AVCodecID codecId)
 /**
  * Create a new video decoder
  *
- * @param hardwareQuirks     hardware specific quirks for decoder
  * @param identifier         string to identify decoder for video or pip stream
  *                           (used within logging only)
  */
-cVideoDecoder::cVideoDecoder(int hardwareQuirks, const char *identifier)
-	: m_identifier(identifier),
-	  m_hardwareQuirks(hardwareQuirks)
+cVideoDecoder::cVideoDecoder(const char *identifier)
+	: m_identifier(identifier)
 {
 	av_log_set_callback(cSoftHdLogger::LogFFmpegCallback);
 
@@ -484,15 +481,15 @@ int cVideoDecoder::ReceiveFrame(AVFrame **frame)
 	if (pFrame->flags == AV_FRAME_FLAG_CORRUPT)
 		LOGDEBUG2(L_CODEC, "videocodec: %s: %s: AV_FRAME_FLAG_CORRUPT", m_identifier, __FUNCTION__);
 
-	// codec artifacts workaround for amlogic H264:
-	// skip QUIRK_CODEC_SKIP_NUM_FRAMES key frames
-	if (m_pVideoCtx->codec_id == AV_CODEC_ID_H264 &&
-	   (m_hardwareQuirks & QUIRK_CODEC_SKIP_FIRST_FRAMES) && m_cntStartKeyFrames) {
+	// Codec artifacts workaround for amlogic H264:
+	// Skip m_skipKeyFramesNum Key-Frames at stream start.
+	// m_skipKeyFramesNum can be set with SetSkipKeyFramesNum()
+	if (m_pVideoCtx->codec_id == AV_CODEC_ID_H264 && m_skipKeyFramesNum && m_cntStartKeyFrames) {
 		if (IsKeyFrame(pFrame)) {
-			LOGDEBUG2(L_CODEC, "videocodec: %s: %s: artifact workaround - skip %s I-frame nr %d", m_identifier, __FUNCTION__,
+			LOGDEBUG2(L_CODEC, "videocodec: %s: %s: artifact workaround - skip %s Keyframe nr %d", m_identifier, __FUNCTION__,
 				isInterlacedFrame(pFrame) ? "interlaced" : "progressive", m_cntStartKeyFrames);
 
-			if (m_cntStartKeyFrames++ > QUIRK_CODEC_SKIP_NUM_FRAMES - 1)
+			if (m_cntStartKeyFrames++ > m_skipKeyFramesNum - 1)
 				m_cntStartKeyFrames = 0;
 		}
 
