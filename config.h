@@ -89,7 +89,6 @@ public:
 	// command line parameters
 	//
 	const char *ConfigAudioPCMDevice = nullptr;         ///< audio PCM device
-	const char *ConfigAudioPassthroughDevice = nullptr; ///< audio passthrough device
 	const char *ConfigAudioMixerChannel = nullptr;      ///< audio mixer channel name
 	const char *ConfigDrmConnector = nullptr;           ///< user requested drm connector (e.g. "HDMI-A-1")
 	const char *ConfigDrmDevice = nullptr;              ///< user requested drm device (e.g. "/dev/dri/card0")

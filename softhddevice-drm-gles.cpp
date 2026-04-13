@@ -111,7 +111,6 @@ const char *cPluginSoftHdDevice::Description(void)
 const char *cPluginSoftHdDevice::CommandLineHelp(void)
 {
 	return "  -a device\taudio device (e.g. alsa: hw:0,0)\n"
-	       "  -p device\taudio device for pass-through (e.g. hw:0,1)\n"
 	       "  -c channel\taudio mixer channel name (e.g. PCM)\n"
 	       "  -o device\tdrm device (e.g. /dev/dri/card0)\n"
 	       "  -d resolution\tdisplay resolution (e.g. 1920x1080@50)\n"
@@ -140,18 +139,15 @@ bool cPluginSoftHdDevice::ProcessArgs(int argc, char *argv[])
 
 	for (;;) {
 #ifdef USE_GLES
-		switch (getopt(argc, argv, "-a:c:p:o:x:d:Dw:")) {
+		switch (getopt(argc, argv, "-a:c:o:x:d:Dw:")) {
 #else
-		switch (getopt(argc, argv, "-a:c:p:o:x:d:D")) {
+		switch (getopt(argc, argv, "-a:c:o:x:d:D")) {
 #endif
 		case 'a':           // audio device for pcm
 			m_pConfig->ConfigAudioPCMDevice = optarg;
 			continue;
 		case 'c':           // channel of audio mixer
 			m_pConfig->ConfigAudioMixerChannel = optarg;
-			continue;
-		case 'p':           // pass-through audio device
-			m_pConfig->ConfigAudioPassthroughDevice = optarg;
 			continue;
 		case 'o':           // set display drm device
 			m_pConfig->ConfigDrmDevice = optarg;
