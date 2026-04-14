@@ -114,7 +114,8 @@ private:
 	cSoftHdConfig *m_pConfig;
 	cSoftHdAudio *m_pAudioDevice;
 
-	std::vector<const char *>m_displayMode;
+	std::vector<std::string> m_displayMode;
+	std::vector<const char *> m_displayModePtrs;
 
 	inline cOsdItem * CollapsedItem(const char *, int &, const char * = NULL);
 	void Create(void);

@@ -28,6 +28,7 @@
 class cDrmBuffer;
 #endif
 
+class cSoftHdConfig;
 class cVideoRender;
 
 /**
@@ -42,7 +43,7 @@ class cVideoRender;
  */
 class cDrmDevice {
 public:
-	cDrmDevice(cVideoRender *, const char *, const char *, const char *);
+	cDrmDevice(cVideoRender *, cSoftHdConfig *);
 	~cDrmDevice(void);
 
 	int Init(void);
@@ -101,6 +102,7 @@ public:
 
 private:
 	cVideoRender *m_pRender;               ///< pointer to cVideoRender object
+	cSoftHdConfig *m_pConfig;              ///< pointer to cSoftHdConfig object
 
 	int m_fdDrm = -1;                      ///< drm file descriptor
 	uint32_t m_connectorId;                ///< connector id

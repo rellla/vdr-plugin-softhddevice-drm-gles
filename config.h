@@ -15,11 +15,24 @@
 
 #include <atomic>
 #include <mutex>
+#include <vector>
 
 /**
  * Plugin Configuration
  * @defgroup config Plugin Configuration
  */
+
+/**
+ * Holds possible display configurations
+ *
+ * @ingroup drm
+ */
+struct sDrmMode {
+	int width;                  ///< display width
+	int height;                 ///< display height
+	double refreshRateHz;       ///< display refresh rate
+	bool interlaced;            ///< is this an interlaced mode?
+};
 
 /**
  * Plugin Configuration
@@ -107,6 +120,8 @@ public:
 	std::atomic<int> StatMaxLongTermAudioJitterMs = 0;  ///< logged max overall audio jitter since stream start
 	std::atomic<int> StatMaxShortTermVideoJitterMs = 0; ///< logged max video jitter of the last 1000 packets
 	std::atomic<int> StatMaxLongTermVideoJitterMs = 0;  ///< logged max overall video jitter since stream start
+	std::vector<sDrmMode> CollectedDrmModes;            ///< collected available drm modes on the current connector
+	sDrmMode CurrentDrmMode;                            ///< currently used drm mode on the current connector
 
 	cSoftHdConfig(void) = default;
 	bool SetupParse(const char *, const char *);

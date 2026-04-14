@@ -335,8 +335,9 @@ msgstr " OSD Einstellungen"
 msgid " GPU mem used for image caching (MB)"
 msgstr " GPU-Speichergröße für Bild-Zwischenspeicher (MB)"
 
-msgid "default"
-msgstr "standard"
+#, c-format
+msgid "default (%dx%d@%.2f%s)"
+msgstr "standard (%dx%d@%.2f%s)"
 
 msgid "auto adjust"
 msgstr "automatisch anpassen"
