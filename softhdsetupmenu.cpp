@@ -76,7 +76,7 @@ void cMenuSetupSoft::Create(void)
 	Add(CollapsedItem(tr("Video"), m_cVideoMenu));
 	if (m_cVideoMenu) {
 		Add(new cMenuEditBoolItem(tr(" Enable HDR"), &m_cVideoEnableHDR, trVDR("no"), trVDR("yes")));
-		Add(new cMenuEditStraItem(tr(" Display mode"), &m_cVideoDisplayMode, m_displayMode.size(), m_displayMode.data()));
+		Add(new cMenuEditStraItem(tr(" Display mode"), &m_cVideoDisplayMode, m_displayModePtrs.size(), m_displayModePtrs.data()));
 	}
 
 	//
@@ -389,11 +389,27 @@ cMenuSetupSoft::cMenuSetupSoft(cSoftHdDevice *device)
 
 void cMenuSetupSoft::BuildDisplayModeList(void)
 {
-	m_displayMode.push_back(tr("default"));
+	m_displayMode.clear();
+
+	m_displayMode.push_back(*cString::sprintf(tr("default (%dx%d@%.2f%s)"),
+		m_pConfig->CurrentDrmMode.width,
+		m_pConfig->CurrentDrmMode.height,
+		m_pConfig->CurrentDrmMode.refreshRateHz,
+		m_pConfig->CurrentDrmMode.interlaced ? "i" : ""));
+
 	m_displayMode.push_back(tr("auto adjust"));
-	for (int i = 2; i < 10; i++) {
-		m_displayMode.push_back(cString::sprintf("mode %d", i));
+
+	for (size_t i = 2; i < m_pConfig->CollectedDrmModes.size() + 2; i++) {
+		m_displayMode.push_back(*cString::sprintf("%dx%d@%.2f%s",
+			m_pConfig->CollectedDrmModes[i - 2].width,
+			m_pConfig->CollectedDrmModes[i - 2].height,
+			m_pConfig->CollectedDrmModes[i - 2].refreshRateHz,
+			m_pConfig->CollectedDrmModes[i - 2].interlaced ? "i" : ""));
 	}
+
+	m_displayModePtrs.clear();
+	for (auto &s : m_displayMode)
+		m_displayModePtrs.push_back(s.c_str());
 }
 
 /**

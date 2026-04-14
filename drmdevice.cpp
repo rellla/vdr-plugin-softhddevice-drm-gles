@@ -34,6 +34,7 @@
 #include <xf86drm.h>
 #include <xf86drmMode.h>
 
+#include "config.h"
 #include "drmdevice.h"
 #include "drmplane.h"
 #include "logger.h"
@@ -43,17 +44,16 @@
  * Create a drm device
  *
  * @param render         pointer to cVideoRender object
- * @param resolution     display resolution string set by user
- * @param device         drm device string set by user
- * @param resolution     drm connector string set by user
+ * @param config         pointer to current plugin configuration
  */
-cDrmDevice::cDrmDevice(cVideoRender *render, const char* resolution, const char* device, const char* connector)
+cDrmDevice::cDrmDevice(cVideoRender *render, cSoftHdConfig *config)
 	: m_pRender(render),
-	  m_userDrmDevice(device),
-	  m_userDrmConnector(connector)
+	  m_pConfig(config),
+	  m_userDrmDevice(m_pConfig->ConfigDrmDevice),
+	  m_userDrmConnector(m_pConfig->ConfigDrmConnector)
 {
-	if (resolution)
-		sscanf(resolution, "%dx%d@%d", &m_userReqDisplayWidth, &m_userReqDisplayHeight, &m_userReqDisplayRefreshRate);
+	if (m_pConfig->ConfigDisplayResolution)
+		sscanf(m_pConfig->ConfigDisplayResolution, "%dx%d@%d", &m_userReqDisplayWidth, &m_userReqDisplayHeight, &m_userReqDisplayRefreshRate);
 }
 
 cDrmDevice::~cDrmDevice(void)
@@ -254,6 +254,42 @@ static double GetRefreshRateHz(drmModeModeInfo *modeInfo)
 }
 
 /**
+ * Test, if the given mode was already pushed to the array
+ *
+ * Only width, height, refresh rate and the interlaced flag is tested.
+ * Other flags and values are ignored.
+ *
+ * @param mode           mode info of the new mode
+ * @param modes          mode array
+ *
+ * @retval true  if this is a duplicate
+ * @retval false if this is a new mode
+ *
+ * @ingroup drm
+ */
+static bool IsDuplicateDrmMode(drmModeModeInfo *mode, std::vector<sDrmMode> modes)
+{
+	for (size_t i = 0; i < modes.size(); i++) {
+		if (mode->hdisplay != modes[i].width)
+			continue;
+
+		if (mode->vdisplay != modes[i].height)
+			continue;
+
+		if (GetRefreshRateHz(mode) != modes[i].refreshRateHz)
+			continue;
+
+		bool interlaced = (mode->flags & DRM_MODE_FLAG_INTERLACE) == DRM_MODE_FLAG_INTERLACE;
+		if (interlaced != modes[i].interlaced)
+			continue;
+
+		return true;
+	}
+
+	return false;
+}
+
+/**
  * Initiate the drm device
  *
  * 1) Try to open the user requested device (with -o /dev/dri/cardX)
@@ -314,6 +350,18 @@ int cDrmDevice::Init(void)
 	m_connectorName = ConnectorName(connector);
 	bool connected = connector->connection == DRM_MODE_CONNECTED;
 
+	// fill config with available connectors for later selection from setup menu
+	m_pConfig->CollectedDrmModes.clear();
+	for (i = 0; i < connector->count_modes; i++) {
+		drmModeModeInfo *current_mode = &connector->modes[i];
+		if (IsDuplicateDrmMode(current_mode, m_pConfig->CollectedDrmModes))
+			continue;
+		m_pConfig->CollectedDrmModes.push_back({current_mode->hdisplay,
+		                                        current_mode->vdisplay,
+		                                        GetRefreshRateHz(current_mode),
+		                                        (current_mode->flags & DRM_MODE_FLAG_INTERLACE) == DRM_MODE_FLAG_INTERLACE});
+	}
+
 	// find a user requested mode
 	if (m_userReqDisplayWidth) {
 		for (i = 0; i < connector->count_modes; i++) {
@@ -359,6 +407,13 @@ int cDrmDevice::Init(void)
 		LOGERROR("drmdevice: %s: No monitor mode found! Probably no monitor connected, giving up!", __FUNCTION__);
 		return -1;
 	}
+
+	m_pConfig->CurrentDrmMode = {
+		drmmode->hdisplay,
+		drmmode->vdisplay,
+		(double)drmmode->clock * 1000.0 / ((double)drmmode->htotal * (double)drmmode->vtotal),
+		(drmmode->flags & DRM_MODE_FLAG_INTERLACE) == DRM_MODE_FLAG_INTERLACE
+	};
 
 	memcpy(&m_drmModeInfo, drmmode, sizeof(drmModeModeInfo));
 
