@@ -1777,3 +1777,31 @@ void cSoftHdDevice::PipSetSize(void) { m_pPipHandler->SetSize(); };
 
 /** Enable HDR display mode */
 void cSoftHdDevice::SetEnableHdr(bool enable) { m_pRender->SetEnableHdr(enable); };
+
+/**
+ * Set the display mode
+ *
+ * @param idx     array index of the mode
+ */
+void cSoftHdDevice::SetDisplayMode(int idx)
+{
+	sDrmMode *mode = nullptr;
+
+	switch (idx) {
+	case 0:
+		mode = &m_pConfig->CurrentDrmMode;
+		break;
+	case 1:
+		LOGDEBUG("Set display mode to auto adjust");
+		return;
+	default:
+		mode = &m_pConfig->CollectedDrmModes[idx - 2];
+		break;
+	}
+
+	LOGDEBUG("Set display mode %d: %dx%d@%.2f%s", idx,
+		mode->width,
+		mode->height,
+		mode->refreshRateHz,
+		mode->interlaced ? "i" : "");
+}

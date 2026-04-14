@@ -187,6 +187,7 @@ public:
 	void SetParseH264Dimensions(void);
 	void SetDecoderFallbackToSw(bool);
 	void SetEnableHdr(bool);
+	void SetDisplayMode(int);
 
 	// osd
 #ifdef USE_GLES
