@@ -427,8 +427,10 @@ void cMenuSetupSoft::Store(void)
 	//
 	SetupStore("VideoEnableHDR", m_pConfig->ConfigVideoEnableHDR = m_cVideoEnableHDR);
 	m_pDevice->SetEnableHdr(m_pConfig->ConfigVideoEnableHDR);
+	bool displayModeChanged = m_pConfig->ConfigVideoDisplayMode != m_cVideoDisplayMode;
 	SetupStore("VideoDisplayMode", m_pConfig->ConfigVideoDisplayMode = m_cVideoDisplayMode);
-	m_pDevice->SetDisplayMode(m_pConfig->ConfigVideoDisplayMode);
+	if (displayModeChanged)
+		m_pDevice->SetDisplayMode(m_pConfig->ConfigVideoDisplayMode);
 
 	//
 	// Audio
@@ -492,6 +494,14 @@ void cMenuSetupSoft::Store(void)
 	//
 	// Picture-in-picture
 	//
+	bool pipChanged = m_pConfig->ConfigPipScalePercent    != m_cPipScalePercent ||
+	                  m_pConfig->ConfigPipLeftPercent     != m_cPipLeftPercent ||
+	                  m_pConfig->ConfigPipTopPercent      != m_cPipTopPercent ||
+	                  m_pConfig->ConfigPipUseAlt          != m_cPipUseAlt ||
+	                  m_pConfig->ConfigPipAltScalePercent != m_cPipAltScalePercent ||
+	                  m_pConfig->ConfigPipAltLeftPercent  != m_cPipAltLeftPercent ||
+	                  m_pConfig->ConfigPipAltTopPercent   != m_cPipAltTopPercent;
+
 	SetupStore("PipScalePercent", m_pConfig->ConfigPipScalePercent = m_cPipScalePercent);
 	SetupStore("PipLeftPercent", m_pConfig->ConfigPipLeftPercent = m_cPipLeftPercent);
 	SetupStore("PipTopPercent", m_pConfig->ConfigPipTopPercent = m_cPipTopPercent);
@@ -499,7 +509,7 @@ void cMenuSetupSoft::Store(void)
 	SetupStore("PipAltScalePercent", m_pConfig->ConfigPipAltScalePercent = m_cPipAltScalePercent);
 	SetupStore("PipAltLeftPercent", m_pConfig->ConfigPipAltLeftPercent = m_cPipAltLeftPercent);
 	SetupStore("PipAltTopPercent", m_pConfig->ConfigPipAltTopPercent = m_cPipAltTopPercent);
-	if (m_pDevice->UsePip())
+	if (m_pDevice->UsePip() && pipChanged)
 		m_pDevice->PipSetSize();
 
 	//
