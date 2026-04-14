@@ -277,8 +277,8 @@ void cSoftHdDevice::OnEventReceived(const Event& event)
 				},
 				[&invalid](const ScheduleResyncAtPtsMsEvent&) { invalid(); },
 				[&invalid](const ResyncEvent&) { invalid(); },
-				[&invalid](const DisplayChangeEvent&) {
-					invalid(); // change display settings
+				[this](const DisplayChangeEvent& d) {
+					HandleDisplayModeChange(d.mode);
 				},
 			}, event);
 			break;
@@ -340,8 +340,8 @@ void cSoftHdDevice::OnEventReceived(const Event& event)
 					m_pRender->ScheduleResyncAtPtsMs(s.pts);
 				},
 				[&invalid](const ResyncEvent&) { invalid(); },
-				[&invalid](const DisplayChangeEvent&) {
-					invalid(); // change display settings
+				[this](const DisplayChangeEvent& d) {
+					HandleDisplayModeChange(d.mode);
 				},
 			}, event);
 			break;
@@ -414,8 +414,8 @@ void cSoftHdDevice::OnEventReceived(const Event& event)
 				[this](const ResyncEvent&) {
 					SetState(BUFFERING);
 				},
-				[&invalid](const DisplayChangeEvent&) {
-					invalid(); // change display settings
+				[this](const DisplayChangeEvent& d) {
+					HandleDisplayModeChange(d.mode);
 				},
 			}, event);
 			break;
@@ -455,8 +455,8 @@ void cSoftHdDevice::OnEventReceived(const Event& event)
 				},
 				[&invalid](const ScheduleResyncAtPtsMsEvent&) { invalid(); },
 				[&invalid](const ResyncEvent&) { invalid(); },
-				[&invalid](const DisplayChangeEvent&) {
-					invalid(); // change display settings
+				[this](const DisplayChangeEvent& d) {
+					HandleDisplayModeChange(d.mode);
 				},
 			}, event);
 			break;
@@ -1779,15 +1779,25 @@ void cSoftHdDevice::PipSetSize(void) { m_pPipHandler->SetSize(); };
 void cSoftHdDevice::SetEnableHdr(bool enable) { m_pRender->SetEnableHdr(enable); };
 
 /**
- * Set the display mode
+ * Trigger a display mode change event
  *
  * @param idx     array index of the mode
  */
 void cSoftHdDevice::SetDisplayMode(int idx)
 {
+	OnEventReceived(DisplayChangeEvent{idx});
+}
+
+/**
+ * Set the display mode
+ *
+ * @param idx     array index of the mode
+ */
+void cSoftHdDevice::HandleDisplayModeChange(int modeIdx)
+{
 	sDrmMode *mode = nullptr;
 
-	switch (idx) {
+	switch (modeIdx) {
 	case 0:
 		mode = &m_pConfig->CurrentDrmMode;
 		break;
@@ -1795,13 +1805,15 @@ void cSoftHdDevice::SetDisplayMode(int idx)
 		LOGDEBUG("Set display mode to auto adjust");
 		return;
 	default:
-		mode = &m_pConfig->CollectedDrmModes[idx - 2];
+		mode = &m_pConfig->CollectedDrmModes[modeIdx - 2];
 		break;
 	}
 
-	LOGDEBUG("Set display mode %d: %dx%d@%.2f%s", idx,
+	LOGDEBUG("Set display mode %d: %dx%d@%.2f%s", modeIdx,
 		mode->width,
 		mode->height,
 		mode->refreshRateHz,
 		mode->interlaced ? "i" : "");
+
+	/** @todo Do the real action */
 }
