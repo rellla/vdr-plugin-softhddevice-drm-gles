@@ -211,6 +211,17 @@ static drmModeConnector *FindDrmConnector(int fd, drmModeRes *resources)
 
 
 /**
+ * Calculate the refresh rate of the given mode to get the precise value and
+ * don't use m_drmModeInfo.vrefresh.
+ *
+ * @param modeInfo         drm mode info
+ */
+static double GetRefreshRateHz(drmModeModeInfo *modeInfo)
+{
+	return (double)modeInfo->clock * 1000.0 / ((double)modeInfo->htotal * (double)modeInfo->vtotal);
+}
+
+/**
  * Initiate the drm device
  *
  * @retval 0                on success
@@ -339,8 +350,7 @@ int cDrmDevice::Init(void)
 	if (m_hdrMetadata != 0)
 		LOGDEBUG2(L_DRM, "drmdevice: %s: HDR output metadata ID %d in connector %d", __FUNCTION__, m_hdrMetadata, m_connectorId);
 
-	// Calculate the refresh rate. Don't use m_drmModeInfo.vrefresh, because we need the precise value.
-	double refreshRateHz = (double)m_drmModeInfo.clock * 1000.0 / ((double)m_drmModeInfo.htotal * (double)m_drmModeInfo.vtotal);
+	double refreshRateHz = GetRefreshRateHz(&m_drmModeInfo);
 
 	m_pRender->SetScreenSize(m_drmModeInfo.hdisplay, m_drmModeInfo.vdisplay, refreshRateHz);
 
