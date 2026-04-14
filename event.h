@@ -65,7 +65,9 @@ struct ScheduleResyncAtPtsMsEvent {
 	int64_t pts;
 };
 struct ResyncEvent {};
-struct DisplayChangeEvent {};
+struct DisplayChangeEvent {
+	int mode;
+};
 
 using Event = std::variant<
 	PlayEvent,
