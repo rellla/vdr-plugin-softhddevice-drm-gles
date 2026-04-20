@@ -327,6 +327,7 @@ private:
 	int SetPipBuffer(cDrmBuffer *);
 	int CommitBuffer(cDrmBuffer *, cDrmBuffer *);
 	void CreateGrabBuffers(bool);
+	bool FrameDropNecessary(int64_t, int64_t);
 	void LogDroppedDuped(int64_t, int64_t, int);
 	int64_t PtsToMs(int64_t);
 	void PushFrame(AVFrame *, bool, std::atomic<cBufferStrategy*> &, std::atomic<cDecodingStrategy*> &, cQueue<cDrmBuffer> *, cDrmBufferPool *);
