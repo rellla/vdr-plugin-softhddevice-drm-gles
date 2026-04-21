@@ -198,7 +198,8 @@ public:
 #endif
 	void OsdClose(void);
 	void OsdDrawARGB(int, int, int, int, int, const uint8_t *, int, int);
-	void SetScreenSize(int, int, double);
+	void SetOsdSize(int, int);
+	void SetScreenSize(int, int);
 
 	// audio
 	int GetVideoAudioDelayMs(void) { return m_pConfig->ConfigVideoAudioDelayMs; };
@@ -285,9 +286,10 @@ private:
 	bool m_disablePip = false;       ///< true, if pip was disabled by the user
 	int m_volume = 0;                ///< track the volume in the device (for attach)
 
+	int m_osdWidth;
+	int m_osdHeight;
 	int m_screenWidth;
 	int m_screenHeight;
-	double m_screenRefreshRateHz;
 
 	bool m_forceDetached = false; ///< start the plugin in detached state
 

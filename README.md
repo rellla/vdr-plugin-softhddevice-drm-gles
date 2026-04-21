@@ -164,6 +164,7 @@ All command line arguments are optional. The plugin tries to set suitable defaul
 	-o arg     drm device (e.g. /dev/dri/card0)
 	-x arg     drm connector name (e.g. HDMI-A-1)
 	-d arg     display resolution (e.g. 1920x1080@50)
+	-g arg     osd (rendering) resolution (e.g. 1920x1080)
 	-D         start plugin in detached state
 	-w workaround:
 	        disable-ogl-osd (to disable HW accelerated OSD)

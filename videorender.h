@@ -187,6 +187,7 @@ public:
 	void Resume(void) { m_mutex.unlock(); };
 
 	void SetVideoOutputPosition(const cRect &);
+	void SetOsdSize(int, int);
 	void SetScreenSize(int, int, double);
 	int64_t GetVideoClock(void) { return m_pts; };
 	void GetStats(int *, int *, int *);
@@ -265,7 +266,7 @@ private:
 	cSoftHdConfig *m_pConfig;           ///< pointer to cSoftHdConfig
 	std::mutex m_mutex;                 ///< mutex for thread control
 	std::vector<Event> m_eventQueue;    ///< event queue for incoming events
-	double m_refreshRateHz;             ///< screen refresh rate in Hz
+	std::atomic<double> m_refreshRateHz; ///< screen refresh rate in Hz
 
 	cQueue<cDrmBuffer> m_drmBufferQueue{VIDEO_SURFACES_MAX};     ///< queue for DRM buffers to be displayed (VIDEO_SURFACES_MAX is defined in thread.h)
 	cQueue<cDrmBuffer> m_pipDrmBufferQueue{VIDEO_SURFACES_MAX};  ///< queue for PIP DRM buffers to be displayed (VIDEO_SURFACES_MAX is defined in thread.h)

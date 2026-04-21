@@ -107,6 +107,7 @@ public:
 	const char *ConfigDrmConnector = nullptr;           ///< user requested drm connector (e.g. "HDMI-A-1")
 	const char *ConfigDrmDevice = nullptr;              ///< user requested drm device (e.g. "/dev/dri/card0")
 	const char *ConfigDisplayResolution = nullptr;      ///< display resolution (syntax: "1920x1080@50")
+	const char *ConfigOsdResolution = nullptr;          ///< osd resolution (syntax: "1920x1080")
 #ifdef USE_GLES
 	int ConfigDisableOglOsd = 0;                ///< config disable ogl osd
 #endif
