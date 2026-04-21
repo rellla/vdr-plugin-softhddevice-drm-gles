@@ -208,12 +208,17 @@ void cVideoRender::SetColorSpace(drmColorRange colorRange)
 
 	if (m_pDrmDevice->CreateModeBlob(&modeID) != 0)
 		LOGFATAL("videorender: %s: Failed to create mode property blob.", __FUNCTION__);
-	if (!(modeReq = m_pDrmDevice->ModeAtomicAlloc()))
+	if (!(modeReq = m_pDrmDevice->ModeAtomicAlloc())) {
+		m_pDrmDevice->DestroyModeBlob(modeID);
 		LOGFATAL("videorender: %s: cannot allocate atomic request (%d): %m", __FUNCTION__, errno);
+	}
 
 	m_pDrmDevice->SetCrtcActive(modeReq, 0);
-	if (m_pDrmDevice->ModeAtomicCommit(modeReq, flags, NULL) != 0)
+	if (m_pDrmDevice->ModeAtomicCommit(modeReq, flags, NULL) != 0) {
+		m_pDrmDevice->ModeAtomicFree(modeReq);
+		m_pDrmDevice->DestroyModeBlob(modeID);
 		LOGFATAL("videorender: %s: cannot set atomic mode (%d): %m", __FUNCTION__, errno);
+	}
 	m_pDrmDevice->SetConnectorColorspace(modeReq, m_pHdrMetadata.GetColorPrimaries() == AVCOL_PRI_BT2020 ? COLORSPACE_BT2020_RGB : COLORSPACE_BT709_YCC);
 	m_pDrmDevice->SetVideoPlaneColorEncoding(modeReq, m_pHdrMetadata.GetColorPrimaries() == AVCOL_PRI_BT2020 ? COLORENCODING_BT2020 : COLORENCODING_BT709);
 	m_pDrmDevice->SetVideoPlaneColorRange(modeReq, colorRange);
@@ -229,11 +234,14 @@ void cVideoRender::SetColorSpace(drmColorRange colorRange)
 		m_pDrmDevice->VideoPlane()->GetId(), m_pHdrMetadata.GetColorPrimaries() == AVCOL_PRI_BT2020 ? "YCBCR_BT20202" : "YCBCR_BT709",
 		colorRange == COLORRANGE_FULL ? "full" : "limited", m_pHdrMetadata.GetColorPrimaries());
 
-	if (m_pDrmDevice->ModeAtomicCommit(modeReq, flags, NULL) != 0)
+	if (m_pDrmDevice->ModeAtomicCommit(modeReq, flags, NULL) != 0) {
+		m_pDrmDevice->ModeAtomicFree(modeReq);
+		m_pDrmDevice->DestroyModeBlob(modeID);
 		LOGFATAL("videorender: %s: cannot set atomic mode (%d): %m", __FUNCTION__, errno);
+	}
 
-	m_pDrmDevice->DestroyModeBlob(modeID);
 	m_pDrmDevice->ModeAtomicFree(modeReq);
+	m_pDrmDevice->DestroyModeBlob(modeID);
 
 	m_hasDoneHdrModeset = true;
 }
@@ -250,13 +258,18 @@ void cVideoRender::RestoreColorSpace(void)
 
 	if (m_pDrmDevice->CreateModeBlob(&modeID) != 0)
 		LOGFATAL("videorender: %s: Failed to create mode property blob.", __FUNCTION__);
-	if (!(modeReq = m_pDrmDevice->ModeAtomicAlloc()))
+	if (!(modeReq = m_pDrmDevice->ModeAtomicAlloc())) {
+		m_pDrmDevice->DestroyModeBlob(modeID);
 		LOGFATAL("videorender: %s: cannot allocate atomic request (%d): %m", __FUNCTION__, errno);
+	}
 
 	m_pDrmDevice->SetCrtcActive(modeReq, 0);
 
-	if (m_pDrmDevice->ModeAtomicCommit(modeReq, flags, NULL) != 0)
+	if (m_pDrmDevice->ModeAtomicCommit(modeReq, flags, NULL) != 0) {
+		m_pDrmDevice->ModeAtomicFree(modeReq);
+		m_pDrmDevice->DestroyModeBlob(modeID);
 		LOGFATAL("videorender: %s: cannot set atomic mode (%d): %m", __FUNCTION__, errno);
+	}
 
 	m_pDrmDevice->SetConnectorHdrOutputMetadata(modeReq, 0);
 	m_pDrmDevice->SetConnectorColorspace(modeReq, COLORSPACE_BT709_YCC);
@@ -266,11 +279,14 @@ void cVideoRender::RestoreColorSpace(void)
 	m_pDrmDevice->SetConnectorCrtcId(modeReq);
 	m_pDrmDevice->SetCrtcActive(modeReq, 1);
 
-	if (m_pDrmDevice->ModeAtomicCommit(modeReq, flags, NULL) != 0)
+	if (m_pDrmDevice->ModeAtomicCommit(modeReq, flags, NULL) != 0) {
+		m_pDrmDevice->ModeAtomicFree(modeReq);
+		m_pDrmDevice->DestroyModeBlob(modeID);
 		LOGFATAL("videorender: %s: cannot set atomic mode (%d): %m", __FUNCTION__, errno);
+	}
 
-	m_pDrmDevice->DestroyModeBlob(modeID);
 	m_pDrmDevice->ModeAtomicFree(modeReq);
+	m_pDrmDevice->DestroyModeBlob(modeID);
 
 	m_hasDoneHdrModeset = false;
 	m_colorRangeStored = false;
@@ -1275,6 +1291,38 @@ void cVideoRender::InitBuffers(void)
 }
 
 /**
+ * Re-Initialize the drm device with current dispaly mode settings
+ */
+void cVideoRender::ReInitDisplayMode(void)
+{
+	if (m_pDrmDevice->ReInit())
+		LOGFATAL("videorender: %s: Init drm device failed", __FUNCTION__);
+
+	drmModeAtomicReqPtr modeReq;
+	const uint32_t flags = DRM_MODE_ATOMIC_ALLOW_MODESET;
+	uint32_t modeID = 0;
+
+	if (m_pDrmDevice->CreateModeBlob(&modeID) != 0)
+		LOGFATAL("videorender: %s: Failed to create mode property blob.", __FUNCTION__);
+	if (!(modeReq = m_pDrmDevice->ModeAtomicAlloc())) {
+		m_pDrmDevice->DestroyModeBlob(modeID);
+		LOGFATAL("videorender: %s: cannot allocate atomic request (%d): %m", __FUNCTION__, errno);
+	}
+
+	m_pDrmDevice->SetCrtcModeId(modeReq, modeID);
+	m_pDrmDevice->SetConnectorCrtcId(modeReq);
+
+	if (m_pDrmDevice->ModeAtomicCommit(modeReq, flags, NULL) != 0) {
+		m_pDrmDevice->ModeAtomicFree(modeReq);
+		m_pDrmDevice->DestroyModeBlob(modeID);
+		LOGFATAL("videorender: %s: cannot set atomic mode (%d): %m", __FUNCTION__, errno);
+	}
+
+	m_pDrmDevice->ModeAtomicFree(modeReq);
+	m_pDrmDevice->DestroyModeBlob(modeID);
+}
+
+/**
  * Initialize the renderer
  */
 void cVideoRender::Init(void)
@@ -1308,8 +1356,10 @@ void cVideoRender::Init(void)
 
 	if (m_pDrmDevice->CreateModeBlob(&modeID) != 0)
 		LOGFATAL("videorender: %s: Failed to create mode property blob.", __FUNCTION__);
-	if (!(modeReq = m_pDrmDevice->ModeAtomicAlloc()))
+	if (!(modeReq = m_pDrmDevice->ModeAtomicAlloc())) {
+		m_pDrmDevice->DestroyModeBlob(modeID);
 		LOGFATAL("videorender: %s: cannot allocate atomic request (%d): %m", __FUNCTION__, errno);
+	}
 
 	m_pDrmDevice->SetCrtcModeId(modeReq, modeID);
 	m_pDrmDevice->SetConnectorCrtcId(modeReq);
@@ -1355,10 +1405,12 @@ void cVideoRender::Init(void)
 #endif
 		videoPlane->DumpParameters("video");
 
+		m_pDrmDevice->DestroyModeBlob(modeID);
 		m_pDrmDevice->ModeAtomicFree(modeReq);
 		LOGFATAL("videorender: %s: cannot set atomic mode (%d): %m", __FUNCTION__, errno);
 	}
 
+	m_pDrmDevice->DestroyModeBlob(modeID);
 	m_pDrmDevice->ModeAtomicFree(modeReq);
 
 	m_osdShown = false;

@@ -52,8 +52,19 @@ cDrmDevice::cDrmDevice(cVideoRender *render, cSoftHdConfig *config)
 	  m_userDrmDevice(m_pConfig->ConfigDrmDevice),
 	  m_userDrmConnector(m_pConfig->ConfigDrmConnector)
 {
-	if (m_pConfig->ConfigDisplayResolution)
-		sscanf(m_pConfig->ConfigDisplayResolution, "%dx%d@%d", &m_userReqDisplayWidth, &m_userReqDisplayHeight, &m_userReqDisplayRefreshRate);
+	sDrmMode *drmMode = nullptr;
+	if (m_pConfig->RequestedDrmMode)
+		drmMode = m_pConfig->RequestedDrmMode;
+	else if (m_pConfig->UserSetDrmMode.width > 0)
+		drmMode = &m_pConfig->UserSetDrmMode;
+
+	if (drmMode) {
+		m_userReqDisplayWidth = drmMode->width;
+		m_userReqDisplayHeight = drmMode->height;
+		m_userReqDisplayRefreshRate = drmMode->refreshRateHz;
+		LOGDEBUG("%s requested dispaly mode: %dx%d@%.2f", __FUNCTION__,
+			m_userReqDisplayWidth, m_userReqDisplayHeight, m_userReqDisplayRefreshRate);
+	}
 
 	if (m_pConfig->ConfigOsdResolution)
 		sscanf(m_pConfig->ConfigOsdResolution, "%dx%d", &m_userReqOsdWidth, &m_userReqOsdHeight);
@@ -298,10 +309,7 @@ static bool IsDuplicateDrmMode(drmModeModeInfo *mode, std::vector<sDrmMode> mode
  * 1) Try to open the user requested device (with -o /dev/dri/cardX)
  * 2) On error or if not set, find a any suitable device
  * 3) Find a connector (priority: user requested, connected, unconnected)
- * 4) Find a mode (priority: user requested
- *                           mode with biggest width@50Hz
- *                           mode with biggest width@60Hz
- *                           mode with biggest width@anyHz
+ * 4) Find a connector mode
  * 5) Find crtc encoder
  * 6) Find suitable planes for video (NV12), OSD (ARGB) and PiP (NV12)
  * 7) Init GBM
@@ -315,7 +323,6 @@ int cDrmDevice::Init(void)
 	drmModeRes *resources = nullptr;
 	drmModeConnector *connector;
 	drmModeEncoder *encoder = nullptr;
-	drmModeModeInfo *drmmode = nullptr;
 	drmModePlane *plane;
 	drmModePlaneRes *planeRes;
 	int i;
@@ -353,7 +360,7 @@ int cDrmDevice::Init(void)
 	m_connectorName = ConnectorName(connector);
 	bool connected = connector->connection == DRM_MODE_CONNECTED;
 
-	// fill config with available connectors for later selection from setup menu
+	// fill config with available connector modes for later selection from setup menu
 	m_pConfig->CollectedDrmModes.clear();
 	for (i = 0; i < connector->count_modes; i++) {
 		drmModeModeInfo *current_mode = &connector->modes[i];
@@ -365,60 +372,9 @@ int cDrmDevice::Init(void)
 		                                        (current_mode->flags & DRM_MODE_FLAG_INTERLACE) == DRM_MODE_FLAG_INTERLACE});
 	}
 
-	// find a user requested mode
-	if (m_userReqDisplayWidth) {
-		for (i = 0; i < connector->count_modes; i++) {
-			drmModeModeInfo *current_mode = &connector->modes[i];
-			if(current_mode->hdisplay == m_userReqDisplayWidth && current_mode->vdisplay == m_userReqDisplayHeight &&
-			   current_mode->vrefresh == m_userReqDisplayRefreshRate && !(current_mode->flags & DRM_MODE_FLAG_INTERLACE)) {
-				drmmode = current_mode;
-				LOGDEBUG2(L_DRM, "drmdevice: %s: Use user requested mode: %dx%d@%d", __FUNCTION__, drmmode->hdisplay, drmmode->vdisplay, drmmode->vrefresh);
-				break;
-			}
-		}
-		if (!drmmode)
-			LOGWARNING("drmdevice: %s: User requested mode not found, try default modes", __FUNCTION__);
-	}
-
-	uint32_t preferred_hz[3] = {50, 60, 0};
-
-	// find the highest resolution mode with 50, 60 or any refresh rate
-	if (!drmmode) {
-		j = 0;
-		int width;
-		while (!drmmode && preferred_hz[j]) {
-			for (i = 0, width = 0; i < connector->count_modes; i++) {
-				drmModeModeInfo *current_mode = &connector->modes[i];
-				if (preferred_hz[j] && current_mode->vrefresh != preferred_hz[j])
-					continue;
-
-				int current_width = current_mode->hdisplay;
-				if (current_width > width) {
-					drmmode = current_mode;
-					width = current_width;
-				}
-			}
-			j++;
-		}
-
-		if (drmmode)
-			LOGDEBUG2(L_DRM, "drmdevice: %s: Use mode with the biggest width: %dx%d@%d", __FUNCTION__,
-				drmmode->hdisplay, drmmode->vdisplay, drmmode->vrefresh);
-	}
-
-	if (!drmmode) {
-		LOGERROR("drmdevice: %s: No monitor mode found! Probably no monitor connected, giving up!", __FUNCTION__);
+	// find connector mode
+	if (FindMode())
 		return -1;
-	}
-
-	m_pConfig->CurrentDrmMode = {
-		drmmode->hdisplay,
-		drmmode->vdisplay,
-		(double)drmmode->clock * 1000.0 / ((double)drmmode->htotal * (double)drmmode->vtotal),
-		(drmmode->flags & DRM_MODE_FLAG_INTERLACE) == DRM_MODE_FLAG_INTERLACE
-	};
-
-	memcpy(&m_drmModeInfo, drmmode, sizeof(drmModeModeInfo));
 
 	// find encoder
 	for (i = 0; i < resources->count_encoders; i++) {
@@ -712,6 +668,116 @@ int cDrmDevice::Init(void)
 	}
 
 	return 0;
+}
+
+/**
+ * Find a suitable mode from the current connector
+ *
+ * Mode selection priority:
+ *   1) user requested
+ *   2) mode with biggest width@50Hz
+ *   3) mode with biggest width@60Hz
+ *   4) mode with biggest width@anyHz
+ */
+int cDrmDevice::FindMode(void)
+{
+	drmModeConnector *connector = drmModeGetConnector(m_fdDrm, m_connectorId);
+	drmModeModeInfo *drmmode = nullptr;
+
+	// find the user requested mode
+	if (m_userReqDisplayWidth > 0) {
+		for (int i = 0; i < connector->count_modes; i++) {
+			drmModeModeInfo *current_mode = &connector->modes[i];
+			if(current_mode->hdisplay == m_userReqDisplayWidth && current_mode->vdisplay == m_userReqDisplayHeight &&
+			   GetRefreshRateHz(current_mode) == m_userReqDisplayRefreshRate && !(current_mode->flags & DRM_MODE_FLAG_INTERLACE)) {
+				drmmode = current_mode;
+				LOGDEBUG2(L_DRM, "drmdevice: %s: Use user requested mode: %dx%d@%.2f", __FUNCTION__, drmmode->hdisplay, drmmode->vdisplay, GetRefreshRateHz(drmmode));
+				break;
+			}
+		}
+		if (!drmmode)
+			LOGWARNING("drmdevice: %s: User requested mode not found, try default modes", __FUNCTION__);
+	}
+
+	double preferred_hz[3] = {50.0, 60.0, 0.0};
+
+	// find the highest resolution mode with 50, 60 or any refresh rate
+	if (!drmmode) {
+		int j = 0;
+		while (!drmmode && preferred_hz[j]) {
+			for (int i = 0, width = 0; i < connector->count_modes; i++) {
+				drmModeModeInfo *current_mode = &connector->modes[i];
+				if (preferred_hz[j] && current_mode->vrefresh != preferred_hz[j])
+					continue;
+
+				int current_width = current_mode->hdisplay;
+				if (current_width > width) {
+					drmmode = current_mode;
+					width = current_width;
+				}
+			}
+			j++;
+		}
+
+		if (drmmode)
+			LOGDEBUG2(L_DRM, "drmdevice: %s: Use mode with the biggest width: %dx%d@%d", __FUNCTION__,
+				drmmode->hdisplay, drmmode->vdisplay, drmmode->vrefresh);
+	}
+
+	drmModeFreeConnector(connector);
+
+	if (!drmmode) {
+		LOGERROR("drmdevice: %s: No monitor mode found! Probably no monitor connected, giving up!", __FUNCTION__);
+		return -1;
+	}
+
+	m_pConfig->CurrentDrmMode = {
+		drmmode->hdisplay,
+		drmmode->vdisplay,
+		(double)drmmode->clock * 1000.0 / ((double)drmmode->htotal * (double)drmmode->vtotal),
+		(drmmode->flags & DRM_MODE_FLAG_INTERLACE) == DRM_MODE_FLAG_INTERLACE
+	};
+
+	if (!m_pConfig->AutoDetectedDrmMode.width)
+		m_pConfig->AutoDetectedDrmMode = m_pConfig->CurrentDrmMode;
+
+	memcpy(&m_drmModeInfo, drmmode, sizeof(drmModeModeInfo));
+
+	double refreshRateHz = GetRefreshRateHz(&m_drmModeInfo);
+	m_pRender->SetScreenSize(m_drmModeInfo.hdisplay, m_drmModeInfo.vdisplay, refreshRateHz);
+
+	return 0;
+}
+
+/**
+ * Re-Init the drm device with a new connector mode
+ *
+ * Mode selection priority:
+ * 1) selected mode from setup menu or depending video resolution (RequestedDrmMode)
+ * 2) command line requested mode (UserSetDrmMode)
+ * 3) other suitable mode:
+ *   - mode with biggest width@50Hz
+ *   - mode with biggest width@60Hz
+ *   - mode with biggest width@anyHz
+ */
+int cDrmDevice::ReInit(void)
+{
+	sDrmMode *drmMode = nullptr;
+
+	if (m_pConfig->RequestedDrmMode)
+		drmMode = m_pConfig->RequestedDrmMode;
+	else if (m_pConfig->UserSetDrmMode.width > 0)
+		drmMode = &m_pConfig->UserSetDrmMode;
+
+	if (drmMode) {
+		m_userReqDisplayWidth = drmMode->width;
+		m_userReqDisplayHeight = drmMode->height;
+		m_userReqDisplayRefreshRate = drmMode->refreshRateHz;
+		LOGDEBUG("%s requested display mode: %dx%d@%.2f", __FUNCTION__,
+			m_userReqDisplayWidth, m_userReqDisplayHeight, m_userReqDisplayRefreshRate);
+	}
+
+	return FindMode();
 }
 
 #ifdef USE_GLES

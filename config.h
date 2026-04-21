@@ -28,10 +28,10 @@
  * @ingroup drm
  */
 struct sDrmMode {
-	int width;                  ///< display width
-	int height;                 ///< display height
-	double refreshRateHz;       ///< display refresh rate
-	bool interlaced;            ///< is this an interlaced mode?
+	int width = 0;               ///< display width
+	int height = 0;              ///< display height
+	double refreshRateHz = 0.0;  ///< display refresh rate
+	bool interlaced = false;     ///< is this an interlaced mode?
 };
 
 /**
@@ -122,13 +122,17 @@ public:
 	std::atomic<int> StatMaxShortTermVideoJitterMs = 0; ///< logged max video jitter of the last 1000 packets
 	std::atomic<int> StatMaxLongTermVideoJitterMs = 0;  ///< logged max overall video jitter since stream start
 	std::vector<sDrmMode> CollectedDrmModes;            ///< collected available drm modes on the current connector
+	sDrmMode AutoDetectedDrmMode;                       ///< auto detected mode on the first startup (maybe equal to UserSetMode)
+	sDrmMode UserSetDrmMode;                            ///< user requested drm mode on the current connector
 	sDrmMode CurrentDrmMode;                            ///< currently used drm mode on the current connector
+	sDrmMode *RequestedDrmMode = nullptr;               ///< is set to the requested mode which should be changed to
 
 	cSoftHdConfig(void) = default;
 	bool SetupParse(const char *, const char *);
 	void PrintLogLevel(int);
 	void SetDecoderNeedsMaxPackets(int);
 	int GetDecoderNeedsMaxPackets(void);
+	bool CompareCurrentMode(sDrmMode *);
 
 private:
 	int m_decoderNeedsMaxPackets = 0;

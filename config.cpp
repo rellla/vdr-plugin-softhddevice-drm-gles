@@ -157,3 +157,20 @@ int cSoftHdConfig::GetDecoderNeedsMaxPackets(void)
 	std::lock_guard<std::mutex> lock(m_mutex);
 	return m_decoderNeedsMaxPackets;
 }
+
+/**
+ * Return true, if the given mode is equal to the current display mode
+ */
+bool cSoftHdConfig::CompareCurrentMode(sDrmMode *newMode)
+{
+	if (newMode->width != CurrentDrmMode.width)
+		return false;
+	if (newMode->height != CurrentDrmMode.height)
+		return false;
+	if (newMode->refreshRateHz != CurrentDrmMode.refreshRateHz)
+		return false;
+	if (newMode->interlaced != CurrentDrmMode.interlaced)
+		return false;
+
+	return true;
+}

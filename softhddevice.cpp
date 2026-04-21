@@ -1790,41 +1790,40 @@ void cSoftHdDevice::PipSetSize(void) { m_pPipHandler->SetSize(); };
 void cSoftHdDevice::SetEnableHdr(bool enable) { m_pRender->SetEnableHdr(enable); };
 
 /**
- * Trigger a display mode change event
+ * Trigger a display mode change event if the mode changed
  *
- * @param idx     array index of the mode
+ * @param idx     setup menu array index of the mode
  */
 void cSoftHdDevice::SetDisplayMode(int idx)
 {
-	OnEventReceived(DisplayChangeEvent{idx});
+	sDrmMode *mode = &m_pConfig->AutoDetectedDrmMode;
+
+	if (idx == 1) {
+		LOGDEBUG("Set display mode to follow video, but use default for now");
+//		mode = GetSuitableModeFromVideo();
+	} else if (idx > 1) {
+		mode = &m_pConfig->CollectedDrmModes[idx - 2];
+	}
+
+	if (!m_pConfig->CompareCurrentMode(mode)) {
+		LOGDEBUG("Set display mode to %s mode", idx == 0 ? "default" : (idx == 1 ? "auto adjust" : "fixed"));
+		OnEventReceived(DisplayChangeEvent{mode});
+	}
 }
 
 /**
  * Set the display mode
  *
- * @param idx     array index of the mode
+ * @param mode     drm mode
  */
-void cSoftHdDevice::HandleDisplayModeChange(int modeIdx)
+void cSoftHdDevice::HandleDisplayModeChange(sDrmMode *mode)
 {
-	sDrmMode *mode = nullptr;
-
-	switch (modeIdx) {
-	case 0:
-		mode = &m_pConfig->CurrentDrmMode;
-		break;
-	case 1:
-		LOGDEBUG("Set display mode to auto adjust");
-		return;
-	default:
-		mode = &m_pConfig->CollectedDrmModes[modeIdx - 2];
-		break;
-	}
-
-	LOGDEBUG("Set display mode %d: %dx%d@%.2f%s", modeIdx,
+	LOGDEBUG("Set display mode: %dx%d@%.2f%s",
 		mode->width,
 		mode->height,
 		mode->refreshRateHz,
 		mode->interlaced ? "i" : "");
 
-	/** @todo Do the real action */
+	m_pConfig->RequestedDrmMode = mode;
+	m_pRender->ReInitDisplayMode();
 }

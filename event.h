@@ -13,6 +13,8 @@
 #include <variant>
 #include <vdr/tools.h>
 
+#include "config.h"
+
 /********************************************************************************
  * Event Handler
  *
@@ -66,7 +68,7 @@ struct ScheduleResyncAtPtsMsEvent {
 };
 struct ResyncEvent {};
 struct DisplayChangeEvent {
-	int mode;
+	sDrmMode *mode;
 };
 
 using Event = std::variant<
