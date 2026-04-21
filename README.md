@@ -171,6 +171,7 @@ Use vdr -h to see the command line arguments supported by the plugin.
 
 Setup: Environment Variables
 ----------------------------
+Environment values have a higher priority than command line arguments.
 
 	ALSA_DEVICE=default
 		alsa PCM device name

@@ -1654,16 +1654,16 @@ void cSoftHdAudio::AlsaInitPCMDevice(void)
 
 	// try user set device
 	if (m_passthrough)
-		device = OpenAlsaDevice(m_pPassthroughDevice, m_passthrough);
-
-	if (!device && m_passthrough)
 		device = OpenAlsaDevice(getenv("ALSA_PASSTHROUGH_DEVICE"), m_passthrough);
 
-	if (!device)
-		device = OpenAlsaDevice(m_pPCMDevice, m_passthrough);
+	if (!device && m_passthrough)
+		device = OpenAlsaDevice(m_pPassthroughDevice, m_passthrough);
 
 	if (!device)
 		device = OpenAlsaDevice(getenv("ALSA_DEVICE"), m_passthrough);
+
+	if (!device)
+		device = OpenAlsaDevice(m_pPCMDevice, m_passthrough);
 
 	// walkthrough hdmi: devices
 	if (!device) {
@@ -1733,13 +1733,13 @@ void cSoftHdAudio::AlsaInitMixer(void)
 	long alsaMixerElemMin;
 	long alsaMixerElemMax;
 
-	if (!(device = m_pMixerDevice)) {
-		if (!(device = getenv("ALSA_MIXER"))) {
+	if (!(device = getenv("ALSA_MIXER"))) {
+		if (!(device = m_pMixerDevice)) {
 			device = "default";
 		}
 	}
-	if (!(channel = m_pMixerChannel)) {
-		if (!(channel = getenv("ALSA_MIXER_CHANNEL"))) {
+	if (!(channel = getenv("ALSA_MIXER_CHANNEL"))) {
+		if (!(channel = m_pMixerChannel)) {
 			channel = "PCM";
 		}
 	}
