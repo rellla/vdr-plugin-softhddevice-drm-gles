@@ -702,23 +702,6 @@ int cDrmDevice::Init(void)
 			m_useZpos);
 	}
 
-#ifdef USE_GLES
-	if (m_pRender->OglOsdDisabled())
-		return 0;
-
-	// init gbm
-	if (InitGbm(m_drmModeInfo.hdisplay, m_drmModeInfo.vdisplay, DRM_FORMAT_ARGB8888, GBM_BO_USE_SCANOUT | GBM_BO_USE_RENDERING)) {
-		LOGERROR("drmdevice: %s: failed to init gbm device and surface!", __FUNCTION__);
-		return -1;
-	}
-
-	// init egl
-	if (InitEGL()) {
-		LOGERROR("drmdevice: %s: failed to init egl!", __FUNCTION__);
-		return -1;
-	}
-#endif
-
 	return 0;
 }
 
@@ -726,16 +709,16 @@ int cDrmDevice::Init(void)
 /**
  * Init gbm device and surface
  *
- * @param w            gbm surface width
- * @param h            gbm surface height
- * @param format       gbm pixel format
- * @param modifier     gbm buffer modifier
- *
  * @retval 0           on success
  * @retval -1          on error
  */
-int cDrmDevice::InitGbm(int w, int h, uint32_t format, uint64_t modifier)
+int cDrmDevice::InitGbm(void)
 {
+	int w = m_drmModeInfo.hdisplay;
+	int h = m_drmModeInfo.vdisplay;
+	uint32_t format = DRM_FORMAT_ARGB8888;
+	uint64_t modifier = GBM_BO_USE_SCANOUT | GBM_BO_USE_RENDERING;
+
 	m_pGbmDevice = gbm_create_device(m_fdDrm);
 	if (!m_pGbmDevice) {
 		LOGERROR("drmdevice: %s: failed to create gbm device!", __FUNCTION__);
