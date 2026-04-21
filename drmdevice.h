@@ -48,6 +48,8 @@ public:
 	~cDrmDevice(void);
 
 	int Init(void);
+	int InitGbm(void);
+	int InitEGL(void);
 	int Fd(void) { return m_fdDrm; };
 	void Close(void);
 
@@ -145,9 +147,7 @@ private:
 	EGLContext m_eglContext;               ///< EGL context
 	bool m_glInitiated;                    ///< true, if OpenGL/ES context is initiated
 
-	int InitEGL(void);
 	EGLConfig GetEGLConfig(void);
-	int InitGbm(int, int, uint32_t, uint64_t);
 #endif
 };
 
