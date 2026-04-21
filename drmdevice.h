@@ -14,6 +14,7 @@
 #define __DRMDEVICE_H
 
 #include <cstdint>
+#include <string>
 
 #ifdef USE_GLES
 #include <EGL/egl.h>
@@ -42,7 +43,7 @@ class cVideoRender;
  */
 class cDrmDevice {
 public:
-	cDrmDevice(cVideoRender *, const char *, const char *);
+	cDrmDevice(cVideoRender *, const char *, const char *, const char *);
 	~cDrmDevice(void);
 
 	int Init(void);
@@ -104,6 +105,7 @@ private:
 
 	int m_fdDrm = -1;                      ///< drm file descriptor
 	uint32_t m_connectorId;                ///< connector id
+	std::string m_connectorName;           ///< drm connector name
 	drmModeModeInfo m_drmModeInfo;         ///< mode info
 	uint32_t m_crtcId;                     ///< current crtc ID
 	uint32_t m_crtcIndex;                  ///< current crtc index
@@ -112,6 +114,7 @@ private:
 	drmEventContext m_drmEventCtx;         ///< drm event context
 
 	const char *m_userDrmDevice = nullptr; ///< user requested drm device
+	const char *m_userDrmConnector = nullptr; ///< user requested drm connector
 	int m_userReqDisplayWidth = 0;         ///< user requested display width
 	int m_userReqDisplayHeight;            ///< user requested display height
 	uint32_t m_userReqDisplayRefreshRate;  ///< user requested display refresh rate
@@ -129,6 +132,7 @@ private:
 	uint32_t GetPropertyID(uint32_t, uint32_t, const char *);
 
 	int SetPropertyRequest(drmModeAtomicReqPtr, uint32_t, uint32_t, const char *, uint64_t);
+	drmModeConnector *FindDrmConnector(int, drmModeRes *, const char *);
 	int32_t FindCrtcForConnector(const drmModeRes *, const drmModeConnector *);
 #ifdef USE_GLES
 	struct gbm_device *m_pGbmDevice;       ///< pointer to the gbm device
