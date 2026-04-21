@@ -48,6 +48,7 @@ public:
 	~cDrmDevice(void);
 
 	int Init(void);
+	int ReInit(void);
 	int InitGbm(void);
 	int InitEGL(void);
 	int Fd(void) { return m_fdDrm; };
@@ -123,7 +124,7 @@ private:
 	const char *m_userDrmConnector = nullptr; ///< user requested drm connector
 	int m_userReqDisplayWidth = 0;         ///< user requested display width
 	int m_userReqDisplayHeight;            ///< user requested display height
-	uint32_t m_userReqDisplayRefreshRate;  ///< user requested display refresh rate
+	double m_userReqDisplayRefreshRate;  ///< user requested display refresh rate
 	int m_userReqOsdWidth = 0;             ///< user requested osd width
 	int m_userReqOsdHeight;                ///< user requested osd height
 
@@ -142,6 +143,7 @@ private:
 	int SetPropertyRequest(drmModeAtomicReqPtr, uint32_t, uint32_t, const char *, uint64_t);
 	drmModeConnector *FindDrmConnector(int, drmModeRes *, const char *);
 	int32_t FindCrtcForConnector(const drmModeRes *, const drmModeConnector *);
+	int FindMode(void);
 #ifdef USE_GLES
 	struct gbm_device *m_pGbmDevice;       ///< pointer to the gbm device
 	struct gbm_surface *m_pGbmSurface;     ///< pointer to the gbm surface
