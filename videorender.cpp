@@ -357,13 +357,15 @@ int cVideoRender::SetOsdBuffer(drmModeAtomicReqPtr modeReq)
 			osdPlane->GetId(), osdPlane->GetZpos());
 	}
 
-	uint64_t crtcW = m_osdShown ? m_pBufOsd->Width() : 0;
-	uint64_t crtcH = m_osdShown ? m_pBufOsd->Height() : 0;
+	uint64_t crtcW = m_osdShown ? m_pDrmDevice->DisplayWidth() : 0;
+	uint64_t crtcH = m_osdShown ? m_pDrmDevice->DisplayHeight() : 0;
+	uint64_t srcW = m_osdShown ? m_pBufOsd->Width() : 0;
+	uint64_t srcH = m_osdShown ? m_pBufOsd->Height() : 0;
 
 	// now set the plane parameters
 	osdPlane->SetParams(m_pDrmDevice->CrtcId(), m_pBufOsd->Id(),
 		0, 0, crtcW, crtcH,
-		0, 0, crtcW, crtcH);
+		0, 0, srcW, srcH);
 
 	m_pBufOsd->SetSizeOnScreen(0, 0, crtcW, crtcH); // remember for grab
 
@@ -1194,6 +1196,17 @@ void cVideoRender::GetStats(int *duped, int *dropped, int *counter)
  ****************************************************************************/
 
 /**
+ * Wrapper to set the osd size in the device
+ *
+ * @param width           osd width
+ * @param height          osd height
+ */
+void cVideoRender::SetOsdSize(int width, int height)
+{
+	m_pDevice->SetOsdSize(width, height);
+}
+
+/**
  * Wrapper to set the screen size in the device
  *
  * @param width           screen width
@@ -1203,7 +1216,7 @@ void cVideoRender::GetStats(int *duped, int *dropped, int *counter)
 void cVideoRender::SetScreenSize(int width, int height, double refreshRateHz)
 {
 	m_refreshRateHz = refreshRateHz;
-	m_pDevice->SetScreenSize(width, height, refreshRateHz);
+	m_pDevice->SetScreenSize(width, height);
 }
 
 /**
@@ -1220,13 +1233,13 @@ void cVideoRender::InitBuffers(void)
 	if (!m_pBufOsd)
 		m_pBufOsd = new cDrmBuffer();
 
-	m_pBufOsd->Setup(m_pDrmDevice->Fd(), m_pDrmDevice->DisplayWidth(), m_pDrmDevice->DisplayHeight(), DRM_FORMAT_ARGB8888, NULL, false);
+	m_pBufOsd->Setup(m_pDrmDevice->Fd(), m_pDrmDevice->OsdWidth(), m_pDrmDevice->OsdHeight(), DRM_FORMAT_ARGB8888, NULL, false);
 #else
 	if (m_disableOglOsd) {
 		if (!m_pBufOsd)
 			m_pBufOsd = new cDrmBuffer();
 
-		m_pBufOsd->Setup(m_pDrmDevice->Fd(), m_pDrmDevice->DisplayWidth(), m_pDrmDevice->DisplayHeight(), DRM_FORMAT_ARGB8888, NULL, false);
+		m_pBufOsd->Setup(m_pDrmDevice->Fd(), m_pDrmDevice->OsdWidth(), m_pDrmDevice->OsdHeight(), DRM_FORMAT_ARGB8888, NULL, false);
 	}
 #endif
 

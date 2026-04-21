@@ -57,6 +57,8 @@ public:
 
 	uint64_t DisplayWidth(void) { return m_drmModeInfo.hdisplay; };
 	uint64_t DisplayHeight(void) { return m_drmModeInfo.vdisplay; };
+	uint64_t OsdWidth(void) { return m_userReqOsdWidth ? m_userReqOsdWidth : DisplayWidth(); };
+	uint64_t OsdHeight(void) { return m_userReqOsdWidth ? m_userReqOsdHeight : DisplayHeight(); };
 
 	uint32_t CrtcId(void) { return m_crtcId; };
 	int UseZpos(void) { return m_useZpos; };
@@ -121,6 +123,8 @@ private:
 	int m_userReqDisplayWidth = 0;         ///< user requested display width
 	int m_userReqDisplayHeight;            ///< user requested display height
 	uint32_t m_userReqDisplayRefreshRate;  ///< user requested display refresh rate
+	int m_userReqOsdWidth = 0;             ///< user requested osd width
+	int m_userReqOsdHeight;                ///< user requested osd height
 
 	bool m_useZpos = false;                ///< is set, if drm hardware can use zpos
 	uint64_t m_zposOverlay = 0;            ///< zpos of overlay plane
