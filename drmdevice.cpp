@@ -54,6 +54,9 @@ cDrmDevice::cDrmDevice(cVideoRender *render, cSoftHdConfig *config)
 {
 	if (m_pConfig->ConfigDisplayResolution)
 		sscanf(m_pConfig->ConfigDisplayResolution, "%dx%d@%d", &m_userReqDisplayWidth, &m_userReqDisplayHeight, &m_userReqDisplayRefreshRate);
+
+	if (m_pConfig->ConfigOsdResolution)
+		sscanf(m_pConfig->ConfigOsdResolution, "%dx%d", &m_userReqOsdWidth, &m_userReqOsdHeight);
 }
 
 cDrmDevice::~cDrmDevice(void)
@@ -454,6 +457,7 @@ int cDrmDevice::Init(void)
 	double refreshRateHz = GetRefreshRateHz(&m_drmModeInfo);
 
 	m_pRender->SetScreenSize(m_drmModeInfo.hdisplay, m_drmModeInfo.vdisplay, refreshRateHz);
+	m_pRender->SetOsdSize(OsdWidth(), OsdHeight());
 
 	LOGINFO("DRM Setup: Using Monitor Mode %dx%d@%.2fHz on %s (%s), m_crtcId %d crtc_idx %d",
 		m_drmModeInfo.hdisplay, m_drmModeInfo.vdisplay, refreshRateHz, m_connectorName.c_str(), connected ? "connected" : "not connected", m_crtcId, m_crtcIndex);
@@ -719,8 +723,8 @@ int cDrmDevice::Init(void)
  */
 int cDrmDevice::InitGbm(void)
 {
-	int w = m_drmModeInfo.hdisplay;
-	int h = m_drmModeInfo.vdisplay;
+	int w = OsdWidth();
+	int h = OsdHeight();
 	uint32_t format = DRM_FORMAT_ARGB8888;
 	uint64_t modifier = GBM_BO_USE_SCANOUT | GBM_BO_USE_RENDERING;
 

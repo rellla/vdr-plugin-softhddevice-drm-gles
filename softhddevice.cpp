@@ -978,7 +978,7 @@ void cSoftHdDevice::GetVideoSize(int &width, int &height, double &aspectRatio)
 }
 
 /**
- * Returns the width, height and aspect ratio the OSD
+ * Returns the width, height and aspect ratio the OSD should have
  *
  * @param[out] width              osd width
  * @param[out] height             osd height
@@ -996,9 +996,22 @@ void cSoftHdDevice::GetOsdSize(int &width, int &height, double &aspectRatio)
 	}
 
 	std::lock_guard<std::mutex> lock(m_sizeMutex);
-	width = m_screenWidth;
-	height = m_screenHeight;
+	width = m_osdWidth;
+	height = m_osdHeight;
 	aspectRatio = (double)width / (double)height;
+}
+
+/**
+ * Set the OSD size
+ *
+ * @param width           osd width
+ * @param height          osd height
+ */
+void cSoftHdDevice::SetOsdSize(int width, int height)
+{
+	std::lock_guard<std::mutex> lock(m_sizeMutex);
+	m_osdWidth = width;
+	m_osdHeight = height;
 }
 
 /**
@@ -1006,14 +1019,12 @@ void cSoftHdDevice::GetOsdSize(int &width, int &height, double &aspectRatio)
  *
  * @param width           screen width
  * @param height          screen height
- * @param refreshRateHz   screen refresh rate in Hz
  */
-void cSoftHdDevice::SetScreenSize(int width, int height, double refreshRateHz)
+void cSoftHdDevice::SetScreenSize(int width, int height)
 {
 	std::lock_guard<std::mutex> lock(m_sizeMutex);
 	m_screenWidth = width;
 	m_screenHeight = height;
-	m_screenRefreshRateHz = refreshRateHz;
 }
 
 /**

@@ -114,6 +114,7 @@ const char *cPluginSoftHdDevice::CommandLineHelp(void)
 	       "  -c channel\taudio mixer channel name (e.g. PCM)\n"
 	       "  -o device\tdrm device (e.g. /dev/dri/card0)\n"
 	       "  -d resolution\tdisplay resolution (e.g. 1920x1080@50)\n"
+	       "  -g resolution\tosd resolution (e.g. 1920x1080)\n"
 	       "  -D start in detached state\n"
 	       "  -w workaround\tenable/disable workarounds\n"
 #ifdef USE_GLES
@@ -139,9 +140,9 @@ bool cPluginSoftHdDevice::ProcessArgs(int argc, char *argv[])
 
 	for (;;) {
 #ifdef USE_GLES
-		switch (getopt(argc, argv, "-a:c:o:x:d:Dw:")) {
+		switch (getopt(argc, argv, "-a:c:o:x:d:g:Dw:")) {
 #else
-		switch (getopt(argc, argv, "-a:c:o:x:d:D")) {
+		switch (getopt(argc, argv, "-a:c:o:x:d:g:D")) {
 #endif
 		case 'a':           // audio device for pcm
 			m_pConfig->ConfigAudioPCMDevice = optarg;
@@ -157,6 +158,9 @@ bool cPluginSoftHdDevice::ProcessArgs(int argc, char *argv[])
 			continue;
 		case 'd':           // set display output
 			m_pConfig->ConfigDisplayResolution = optarg;
+			continue;
+		case 'g':           // set osd (rendering) size
+			m_pConfig->ConfigOsdResolution = optarg;
 			continue;
 		case 'D':           // start plugin in detached state
 			m_pDevice->SetStartDetached();
