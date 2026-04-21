@@ -1267,7 +1267,17 @@ void cVideoRender::InitBuffers(void)
 void cVideoRender::Init(void)
 {
 	if (m_pDrmDevice->Init())
-		LOGFATAL("videorender: %s: failed", __FUNCTION__);
+		LOGFATAL("videorender: %s: Init drm device failed", __FUNCTION__);
+
+#ifdef USE_GLES
+	if (!m_disableOglOsd) {
+		if (m_pDrmDevice->InitGbm())
+			LOGFATAL("videorender: %s: Init gbm failed", __FUNCTION__);
+
+		if (m_pDrmDevice->InitEGL())
+			LOGFATAL("videorender: %s: Init EGL failed", __FUNCTION__);
+	}
+#endif
 
 	m_pDevice->SetDrmCanDisplayPip(m_pDrmDevice->HasPipPlane());
 
