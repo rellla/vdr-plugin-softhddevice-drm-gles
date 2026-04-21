@@ -140,9 +140,9 @@ bool cPluginSoftHdDevice::ProcessArgs(int argc, char *argv[])
 
 	for (;;) {
 #ifdef USE_GLES
-		switch (getopt(argc, argv, "-a:c:p:o:d:Dw:")) {
+		switch (getopt(argc, argv, "-a:c:p:o:x:d:Dw:")) {
 #else
-		switch (getopt(argc, argv, "-a:c:p:o:d:D")) {
+		switch (getopt(argc, argv, "-a:c:p:o:x:d:D")) {
 #endif
 		case 'a':           // audio device for pcm
 			m_pConfig->ConfigAudioPCMDevice = optarg;
@@ -155,6 +155,9 @@ bool cPluginSoftHdDevice::ProcessArgs(int argc, char *argv[])
 			continue;
 		case 'o':           // set display drm device
 			m_pConfig->ConfigDrmDevice = optarg;
+			continue;
+		case 'x':           // set display drm connector
+			m_pConfig->ConfigDrmConnector = optarg;
 			continue;
 		case 'd':           // set display output
 			m_pConfig->ConfigDisplayResolution = optarg;

@@ -18,6 +18,7 @@
 #include <cstdio>
 #include <cstring>
 #include <cinttypes>
+#include <string>
 #include <vector>
 
 #include <fcntl.h>
@@ -43,10 +44,13 @@
  *
  * @param render         pointer to cVideoRender object
  * @param resolution     display resolution string set by user
+ * @param device         drm device string set by user
+ * @param resolution     drm connector string set by user
  */
-cDrmDevice::cDrmDevice(cVideoRender *render, const char* resolution, const char* device)
+cDrmDevice::cDrmDevice(cVideoRender *render, const char* resolution, const char* device, const char* connector)
 	: m_pRender(render),
-	  m_userDrmDevice(device)
+	  m_userDrmDevice(device),
+	  m_userDrmConnector(connector)
 {
 	if (resolution)
 		sscanf(resolution, "%dx%d@%d", &m_userReqDisplayWidth, &m_userReqDisplayHeight, &m_userReqDisplayRefreshRate);
@@ -175,25 +179,54 @@ static int FindDrmDevice(drmModeRes **resources)
 }
 
 /**
+ * Returns the connector type name if available
+ */
+static std::string ConnectorName(drmModeConnector *connector)
+{
+	const char *typeName = drmModeGetConnectorTypeName(connector->connector_type);
+
+	return (typeName ? typeName : std::string("Unknown")) + "-" + std::to_string(connector->connector_type_id);
+}
+
+/**
  * Find a suitable connector, preferably a connected one
+ *
+ * Connector selection priority:
+ * 1) Try user requested connector (-x HDMI-A-1)
+ * 2) Try suitable connected connector
+ * 3) Try suitable unconnected connector
  *
  * @ingroup drm
  */
-static drmModeConnector *FindDrmConnector(int fd, drmModeRes *resources)
+drmModeConnector *cDrmDevice::FindDrmConnector(int fd, drmModeRes *resources, const char *userRequestedConnector)
 {
 	drmModeConnector *connector = NULL;
 	int i;
 
+	// search for the user requeset connected connector (can be unconnected)
+	for (i = 0; i < resources->count_connectors && userRequestedConnector; i++) {
+		connector = drmModeGetConnector(fd, resources->connectors[i]);
+		if (connector && connector->count_modes > 0) {
+			if (ConnectorName(connector) == userRequestedConnector)
+				return connector;
+		}
+		drmModeFreeConnector(connector);
+		connector = NULL;
+	}
+
+	if (userRequestedConnector)
+		LOGWARNING("drmdevice: %s: cannot open user requested DRM connector %s, try others", __FUNCTION__, userRequestedConnector);
+
 	// search for a connected connector
 	for (i = 0; i < resources->count_connectors; i++) {
 		connector = drmModeGetConnector(fd, resources->connectors[i]);
-		if (connector && connector->connection == DRM_MODE_CONNECTED)
+		if (connector && connector->connection == DRM_MODE_CONNECTED && connector->count_modes > 0)
 			return connector;
 		drmModeFreeConnector(connector);
 		connector = NULL;
 	}
 
-	// search for a not connected connector, but with available modes
+	// search for an unconnected connector, but with available modes
 	// this is a workaround for RPI: in case we don't have a monitor connected
 	// we can load an edid file at boot time, where the available modes are listed.
 	// To bring softhddevice up, we also have to go through the not connected connectors
@@ -209,7 +242,6 @@ static drmModeConnector *FindDrmConnector(int fd, drmModeRes *resources)
 	return connector;
 }
 
-
 /**
  * Calculate the refresh rate of the given mode to get the precise value and
  * don't use m_drmModeInfo.vrefresh.
@@ -223,6 +255,18 @@ static double GetRefreshRateHz(drmModeModeInfo *modeInfo)
 
 /**
  * Initiate the drm device
+ *
+ * 1) Try to open the user requested device (with -o /dev/dri/cardX)
+ * 2) On error or if not set, find a any suitable device
+ * 3) Find a connector (priority: user requested, connected, unconnected)
+ * 4) Find a mode (priority: user requested
+ *                           mode with biggest width@50Hz
+ *                           mode with biggest width@60Hz
+ *                           mode with biggest width@anyHz
+ * 5) Find crtc encoder
+ * 6) Find suitable planes for video (NV12), OSD (ARGB) and PiP (NV12)
+ * 7) Init GBM
+ * 8) Init EGL
  *
  * @retval 0                on success
  * @retval -errno           on error
@@ -261,12 +305,14 @@ int cDrmDevice::Init(void)
 		resources->count_encoders);
 
 	// find a connector
-	connector = FindDrmConnector(m_fdDrm, resources);
+	connector = FindDrmConnector(m_fdDrm, resources, m_userDrmConnector);
 	if (!connector) {
 		LOGERROR("drmdevice: %s: cannot retrieve DRM connector (%d): %m", __FUNCTION__, errno);
 		return -errno;
 	}
 	m_connectorId = connector->connector_id;
+	m_connectorName = ConnectorName(connector);
+	bool connected = connector->connection == DRM_MODE_CONNECTED;
 
 	// find a user requested mode
 	if (m_userReqDisplayWidth) {
@@ -354,11 +400,10 @@ int cDrmDevice::Init(void)
 
 	m_pRender->SetScreenSize(m_drmModeInfo.hdisplay, m_drmModeInfo.vdisplay, refreshRateHz);
 
-	LOGINFO("DRM Setup: Using Monitor Mode %dx%d@%.2fHz, m_crtcId %d crtc_idx %d",
-		m_drmModeInfo.hdisplay, m_drmModeInfo.vdisplay, refreshRateHz, m_crtcId, m_crtcIndex);
+	LOGINFO("DRM Setup: Using Monitor Mode %dx%d@%.2fHz on %s (%s), m_crtcId %d crtc_idx %d",
+		m_drmModeInfo.hdisplay, m_drmModeInfo.vdisplay, refreshRateHz, m_connectorName.c_str(), connected ? "connected" : "not connected", m_crtcId, m_crtcIndex);
 
 	drmModeFreeConnector(connector);
-
 
 	// find planes
 	if ((planeRes = drmModeGetPlaneResources(m_fdDrm)) == NULL) {

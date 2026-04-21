@@ -60,7 +60,7 @@ cVideoRender::cVideoRender(cSoftHdDevice *device)
 	  m_pDevice(device),
 	  m_pAudio(m_pDevice->Audio()),
 	  m_pConfig(m_pDevice->Config()),
-	  m_pDrmDevice(new cDrmDevice(this, m_pConfig->ConfigDisplayResolution, m_pConfig->ConfigDrmDevice)),
+	  m_pDrmDevice(new cDrmDevice(this, m_pConfig->ConfigDisplayResolution, m_pConfig->ConfigDrmDevice, m_pConfig->ConfigDrmConnector)),
 	  m_pEventReceiver(device),
 	  m_pHdrMetadata(this),
 	  m_enableHdr(m_pConfig->ConfigVideoEnableHDR)
