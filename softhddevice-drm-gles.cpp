@@ -156,9 +156,18 @@ bool cPluginSoftHdDevice::ProcessArgs(int argc, char *argv[])
 		case 'x':           // set display drm connector
 			m_pConfig->ConfigDrmConnector = optarg;
 			continue;
-		case 'd':           // set display output
+		case 'd': {         // set display output
 			m_pConfig->ConfigDisplayResolution = optarg;
+			int w = 0;
+			int h = 0;
+			double rate = 0.0;
+			if (sscanf(m_pConfig->ConfigDisplayResolution, "%dx%d@%lf", &w, &h, &rate) != 3) {
+				fprintf(stderr, gettext("Wring argument for option '%c'\n"), optopt);
+				return 0;
+			}
+			m_pConfig->UserSetDrmMode = { w, h, rate, false };
 			continue;
+		}
 		case 'g':           // set osd (rendering) size
 			m_pConfig->ConfigOsdResolution = optarg;
 			continue;

@@ -392,10 +392,10 @@ void cMenuSetupSoft::BuildDisplayModeList(void)
 	m_displayMode.clear();
 
 	m_displayMode.push_back(*cString::sprintf(tr("default (%dx%d@%.2f%s)"),
-		m_pConfig->CurrentDrmMode.width,
-		m_pConfig->CurrentDrmMode.height,
-		m_pConfig->CurrentDrmMode.refreshRateHz,
-		m_pConfig->CurrentDrmMode.interlaced ? "i" : ""));
+		m_pConfig->AutoDetectedDrmMode.width,
+		m_pConfig->AutoDetectedDrmMode.height,
+		m_pConfig->AutoDetectedDrmMode.refreshRateHz,
+		m_pConfig->AutoDetectedDrmMode.interlaced ? "i" : ""));
 
 	m_displayMode.push_back(tr("auto adjust"));
 
@@ -429,8 +429,6 @@ void cMenuSetupSoft::Store(void)
 	m_pDevice->SetEnableHdr(m_pConfig->ConfigVideoEnableHDR);
 	bool displayModeChanged = m_pConfig->ConfigVideoDisplayMode != m_cVideoDisplayMode;
 	SetupStore("VideoDisplayMode", m_pConfig->ConfigVideoDisplayMode = m_cVideoDisplayMode);
-	if (displayModeChanged)
-		m_pDevice->SetDisplayMode(m_pConfig->ConfigVideoDisplayMode);
 
 	//
 	// Audio
@@ -562,4 +560,7 @@ void cMenuSetupSoft::Store(void)
 #ifdef USE_GLES
 	SetupStore("MaxSizeGPUImageCache", m_pConfig->ConfigMaxSizeGPUImageCache = m_cMaxSizeGPUImageCache);
 #endif
+
+	if (displayModeChanged)
+		m_pDevice->SetDisplayMode(m_pConfig->ConfigVideoDisplayMode);
 }

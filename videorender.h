@@ -166,6 +166,7 @@ public:
 	~cVideoRender(void);
 
 	void Init(void);
+	void ReInitDisplayMode(void);
 	void Exit(void);
 	void Stop(void);
 	void Halt(void) { m_mutex.lock(); };
