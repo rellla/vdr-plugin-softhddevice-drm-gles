@@ -341,6 +341,8 @@ private:
 	int SetOsdBuffer(drmModeAtomicReqPtr);
 	int SetPipBuffer(cDrmBuffer *);
 	int CommitBuffer(cDrmBuffer *, cDrmBuffer *);
+	void InitBuffers(void);
+	void DeleteBuffers(void);
 	void CreateGrabBuffers(bool);
 	bool FrameDropNecessary(int64_t, int64_t);
 	void LogDroppedDuped(int64_t, int64_t, int);

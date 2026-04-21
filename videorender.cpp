@@ -1232,19 +1232,15 @@ void cVideoRender::SetScreenSize(int width, int height, double refreshRateHz)
 }
 
 /**
- * Initialize the renderer
+ * Init the osd and black buffer
+ *
+ * The osd buffer is only created in non-GLES mode
+ *
+ * The size of both buffers is the current display width + height
  */
-void cVideoRender::Init(void)
+void cVideoRender::InitBuffers(void)
 {
-	if (m_pDrmDevice->Init())
-		LOGFATAL("videorender: %s: failed", __FUNCTION__);
-
-	m_pDevice->SetDrmCanDisplayPip(m_pDrmDevice->HasPipPlane());
-
-	cDrmPlane *videoPlane = m_pDrmDevice->VideoPlane();
-	cDrmPlane *osdPlane = m_pDrmDevice->OsdPlane();
-
-	// osd FB
+	// osd fb
 #ifndef USE_GLES
 	if (!m_pBufOsd)
 		m_pBufOsd = new cDrmBuffer();
@@ -1263,6 +1259,22 @@ void cVideoRender::Init(void)
 	LOGDEBUG2(L_DRM, "videorender: %s: Try to create a black FB", __FUNCTION__);
 	m_bufBlack.Setup(m_pDrmDevice->Fd(), m_pDrmDevice->DisplayWidth(), m_pDrmDevice->DisplayHeight(), DRM_FORMAT_NV12, NULL, false);
 	m_bufBlack.FillBlack();
+}
+
+/**
+ * Initialize the renderer
+ */
+void cVideoRender::Init(void)
+{
+	if (m_pDrmDevice->Init())
+		LOGFATAL("videorender: %s: failed", __FUNCTION__);
+
+	m_pDevice->SetDrmCanDisplayPip(m_pDrmDevice->HasPipPlane());
+
+	cDrmPlane *videoPlane = m_pDrmDevice->VideoPlane();
+	cDrmPlane *osdPlane = m_pDrmDevice->OsdPlane();
+
+	InitBuffers();
 
 	// save actual modesetting
 	m_pDrmDevice->SaveCrtc();
@@ -1335,27 +1347,12 @@ void cVideoRender::Init(void)
 }
 
 /**
- * Exit and cleanup the renderer
+ * Delete the osd and black buffer
+ *
+ * The GBM bo (GLES OSD) are also destroyed here
  */
-void cVideoRender::Exit(void)
+void cVideoRender::DeleteBuffers(void)
 {
-	LOGDEBUG("videorender: %s", __FUNCTION__);
-
-	cDrmPlane *videoPlane = m_pDrmDevice->VideoPlane();
-	cDrmPlane *osdPlane = m_pDrmDevice->OsdPlane();
-
-	Reset();
-	Stop();
-
-	// restore saved CRTC configuration
-	m_pDrmDevice->RestoreCrtc();
-
-	if (m_hasDoneHdrModeset)
-		RestoreColorSpace();
-
-	videoPlane->FreeProperties();
-	osdPlane->FreeProperties();
-
 	m_bufBlack.Destroy();
 #ifdef USE_GLES
 	if (m_disableOglOsd) {
@@ -1375,6 +1372,28 @@ void cVideoRender::Exit(void)
 		delete m_pBufOsd;
 	}
 #endif
+}
+
+/**
+ * Exit and cleanup the renderer
+ */
+void cVideoRender::Exit(void)
+{
+	LOGDEBUG("videorender: %s", __FUNCTION__);
+
+	Reset();
+	Stop();
+
+	// restore saved CRTC configuration
+	m_pDrmDevice->RestoreCrtc();
+
+	if (m_hasDoneHdrModeset)
+		RestoreColorSpace();
+
+	m_pDrmDevice->VideoPlane()->FreeProperties();
+	m_pDrmDevice->OsdPlane()->FreeProperties();
+
+	DeleteBuffers();
 
 	m_pDrmDevice->Close();
 }
