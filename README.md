@@ -157,16 +157,18 @@ Installation
 Commandline Arguments
 ---------------------
 Use vdr -h to see the command line arguments supported by the plugin.
+All command line arguments are optional. The plugin tries to set suitable default values.
 
-	-a audio_device (e.g. hw:0,1)
-	-p device for pass-through (e.g. hw:0,1)
-	-c audio mixer channel name (e.g. PCM)
-	-o drm device (e.g. /dev/dri/card0)
-	-d display resolution (e.g. 1920x1080@50)
-	-D	start plugin in detached state
-	-w workarounds
-		disable-ogl-osd (to disable HW accelerated OSD)
-		disable-pip (to force disabling the pip feature)
+	-a arg     audio device (e.g. hw:0,1)
+	-p arg     audio device for pass-through* (e.g. hw:0,1)
+	-c arg     audio mixer channel name (e.g. PCM)
+	-o arg     drm device (e.g. /dev/dri/card0)
+	-x arg     drm connector name (e.g. HDMI-A-1)
+	-d arg     display resolution (e.g. 1920x1080@50)
+	-D         start plugin in detached state
+	-w workaround:
+	        disable-ogl-osd (to disable HW accelerated OSD)
+	        disable-pip     (to force disabling the pip feature)
 
 
 Setup: Environment Variables
