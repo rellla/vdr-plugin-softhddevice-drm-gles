@@ -190,6 +190,7 @@ public:
 	void SetVideoOutputPosition(const cRect &);
 	void SetOsdSize(int, int);
 	void SetScreenSize(int, int, double);
+	void SetDisplayMode(int);
 	int64_t GetVideoClock(void) { return m_pts; };
 	void GetStats(int *, int *, int *);
 	void ResetFrameCounter(void);
@@ -353,7 +354,7 @@ private:
 	int GetFramePresentationCount(int64_t);
 	void SetHdrBlob(struct hdr_output_metadata);
 	void SetColorSpace(drmColorRange);
-	void RestoreColorSpace();
+	void RestoreColorSpace(void);
 };
 
 #endif

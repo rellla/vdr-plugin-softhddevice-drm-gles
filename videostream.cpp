@@ -167,6 +167,8 @@ void cVideoStream::CloseDecoder(void)
 	m_maxFrameNum = 1;
 	m_naluTypesAtStart.clear();
 	m_dpbFrames.clear();
+	m_lastPts = AV_NOPTS_VALUE;
+	m_framerate = 0.0;
 }
 
 /**
@@ -543,6 +545,37 @@ void cVideoStream::RenderFrame(AVFrame * frame)
 			m_videoFilter.InitAndStart(m_pDecoder->GetContext(), frame, useDeinterlacer);
 
 		m_checkFilterThreadNeeded = false;
+	}
+
+	if (!m_framerate) {
+		if (av_q2d(m_pDecoder->GetContext()->framerate) > 0.0) {
+			// the decoder has a valid framerate, use it
+			m_framerate = av_q2d(m_pDecoder->GetContext()->framerate);
+		} else if (frame->pts != AV_NOPTS_VALUE) {
+			// The decoder has no valid framerate, calculate it from pts and timebase
+			// @todo We are only using the first two frames here.
+			// If there are issues in the streamm this might not be correct.
+			if (m_lastPts != AV_NOPTS_VALUE) {
+				int64_t delta = frame->pts - m_lastPts;
+				m_framerate = 1.0 / (delta * av_q2d(m_timebase));
+			}
+			m_lastPts = frame->pts;
+		}
+	}
+
+	// reset display mode if needed
+	if (m_framerate &&
+	   (m_pConfig->CurrentVideoDrmMode.width         != m_pDecoder->GetContext()->coded_width ||
+	    m_pConfig->CurrentVideoDrmMode.height        != m_pDecoder->GetContext()->coded_height ||
+	    m_pConfig->CurrentVideoDrmMode.refreshRateHz != m_framerate ||
+	    m_pConfig->CurrentVideoDrmMode.interlaced    != m_interlaced)) {
+
+		m_pConfig->CurrentVideoDrmMode = { m_pDecoder->GetContext()->coded_width,
+		                                   m_pDecoder->GetContext()->coded_height,
+		                                   m_framerate,
+		                                   m_interlaced };
+
+		m_pRender->SetDisplayMode(m_pConfig->ConfigVideoDisplayMode);
 	}
 
 	if (m_videoFilter.Active())

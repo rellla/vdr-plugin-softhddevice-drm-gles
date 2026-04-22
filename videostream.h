@@ -121,8 +121,10 @@ private:
 	int m_sentTrickPkts = 0;                        ///< how many avpkt have been sent to the decoder in trickspeed mode?
 	volatile bool m_newStream = false;              ///< flag for new stream
 	bool m_interlaced;                              ///< flag for interlaced stream
+	double m_framerate = 0.0;                       ///< current stream framerate
 
 	int64_t m_inputPts = AV_NOPTS_VALUE;            ///< PTS of the first packet in the input buffer
+	int64_t m_lastPts = AV_NOPTS_VALUE;             ///< helper PTS to calculate a framerate at stream start
 
 	// h264 parsing
 	std::vector<std::string> m_naluTypesAtStart;    ///< array of strings to log the H.264 frames at stream start
