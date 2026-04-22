@@ -1429,12 +1429,7 @@ uchar *cSoftHdDevice::GrabImage(int &size, bool jpeg, int quality, int width, in
 
 	LOGDEBUG2(L_GRAB, "device: %s: %d, %d, %d, %dx%d", __FUNCTION__, size, jpeg, quality, width, height);
 
-	int screenWidth = 0;
-	int screenHeight = 0;
-	double aspectRatio = 0.0f;
-	GetOsdSize(screenWidth, screenHeight, aspectRatio);
-
-	if (!m_pGrab->Start(jpeg, quality, width, height, screenWidth, screenHeight))
+	if (!m_pGrab->Start(jpeg, quality, width, height, m_screenWidth, m_screenHeight))
 		return NULL;
 
 	size = m_pGrab->Size();
