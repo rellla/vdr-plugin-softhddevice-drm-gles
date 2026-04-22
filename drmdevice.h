@@ -22,13 +22,13 @@
 #include <xf86drm.h>
 #include <xf86drmMode.h>
 
+#include "config.h"
 #include "drmplane.h"
 
 #ifdef USE_GLES
 class cDrmBuffer;
 #endif
 
-class cSoftHdConfig;
 class cVideoRender;
 
 /**
@@ -86,6 +86,7 @@ public:
 	void InitEvent(void);
 
 	bool CanHandleHdr(void) { return m_hdrMetadata != 0; };
+	bool CanHandleMode(sDrmMode *);
 
 	// drmModeAtomic* wrapper functions
 	drmModeAtomicReqPtr ModeAtomicAlloc(void) { return drmModeAtomicAlloc(); };
@@ -123,7 +124,8 @@ private:
 	const char *m_userDrmConnector = nullptr; ///< user requested drm connector
 	int m_userReqDisplayWidth = 0;         ///< user requested display width
 	int m_userReqDisplayHeight;            ///< user requested display height
-	double m_userReqDisplayRefreshRate;  ///< user requested display refresh rate
+	double m_userReqDisplayRefreshRate;    ///< user requested display refresh rate
+	bool m_userReqDisplayInterlaced;       ///< user requested display interlaced mode
 	int m_userReqOsdWidth = 0;             ///< user requested osd width
 	int m_userReqOsdHeight;                ///< user requested osd height
 

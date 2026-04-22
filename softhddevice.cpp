@@ -1821,9 +1821,6 @@ void cSoftHdDevice::SetDisplayMode(int idx)
 
 	if (idx == 1) {
 		mode = &m_pConfig->CurrentVideoDrmMode;
-		if (mode->interlaced)
-			mode->refreshRateHz *= 2;
-
 		if (!mode->width)
 			mode = &m_pConfig->AutoDetectedDrmMode;
 	} else if (idx > 1)

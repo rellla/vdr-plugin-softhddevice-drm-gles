@@ -509,6 +509,22 @@ void cVideoStream::RenderFrame(AVFrame * frame)
 	if (frame->decode_error_flags || frame->flags & AV_FRAME_FLAG_CORRUPT)
 		LOGWARNING("videostream: %s: %s: error_flag or FRAME_FLAG_CORRUPT", m_identifier, __FUNCTION__);
 
+	if (!m_framerate) {
+		if (av_q2d(m_pDecoder->GetContext()->framerate) > 0.0) {
+			// the decoder has a valid framerate, use it
+			m_framerate = av_q2d(m_pDecoder->GetContext()->framerate);
+		} else if (frame->pts != AV_NOPTS_VALUE) {
+			// The decoder has no valid framerate, calculate it from pts and timebase
+			// @todo We are only using the first two frames here.
+			// If there are issues in the streamm this might not be correct.
+			if (m_lastPts != AV_NOPTS_VALUE) {
+				int64_t delta = frame->pts - m_lastPts;
+				m_framerate = 1.0 / (delta * av_q2d(m_timebase));
+			}
+			m_lastPts = frame->pts;
+		}
+	}
+
 	// Filter thread will only be started, if the lambda function returns true
 	if (m_checkFilterThreadNeeded) {
 		m_timebase = m_pDecoder->GetContext()->pkt_timebase;
@@ -528,11 +544,20 @@ void cVideoStream::RenderFrame(AVFrame * frame)
 			m_pDecoder->GetContext()->framerate.num > 0 &&
 			av_q2d(m_pDecoder->GetContext()->framerate) < 30.1) || isInterlacedFrame(frame); // account for rounding errors when comparing double
 
+		bool displayCanHandleMode = false;
+		sDrmMode mode = { m_pDecoder->GetContext()->coded_width,
+		                  m_pDecoder->GetContext()->coded_height,
+		                  m_framerate,
+		                  m_interlaced };
+		if (m_pConfig->ConfigVideoDisplayMode == 1 && m_pRender->CanHandleMode(&mode))
+			displayCanHandleMode = true;
+
 		bool useDeinterlacer =
 			!m_userDisabledDeinterlacer &&
 			!m_deinterlacerDeactivated &&
 			!(m_hardwareQuirks & QUIRK_NO_HW_DEINT) &&
-			m_interlaced;
+			m_interlaced &&
+			!displayCanHandleMode;
 
 		if (m_userDisabledDeinterlacer)
 			LOGDEBUG("videostream: %s: %s: deinterlacer disabled by user configuration", m_identifier, __FUNCTION__);
@@ -545,22 +570,6 @@ void cVideoStream::RenderFrame(AVFrame * frame)
 			m_videoFilter.InitAndStart(m_pDecoder->GetContext(), frame, useDeinterlacer);
 
 		m_checkFilterThreadNeeded = false;
-	}
-
-	if (!m_framerate) {
-		if (av_q2d(m_pDecoder->GetContext()->framerate) > 0.0) {
-			// the decoder has a valid framerate, use it
-			m_framerate = av_q2d(m_pDecoder->GetContext()->framerate);
-		} else if (frame->pts != AV_NOPTS_VALUE) {
-			// The decoder has no valid framerate, calculate it from pts and timebase
-			// @todo We are only using the first two frames here.
-			// If there are issues in the streamm this might not be correct.
-			if (m_lastPts != AV_NOPTS_VALUE) {
-				int64_t delta = frame->pts - m_lastPts;
-				m_framerate = 1.0 / (delta * av_q2d(m_timebase));
-			}
-			m_lastPts = frame->pts;
-		}
 	}
 
 	// reset display mode if needed

@@ -34,6 +34,7 @@ extern "C" {
 #include <vdr/osd.h>
 #include <vdr/thread.h>
 
+#include "config.h"
 #include "drmbuffer.h"
 #ifdef USE_GLES
 #include "drmdevice.h"
@@ -48,7 +49,6 @@ extern "C" {
 class cDrmDevice;
 #endif
 class cSoftHdDevice;
-class cSoftHdConfig;
 class cSoftHdAudio;
 
 /**
@@ -176,6 +176,7 @@ public:
 	void SetOsdSize(int, int);
 	void SetScreenSize(int, int, double);
 	void SetDisplayMode(int);
+	bool CanHandleMode(sDrmMode *);
 	int64_t GetVideoClock(void) { return m_pts; };
 	void GetStats(int *, int *, int *);
 	void ResetFrameCounter(void);

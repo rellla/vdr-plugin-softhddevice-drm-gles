@@ -62,8 +62,9 @@ cDrmDevice::cDrmDevice(cVideoRender *render, cSoftHdConfig *config)
 		m_userReqDisplayWidth = drmMode->width;
 		m_userReqDisplayHeight = drmMode->height;
 		m_userReqDisplayRefreshRate = drmMode->refreshRateHz;
-		LOGDEBUG("%s requested dispaly mode: %dx%d@%.2f", __FUNCTION__,
-			m_userReqDisplayWidth, m_userReqDisplayHeight, m_userReqDisplayRefreshRate);
+		m_userReqDisplayInterlaced = drmMode->interlaced;
+		LOGDEBUG("%s requested display mode: %dx%d@%.2f%s", __FUNCTION__,
+			m_userReqDisplayWidth, m_userReqDisplayHeight, m_userReqDisplayRefreshRate, m_userReqDisplayInterlaced ? "i" : "");
 	}
 
 	if (m_pConfig->ConfigOsdResolution)
@@ -287,6 +288,31 @@ static bool IsDuplicateDrmMode(drmModeModeInfo *mode, std::vector<sDrmMode> mode
 
 		bool interlaced = (mode->flags & DRM_MODE_FLAG_INTERLACE) == DRM_MODE_FLAG_INTERLACE;
 		if (interlaced != modes[i].interlaced)
+			continue;
+
+		return true;
+	}
+
+	return false;
+}
+
+/**
+ * Return true, if the given mode is one of the collected ones
+ */
+bool cDrmDevice::CanHandleMode(sDrmMode *mode)
+{
+	std::vector<sDrmMode> modes = m_pConfig->CollectedDrmModes;
+	for (size_t i = 0; i < modes.size(); i++) {
+		if (mode->width != modes[i].width)
+			continue;
+
+		if (mode->height != modes[i].height)
+			continue;
+
+		if (mode->refreshRateHz != modes[i].refreshRateHz)
+			continue;
+
+		if (mode->interlaced != modes[i].interlaced)
 			continue;
 
 		return true;
@@ -683,10 +709,15 @@ int cDrmDevice::FindMode(void)
 	if (m_userReqDisplayWidth > 0) {
 		for (int i = 0; i < connector->count_modes; i++) {
 			drmModeModeInfo *current_mode = &connector->modes[i];
-			if(current_mode->hdisplay == m_userReqDisplayWidth && current_mode->vdisplay == m_userReqDisplayHeight &&
-			   GetRefreshRateHz(current_mode) == m_userReqDisplayRefreshRate && !(current_mode->flags & DRM_MODE_FLAG_INTERLACE)) {
+			bool currentInterlaced = (current_mode->flags & DRM_MODE_FLAG_INTERLACE) == DRM_MODE_FLAG_INTERLACE;
+			if(current_mode->hdisplay == m_userReqDisplayWidth &&
+			   current_mode->vdisplay == m_userReqDisplayHeight &&
+			   GetRefreshRateHz(current_mode) == m_userReqDisplayRefreshRate &&
+			   currentInterlaced == m_userReqDisplayInterlaced) {
+
 				drmmode = current_mode;
-				LOGDEBUG2(L_DRM, "drmdevice: %s: Use user requested mode: %dx%d@%.2f", __FUNCTION__, drmmode->hdisplay, drmmode->vdisplay, GetRefreshRateHz(drmmode));
+				LOGDEBUG2(L_DRM, "drmdevice: %s: Use user requested mode: %dx%d@%.2f%s", __FUNCTION__,
+					drmmode->hdisplay, drmmode->vdisplay, GetRefreshRateHz(drmmode), drmmode->flags & DRM_MODE_FLAG_INTERLACE ? "i" : "");
 				break;
 			}
 		}
@@ -768,8 +799,9 @@ int cDrmDevice::ReInit(void)
 		m_userReqDisplayWidth = drmMode->width;
 		m_userReqDisplayHeight = drmMode->height;
 		m_userReqDisplayRefreshRate = drmMode->refreshRateHz;
-		LOGDEBUG("%s requested display mode: %dx%d@%.2f", __FUNCTION__,
-			m_userReqDisplayWidth, m_userReqDisplayHeight, m_userReqDisplayRefreshRate);
+		m_userReqDisplayInterlaced = drmMode->interlaced;
+		LOGDEBUG("%s requested display mode: %dx%d@%.2f%s", __FUNCTION__,
+			m_userReqDisplayWidth, m_userReqDisplayHeight, m_userReqDisplayRefreshRate, m_userReqDisplayInterlaced ? "i" : "");
 	}
 
 	return FindMode();
