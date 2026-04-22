@@ -204,28 +204,13 @@ void cVideoRender::SetColorSpace(drmColorRange colorRange)
 {
 	drmModeAtomicReqPtr modeReq;
 	const uint32_t flags = DRM_MODE_ATOMIC_ALLOW_MODESET;
-	uint32_t modeID = 0;
 
-	if (m_pDrmDevice->CreateModeBlob(&modeID) != 0)
-		LOGFATAL("videorender: %s: Failed to create mode property blob.", __FUNCTION__);
-	if (!(modeReq = m_pDrmDevice->ModeAtomicAlloc())) {
-		m_pDrmDevice->DestroyModeBlob(modeID);
+	if (!(modeReq = m_pDrmDevice->ModeAtomicAlloc()))
 		LOGFATAL("videorender: %s: cannot allocate atomic request (%d): %m", __FUNCTION__, errno);
-	}
 
-	m_pDrmDevice->SetCrtcActive(modeReq, 0);
-	if (m_pDrmDevice->ModeAtomicCommit(modeReq, flags, NULL) != 0) {
-		m_pDrmDevice->ModeAtomicFree(modeReq);
-		m_pDrmDevice->DestroyModeBlob(modeID);
-		LOGFATAL("videorender: %s: cannot set atomic mode (%d): %m", __FUNCTION__, errno);
-	}
 	m_pDrmDevice->SetConnectorColorspace(modeReq, m_pHdrMetadata.GetColorPrimaries() == AVCOL_PRI_BT2020 ? COLORSPACE_BT2020_RGB : COLORSPACE_BT709_YCC);
 	m_pDrmDevice->SetVideoPlaneColorEncoding(modeReq, m_pHdrMetadata.GetColorPrimaries() == AVCOL_PRI_BT2020 ? COLORENCODING_BT2020 : COLORENCODING_BT709);
 	m_pDrmDevice->SetVideoPlaneColorRange(modeReq, colorRange);
-
-	m_pDrmDevice->SetCrtcModeId(modeReq, modeID);
-	m_pDrmDevice->SetConnectorCrtcId(modeReq);
-	m_pDrmDevice->SetCrtcActive(modeReq, 1);
 
 	LOGDEBUG2(L_DRM, "videorender: %s: HDR: connector %d -> Colorspace %s", __FUNCTION__,
 		m_pDrmDevice->ConnectorId(), m_pHdrMetadata.GetColorPrimaries() == AVCOL_PRI_BT2020 ? "BT2020_RGB" : "BT709_YCC");
@@ -236,12 +221,10 @@ void cVideoRender::SetColorSpace(drmColorRange colorRange)
 
 	if (m_pDrmDevice->ModeAtomicCommit(modeReq, flags, NULL) != 0) {
 		m_pDrmDevice->ModeAtomicFree(modeReq);
-		m_pDrmDevice->DestroyModeBlob(modeID);
 		LOGFATAL("videorender: %s: cannot set atomic mode (%d): %m", __FUNCTION__, errno);
 	}
 
 	m_pDrmDevice->ModeAtomicFree(modeReq);
-	m_pDrmDevice->DestroyModeBlob(modeID);
 
 	m_hasDoneHdrModeset = true;
 }
@@ -254,39 +237,21 @@ void cVideoRender::RestoreColorSpace(void)
 {
 	drmModeAtomicReqPtr modeReq;
 	const uint32_t flags = DRM_MODE_ATOMIC_ALLOW_MODESET;
-	uint32_t modeID = 0;
 
-	if (m_pDrmDevice->CreateModeBlob(&modeID) != 0)
-		LOGFATAL("videorender: %s: Failed to create mode property blob.", __FUNCTION__);
-	if (!(modeReq = m_pDrmDevice->ModeAtomicAlloc())) {
-		m_pDrmDevice->DestroyModeBlob(modeID);
+	if (!(modeReq = m_pDrmDevice->ModeAtomicAlloc()))
 		LOGFATAL("videorender: %s: cannot allocate atomic request (%d): %m", __FUNCTION__, errno);
-	}
-
-	m_pDrmDevice->SetCrtcActive(modeReq, 0);
-
-	if (m_pDrmDevice->ModeAtomicCommit(modeReq, flags, NULL) != 0) {
-		m_pDrmDevice->ModeAtomicFree(modeReq);
-		m_pDrmDevice->DestroyModeBlob(modeID);
-		LOGFATAL("videorender: %s: cannot set atomic mode (%d): %m", __FUNCTION__, errno);
-	}
 
 	m_pDrmDevice->SetConnectorHdrOutputMetadata(modeReq, 0);
 	m_pDrmDevice->SetConnectorColorspace(modeReq, COLORSPACE_BT709_YCC);
 	m_pDrmDevice->SetVideoPlaneColorEncoding(modeReq, COLORENCODING_BT709);
 	m_pDrmDevice->SetVideoPlaneColorRange(modeReq, m_colorRangeStored ? static_cast<uint64_t>(m_originalColorRange) : static_cast<uint64_t>(COLORRANGE_LIMITED));
-	m_pDrmDevice->SetCrtcModeId(modeReq, modeID);
-	m_pDrmDevice->SetConnectorCrtcId(modeReq);
-	m_pDrmDevice->SetCrtcActive(modeReq, 1);
 
 	if (m_pDrmDevice->ModeAtomicCommit(modeReq, flags, NULL) != 0) {
 		m_pDrmDevice->ModeAtomicFree(modeReq);
-		m_pDrmDevice->DestroyModeBlob(modeID);
 		LOGFATAL("videorender: %s: cannot set atomic mode (%d): %m", __FUNCTION__, errno);
 	}
 
 	m_pDrmDevice->ModeAtomicFree(modeReq);
-	m_pDrmDevice->DestroyModeBlob(modeID);
 
 	m_hasDoneHdrModeset = false;
 	m_colorRangeStored = false;
