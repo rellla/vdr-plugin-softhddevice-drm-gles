@@ -1236,6 +1236,16 @@ void cVideoRender::SetDisplayMode(int idx)
 }
 
 /**
+ * Wrapper to check, if drm can handle the display mode
+ *
+ * @param mode      display mode
+ */
+bool cVideoRender::CanHandleMode(sDrmMode *mode)
+{
+	return m_pDrmDevice->CanHandleMode(mode);
+}
+
+/**
  * Init the osd and black buffer
  *
  * The osd buffer is only created in non-GLES mode
