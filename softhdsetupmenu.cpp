@@ -391,14 +391,17 @@ void cMenuSetupSoft::BuildDisplayModeList(void)
 {
 	m_displayMode.clear();
 
+	// idx 0
 	m_displayMode.push_back(*cString::sprintf(tr("default (%dx%d@%.2f%s)"),
 		m_pConfig->AutoDetectedDrmMode.width,
 		m_pConfig->AutoDetectedDrmMode.height,
 		m_pConfig->AutoDetectedDrmMode.refreshRateHz,
 		m_pConfig->AutoDetectedDrmMode.interlaced ? "i" : ""));
 
+	// idx 1
 	m_displayMode.push_back(tr("auto adjust"));
 
+	// idx 2+
 	for (size_t i = 2; i < m_pConfig->CollectedDrmModes.size() + 2; i++) {
 		m_displayMode.push_back(*cString::sprintf("%dx%d@%.2f%s",
 			m_pConfig->CollectedDrmModes[i - 2].width,
@@ -428,7 +431,9 @@ void cMenuSetupSoft::Store(void)
 	SetupStore("VideoEnableHDR", m_pConfig->ConfigVideoEnableHDR = m_cVideoEnableHDR);
 	m_pDevice->SetEnableHdr(m_pConfig->ConfigVideoEnableHDR);
 	bool displayModeChanged = m_pConfig->ConfigVideoDisplayMode != m_cVideoDisplayMode;
-	SetupStore("VideoDisplayMode", m_pConfig->ConfigVideoDisplayMode = m_cVideoDisplayMode);
+	// only save default and auto adjusted modes
+	if (m_pConfig->ConfigVideoDisplayMode < 2)
+		SetupStore("VideoDisplayMode", m_pConfig->ConfigVideoDisplayMode = m_cVideoDisplayMode);
 
 	//
 	// Audio
