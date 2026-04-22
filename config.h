@@ -125,6 +125,7 @@ public:
 	sDrmMode AutoDetectedDrmMode;                       ///< auto detected mode on the first startup (maybe equal to UserSetMode)
 	sDrmMode UserSetDrmMode;                            ///< user requested drm mode on the current connector
 	sDrmMode CurrentDrmMode;                            ///< currently used drm mode on the current connector
+	sDrmMode CurrentVideoDrmMode;                       ///< currently used video drm mode
 	sDrmMode *RequestedDrmMode = nullptr;               ///< is set to the requested mode which should be changed to
 
 	cSoftHdConfig(void) = default;

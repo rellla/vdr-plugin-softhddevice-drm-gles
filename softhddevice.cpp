@@ -27,6 +27,7 @@ extern "C" {
 #include <vdr/dvbspu.h>
 #include <vdr/skins.h>
 #include <vdr/status.h>
+#include <vdr/thread.h>
 
 #include "audio.h"
 #include "codec_audio.h"
@@ -56,6 +57,7 @@ cSoftHdDevice::cSoftHdDevice(cSoftHdConfig *config)
 	  m_pipUseAlt(m_pConfig->ConfigPipUseAlt)
 {
 //	LOGDEBUG("device: %s:", __FUNCTION__);
+	m_pEventHandler = new cEventHandler(this);
 
 	m_channelSwitchStartTime = std::chrono::steady_clock::now();
 	m_dataReceivedTime = m_channelSwitchStartTime;
@@ -69,6 +71,8 @@ cSoftHdDevice::cSoftHdDevice(cSoftHdConfig *config)
 cSoftHdDevice::~cSoftHdDevice(void)
 {
 	LOGDEBUG("device: %s:", __FUNCTION__);
+
+	delete m_pEventHandler;
 	delete m_pHardwareDevice;
 	delete m_pSpuDecoder;
 }
@@ -1816,15 +1820,20 @@ void cSoftHdDevice::SetDisplayMode(int idx)
 	sDrmMode *mode = &m_pConfig->AutoDetectedDrmMode;;
 
 	if (idx == 1) {
-		LOGDEBUG("Set display mode to follow video, but use default for now");
-//		mode = GetSuitableModeFromVideo();
-	} else if (idx > 1) {
-		mode = &m_pConfig->CollectedDrmModes[idx - 2];
-	}
+		mode = &m_pConfig->CurrentVideoDrmMode;
+		if (mode->interlaced)
+			mode->refreshRateHz *= 2;
 
+		if (!mode->width)
+			mode = &m_pConfig->AutoDetectedDrmMode;
+	} else if (idx > 1)
+		mode = &m_pConfig->CollectedDrmModes[idx - 2];
+
+	// Check, if the requested mode differs from the current one at all
 	if (!m_pConfig->IsCurrentMode(mode)) {
-		LOGDEBUG("Set display mode to %s mode", idx == 0 ? "default" : (idx == 1 ? "auto adjust" : "fixed"));
-		OnEventReceived(DisplayChangeEvent{mode});
+		LOGDEBUG("Add display mode change event to %s mode", idx == 0 ? "default" : (idx == 1 ? "auto adjust" : "fixed"),
+			mode->width, mode->height, mode->refreshRateHz, mode->interlaced);
+		m_pEventHandler->AddEvent(DisplayChangeEvent{mode});
 	}
 }
 
@@ -1843,4 +1852,56 @@ void cSoftHdDevice::HandleDisplayModeChange(sDrmMode *mode)
 
 	m_pConfig->RequestedDrmMode = mode;
 	m_pRender->ReInitDisplayMode();
+}
+
+/**
+ * Create and start the event handler thread
+ */
+cEventHandler::cEventHandler(cSoftHdDevice *device)
+	: cThread("event handler"),
+	  m_pDevice(device),
+	  m_pEventReceiver(device)
+{
+	Start();
+}
+
+/**
+ * Stop and delete the event handler thread
+ */
+cEventHandler::~cEventHandler(void)
+{
+	Cancel(2);
+}
+
+/**
+ * Periodically send events in the queue to the final event receiver/handler
+ */
+void cEventHandler::Action(void)
+{
+	LOGDEBUG("device: event queue handler thread started");
+
+	while (Running()) {
+		std::vector<Event> local;
+		{
+			std::lock_guard<std::mutex> lock(m_mutex);
+			local.swap(m_eventQueue);
+		}
+
+		for (auto &event : local)
+			m_pEventReceiver->OnEventReceived(event);
+
+		usleep(10000);
+
+	}
+
+	LOGDEBUG("device: event queue handler thread stopped");
+}
+
+/**
+ * Add an event to the queue
+ */
+void cEventHandler::AddEvent(Event event)
+{
+	std::lock_guard<std::mutex> lock(m_mutex);
+	m_eventQueue.push_back(event);
 }

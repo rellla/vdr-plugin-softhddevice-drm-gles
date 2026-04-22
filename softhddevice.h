@@ -28,6 +28,7 @@ extern "C"
 #include <vdr/device.h>
 #include <vdr/osd.h>
 #include <vdr/status.h>
+#include <vdr/thread.h>
 
 #include "config.h"
 #include "event.h"
@@ -41,6 +42,7 @@ class cPipHandler;
 class cPipReceiver;
 class cSpuDecoder;
 class cSoftHdAudio;
+class cSoftHdDevice;
 class cSoftHdGrab;
 class cSoftOsdProvider;
 class cVideoRender;
@@ -108,6 +110,26 @@ enum PlaybackMode {
 };
 
 /** @} */
+
+/**
+ * Event handler thread
+ *
+ * Queues events and sends them to cSoftHdDevice as the final event receiver
+ */
+class cEventHandler : public cThread {
+public:
+	cEventHandler(cSoftHdDevice *);
+	virtual ~cEventHandler(void);
+
+	void AddEvent(Event);
+protected:
+	virtual void Action(void) override;
+private:
+	cSoftHdDevice *m_pDevice;         ///< pointer to device
+	std::mutex m_mutex;               ///< queue mutex
+	std::vector<Event> m_eventQueue;  ///< event fifo queue
+	IEventReceiver *m_pEventReceiver; ///< pointer to event receiver
+};
 
 /**
  * Output Device Implementation
@@ -263,6 +285,7 @@ private:
 	cAudioDecoder *m_pAudioDecoder = nullptr;       ///< pointer to cAudioDecoder object
 	cSoftOsdProvider *m_pOsdProvider = nullptr;     ///< pointer to cSoftOsdProvider object
 	cHardwareDevice *m_pHardwareDevice;             ///< pointer to hardware device description
+	cEventHandler *m_pEventHandler;                 ///< event handler thread
 	cReassemblyBufferVideo m_videoReassemblyBuffer; ///< video pes reassembly buffer
 	cReassemblyBufferAudio m_audioReassemblyBuffer; ///< audio pes reassembly buffer
 	cJitterTracker m_audioJitterTracker{"audio"};   ///< audio jitter tracker

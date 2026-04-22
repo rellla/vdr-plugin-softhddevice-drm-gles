@@ -1201,6 +1201,16 @@ void cVideoRender::SetScreenSize(int width, int height, double refreshRateHz)
 }
 
 /**
+ * Wrapper to set the display mode
+ *
+ * @param idx      idx in the setup menu display mode array
+ */
+void cVideoRender::SetDisplayMode(int idx)
+{
+	m_pDevice->SetDisplayMode(idx);
+}
+
+/**
  * Init the osd and black buffer
  *
  * The osd buffer is only created in non-GLES mode
