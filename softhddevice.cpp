@@ -1446,7 +1446,29 @@ uchar *cSoftHdDevice::GrabImage(int &size, bool jpeg, int quality, int width, in
  */
 cRect cSoftHdDevice::CanScaleVideo(const cRect & rect, __attribute__ ((unused)) int alignment)
 {
-	return rect;
+	if (m_screenWidth == m_osdWidth && m_screenHeight == m_osdHeight)
+		return rect;
+
+	double scaleFactor = std::min((double)m_screenWidth / m_osdWidth, (double)m_screenHeight / m_osdHeight);
+	int width  = std::lround(scaleFactor * rect.Width());
+	int height = std::lround(scaleFactor * rect.Height());
+	int x      = std::lround(scaleFactor * rect.X());
+	int y      = std::lround(scaleFactor * rect.Y());
+
+	x = std::max(0, x);
+	y = std::max(0, y);
+	if (x + width > m_screenWidth)
+		width = m_screenWidth - x;
+	if (y + height > m_screenHeight)
+		height = m_screenHeight - y;
+
+	if (width <= 0 || height <= 0)
+		return cRect::Null;
+
+	LOGDEBUG2(L_DRM, "device: %s: scale rect %dx%d-%d|%d -> %dx%d-%d|%d", __FUNCTION__,
+		rect.Width(), rect.Height(), rect.X(), rect.Y(), width, height, x, y);
+
+	return cRect(x, y, width, height);
 }
 
 /**
