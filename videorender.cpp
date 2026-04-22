@@ -484,7 +484,7 @@ int cVideoRender::CommitBuffer(cDrmBuffer *buf, cDrmBuffer *pip)
 	if (!SetOsdBuffer(modeReq)) {
 		osdPlane->SetPlane(modeReq);
 		modeSet |= MODESET_OSD;
-		LOGDEBUG2(L_DRM, "videorender: %s: SetPlane OSD %d (fb = %" PRIu64 ")", __FUNCTION__, m_osdShown, osdPlane->GetFbId());
+//		LOGDEBUG2(L_DRM, "videorender: %s: SetPlane OSD %d (fb = %" PRIu64 ")", __FUNCTION__, m_osdShown, osdPlane->GetFbId());
 	}
 
 	// return without an atomic commit (no video frame and osd activity)
