@@ -174,7 +174,7 @@ public:
 
 	void SetVideoOutputPosition(const cRect &);
 	void SetOsdSize(int, int);
-	void SetScreenSize(int, int, double);
+	void SetScreenSize(int, int, double, bool);
 	void SetDisplayMode(int);
 	bool CanHandleMode(sDrmMode *);
 	int64_t GetVideoClock(void) { return m_pts; };
@@ -306,6 +306,10 @@ private:
 	std::atomic<cBufferStrategy *> m_pipBufferReuseStrategy = nullptr;    ///< strategy to select drm buffers
 	std::atomic<cDecodingStrategy *> m_decodingStrategy = nullptr;        ///< strategy for decoding setup
 	std::atomic<cDecodingStrategy *> m_pipDecodingStrategy = nullptr;     ///< strategy for decoding setup
+	int m_framesPerFlipCycle = 1;                                         ///< number of pageflips over which a single video frame should be presented
+	                                                                      ///< 1 in progressive display mode
+	                                                                      ///< 2 in interlaced display mode, to skip the sync and present an (interleaved) frame 2 times
+	int m_flipCounter = 0;                                                ///< page flip counter
 
 	cHdrMetadata m_pHdrMetadata;                             ///< hdr metadata object
 	bool m_hasDoneHdrModeset = false;                        ///< true, if we ever created an hdr blob and did a modesetting
