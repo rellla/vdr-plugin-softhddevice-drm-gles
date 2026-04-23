@@ -339,5 +339,10 @@ msgstr " GPU-Speichergröße für Bild-Zwischenspeicher (MB)"
 msgid "default (%dx%d@%.2f%s)"
 msgstr "standard (%dx%d@%.2f%s)"
 
-msgid "auto adjust"
-msgstr "automatisch anpassen"
+#, c-format
+msgid "follow video (%dx%d@%.2f%s)"
+msgstr "Video Auflösung folgen (%dx%d@%.2f%s)"
+
+#, c-format
+msgid "follow video"
+msgstr "Video Auflösung folgen"
