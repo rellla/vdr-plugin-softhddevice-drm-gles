@@ -581,6 +581,8 @@ bool cVideoRender::PageFlip(cDrmBuffer *buf, cDrmBuffer *pipBuf)
 		if (m_pDrmDevice->HandleEvent() != 0)
 			LOGERROR("threads: display thread: drmHandleEvent failed!");
 
+		m_flipCounter++;
+
 		// now, that we had a successful commit, set the STC if we have a frame. Skip if only the OSD was updated.
 		if (buf && buf->frame) {
 			if (buf->frame->pts != AV_NOPTS_VALUE)
@@ -699,6 +701,8 @@ bool cVideoRender::FrameDropNecessary(int64_t audioPtsMs, int64_t videoPtsMs)
  */
 bool cVideoRender::DisplayFrame(void)
 {
+	bool frameTick = (m_flipCounter % m_framesPerFlipCycle == 0);
+
 	if (m_pDevice->IsBufferingThresholdReached())
 		m_eventQueue.push_back(BufferingThresholdReachedEvent{});
 
@@ -712,7 +716,7 @@ bool cVideoRender::DisplayFrame(void)
 		m_eventQueue.push_back(BufferUnderrunEvent{VIDEO});
 
 	cDrmBuffer *drmBuffer = nullptr;
-	if ((!m_videoPlaybackPaused || m_schedulePlaybackStartAtPtsMs != AV_NOPTS_VALUE) && m_framePresentationCounter == 0)
+	if ((!m_videoPlaybackPaused || m_schedulePlaybackStartAtPtsMs != AV_NOPTS_VALUE) && m_framePresentationCounter == 0 && frameTick)
 		drmBuffer = m_drmBufferQueue.Pop();
 
 	cDrmBuffer *pipBuffer = m_pipDrmBufferQueue.Pop();
@@ -1069,6 +1073,7 @@ void cVideoRender::Reset(void)
 	m_framesDropped = 0;
 	m_numWrongProgressive = 0;
 	SetVideoClock(AV_NOPTS_VALUE);
+	m_flipCounter = 0;
 
 	delete m_decodingStrategy;
 	m_decodingStrategy = nullptr;
@@ -1218,11 +1223,14 @@ void cVideoRender::SetOsdSize(int width, int height)
  * @param width           screen width
  * @param height          screen height
  * @param refreshRateHz   screen refresh rate in Hz
+ * @param interlaced      true, if this is an interlaced screen mode
  */
-void cVideoRender::SetScreenSize(int width, int height, double refreshRateHz)
+void cVideoRender::SetScreenSize(int width, int height, double refreshRateHz, bool interlaced)
 {
 	m_refreshRateHz = refreshRateHz;
 	m_pDevice->SetScreenSize(width, height);
+	m_framesPerFlipCycle = interlaced ? 2 : 1;
+	m_flipCounter = 0;
 }
 
 /**

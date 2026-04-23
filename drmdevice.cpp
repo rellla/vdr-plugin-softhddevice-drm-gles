@@ -771,7 +771,7 @@ int cDrmDevice::FindMode(void)
 
 	memcpy(&m_drmModeInfo, drmmode, sizeof(drmModeModeInfo));
 
-	m_pRender->SetScreenSize(m_drmModeInfo.hdisplay, m_drmModeInfo.vdisplay, GetRefreshRateHz(&m_drmModeInfo));
+	m_pRender->SetScreenSize(m_drmModeInfo.hdisplay, m_drmModeInfo.vdisplay, GetRefreshRateHz(&m_drmModeInfo), (drmmode->flags & DRM_MODE_FLAG_INTERLACE) ? true : false);
 
 	return 0;
 }
