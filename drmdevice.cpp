@@ -402,6 +402,8 @@ int cDrmDevice::Init(void)
 	if (FindMode())
 		return -1;
 
+	m_pRender->SetOsdSize(OsdWidth(), OsdHeight());
+
 	// find encoder
 	for (i = 0; i < resources->count_encoders; i++) {
 		encoder = drmModeGetEncoder(m_fdDrm, resources->encoders[i]);
@@ -436,13 +438,8 @@ int cDrmDevice::Init(void)
 	if (m_hdrMetadata != 0)
 		LOGDEBUG2(L_DRM, "drmdevice: %s: HDR output metadata ID %d in connector %d", __FUNCTION__, m_hdrMetadata, m_connectorId);
 
-	double refreshRateHz = GetRefreshRateHz(&m_drmModeInfo);
-
-	m_pRender->SetScreenSize(m_drmModeInfo.hdisplay, m_drmModeInfo.vdisplay, refreshRateHz);
-	m_pRender->SetOsdSize(OsdWidth(), OsdHeight());
-
 	LOGINFO("DRM Setup: Using Monitor Mode %dx%d@%.2fHz on %s (%s), m_crtcId %d crtc_idx %d",
-		m_drmModeInfo.hdisplay, m_drmModeInfo.vdisplay, refreshRateHz, m_connectorName.c_str(), connected ? "connected" : "not connected", m_crtcId, m_crtcIndex);
+		m_drmModeInfo.hdisplay, m_drmModeInfo.vdisplay, GetRefreshRateHz(&m_drmModeInfo), m_connectorName.c_str(), connected ? "connected" : "not connected", m_crtcId, m_crtcIndex);
 
 	drmModeFreeConnector(connector);
 
@@ -774,8 +771,7 @@ int cDrmDevice::FindMode(void)
 
 	memcpy(&m_drmModeInfo, drmmode, sizeof(drmModeModeInfo));
 
-	double refreshRateHz = GetRefreshRateHz(&m_drmModeInfo);
-	m_pRender->SetScreenSize(m_drmModeInfo.hdisplay, m_drmModeInfo.vdisplay, refreshRateHz);
+	m_pRender->SetScreenSize(m_drmModeInfo.hdisplay, m_drmModeInfo.vdisplay, GetRefreshRateHz(&m_drmModeInfo));
 
 	return 0;
 }
