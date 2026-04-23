@@ -525,6 +525,19 @@ void cVideoStream::RenderFrame(AVFrame * frame)
 		}
 	}
 
+	// Normalize 720x576(i) to 1920x1080(i)
+	//
+	// We don't want really use a 720x576 display mode...
+	// Choose 1920x1080 instead of 1280x720, because 1280x720 might have no
+	// interlaced display mode.
+	int normalizedWidth = m_pDecoder->GetContext()->coded_width;
+	int normalizedHeight = m_pDecoder->GetContext()->coded_height;
+
+	if (normalizedWidth == 720 && normalizedHeight == 576) {
+		normalizedWidth = 1920;
+		normalizedHeight = 1080;
+	}
+
 	// Filter thread will only be started, if the lambda function returns true
 	if (m_checkFilterThreadNeeded) {
 		m_timebase = m_pDecoder->GetContext()->pkt_timebase;
@@ -545,8 +558,8 @@ void cVideoStream::RenderFrame(AVFrame * frame)
 			av_q2d(m_pDecoder->GetContext()->framerate) < 30.1) || isInterlacedFrame(frame); // account for rounding errors when comparing double
 
 		bool displayCanHandleMode = false;
-		sDrmMode mode = { m_pDecoder->GetContext()->coded_width,
-		                  m_pDecoder->GetContext()->coded_height,
+		sDrmMode mode = { normalizedWidth,
+		                  normalizedHeight,
 		                  m_framerate,
 		                  m_interlaced };
 		if (m_pConfig->ConfigVideoDisplayMode == 1 && m_pRender->CanHandleMode(&mode))
@@ -574,13 +587,13 @@ void cVideoStream::RenderFrame(AVFrame * frame)
 
 	// reset display mode if needed
 	if (m_framerate &&
-	   (m_pConfig->CurrentVideoDrmMode.width         != m_pDecoder->GetContext()->coded_width ||
-	    m_pConfig->CurrentVideoDrmMode.height        != m_pDecoder->GetContext()->coded_height ||
+	   (m_pConfig->CurrentVideoDrmMode.width         != normalizedWidth ||
+	    m_pConfig->CurrentVideoDrmMode.height        != normalizedHeight ||
 	    m_pConfig->CurrentVideoDrmMode.refreshRateHz != m_framerate ||
 	    m_pConfig->CurrentVideoDrmMode.interlaced    != m_interlaced)) {
 
-		m_pConfig->CurrentVideoDrmMode = { m_pDecoder->GetContext()->coded_width,
-		                                   m_pDecoder->GetContext()->coded_height,
+		m_pConfig->CurrentVideoDrmMode = { normalizedWidth,
+		                                   normalizedHeight,
 		                                   m_framerate,
 		                                   m_interlaced };
 
