@@ -1822,7 +1822,7 @@ void cSoftHdDevice::SetDisplayMode(int idx)
 	if (idx == CONFIG_DISPLAY_MODE_FOLLOW_VIDEO ||
 	    idx == CONFIG_DISPLAY_MODE_FOLLOW_VIDEO_INTERLACED) {
 		mode = &m_pConfig->CurrentVideoDrmMode;
-		if (!mode->width)
+		if (!mode->width || !m_pRender->CanHandleMode(mode))
 			mode = &m_pConfig->AutoDetectedDrmMode;
 	} else if (idx >= CONFIG_DISPLAY_MODE_MANUAL)
 		mode = &m_pConfig->CollectedDrmModes[idx - CONFIG_DISPLAY_MODE_MANUAL];

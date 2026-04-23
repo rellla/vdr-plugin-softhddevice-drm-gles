@@ -308,10 +308,15 @@ bool cDrmDevice::CanHandleMode(sDrmMode *mode)
 {
 	std::vector<sDrmMode> modes = m_pConfig->CollectedDrmModes;
 
+	// sometimes the stream has no framerate, use 50.00 as default
+	double refreshRateHz = mode->refreshRateHz ? mode->refreshRateHz : 50.00;
+	if (!mode->refreshRateHz && mode->interlaced)
+		refreshRateHz /= 2;
+
 	for (size_t i = 0; i < modes.size(); i++) {
 		if (mode->width != modes[i].width ||
 		    mode->height != modes[i].height ||
-		    mode->refreshRateHz != modes[i].refreshRateHz ||
+		    refreshRateHz != modes[i].refreshRateHz ||
 		    mode->interlaced != modes[i].interlaced) {
 
 			continue;
@@ -319,6 +324,10 @@ bool cDrmDevice::CanHandleMode(sDrmMode *mode)
 
 		return true;
 	}
+
+	LOGDEBUG2(L_DRM, "drmdevice: %s: can't handle mode %dx%d@%.2f%s", __FUNCTION__,
+		mode->width, mode->height, mode->refreshRateHz,
+		mode->interlaced ? "i" : "");
 
 	return false;
 }

@@ -493,6 +493,7 @@ void cVideoStream::CancelFilterThread(void) {
 		m_videoFilter.Stop();
 
 	m_checkFilterThreadNeeded = true;
+	m_useDeinterlacer = false;
 	SetDeinterlacerDeactivated(false);
 }
 
@@ -530,6 +531,7 @@ void cVideoStream::RenderFrame(AVFrame * frame)
 		m_timebase = m_pDecoder->GetContext()->pkt_timebase;
 
 		// Enable the deinterlacer only if:
+		// --------------------------------
 		// - The user did not disable the deinterlacer
 		// - The deinterlacer is not temporarily deactivated (trickspeed and still picture)
 		// - A hardware quirk does not forbid using the deinterlacer
@@ -537,6 +539,11 @@ void cVideoStream::RenderFrame(AVFrame * frame)
 		//   - The codec is different from HEVC (always progressive)
 		//   - The framerate is lower or equal to 30fps
 		//   - Or, if the frame's interlaced flag is set
+		// - the display cannot handle an interlaced mode
+		// - the display can handle an interlaced mode, but the user doesn't want to use it
+		//
+		// General interlaced stream detection:
+		// ------------------------------------
 		// We cannot solely rely on the frame's interlaced flag, because the deinterlacer shall also be enabled with mixed progressive/interlaced streams (e.g. TV station "ProSieben").
 
 		m_interlaced =
@@ -544,20 +551,23 @@ void cVideoStream::RenderFrame(AVFrame * frame)
 			m_pDecoder->GetContext()->framerate.num > 0 &&
 			av_q2d(m_pDecoder->GetContext()->framerate) < 30.1) || isInterlacedFrame(frame); // account for rounding errors when comparing double
 
-		bool displayCanHandleMode = false;
+		// don't use the deinterlacer, if display mode should follow video including interlacing
+		bool followInterlacedDisplayMode = m_interlaced && m_pConfig->ConfigVideoDisplayMode == CONFIG_DISPLAY_MODE_FOLLOW_VIDEO_INTERLACED;
+
+		// test, if display can handle the requested mode
+		// if the interlaced stream should be deinterlaced, the new mode will have doubled framerate and is progressive
 		sDrmMode mode = { m_pDecoder->GetContext()->coded_width,
 		                  m_pDecoder->GetContext()->coded_height,
-		                  m_framerate,
-		                  m_interlaced };
-		if (m_pConfig->ConfigVideoDisplayMode == 1 && m_pRender->CanHandleMode(&mode))
-			displayCanHandleMode = true;
+		                  !followInterlacedDisplayMode ? m_framerate * 2 : m_framerate,
+		                  !followInterlacedDisplayMode ? false : m_interlaced };
+		bool displayCanHandleMode = m_pRender->CanHandleMode(&mode);
 
-		bool useDeinterlacer =
+		m_useDeinterlacer =
+			m_interlaced &&
 			!m_userDisabledDeinterlacer &&
 			!m_deinterlacerDeactivated &&
 			!(m_hardwareQuirks & QUIRK_NO_HW_DEINT) &&
-			m_interlaced &&
-			!displayCanHandleMode;
+			(!displayCanHandleMode || !followInterlacedDisplayMode);
 
 		if (m_userDisabledDeinterlacer)
 			LOGDEBUG("videostream: %s: %s: deinterlacer disabled by user configuration", m_identifier, __FUNCTION__);
@@ -566,23 +576,27 @@ void cVideoStream::RenderFrame(AVFrame * frame)
 		// - AV_PIX_FMT_YUV420P, interlaced -> software deinterlacer (bwdif filter)
 		// - AV_PIX_FMT_YUV420P, progressive -> scale filter to get NV12 frames
 		// - AV_PIX_FMT_DRM_PRIME, interlaced, hw deinterlacer available -> hw deinterlacer
-		if (frame->format == AV_PIX_FMT_YUV420P || (frame->format == AV_PIX_FMT_DRM_PRIME && useDeinterlacer))
-			m_videoFilter.InitAndStart(m_pDecoder->GetContext(), frame, useDeinterlacer);
+		if (frame->format == AV_PIX_FMT_YUV420P || (frame->format == AV_PIX_FMT_DRM_PRIME && m_useDeinterlacer))
+			m_videoFilter.InitAndStart(m_pDecoder->GetContext(), frame, m_useDeinterlacer);
 
 		m_checkFilterThreadNeeded = false;
 	}
 
-	// reset display mode if needed
+	// if interlaced material was forced to be deinterlaced, we have doubled framerate and progressive mode now
+	double refreshRateHzMode = m_useDeinterlacer ? m_framerate * 2 : m_framerate;
+	bool interlacedMode = m_useDeinterlacer ? false : m_interlaced;
+
+	// reset the display mode if needed
 	if (m_framerate &&
 	   (m_pConfig->CurrentVideoDrmMode.width         != m_pDecoder->GetContext()->coded_width ||
 	    m_pConfig->CurrentVideoDrmMode.height        != m_pDecoder->GetContext()->coded_height ||
-	    m_pConfig->CurrentVideoDrmMode.refreshRateHz != m_framerate ||
-	    m_pConfig->CurrentVideoDrmMode.interlaced    != m_interlaced)) {
+	    m_pConfig->CurrentVideoDrmMode.refreshRateHz != refreshRateHzMode ||
+	    m_pConfig->CurrentVideoDrmMode.interlaced    != interlacedMode)) {
 
 		m_pConfig->CurrentVideoDrmMode = { m_pDecoder->GetContext()->coded_width,
 		                                   m_pDecoder->GetContext()->coded_height,
-		                                   m_framerate,
-		                                   m_interlaced };
+		                                   refreshRateHzMode,
+		                                   interlacedMode };
 
 		m_pRender->SetDisplayMode(m_pConfig->ConfigVideoDisplayMode);
 	}
