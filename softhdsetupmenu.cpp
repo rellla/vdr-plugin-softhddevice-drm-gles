@@ -399,7 +399,14 @@ void cMenuSetupSoft::BuildDisplayModeList(void)
 		m_pConfig->AutoDetectedDrmMode.interlaced ? "i" : ""));
 
 	// idx 1
-	m_displayMode.push_back(tr("auto adjust"));
+	if (m_pConfig->ConfigVideoDisplayMode == 1)
+		m_displayMode.push_back(*cString::sprintf(tr("follow video (%dx%d@%.2f%s)"),
+			m_pConfig->CurrentDrmMode.width,
+			m_pConfig->CurrentDrmMode.height,
+			m_pConfig->CurrentDrmMode.refreshRateHz,
+			m_pConfig->CurrentDrmMode.interlaced ? "i" : ""));
+	else
+		m_displayMode.push_back(tr("follow video"));
 
 	// idx 2+
 	for (size_t i = 2; i < m_pConfig->CollectedDrmModes.size() + 2; i++) {
