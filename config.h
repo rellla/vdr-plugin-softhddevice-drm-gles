@@ -50,7 +50,7 @@ public:
 
 	// Video
 	int ConfigVideoEnableHDR = 0;               ///< enable HDR
-	int ConfigVideoDisplayMode = 0;             ///< display mode (default, auto adjust)
+	int ConfigVideoDisplayMode = 0;             ///< display mode (0=default, 1=auto adjust, 2,3...=manually set)
 
 	// Audio
 	bool ConfigAudioSoftvol = false;            ///< config use software volume
@@ -109,7 +109,7 @@ public:
 	const char *ConfigDisplayResolution = nullptr;      ///< display resolution (syntax: "1920x1080@50")
 	const char *ConfigOsdResolution = nullptr;          ///< osd resolution (syntax: "1920x1080")
 #ifdef USE_GLES
-	int ConfigDisableOglOsd = 0;                ///< config disable ogl osd
+	int ConfigDisableOglOsd = 0;                        ///< config disable ogl osd
 #endif
 
 	//

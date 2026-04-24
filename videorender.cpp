@@ -641,7 +641,7 @@ void cVideoRender::Stop(void)
  */
 bool cVideoRender::DisplayFrame(void)
 {
-	bool isFrameTick = (m_flipCounter % m_framesPerFlipCycle == 0);
+	bool isFrameTick = m_flipCounter % m_framesPerFlipCycle == 0;
 
 	if (m_pDevice->IsBufferingThresholdReached())
 		m_eventQueue.push_back(BufferingThresholdReachedEvent{});
@@ -1233,7 +1233,8 @@ bool cVideoRender::CanHandleMode(sDrmMode *mode)
  *
  * The osd buffer is only created in non-GLES mode
  *
- * The size of both buffers is the current display width + height
+ * Size of the black buffer: Initial (default) display size
+ * Size of the osd buffer:   User requested size (if set as commandline arg) or initial (default) display size
  */
 void cVideoRender::InitBuffers(void)
 {
@@ -1259,7 +1260,7 @@ void cVideoRender::InitBuffers(void)
 }
 
 /**
- * Re-Initialize the drm device with current dispaly mode settings
+ * Re-Initialize the drm device with current display mode settings
  */
 void cVideoRender::ReInitDisplayMode(void)
 {
