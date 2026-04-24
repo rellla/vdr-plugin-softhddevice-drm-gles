@@ -218,7 +218,7 @@ drmModeConnector *cDrmDevice::FindDrmConnector(int fd, drmModeRes *resources, co
 	drmModeConnector *connector = NULL;
 	int i;
 
-	// search for the user requeset connected connector (can be unconnected)
+	// search for the user requested connector (can be unconnected)
 	for (i = 0; i < resources->count_connectors && userRequestedConnector; i++) {
 		connector = drmModeGetConnector(fd, resources->connectors[i]);
 		if (connector && connector->count_modes > 0) {
@@ -269,76 +269,37 @@ static double GetRefreshRateHz(drmModeModeInfo *modeInfo)
 }
 
 /**
- * Test, if the given mode was already pushed to the array
+ * Test, if the given mode is included in the given array
  *
  * Only width, height, refresh rate and the interlaced flag is tested.
  * Other flags and values are ignored.
  *
- * @param mode           mode info of the new mode
- * @param modes          mode array
+ * @param mode           mode info of the mode
+ * @param modes          mode array to search in
  *
- * @retval true  if this is a duplicate
- * @retval false if this is a new mode
+ * @retval true  if the mode is included
+ * @retval false if the mode is not included
  *
  * @ingroup drm
  */
-static bool IsDuplicateDrmMode(drmModeModeInfo *mode, std::vector<sDrmMode> modes)
+static bool Contains(drmModeModeInfo *mode, std::vector<sDrmMode> modes)
 {
 	for (size_t i = 0; i < modes.size(); i++) {
-		if (mode->hdisplay != modes[i].width)
-			continue;
-
-		if (mode->vdisplay != modes[i].height)
-			continue;
-
-		if (GetRefreshRateHz(mode) != modes[i].refreshRateHz)
-			continue;
-
 		bool interlaced = (mode->flags & DRM_MODE_FLAG_INTERLACE) == DRM_MODE_FLAG_INTERLACE;
-		if (interlaced != modes[i].interlaced)
+
+		if (mode->hdisplay != modes[i].width ||
+		    mode->vdisplay != modes[i].height ||
+		    std::round(GetRefreshRateHz(mode) * 100.0) / 100.0 != modes[i].refreshRateHz ||
+		    interlaced != modes[i].interlaced) {
+
 			continue;
+		}
 
 		return true;
 	}
 
 	return false;
 }
-
-/**
- * Test, if the mode is whitelisted
- *
- * Only width, height, refresh rate and the interlaced flag is tested.
- * Other flags and values are ignored.
- *
- * @param mode           mode info of the new mode
- *
- * @retval true  if this is a whitelisted mode
- * @retval false if this is not a whitelisted mode
- *
- * @ingroup drm
- */
-static bool IsWhitelisted(drmModeModeInfo *mode)
-{
-	for (size_t i = 0; i < DrmModeWhitelist.size(); i++) {
-		if (mode->hdisplay != DrmModeWhitelist[i].width)
-			continue;
-
-		if (mode->vdisplay != DrmModeWhitelist[i].height)
-			continue;
-
-		if (std::round(GetRefreshRateHz(mode) * 100.0) / 100.0 != DrmModeWhitelist[i].refreshRateHz)
-			continue;
-
-		bool interlaced = (mode->flags & DRM_MODE_FLAG_INTERLACE) == DRM_MODE_FLAG_INTERLACE;
-		if (interlaced != DrmModeWhitelist[i].interlaced)
-			continue;
-
-		return true;
-	}
-
-	return false;
-}
-
 
 /**
  * Return true, if the given mode is one of the collected ones
@@ -346,18 +307,15 @@ static bool IsWhitelisted(drmModeModeInfo *mode)
 bool cDrmDevice::CanHandleMode(sDrmMode *mode)
 {
 	std::vector<sDrmMode> modes = m_pConfig->CollectedDrmModes;
+
 	for (size_t i = 0; i < modes.size(); i++) {
-		if (mode->width != modes[i].width)
-			continue;
+		if (mode->width != modes[i].width ||
+		    mode->height != modes[i].height ||
+		    mode->refreshRateHz != modes[i].refreshRateHz ||
+		    mode->interlaced != modes[i].interlaced) {
 
-		if (mode->height != modes[i].height)
 			continue;
-
-		if (mode->refreshRateHz != modes[i].refreshRateHz)
-			continue;
-
-		if (mode->interlaced != modes[i].interlaced)
-			continue;
+		}
 
 		return true;
 	}
@@ -426,9 +384,10 @@ int cDrmDevice::Init(void)
 	m_pConfig->CollectedDrmModes.clear();
 	for (i = 0; i < connector->count_modes; i++) {
 		drmModeModeInfo *current_mode = &connector->modes[i];
-		if (!IsWhitelisted(current_mode))
+		std::vector<sDrmMode> drmModeWhitelist(DrmModeWhitelist.begin(), DrmModeWhitelist.end());
+		if (!Contains(current_mode, drmModeWhitelist))
 			continue;
-		if (IsDuplicateDrmMode(current_mode, m_pConfig->CollectedDrmModes))
+		if (Contains(current_mode, m_pConfig->CollectedDrmModes))
 			continue;
 		m_pConfig->CollectedDrmModes.push_back({current_mode->hdisplay,
 		                                        current_mode->vdisplay,
@@ -739,9 +698,9 @@ int cDrmDevice::Init(void)
  *
  * Mode selection priority:
  *   1) user requested
- *   2) mode with biggest width@50Hz
- *   3) mode with biggest width@60Hz
- *   4) mode with biggest width@anyHz
+ *   2) progressive mode with biggest width@50Hz
+ *   3) progressive mode with biggest width@60Hz
+ *   4) progressive mode with biggest width@anyHz
  */
 int cDrmDevice::FindMode(void)
 {
@@ -770,13 +729,15 @@ int cDrmDevice::FindMode(void)
 
 	double preferred_hz[3] = {50.0, 60.0, 0.0};
 
-	// find the highest resolution mode with 50, 60 or any refresh rate
+	// find the highest resolution (progressive) mode with 50, 60 or any refresh rate
 	if (!drmmode) {
 		int j = 0;
 		while (!drmmode && preferred_hz[j]) {
 			for (int i = 0, width = 0; i < connector->count_modes; i++) {
 				drmModeModeInfo *current_mode = &connector->modes[i];
-				if (preferred_hz[j] && current_mode->vrefresh != preferred_hz[j])
+				if ((current_mode->flags & DRM_MODE_FLAG_INTERLACE) == DRM_MODE_FLAG_INTERLACE)
+					continue;
+				if (preferred_hz[j] && std::round(GetRefreshRateHz(current_mode) * 100.0) / 100.0 != preferred_hz[j])
 					continue;
 
 				int current_width = current_mode->hdisplay;
@@ -789,8 +750,8 @@ int cDrmDevice::FindMode(void)
 		}
 
 		if (drmmode)
-			LOGDEBUG2(L_DRM, "drmdevice: %s: Use mode with the biggest width: %dx%d@%d", __FUNCTION__,
-				drmmode->hdisplay, drmmode->vdisplay, drmmode->vrefresh);
+			LOGDEBUG2(L_DRM, "drmdevice: %s: Use mode with the biggest width: %dx%d@%.2f", __FUNCTION__,
+				drmmode->hdisplay, drmmode->vdisplay, GetRefreshRateHz(drmmode));
 	}
 
 	drmModeFreeConnector(connector);
@@ -803,7 +764,7 @@ int cDrmDevice::FindMode(void)
 	m_pConfig->CurrentDrmMode = {
 		drmmode->hdisplay,
 		drmmode->vdisplay,
-		(double)drmmode->clock * 1000.0 / ((double)drmmode->htotal * (double)drmmode->vtotal),
+		GetRefreshRateHz(drmmode),
 		(drmmode->flags & DRM_MODE_FLAG_INTERLACE) == DRM_MODE_FLAG_INTERLACE
 	};
 
@@ -821,7 +782,7 @@ int cDrmDevice::FindMode(void)
  * Re-Init the drm device with a new connector mode
  *
  * Mode selection priority:
- * 1) selected mode from setup menu or depending video resolution (RequestedDrmMode)
+ * 1) selected mode from setup menu or mode depending on video resolution (RequestedDrmMode)
  * 2) command line requested mode (UserSetDrmMode)
  * 3) other suitable mode:
  *   - mode with biggest width@50Hz
