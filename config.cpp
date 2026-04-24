@@ -163,14 +163,8 @@ int cSoftHdConfig::GetDecoderNeedsMaxPackets(void)
  */
 bool cSoftHdConfig::CompareCurrentMode(sDrmMode *newMode)
 {
-	if (newMode->width != CurrentDrmMode.width)
-		return false;
-	if (newMode->height != CurrentDrmMode.height)
-		return false;
-	if (newMode->refreshRateHz != CurrentDrmMode.refreshRateHz)
-		return false;
-	if (newMode->interlaced != CurrentDrmMode.interlaced)
-		return false;
-
-	return true;
+	return (newMode->width == CurrentDrmMode.width &&
+	        newMode->height == CurrentDrmMode.height &&
+	        newMode->refreshRateHz == CurrentDrmMode.refreshRateHz &&
+	        newMode->interlaced == CurrentDrmMode.interlaced);
 }
