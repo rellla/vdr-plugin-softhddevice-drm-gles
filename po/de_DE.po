@@ -343,6 +343,5 @@ msgstr "standard (%dx%d@%.2f%s)"
 msgid "follow video (%dx%d@%.2f%s)"
 msgstr "Video Auflösung folgen (%dx%d@%.2f%s)"
 
-#, c-format
 msgid "follow video"
 msgstr "Video Auflösung folgen"

@@ -13,6 +13,7 @@
 #ifndef __DRMDEVICE_H
 #define __DRMDEVICE_H
 
+#include <array>
 #include <cstdint>
 
 #ifdef USE_GLES
@@ -35,6 +36,43 @@ class cVideoRender;
  * DRM Display Interface
  * @defgroup drm DRM Module
  */
+
+/**
+ * Whitelist of possible drm modes
+ *
+ * @ingroup drm
+ */
+inline constexpr std::array DrmModeWhitelist = {
+	// 2160p (4K)
+	sDrmMode{ 3840, 2160, 60.00, false },
+	sDrmMode{ 3840, 2160, 59.94, false },
+	sDrmMode{ 3840, 2160, 50.00, false },
+	sDrmMode{ 3840, 2160, 30.00, false  },
+	sDrmMode{ 3840, 2160, 29.97, false  },
+	sDrmMode{ 3840, 2160, 25.00, false  },
+	sDrmMode{ 3840, 2160, 24.00, false  },
+	sDrmMode{ 3840, 2160, 23.98, false  },
+
+	// 1080p (FullHD progressive)
+	sDrmMode{ 1920, 1080, 60.00, false },
+	sDrmMode{ 1920, 1080, 59.94, false },
+	sDrmMode{ 1920, 1080, 50.00, false },
+	sDrmMode{ 1920, 1080, 30.00, false },
+	sDrmMode{ 1920, 1080, 29.97, false },
+	sDrmMode{ 1920, 1080, 25.00, false },
+	sDrmMode{ 1920, 1080, 24.00, false },
+	sDrmMode{ 1920, 1080, 23.98, false },
+
+	// 1080i (FullHD interlaced)
+	sDrmMode{ 1920, 1080, 30.00, true  }, // 1928x1080@60i
+	sDrmMode{ 1920, 1080, 29.97, true  }, // 1928x1080@59.94i
+	sDrmMode{ 1920, 1080, 25.00, true  }, // 1928x1080@50i
+
+	// 720p (HDready)
+	sDrmMode{ 1280, 720, 60.00,  false },
+	sDrmMode{ 1280, 720, 59.94,  false },
+	sDrmMode{ 1280, 720, 50.00,  false },
+};
 
 /**
  * DRM Device

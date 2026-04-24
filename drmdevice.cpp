@@ -297,6 +297,42 @@ static bool IsDuplicateDrmMode(drmModeModeInfo *mode, std::vector<sDrmMode> mode
 }
 
 /**
+ * Test, if the mode is whitelisted
+ *
+ * Only width, height, refresh rate and the interlaced flag is tested.
+ * Other flags and values are ignored.
+ *
+ * @param mode           mode info of the new mode
+ *
+ * @retval true  if this is a whitelisted mode
+ * @retval false if this is not a whitelisted mode
+ *
+ * @ingroup drm
+ */
+static bool IsWhitelisted(drmModeModeInfo *mode)
+{
+	for (size_t i = 0; i < DrmModeWhitelist.size(); i++) {
+		if (mode->hdisplay != DrmModeWhitelist[i].width)
+			continue;
+
+		if (mode->vdisplay != DrmModeWhitelist[i].height)
+			continue;
+
+		if (std::round(GetRefreshRateHz(mode) * 100.0) / 100.0 != DrmModeWhitelist[i].refreshRateHz)
+			continue;
+
+		bool interlaced = (mode->flags & DRM_MODE_FLAG_INTERLACE) == DRM_MODE_FLAG_INTERLACE;
+		if (interlaced != DrmModeWhitelist[i].interlaced)
+			continue;
+
+		return true;
+	}
+
+	return false;
+}
+
+
+/**
  * Return true, if the given mode is one of the collected ones
  */
 bool cDrmDevice::CanHandleMode(sDrmMode *mode)
@@ -385,12 +421,17 @@ int cDrmDevice::Init(void)
 	m_pConfig->CollectedDrmModes.clear();
 	for (i = 0; i < connector->count_modes; i++) {
 		drmModeModeInfo *current_mode = &connector->modes[i];
+		if (!IsWhitelisted(current_mode))
+			continue;
 		if (IsDuplicateDrmMode(current_mode, m_pConfig->CollectedDrmModes))
 			continue;
 		m_pConfig->CollectedDrmModes.push_back({current_mode->hdisplay,
 		                                        current_mode->vdisplay,
 		                                        GetRefreshRateHz(current_mode),
 		                                        (current_mode->flags & DRM_MODE_FLAG_INTERLACE) == DRM_MODE_FLAG_INTERLACE});
+		LOGDEBUG2(L_DRM, "drmdevice: %s: adding display mode %dx%d@%.2f%s", __FUNCTION__,
+			current_mode->hdisplay, current_mode->vdisplay, GetRefreshRateHz(current_mode),
+			(current_mode->flags & DRM_MODE_FLAG_INTERLACE) == DRM_MODE_FLAG_INTERLACE ? "i" : "");
 	}
 
 	// find connector mode
