@@ -525,18 +525,21 @@ void cVideoStream::RenderFrame(AVFrame * frame)
 		}
 	}
 
-	// Normalize 720x576(i) to 1920x1080(i)
+	// Normalize 720x576(i) to 1280x720(p)
 	//
 	// We don't want really use a 720x576 display mode...
-	// Choose 1920x1080 instead of 1280x720, because 1280x720 might have no
-	// interlaced display mode.
+	// Deinterlace it here and choose 1280x720 (720p) mode
 	int normalizedWidth = m_pDecoder->GetContext()->coded_width;
 	int normalizedHeight = m_pDecoder->GetContext()->coded_height;
+	bool forceDeinterlacing = false;
 
 	if (normalizedWidth == 720 && normalizedHeight == 576) {
-		normalizedWidth = 1920;
-		normalizedHeight = 1080;
+		normalizedWidth = 1280;
+		normalizedHeight = 720;
+		forceDeinterlacing = true;
 	}
+
+	bool displayModeFollowsVideo = m_pConfig->ConfigVideoDisplayMode == 1;
 
 	// Filter thread will only be started, if the lambda function returns true
 	if (m_checkFilterThreadNeeded) {
@@ -560,9 +563,9 @@ void cVideoStream::RenderFrame(AVFrame * frame)
 		bool displayCanHandleMode = false;
 		sDrmMode mode = { normalizedWidth,
 		                  normalizedHeight,
-		                  m_framerate,
-		                  m_interlaced };
-		if (m_pConfig->ConfigVideoDisplayMode == 1 && m_pRender->CanHandleMode(&mode))
+		                  forceDeinterlacing ? m_framerate * 2 : m_framerate,
+		                  forceDeinterlacing ? false : m_interlaced };
+		if (m_pRender->CanHandleMode(&mode))
 			displayCanHandleMode = true;
 
 		bool useDeinterlacer =
@@ -570,7 +573,7 @@ void cVideoStream::RenderFrame(AVFrame * frame)
 			!m_deinterlacerDeactivated &&
 			!(m_hardwareQuirks & QUIRK_NO_HW_DEINT) &&
 			m_interlaced &&
-			!displayCanHandleMode;
+			(!displayModeFollowsVideo || (!displayCanHandleMode || forceDeinterlacing));
 
 		if (m_userDisabledDeinterlacer)
 			LOGDEBUG("videostream: %s: %s: deinterlacer disabled by user configuration", m_identifier, __FUNCTION__);
@@ -589,13 +592,16 @@ void cVideoStream::RenderFrame(AVFrame * frame)
 	if (m_framerate &&
 	   (m_pConfig->CurrentVideoDrmMode.width         != normalizedWidth ||
 	    m_pConfig->CurrentVideoDrmMode.height        != normalizedHeight ||
-	    m_pConfig->CurrentVideoDrmMode.refreshRateHz != m_framerate ||
-	    m_pConfig->CurrentVideoDrmMode.interlaced    != m_interlaced)) {
+	    m_pConfig->CurrentVideoDrmMode.refreshRateHz != (forceDeinterlacing ? m_framerate * 2 : m_framerate) ||
+	    m_pConfig->CurrentVideoDrmMode.interlaced    != (forceDeinterlacing ? false : m_interlaced))) {
 
 		m_pConfig->CurrentVideoDrmMode = { normalizedWidth,
 		                                   normalizedHeight,
-		                                   m_framerate,
-		                                   m_interlaced };
+		                                   (forceDeinterlacing ? m_framerate * 2 : m_framerate),
+		                                   (forceDeinterlacing ? false : m_interlaced) };
+
+		if (displayModeFollowsVideo && forceDeinterlacing)
+			LOGDEBUG2(L_DRM, "videostream: %s: force 576i -> 720p", __FUNCTION__);
 
 		m_pRender->SetDisplayMode(m_pConfig->ConfigVideoDisplayMode);
 	}
