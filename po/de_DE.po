@@ -77,7 +77,7 @@ msgid " Enable HDR"
 msgstr " Aktiviere HDR"
 
 msgid " Display mode"
-msgstr " Bildschirmmodus"
+msgstr " Anzeigemodus"
 
 msgid "Audio"
 msgstr "Audio"
@@ -336,12 +336,19 @@ msgid " GPU mem used for image caching (MB)"
 msgstr " GPU-Speichergröße für Bild-Zwischenspeicher (MB)"
 
 #, c-format
-msgid "default (%dx%d@%.2f%s)"
-msgstr "standard (%dx%d@%.2f%s)"
+msgid "default %dx%d@%.2f%s"
+msgstr "Standard %dx%d@%.2f%s"
 
 #, c-format
-msgid "follow video (%dx%d@%.2f%s)"
-msgstr "Video Auflösung folgen (%dx%d@%.2f%s)"
+msgid "match video %dx%d@%.2f%s"
+msgstr "an Video angepasst %dx%d@%.2f%s"
 
-msgid "follow video"
-msgstr "Video Auflösung folgen"
+msgid "match video"
+msgstr "an Video anpassen"
+
+#, c-format
+msgid "match video (interlaced) %dx%d@%.2f%s"
+msgstr "an Video angepasst (interlaced) %dx%d@%.2f%s"
+
+msgid "match video (interlaced)"
+msgstr "an Video anpassen (interlaced)"
