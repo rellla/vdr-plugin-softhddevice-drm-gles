@@ -1819,16 +1819,21 @@ void cSoftHdDevice::SetDisplayMode(int idx)
 {
 	sDrmMode *mode = &m_pConfig->AutoDetectedDrmMode;
 
-	if (idx == 1) {
+	if (idx == CONFIG_DISPLAY_MODE_FOLLOW_VIDEO ||
+	    idx == CONFIG_DISPLAY_MODE_FOLLOW_VIDEO_INTERLACED) {
 		mode = &m_pConfig->CurrentVideoDrmMode;
 		if (!mode->width)
 			mode = &m_pConfig->AutoDetectedDrmMode;
-	} else if (idx > 1)
-		mode = &m_pConfig->CollectedDrmModes[idx - 2];
+	} else if (idx >= CONFIG_DISPLAY_MODE_MANUAL)
+		mode = &m_pConfig->CollectedDrmModes[idx - CONFIG_DISPLAY_MODE_MANUAL];
 
 	// Check, if the requested mode differs from the current one at all
 	if (!m_pConfig->CompareCurrentMode(mode)) {
-		LOGDEBUG("Add display mode change event to %s mode", idx == 0 ? "default" : (idx == 1 ? "auto adjust" : "fixed"),
+		LOGDEBUG("Add display mode change event to %s mode",
+			 idx == CONFIG_DISPLAY_MODE_DEFAULT ? "default" :
+			(idx == CONFIG_DISPLAY_MODE_FOLLOW_VIDEO ? "follow video" :
+			(idx == CONFIG_DISPLAY_MODE_FOLLOW_VIDEO_INTERLACED ? "follow video interlaced" :
+			 "fixed")),
 			mode->width, mode->height, mode->refreshRateHz, mode->interlaced);
 		m_pEventHandler->AddEvent(DisplayChangeEvent{mode});
 	}

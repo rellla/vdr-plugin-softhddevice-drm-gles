@@ -194,12 +194,13 @@ Setup: /etc/vdr/setup.conf
 
 	softhddevice-drm-gles.VideoDisplayMode = 0
 		0  = use the display mode, which was either set by command line or autodetected at plugin start
-		1  = display mode follows video resolution
-		     If the output device offers a display mode, that *exactly* matches the video mode,
-		     in terms of width - heigh - refreshrate - interlaced/progressive, choose that one.
-		     For example, a stream in 1920x1080@50i will choose 1920x1080@25i (interlaced modes halve the refresh rate in the description)
-		     Caveat: A 576i video stream will always be mapped to 1920x1080i, if available.
-		2+ = manually choose a mode that is offered by the display and whitelisted by the plugin
+		1  = display mode follows video resolution (width, height, refresh rate)
+		     If the output device offers a display mode, that *exactly* matches the video mode
+		     in terms of width - height - refresh rate, choose that one.
+		     For example, a stream in 1920x1080@50 will choose 1920x1080@25 (interlaced modes halve the refresh rate in the description)
+		     Caveat: A 576i video stream will always be mapped to default mode.
+		2  = display mode follows video resolution respecting interlaced modes (width, height, refresh rate, interlaced flag)
+		     Same as above, but now the display also chooses an interlaced mode for interlaced input (except for 576i) if available
 
 	softhddevice-drm-gles.MaxSizeGPUImageCache = 128
 		how many GPU memory should be used for image caching
