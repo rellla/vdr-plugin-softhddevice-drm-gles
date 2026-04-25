@@ -539,7 +539,8 @@ void cVideoStream::RenderFrame(AVFrame * frame)
 		forceDeinterlacing = true;
 	}
 
-	bool displayModeFollowsVideo = m_pConfig->ConfigVideoDisplayMode == 1;
+	bool displayModeFollowsVideo = m_pConfig->ConfigVideoDisplayMode == CONFIG_DISPLAY_MODE_FOLLOW_VIDEO ||
+	                               m_pConfig->ConfigVideoDisplayMode == CONFIG_DISPLAY_MODE_FOLLOW_VIDEO_INTERLACED;
 
 	// Filter thread will only be started, if the lambda function returns true
 	if (m_checkFilterThreadNeeded) {

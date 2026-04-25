@@ -391,16 +391,16 @@ void cMenuSetupSoft::BuildDisplayModeList(void)
 {
 	m_displayMode.clear();
 
-	// idx 0
-	m_displayMode.push_back(*cString::sprintf(tr("default (%dx%d@%.2f%s)"),
+	// CONFIG_DISPLAY_MODE_DEFAULT = 0
+	m_displayMode.push_back(*cString::sprintf(tr("default %dx%d@%.2f%s"),
 		m_pConfig->AutoDetectedDrmMode.width,
 		m_pConfig->AutoDetectedDrmMode.height,
 		m_pConfig->AutoDetectedDrmMode.refreshRateHz,
 		m_pConfig->AutoDetectedDrmMode.interlaced ? "i" : ""));
 
-	// idx 1
-	if (m_pConfig->ConfigVideoDisplayMode == 1)
-		m_displayMode.push_back(*cString::sprintf(tr("follow video (%dx%d@%.2f%s)"),
+	// CONFIG_DISPLAY_MODE_FOLLOW_VIDEO = 1
+	if (m_pConfig->ConfigVideoDisplayMode == CONFIG_DISPLAY_MODE_FOLLOW_VIDEO)
+		m_displayMode.push_back(*cString::sprintf(tr("follow video %dx%d@%.2f%s"),
 			m_pConfig->CurrentDrmMode.width,
 			m_pConfig->CurrentDrmMode.height,
 			m_pConfig->CurrentDrmMode.refreshRateHz,
@@ -408,13 +408,23 @@ void cMenuSetupSoft::BuildDisplayModeList(void)
 	else
 		m_displayMode.push_back(tr("follow video"));
 
-	// idx 2+
-	for (size_t i = 2; i < m_pConfig->CollectedDrmModes.size() + 2; i++) {
+	// CONFIG_DISPLAY_MODE_FOLLOW_VIDEO_INTERLACED = 2
+	if (m_pConfig->ConfigVideoDisplayMode == CONFIG_DISPLAY_MODE_FOLLOW_VIDEO_INTERLACED)
+		m_displayMode.push_back(*cString::sprintf(tr("follow video (interlaced) %dx%d@%.2f%s"),
+			m_pConfig->CurrentDrmMode.width,
+			m_pConfig->CurrentDrmMode.height,
+			m_pConfig->CurrentDrmMode.refreshRateHz,
+			m_pConfig->CurrentDrmMode.interlaced ? "i" : ""));
+	else
+		m_displayMode.push_back(tr("follow video (interlaced)"));
+
+	// CONFIG_DISPLAY_MODE_MANUAL = 3
+	for (size_t i = CONFIG_DISPLAY_MODE_MANUAL; i < m_pConfig->CollectedDrmModes.size() + CONFIG_DISPLAY_MODE_MANUAL; i++) {
 		m_displayMode.push_back(*cString::sprintf("%dx%d@%.2f%s",
-			m_pConfig->CollectedDrmModes[i - 2].width,
-			m_pConfig->CollectedDrmModes[i - 2].height,
-			m_pConfig->CollectedDrmModes[i - 2].refreshRateHz,
-			m_pConfig->CollectedDrmModes[i - 2].interlaced ? "i" : ""));
+			m_pConfig->CollectedDrmModes[i - CONFIG_DISPLAY_MODE_MANUAL].width,
+			m_pConfig->CollectedDrmModes[i - CONFIG_DISPLAY_MODE_MANUAL].height,
+			m_pConfig->CollectedDrmModes[i - CONFIG_DISPLAY_MODE_MANUAL].refreshRateHz,
+			m_pConfig->CollectedDrmModes[i - CONFIG_DISPLAY_MODE_MANUAL].interlaced ? "i" : ""));
 	}
 
 	m_displayModePtrs.clear();
@@ -439,7 +449,7 @@ void cMenuSetupSoft::Store(void)
 	m_pDevice->SetEnableHdr(m_pConfig->ConfigVideoEnableHDR);
 	bool displayModeChanged = m_pConfig->ConfigVideoDisplayMode != m_cVideoDisplayMode;
 	// only save default and auto adjusted modes
-	if (m_pConfig->ConfigVideoDisplayMode < 2)
+	if (m_pConfig->ConfigVideoDisplayMode < CONFIG_DISPLAY_MODE_MANUAL)
 		SetupStore("VideoDisplayMode", m_pConfig->ConfigVideoDisplayMode = m_cVideoDisplayMode);
 
 	//

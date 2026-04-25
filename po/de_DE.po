@@ -336,12 +336,19 @@ msgid " GPU mem used for image caching (MB)"
 msgstr " GPU-Speichergröße für Bild-Zwischenspeicher (MB)"
 
 #, c-format
-msgid "default (%dx%d@%.2f%s)"
-msgstr "standard (%dx%d@%.2f%s)"
+msgid "default %dx%d@%.2f%s"
+msgstr "standard %dx%d@%.2f%s"
 
 #, c-format
-msgid "follow video (%dx%d@%.2f%s)"
-msgstr "Video Auflösung folgen (%dx%d@%.2f%s)"
+msgid "follow video %dx%d@%.2f%s"
+msgstr "Folge Video Auflösung %dx%d@%.2f%s"
 
 msgid "follow video"
-msgstr "Video Auflösung folgen"
+msgstr "Folge Video Auflösung"
+
+#, c-format
+msgid "follow video (interlaced) %dx%d@%.2f%s"
+msgstr "Folge Video Auflösung (interlaced) %dx%d@%.2f%s"
+
+msgid "follow video (interlaced)"
+msgstr "Folge Video Auflösung (interlaced)"

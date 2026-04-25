@@ -34,6 +34,13 @@ struct sDrmMode {
 	bool interlaced = false;     ///< is this an interlaced mode?
 };
 
+enum ConfigDisplayModes {
+	CONFIG_DISPLAY_MODE_DEFAULT                 = 0,
+	CONFIG_DISPLAY_MODE_FOLLOW_VIDEO            = 1,
+	CONFIG_DISPLAY_MODE_FOLLOW_VIDEO_INTERLACED = 2,
+	CONFIG_DISPLAY_MODE_MANUAL                  = 3,
+};
+
 /**
  * Plugin Configuration
  *
@@ -50,7 +57,7 @@ public:
 
 	// Video
 	int ConfigVideoEnableHDR = 0;               ///< enable HDR
-	int ConfigVideoDisplayMode = 0;             ///< display mode (0=default, 1=auto adjust, 2,3...=manually set)
+	int ConfigVideoDisplayMode = CONFIG_DISPLAY_MODE_DEFAULT; ///< display mode (enum ConfigDisplayMode)
 
 	// Audio
 	bool ConfigAudioSoftvol = false;            ///< config use software volume
