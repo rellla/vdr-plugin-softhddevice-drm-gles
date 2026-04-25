@@ -448,9 +448,10 @@ void cMenuSetupSoft::Store(void)
 	SetupStore("VideoEnableHDR", m_pConfig->ConfigVideoEnableHDR = m_cVideoEnableHDR);
 	m_pDevice->SetEnableHdr(m_pConfig->ConfigVideoEnableHDR);
 	bool displayModeChanged = m_pConfig->ConfigVideoDisplayMode != m_cVideoDisplayMode;
+	m_pConfig->ConfigVideoDisplayMode = m_cVideoDisplayMode;
 	// only save default and auto adjusted modes
 	if (m_pConfig->ConfigVideoDisplayMode < CONFIG_DISPLAY_MODE_MANUAL)
-		SetupStore("VideoDisplayMode", m_pConfig->ConfigVideoDisplayMode = m_cVideoDisplayMode);
+		SetupStore("VideoDisplayMode", m_cVideoDisplayMode);
 
 	//
 	// Audio
