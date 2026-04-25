@@ -80,7 +80,7 @@ public:
 
 	// Filter
 	void CancelFilterThread(void);
-	void ResetFilterThreadNeededCheck() { m_checkFilterThreadNeeded = true; };
+	void ResetFilterThreadNeededCheck() { m_checkFilterThreadNeeded = true; m_useDeinterlacer = false; };
 
 	virtual void SetDeinterlacerDeactivated(bool deactivate) { m_deinterlacerDeactivated = deactivate; };
 	bool IsDeinterlacerDeactivated(void) { return m_deinterlacerDeactivated; };
@@ -107,6 +107,7 @@ private:
 	int m_hardwareQuirks;                           ///< hardware specific quirks
 	bool m_userDisabledDeinterlacer = false;        ///< set, if the user configured the deinterlace to be disabled
 	bool m_deinterlacerDeactivated;                 ///< set, if the deinterlacer should be disabled temporarily (trickspeed, stillpicture, pip)
+	bool m_useDeinterlacer = false;                 ///< set, if the deinterlacer is used
 	bool m_startDecodingWithIFrame = false;         ///< wait for an I-Frame to start h264 decoding
 	bool m_parseH264Dimensions = false;             ///< parse width and height when starting an h264 stream
 	int m_decoderFallbackToSwNumPkts = 22;          ///< fallback to sw decoder if hw decoder fails after the given number of packets sent

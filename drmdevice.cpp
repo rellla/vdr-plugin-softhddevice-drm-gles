@@ -302,7 +302,7 @@ bool cDrmDevice::CanHandleMode(sDrmMode *mode)
 
 	// sometimes the stream has no framerate, use 50.00 as default
 	double refreshRateHz = mode->refreshRateHz ? mode->refreshRateHz : 50.00;
-	if (mode->interlaced)
+	if (!mode->refreshRateHz && mode->interlaced)
 		refreshRateHz /= 2;
 
 	for (size_t i = 0; i < modes.size(); i++) {
