@@ -641,7 +641,7 @@ void cVideoRender::Stop(void)
  */
 bool cVideoRender::DisplayFrame(void)
 {
-	bool isFrameTick = m_flipCounter % m_framesPerFlipCycle == 0;
+	bool frameTick = m_flipCounter % m_framesPerFlipCycle == 0;
 
 	if (m_pDevice->IsBufferingThresholdReached())
 		m_eventQueue.push_back(BufferingThresholdReachedEvent{});
@@ -656,7 +656,7 @@ bool cVideoRender::DisplayFrame(void)
 		m_eventQueue.push_back(BufferUnderrunEvent{VIDEO});
 
 	cDrmBuffer *drmBuffer = nullptr;
-	if ((!m_videoPlaybackPaused || m_schedulePlaybackStartAtPtsMs != AV_NOPTS_VALUE) && m_framePresentationCounter == 0 && isFrameTick)
+	if ((!m_videoPlaybackPaused || m_schedulePlaybackStartAtPtsMs != AV_NOPTS_VALUE) && m_framePresentationCounter == 0 && frameTick)
 		drmBuffer = m_drmBufferQueue.Pop();
 
 	cDrmBuffer *pipBuf = m_pipDrmBufferQueue.Pop();
