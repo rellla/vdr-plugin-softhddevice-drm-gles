@@ -282,7 +282,7 @@ static double GetRefreshRateHz(drmModeModeInfo *modeInfo)
  *
  * @ingroup drm
  */
-static bool IsIncluded(drmModeModeInfo *mode, std::vector<sDrmMode> modes)
+static bool Contains(drmModeModeInfo *mode, std::vector<sDrmMode> modes)
 {
 	for (size_t i = 0; i < modes.size(); i++) {
 		bool interlaced = (mode->flags & DRM_MODE_FLAG_INTERLACE) == DRM_MODE_FLAG_INTERLACE;
@@ -394,9 +394,9 @@ int cDrmDevice::Init(void)
 	for (i = 0; i < connector->count_modes; i++) {
 		drmModeModeInfo *current_mode = &connector->modes[i];
 		std::vector<sDrmMode> drmModeWhitelist(DrmModeWhitelist.begin(), DrmModeWhitelist.end());
-		if (!IsIncluded(current_mode, drmModeWhitelist))
+		if (!Contains(current_mode, drmModeWhitelist))
 			continue;
-		if (IsIncluded(current_mode, m_pConfig->CollectedDrmModes))
+		if (Contains(current_mode, m_pConfig->CollectedDrmModes))
 			continue;
 		m_pConfig->CollectedDrmModes.push_back({current_mode->hdisplay,
 		                                        current_mode->vdisplay,
