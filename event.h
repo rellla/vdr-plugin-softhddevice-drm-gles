@@ -68,7 +68,7 @@ struct ScheduleResyncAtPtsMsEvent {
 };
 struct ResyncEvent {};
 struct DisplayChangeEvent {
-	sDrmMode *mode;
+	sDrmMode mode;
 };
 
 using Event = std::variant<
