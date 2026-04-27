@@ -15,6 +15,7 @@
 
 #include <array>
 #include <cstdint>
+#include <string>
 
 #ifdef USE_GLES
 #include <EGL/egl.h>
@@ -150,7 +151,7 @@ private:
 
 	int m_fdDrm = -1;                      ///< drm file descriptor
 	uint32_t m_connectorId;                ///< connector id
-	const char *m_connectorName = nullptr; ///< drm connector name
+	std::string m_connectorName;           ///< drm connector name
 	drmModeModeInfo m_drmModeInfo;         ///< mode info
 	uint32_t m_crtcId;                     ///< current crtc ID
 	uint32_t m_crtcIndex;                  ///< current crtc index

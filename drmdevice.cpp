@@ -194,6 +194,16 @@ static int FindDrmDevice(drmModeRes **resources)
 }
 
 /**
+ * Returns the connector type name if available
+ */
+static std::string ConnectorName(drmModeConnector *connector)
+{
+	const char *typeName = drmModeGetConnectorTypeName(connector->connector_type);
+
+	return (typeName ? typeName : std::string("Unknown")) + "-" + std::to_string(connector->connector_type_id);
+}
+
+/**
  * Find a suitable connector, preferably a connected one
  *
  * Connector selection priority:
@@ -212,9 +222,7 @@ drmModeConnector *cDrmDevice::FindDrmConnector(int fd, drmModeRes *resources, co
 	for (i = 0; i < resources->count_connectors && userRequestedConnector; i++) {
 		connector = drmModeGetConnector(fd, resources->connectors[i]);
 		if (connector && connector->count_modes > 0) {
-			const char *typeName = drmModeGetConnectorTypeName(connector->connector_type);
-			std::string name = (typeName ? typeName : std::string("Unknown")) + std::string("-") + std::to_string(connector->connector_type_id);
-			if (name.c_str() == userRequestedConnector)
+			if (ConnectorName(connector) == userRequestedConnector)
 				return connector;
 		}
 		drmModeFreeConnector(connector);
@@ -378,10 +386,7 @@ int cDrmDevice::Init(void)
 		return -errno;
 	}
 	m_connectorId = connector->connector_id;
-
-	const char *typeName = drmModeGetConnectorTypeName(connector->connector_type);
-	std::string name = (typeName ? typeName : std::string("Unknown")) + std::string("-") + std::to_string(connector->connector_type_id);
-	m_connectorName = name.c_str();
+	m_connectorName = ConnectorName(connector);
 	bool connected = connector->connection == DRM_MODE_CONNECTED;
 
 	// fill config with available connector modes for later selection from setup menu
@@ -443,7 +448,7 @@ int cDrmDevice::Init(void)
 		LOGDEBUG2(L_DRM, "drmdevice: %s: HDR output metadata ID %d in connector %d", __FUNCTION__, m_hdrMetadata, m_connectorId);
 
 	LOGINFO("DRM Setup: Using Monitor Mode %dx%d@%.2fHz on %s (%s), m_crtcId %d crtc_idx %d",
-		m_drmModeInfo.hdisplay, m_drmModeInfo.vdisplay, GetRefreshRateHz(&m_drmModeInfo), m_connectorName, connected ? "connected" : "not connected", m_crtcId, m_crtcIndex);
+		m_drmModeInfo.hdisplay, m_drmModeInfo.vdisplay, GetRefreshRateHz(&m_drmModeInfo), m_connectorName.c_str(), connected ? "connected" : "not connected", m_crtcId, m_crtcIndex);
 
 	drmModeFreeConnector(connector);
 
