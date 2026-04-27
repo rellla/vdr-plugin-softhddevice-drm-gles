@@ -313,7 +313,7 @@ void cDrmBuffer::Setup(int drmDeviceFd, uint32_t width, uint32_t height, uint32_
 					modifier[plane] = primedata->objects[object].format_modifier;
 
 				// LOGDEBUG2(L_DRM, "drmbuffer: %s: PRIMEDATA fill plane %d: handle %d object_index %i pitch %d offset %d size %d modifier %" PRIx64 " (plane not mapped!)",
-				// 	__FUNCTION__, plane, m_handle[plane], m_objIdx[plane], m_pitch[plane], m_offset[plane], m_size[plane], modifier[plane]);
+				// 	__FUNCTION__, plane, m_planePrimeHandle[plane], m_objIdx[plane], m_pitch[plane], m_offset[plane], m_size[plane], modifier[plane]);
 			}
 		}
 		if (modifier[0] && modifier[0] != DRM_FORMAT_MOD_INVALID)
