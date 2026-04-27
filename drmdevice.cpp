@@ -53,8 +53,8 @@ cDrmDevice::cDrmDevice(cVideoRender *render, cSoftHdConfig *config)
 	  m_userDrmConnector(m_pConfig->ConfigDrmConnector)
 {
 	sDrmMode *drmMode = nullptr;
-	if (m_pConfig->RequestedDrmMode)
-		drmMode = m_pConfig->RequestedDrmMode;
+	if (m_pConfig->RequestedDrmMode.width > 0)
+		drmMode = &m_pConfig->RequestedDrmMode;
 	else if (m_pConfig->UserSetDrmMode.width > 0)
 		drmMode = &m_pConfig->UserSetDrmMode;
 
@@ -809,8 +809,8 @@ int cDrmDevice::ReInit(void)
 {
 	sDrmMode *drmMode = nullptr;
 
-	if (m_pConfig->RequestedDrmMode)
-		drmMode = m_pConfig->RequestedDrmMode;
+	if (m_pConfig->RequestedDrmMode.width > 0)
+		drmMode = &m_pConfig->RequestedDrmMode;
 	else if (m_pConfig->UserSetDrmMode.width > 0)
 		drmMode = &m_pConfig->UserSetDrmMode;
 

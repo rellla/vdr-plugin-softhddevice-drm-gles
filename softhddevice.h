@@ -320,7 +320,7 @@ private:
 	void FlushAudio(void);
 	void OnEventReceived(const Event&);
 	void HandleStillPicture(const uchar *data, int size);
-	void HandleDisplayModeChange(sDrmMode *);
+	void HandleDisplayModeChange(const sDrmMode &);
 	int64_t GetFirstAudioPtsMsToPlay();
 	int64_t GetFirstVideoPtsMsToPlay();
 

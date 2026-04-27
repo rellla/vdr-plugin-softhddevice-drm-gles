@@ -1829,13 +1829,13 @@ void cSoftHdDevice::SetDisplayMode(int idx)
 
 	// Check, if the requested mode differs from the current one at all
 	if (!m_pConfig->CompareCurrentMode(mode)) {
-		LOGDEBUG("Add display mode change event to %s mode",
+		LOGDEBUG("Add display mode change event to %s mode %dx%d@%.2f%s",
 			 idx == CONFIG_DISPLAY_MODE_DEFAULT ? "default" :
 			(idx == CONFIG_DISPLAY_MODE_FOLLOW_VIDEO ? "follow video" :
 			(idx == CONFIG_DISPLAY_MODE_FOLLOW_VIDEO_INTERLACED ? "follow video interlaced" :
 			 "fixed")),
-			mode->width, mode->height, mode->refreshRateHz, mode->interlaced);
-		m_pEventHandler->AddEvent(DisplayChangeEvent{mode});
+			mode->width, mode->height, mode->refreshRateHz, mode->interlaced ? "i" : "");
+		m_pEventHandler->AddEvent(DisplayChangeEvent{*mode});
 	}
 }
 
@@ -1844,13 +1844,13 @@ void cSoftHdDevice::SetDisplayMode(int idx)
  *
  * @param mode     drm mode
  */
-void cSoftHdDevice::HandleDisplayModeChange(sDrmMode *mode)
+void cSoftHdDevice::HandleDisplayModeChange(const sDrmMode &mode)
 {
 	LOGDEBUG("Set display mode: %dx%d@%.2f%s",
-		mode->width,
-		mode->height,
-		mode->refreshRateHz,
-		mode->interlaced ? "i" : "");
+		mode.width,
+		mode.height,
+		mode.refreshRateHz,
+		mode.interlaced ? "i" : "");
 
 	m_pConfig->RequestedDrmMode = mode;
 	m_pRender->ReInitDisplayMode();
