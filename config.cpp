@@ -161,7 +161,7 @@ int cSoftHdConfig::GetDecoderNeedsMaxPackets(void)
 /**
  * Return true, if the given mode is equal to the current display mode
  */
-bool cSoftHdConfig::IsCurrentMode(sDrmMode *newMode)
+bool cSoftHdConfig::CompareCurrentMode(sDrmMode *newMode)
 {
 	return (newMode->width == CurrentDrmMode.width &&
 	        newMode->height == CurrentDrmMode.height &&

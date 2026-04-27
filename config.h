@@ -140,7 +140,7 @@ public:
 	void PrintLogLevel(int);
 	void SetDecoderNeedsMaxPackets(int);
 	int GetDecoderNeedsMaxPackets(void);
-	bool IsCurrentMode(sDrmMode *);
+	bool CompareCurrentMode(sDrmMode *);
 
 private:
 	int m_decoderNeedsMaxPackets = 0;

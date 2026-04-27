@@ -1828,7 +1828,7 @@ void cSoftHdDevice::SetDisplayMode(int idx)
 		mode = &m_pConfig->CollectedDrmModes[idx - CONFIG_DISPLAY_MODE_MANUAL];
 
 	// Check, if the requested mode differs from the current one at all
-	if (!m_pConfig->IsCurrentMode(mode)) {
+	if (!m_pConfig->CompareCurrentMode(mode)) {
 		LOGDEBUG("Add display mode change event to %s mode",
 			 idx == CONFIG_DISPLAY_MODE_DEFAULT ? "default" :
 			(idx == CONFIG_DISPLAY_MODE_FOLLOW_VIDEO ? "follow video" :
