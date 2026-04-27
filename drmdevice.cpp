@@ -743,17 +743,17 @@ int cDrmDevice::FindMode(void)
 			LOGWARNING("drmdevice: %s: User requested mode not found, try default modes", __FUNCTION__);
 	}
 
-	double preferred_hz[3] = {50.0, 60.0, 0.0};
+	double preferredHz[3] = {50.0, 60.0, 0.0};
 
 	// find the highest resolution (progressive) mode with 50, 60 or any refresh rate
 	if (!drmmode) {
 		int j = 0;
-		while (!drmmode && preferred_hz[j]) {
+		while (!drmmode && preferredHz[j]) {
 			for (int i = 0, width = 0; i < connector->count_modes; i++) {
 				drmModeModeInfo *current_mode = &connector->modes[i];
 				if (InterlacedMode(current_mode->flags))
 					continue;
-				if (preferred_hz[j] && std::round(GetRefreshRateHz(current_mode) * 100.0) / 100.0 != preferred_hz[j])
+				if (preferredHz[j] && std::round(GetRefreshRateHz(current_mode) * 100.0) / 100.0 != preferredHz[j])
 					continue;
 
 				int current_width = current_mode->hdisplay;
