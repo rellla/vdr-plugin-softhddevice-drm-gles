@@ -277,6 +277,14 @@ static inline bool InterlacedMode(uint32_t flags)
 }
 
 /**
+ * Return true, if both values are equivalent within a tolerance
+ */
+static inline bool AlmostEqual(double a, double b)
+{
+	return std::abs(a - b) < 0.001;
+}
+
+/**
  * Test, if the given mode is included in the given array
  *
  * Only width, height, refresh rate and the interlaced flag is tested.
@@ -297,7 +305,7 @@ static bool Contains(drmModeModeInfo *mode, std::vector<sDrmMode> modes)
 
 		if (mode->hdisplay != modes[i].width ||
 		    mode->vdisplay != modes[i].height ||
-		    std::round(GetRefreshRateHz(mode) * 100.0) / 100.0 != modes[i].refreshRateHz ||
+		    !AlmostEqual(GetRefreshRateHz(mode), modes[i].refreshRateHz) ||
 		    interlaced != modes[i].interlaced) {
 
 			continue;
@@ -324,7 +332,7 @@ bool cDrmDevice::CanHandleMode(sDrmMode *mode)
 	for (size_t i = 0; i < modes.size(); i++) {
 		if (mode->width != modes[i].width ||
 		    mode->height != modes[i].height ||
-		    refreshRateHz != modes[i].refreshRateHz ||
+		    !AlmostEqual(refreshRateHz, modes[i].refreshRateHz) ||
 		    mode->interlaced != modes[i].interlaced) {
 
 			continue;
@@ -730,7 +738,7 @@ int cDrmDevice::FindMode(void)
 			drmModeModeInfo *current_mode = &connector->modes[i];
 			if(current_mode->hdisplay == m_userReqDisplayWidth &&
 			   current_mode->vdisplay == m_userReqDisplayHeight &&
-			   GetRefreshRateHz(current_mode) == m_userReqDisplayRefreshRate &&
+			   AlmostEqual(GetRefreshRateHz(current_mode), m_userReqDisplayRefreshRate) &&
 			   InterlacedMode(current_mode->flags) == m_userReqDisplayInterlaced) {
 
 				drmmode = current_mode;
