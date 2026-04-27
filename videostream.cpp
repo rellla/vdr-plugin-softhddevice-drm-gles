@@ -526,10 +526,6 @@ void cVideoStream::RenderFrame(AVFrame * frame)
 		}
 	}
 
-	bool skipDeinterlacing = false;
-	if (m_interlaced && m_pConfig->ConfigVideoDisplayMode == CONFIG_DISPLAY_MODE_FOLLOW_VIDEO_INTERLACED)
-		skipDeinterlacing = true;
-
 	// Filter thread will only be started, if the lambda function returns true
 	if (m_checkFilterThreadNeeded) {
 		m_timebase = m_pDecoder->GetContext()->pkt_timebase;
@@ -556,25 +552,22 @@ void cVideoStream::RenderFrame(AVFrame * frame)
 			av_q2d(m_pDecoder->GetContext()->framerate) < 30.1) || isInterlacedFrame(frame); // account for rounding errors when comparing double
 
 		// don't use the deinterlacer, if display mode should follow video including interlacing
-		if (m_interlaced && m_pConfig->ConfigVideoDisplayMode == CONFIG_DISPLAY_MODE_FOLLOW_VIDEO_INTERLACED)
-			skipDeinterlacing = true;
+		bool followInterlacedDisplayMode = m_interlaced && m_pConfig->ConfigVideoDisplayMode == CONFIG_DISPLAY_MODE_FOLLOW_VIDEO_INTERLACED;
 
 		// test, if display can handle the requested mode
 		// if the interlaced stream should be deinterlaced, the new mode will have doubled framerate and is progressive
-		bool displayCanHandleMode = false;
 		sDrmMode mode = { m_pDecoder->GetContext()->coded_width,
 		                  m_pDecoder->GetContext()->coded_height,
-		                  !skipDeinterlacing ? m_framerate * 2 : m_framerate,
-		                  !skipDeinterlacing ? false : m_interlaced };
-		if (m_pRender->CanHandleMode(&mode))
-			displayCanHandleMode = true;
+		                  !followInterlacedDisplayMode ? m_framerate * 2 : m_framerate,
+		                  !followInterlacedDisplayMode ? false : m_interlaced };
+		bool displayCanHandleMode = m_pRender->CanHandleMode(&mode);
 
 		m_useDeinterlacer =
+			m_interlaced &&
 			!m_userDisabledDeinterlacer &&
 			!m_deinterlacerDeactivated &&
 			!(m_hardwareQuirks & QUIRK_NO_HW_DEINT) &&
-			m_interlaced &&
-			(!displayCanHandleMode || !skipDeinterlacing);
+			(!displayCanHandleMode || !followInterlacedDisplayMode);
 
 		if (m_userDisabledDeinterlacer)
 			LOGDEBUG("videostream: %s: %s: deinterlacer disabled by user configuration", m_identifier, __FUNCTION__);
