@@ -400,23 +400,23 @@ void cMenuSetupSoft::BuildDisplayModeList(void)
 
 	// CONFIG_DISPLAY_MODE_FOLLOW_VIDEO = 1
 	if (m_pConfig->ConfigVideoDisplayMode == CONFIG_DISPLAY_MODE_FOLLOW_VIDEO)
-		m_displayMode.push_back(*cString::sprintf(tr("follow video %dx%d@%.2f%s"),
+		m_displayMode.push_back(*cString::sprintf(tr("match video %dx%d@%.2f%s"),
 			m_pConfig->CurrentDrmMode.width,
 			m_pConfig->CurrentDrmMode.height,
 			m_pConfig->CurrentDrmMode.refreshRateHz,
 			m_pConfig->CurrentDrmMode.interlaced ? "i" : ""));
 	else
-		m_displayMode.push_back(tr("follow video"));
+		m_displayMode.push_back(tr("match video"));
 
 	// CONFIG_DISPLAY_MODE_FOLLOW_VIDEO_INTERLACED = 2
 	if (m_pConfig->ConfigVideoDisplayMode == CONFIG_DISPLAY_MODE_FOLLOW_VIDEO_INTERLACED)
-		m_displayMode.push_back(*cString::sprintf(tr("follow video (interlaced) %dx%d@%.2f%s"),
+		m_displayMode.push_back(*cString::sprintf(tr("match video (interlaced) %dx%d@%.2f%s"),
 			m_pConfig->CurrentDrmMode.width,
 			m_pConfig->CurrentDrmMode.height,
 			m_pConfig->CurrentDrmMode.refreshRateHz,
 			m_pConfig->CurrentDrmMode.interlaced ? "i" : ""));
 	else
-		m_displayMode.push_back(tr("follow video (interlaced)"));
+		m_displayMode.push_back(tr("match video (interlaced)"));
 
 	// CONFIG_DISPLAY_MODE_MANUAL = 3
 	for (size_t i = CONFIG_DISPLAY_MODE_MANUAL; i < m_pConfig->CollectedDrmModes.size() + CONFIG_DISPLAY_MODE_MANUAL; i++) {
