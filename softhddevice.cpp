@@ -1817,7 +1817,7 @@ void cSoftHdDevice::SetEnableHdr(bool enable) { m_pRender->SetEnableHdr(enable);
  */
 void cSoftHdDevice::SetDisplayMode(int idx)
 {
-	sDrmMode *mode = &m_pConfig->AutoDetectedDrmMode;;
+	sDrmMode *mode = &m_pConfig->AutoDetectedDrmMode;
 
 	if (idx == CONFIG_DISPLAY_MODE_FOLLOW_VIDEO ||
 	    idx == CONFIG_DISPLAY_MODE_FOLLOW_VIDEO_INTERLACED) {
