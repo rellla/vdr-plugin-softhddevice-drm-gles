@@ -133,7 +133,7 @@ public:
 	sDrmMode UserSetDrmMode;                            ///< user requested drm mode on the current connector
 	sDrmMode CurrentDrmMode;                            ///< currently used drm mode on the current connector
 	sDrmMode CurrentVideoDrmMode;                       ///< currently used video drm mode
-	sDrmMode *RequestedDrmMode = nullptr;               ///< is set to the requested mode which should be changed to
+	sDrmMode RequestedDrmMode;                          ///< is set to the requested mode which should be changed to
 
 	cSoftHdConfig(void) = default;
 	bool SetupParse(const char *, const char *);
