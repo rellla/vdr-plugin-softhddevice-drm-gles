@@ -269,6 +269,14 @@ static double GetRefreshRateHz(drmModeModeInfo *modeInfo)
 }
 
 /**
+ * Returns true, if the interlaced flag of the mode is set
+ */
+static inline bool InterlacedMode(uint32_t flags)
+{
+	return (flags & DRM_MODE_FLAG_INTERLACE) != 0;
+}
+
+/**
  * Test, if the given mode is included in the given array
  *
  * Only width, height, refresh rate and the interlaced flag is tested.
@@ -285,7 +293,7 @@ static double GetRefreshRateHz(drmModeModeInfo *modeInfo)
 static bool Contains(drmModeModeInfo *mode, std::vector<sDrmMode> modes)
 {
 	for (size_t i = 0; i < modes.size(); i++) {
-		bool interlaced = (mode->flags & DRM_MODE_FLAG_INTERLACE) == DRM_MODE_FLAG_INTERLACE;
+		bool interlaced = InterlacedMode(mode->flags);
 
 		if (mode->hdisplay != modes[i].width ||
 		    mode->vdisplay != modes[i].height ||
@@ -401,10 +409,10 @@ int cDrmDevice::Init(void)
 		m_pConfig->CollectedDrmModes.push_back({current_mode->hdisplay,
 		                                        current_mode->vdisplay,
 		                                        GetRefreshRateHz(current_mode),
-		                                        (current_mode->flags & DRM_MODE_FLAG_INTERLACE) == DRM_MODE_FLAG_INTERLACE});
+		                                        InterlacedMode(current_mode->flags)});
 		LOGDEBUG2(L_DRM, "drmdevice: %s: adding display mode %dx%d@%.2f%s", __FUNCTION__,
 			current_mode->hdisplay, current_mode->vdisplay, GetRefreshRateHz(current_mode),
-			(current_mode->flags & DRM_MODE_FLAG_INTERLACE) == DRM_MODE_FLAG_INTERLACE ? "i" : "");
+			InterlacedMode(current_mode->flags) ? "i" : "");
 	}
 
 	// find connector mode
@@ -720,15 +728,14 @@ int cDrmDevice::FindMode(void)
 	if (m_userReqDisplayWidth > 0) {
 		for (int i = 0; i < connector->count_modes; i++) {
 			drmModeModeInfo *current_mode = &connector->modes[i];
-			bool currentInterlaced = (current_mode->flags & DRM_MODE_FLAG_INTERLACE) == DRM_MODE_FLAG_INTERLACE;
 			if(current_mode->hdisplay == m_userReqDisplayWidth &&
 			   current_mode->vdisplay == m_userReqDisplayHeight &&
 			   GetRefreshRateHz(current_mode) == m_userReqDisplayRefreshRate &&
-			   currentInterlaced == m_userReqDisplayInterlaced) {
+			   InterlacedMode(current_mode->flags) == m_userReqDisplayInterlaced) {
 
 				drmmode = current_mode;
 				LOGDEBUG2(L_DRM, "drmdevice: %s: Use user requested mode: %dx%d@%.2f%s", __FUNCTION__,
-					drmmode->hdisplay, drmmode->vdisplay, GetRefreshRateHz(drmmode), drmmode->flags & DRM_MODE_FLAG_INTERLACE ? "i" : "");
+					drmmode->hdisplay, drmmode->vdisplay, GetRefreshRateHz(drmmode), InterlacedMode(drmmode->flags) ? "i" : "");
 				break;
 			}
 		}
@@ -744,7 +751,7 @@ int cDrmDevice::FindMode(void)
 		while (!drmmode && preferred_hz[j]) {
 			for (int i = 0, width = 0; i < connector->count_modes; i++) {
 				drmModeModeInfo *current_mode = &connector->modes[i];
-				if ((current_mode->flags & DRM_MODE_FLAG_INTERLACE) == DRM_MODE_FLAG_INTERLACE)
+				if (InterlacedMode(current_mode->flags))
 					continue;
 				if (preferred_hz[j] && std::round(GetRefreshRateHz(current_mode) * 100.0) / 100.0 != preferred_hz[j])
 					continue;
@@ -774,7 +781,7 @@ int cDrmDevice::FindMode(void)
 		drmmode->hdisplay,
 		drmmode->vdisplay,
 		GetRefreshRateHz(drmmode),
-		(drmmode->flags & DRM_MODE_FLAG_INTERLACE) == DRM_MODE_FLAG_INTERLACE
+		InterlacedMode(drmmode->flags)
 	};
 
 	if (!m_pConfig->AutoDetectedDrmMode.width)
@@ -782,7 +789,7 @@ int cDrmDevice::FindMode(void)
 
 	memcpy(&m_drmModeInfo, drmmode, sizeof(drmModeModeInfo));
 
-	m_pRender->SetScreenSize(m_drmModeInfo.hdisplay, m_drmModeInfo.vdisplay, GetRefreshRateHz(&m_drmModeInfo), (drmmode->flags & DRM_MODE_FLAG_INTERLACE) ? true : false);
+	m_pRender->SetScreenSize(m_drmModeInfo.hdisplay, m_drmModeInfo.vdisplay, GetRefreshRateHz(&m_drmModeInfo), InterlacedMode(drmmode->flags));
 
 	return 0;
 }
