@@ -60,6 +60,42 @@ enum AVPixelFormat DrmFormatToAVFormat(cDrmBuffer *buf)
 }
 
 /**
+ * Convert a tiled SAND128 memory layout to linear data
+ *
+ * @param[out] dst            pointer to the destination buffer
+ * @param[in] dstStride       bytes per row in the destination buffer
+ * @param[in] src             pointer to the source buffer in SAND128 tiled layout
+ * @param[in] width           image width in bytes per row
+ * @param[in] height          image height in rows
+ * @param[in] stride1         tile width in bytes (128 for SAND128)
+ * @param[in] stride2         distance in bytes between consecutive tile columns
+ */
+static void Sand128ToLinearPlane(uint8_t *dst, int dstStride, const uint8_t *src,
+                                 int width, int height, int stride1, int stride2)
+{
+	const int mask = stride1 - 1;
+
+	for (int y = 0; y < height; y++) {
+		uint8_t *dstRow = dst + y * dstStride;
+		int x = 0;
+
+		while (x < width) {
+			int low  = x & mask;
+			int high = x & ~mask;
+
+			const uint8_t *p = src + low + y * stride1 + high * stride2;
+			int chunk = stride1 - low;
+
+			if (x + chunk > width)
+				chunk = width - x;
+
+			memcpy(dstRow + x, p, chunk);
+			x += chunk;
+		}
+	}
+}
+
+/**
  * Convert a DRM buffer to rgb format image
  *
  * Conversion is done with ffmpegs swscale
@@ -74,14 +110,16 @@ enum AVPixelFormat DrmFormatToAVFormat(cDrmBuffer *buf)
  */
 static uint8_t *BufToRgb(cDrmBuffer *buf, int *size, int dstW, int dstH, enum AVPixelFormat dstPixFmt)
 {
-	uint8_t *srcData[4], *dstData[4];
-	int srcLinesize[4], dstLinesize[4];
+	uint8_t *srcData[4] = {nullptr};
+	uint8_t *dstData[4] = {nullptr};;
+	int srcLinesize[4] = {0};
+	int dstLinesize[4] = {0};
 
 	int srcW = buf->Width();
 	int srcH = buf->Height();
 
-	enum AVPixelFormat src_pix_fmt = DrmFormatToAVFormat(buf);
-	if (src_pix_fmt == AV_PIX_FMT_NONE) {
+	enum AVPixelFormat srcPixFmt = DrmFormatToAVFormat(buf);
+	if (srcPixFmt == AV_PIX_FMT_NONE) {
 		LOGERROR("grab: %s: pixel format is not supported!", __FUNCTION__);
 		return NULL;
 	}
@@ -89,7 +127,6 @@ static uint8_t *BufToRgb(cDrmBuffer *buf, int *size, int dstW, int dstH, enum AV
 	int dstBufsize = 0;
 	struct SwsContext *swsCtx;
 	int ret;
-	void *buffer = NULL;
 
 	// planes aren't mmapped, return
 	// this should be done before in VideoCloneBuf
@@ -99,27 +136,54 @@ static uint8_t *BufToRgb(cDrmBuffer *buf, int *size, int dstW, int dstH, enum AV
 	}
 
 	// convert yuv to rgb
-	swsCtx = sws_getContext(srcW, srcH, src_pix_fmt,
+	swsCtx = sws_getContext(srcW, srcH, srcPixFmt,
 	                        dstW, dstH, dstPixFmt,
 	                        SWS_BILINEAR, NULL, NULL, NULL);
 	if (!swsCtx) {
 		LOGERROR("grab: %s: Could not create swsCtx", __FUNCTION__);
-		munmap(buffer, buf->Size(0));
 		return NULL;
 	}
 
 	if ((ret = av_image_alloc(dstData, dstLinesize, dstW, dstH, dstPixFmt, 1)) < 0) {
 		LOGERROR("grab: %s: Could not alloc dst image", __FUNCTION__);
-		munmap(buffer, buf->Size(0));
 		sws_freeContext(swsCtx);
 		return NULL;
 	}
 	dstBufsize = ret;
 
-	// copy src pitches and data
-	for (int i = 0; i < buf->NumPlanes(); i++) {
-		srcLinesize[i] = buf->Pitch(i);
-		srcData[i] = buf->Plane(i) + buf->Offset(i);
+	// De-tile sand format
+	uint8_t *tmpData[4] = {0};
+	int tmpLinesize[4] = {0};
+	int tmpImgSize = 0;
+	if (buf->Modifier() == DRM_FORMAT_MOD_BROADCOM_SAND128) {
+		if (buf->PixFmt() == DRM_FORMAT_NV12) {
+			int stride1 = 128;
+			int stride2Y = buf->Pitch(0);
+			int stride2UV = buf->Pitch(1);
+
+			tmpImgSize = av_image_alloc(tmpData, tmpLinesize, srcW, srcH, srcPixFmt, 1);
+			if (tmpImgSize < 0) {
+				LOGERROR("grab: %s: Could not alloc tmp image", __FUNCTION__);
+				sws_freeContext(swsCtx);
+				return NULL;
+			}
+
+			Sand128ToLinearPlane(tmpData[0], tmpLinesize[0], buf->Plane(0) + buf->Offset(0), srcW, srcH, stride1, stride2Y);
+			Sand128ToLinearPlane(tmpData[1], tmpLinesize[1], buf->Plane(1) + buf->Offset(1), srcW, srcH / 2, stride1, stride2UV);
+
+			srcData[0] = tmpData[0];
+			srcData[1] = tmpData[1];
+			srcLinesize[0] = tmpLinesize[0];
+			srcLinesize[1] = tmpLinesize[1];
+
+			srcH = buf->Height();
+		}
+	} else {
+		// copy src pitches and data
+		for (int i = 0; i < buf->NumPlanes(); i++) {
+			srcLinesize[i] = buf->Pitch(i);
+			srcData[i] = buf->Plane(i) + buf->Offset(i);
+		}
 	}
 
 	// scale image
@@ -127,12 +191,14 @@ static uint8_t *BufToRgb(cDrmBuffer *buf, int *size, int dstW, int dstH, enum AV
 	          (const uint8_t * const*)srcData, srcLinesize, 0, srcH,
 	          dstData, dstLinesize);
 
-	if (buffer)
-		munmap(buffer, buf->Size(0));
 	sws_freeContext(swsCtx);
 	*size = dstBufsize;
 
+	if (tmpImgSize > 0)
+		av_freep(&tmpData[0]);
+
 	LOGDEBUG2(L_GRAB, "grab: %s: return image at %p size %d", __FUNCTION__, dstData[0], dstBufsize);
+
 	return dstData[0];
 }
 
