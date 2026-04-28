@@ -80,6 +80,7 @@ cDrmBuffer::cDrmBuffer(cDrmBuffer *src)
 		m_offset[i] = src->m_offset[i];
 		m_objIdx[i] = src->m_objIdx[i];
 	}
+	m_modifier = src->m_modifier;
 
 	void *src_buffer = NULL;
 	void *dst_buffer = NULL;
@@ -140,6 +141,8 @@ cDrmBuffer::cDrmBuffer(int fdDrm, uint32_t width, uint32_t height, uint32_t pixF
 	  m_pBo(bo)
 {
 	m_numPlanes = 0;
+	m_modifier = DRM_FORMAT_MOD_INVALID;
+
 	for (int i = 0; i < 4; i++) {
 		m_pPlane[i] = nullptr;
 		m_planePrimeHandle[i] = 0;
@@ -203,6 +206,7 @@ void cDrmBuffer::Destroy(void)
 	m_dirty = false;
 	m_numPlanes = 0;
 	m_destroyAfterUse = false;
+	m_modifier = DRM_FORMAT_MOD_INVALID;
 }
 
 /**
@@ -318,6 +322,8 @@ void cDrmBuffer::Setup(int drmDeviceFd, uint32_t width, uint32_t height, uint32_
 		}
 		if (modifier[0] && modifier[0] != DRM_FORMAT_MOD_INVALID)
 			mod_flags = DRM_MODE_FB_MODIFIERS;
+
+		m_modifier = modifier[0];
 	} else {
 		const struct format_info *format_info = FindFormat(m_pixFmt);
 		if (!format_info)
