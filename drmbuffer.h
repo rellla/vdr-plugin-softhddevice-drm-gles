@@ -19,6 +19,8 @@ extern "C" {
 #include <libavutil/hwcontext_drm.h>
 }
 
+#include <drm_fourcc.h>
+
 #include <vdr/osd.h>
 
 #include "pool.h"
@@ -91,6 +93,7 @@ public:
 	uint32_t Size(int idx) { return m_size[idx]; };
 	uint32_t *Size(void) { return m_size; };
 	void SetSize(int idx, uint32_t size) { m_size[idx] = size; };
+	uint64_t Modifier(void) { return m_modifier; };
 	AVFrame *frame = nullptr;	///< associated AVFrame
 	void SetDestroyAfterUse(bool val) { m_destroyAfterUse = val; };
 	void PresentationFinished(void);
@@ -121,6 +124,7 @@ private:
 	uint32_t m_offset[4];       ///< array of the plane offset
 	uint32_t m_pitch[4];        ///< array of the plane pitch
 	uint32_t m_size[4]{0};      ///< array of the plane size
+	uint64_t m_modifier = DRM_FORMAT_MOD_INVALID;
 
 	bool m_presentationPending = false; ///< true, if buffer presentation is pending
 	bool m_destroyAfterUse = false;     ///< true, if buffer should be destroyed after use
