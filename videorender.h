@@ -281,7 +281,7 @@ private:
 	int m_numWrongProgressive;          ///< counter for progressive frames sent in an interlaced stream
 	                                    ///< (only used for logging)
 
-	bool m_startgrab = false;           ///< internal flag to trigger grabbing
+	std::atomic<bool> m_startgrab = false; ///< internal flag to trigger grabbing
 	cCondVar m_grabCond;                ///< condition gets signalled, if renederer finished to clone the grabbed buffers
 	cGrabBuffer m_grabOsd;              ///< keeps the current grabbed osd
 	cGrabBuffer m_grabVideo;            ///< keeps the current grabbed video
@@ -294,6 +294,7 @@ private:
 	AVRational m_timebase;              ///< timebase used for pts, set by first RenderFrame()
 	std::mutex m_timebaseMutex;         ///< mutex used around m_timebase
 	std::atomic<int64_t> m_pts = AV_NOPTS_VALUE; ///< current video PTS
+	std::mutex m_grabMutex;             ///< mutex around grabbing
 
 	cRect m_videoRect;                  ///< rect of the currently displayed video
 	bool m_videoIsScaled = false;       ///< true, if the currently displayed video is scaled

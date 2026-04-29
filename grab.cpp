@@ -339,12 +339,17 @@ void cGrabBuffer::SetDrmBuf(cDrmBuffer *buf)
  */
 bool cSoftHdGrab::Start(bool jpeg, int quality, int width, int height, int screenWidth, int screenHeight)
 {
+	m_active = true;
+
 	if (width == 0 || height == 0) {
 		LOGDEBUG2(L_GRAB, "grab: %s: width and/or height must not be 0!", __FUNCTION__);
+		m_isActive = false;
 		return false;
 	}
 
 	LOGDEBUG2(L_GRAB, "grab: starting grab for %s image (%dx%d, quality %d)", jpeg ? "jpg" : "pnm", width, height, quality);
+
+	m_pRender->ClearGrabBuffers();
 
 	m_isJpeg = jpeg;
 	m_screenWidth = screenWidth;
@@ -356,16 +361,25 @@ bool cSoftHdGrab::Start(bool jpeg, int quality, int width, int height, int scree
 	m_grabbedHeight = height > 0 ? height : screenHeight;
 	m_grabbedImage = nullptr;
 
-	m_isActive = true;
-
 	if (m_pRender->TriggerGrab()) {
-		m_pRender->ClearGrabBuffers();
-		m_isActive = false;
+		Finish();
 		LOGDEBUG2(L_GRAB, "grab: grabbing %s image (%dx%d, quality %d) failed", jpeg ? "jpg" : "pnm", width, height, quality);
 		return false;
 	}
 
-	return ProcessGrab();
+	return true;
+}
+
+/**
+ * Clean up
+ *
+ * Clears the dedicated buffers in the renderer again and
+ * sets the grab inactive.
+ */
+void cSoftHdGrab::Finish(void)
+{
+	m_pRender->ClearGrabBuffers();
+	m_active = false;
 }
 
 /**
@@ -445,6 +459,8 @@ uint8_t *cSoftHdGrab::GetGrab(int *size, int *width, int *height, int *x, int *y
  * 6) If available, blit the osd data onto it respecting alpha values
  * 7) Scale the result to the user requested size
  * 8) Create a jpg or pnm image as requested
+ *
+ * @return true, if grab succeeded, false otherwise
  */
 bool cSoftHdGrab::ProcessGrab(void)
 {
@@ -489,7 +505,7 @@ bool cSoftHdGrab::ProcessGrab(void)
 		if (BlitVideo(videoResult, video, m_screenWidth, m_screenHeight, videoX, videoY, videoWidth, videoHeight)) {
 			free(videoResult);
 			free(video);
-			m_isActive = false;
+			Finish();
 			LOGDEBUG2(L_GRAB, "grab: grab failed during VIDEO blit");
 			return false;
 		}
@@ -501,7 +517,7 @@ bool cSoftHdGrab::ProcessGrab(void)
 		if (BlitVideo(videoResult, pip, m_screenWidth, m_screenHeight, pipX, pipY, pipWidth, pipHeight)) {
 			free(videoResult);
 			free(pip);
-			m_isActive = false;
+			Finish();
 			LOGDEBUG2(L_GRAB, "grab: grab failed during PIP blit");
 			return false;
 		}
@@ -540,8 +556,6 @@ bool cSoftHdGrab::ProcessGrab(void)
 	}
 
 	free(scaledResult);
-	m_isActive = false;
-
 	LOGDEBUG2(L_GRAB, "grab: finished %s image (%dx%d, quality %d) at %p (size %d)", m_isJpeg ? "jpg" : "pnm", m_grabbedWidth, m_grabbedHeight, m_isJpeg ? m_quality : 0, m_grabbedImage, m_grabbedSize);
 
 	return true;

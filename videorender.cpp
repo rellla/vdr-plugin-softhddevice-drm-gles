@@ -1127,7 +1127,7 @@ int cVideoRender::GetFramePresentationCount(int64_t interFrameGapMs)
  */
 int cVideoRender::TriggerGrab(void)
 {
-	int timeoutMs = 50;
+	int timeoutMs = 500;
 	cMutex mutex;
 	mutex.Lock();
 	m_startgrab = true;
@@ -1138,7 +1138,9 @@ int cVideoRender::TriggerGrab(void)
 		err = 1;
 	}
 
+	std::lock_guard<std::mutex> lock(m_grabMutex);
 	m_startgrab = false;
+
 	return err;
 }
 
@@ -1149,6 +1151,8 @@ int cVideoRender::TriggerGrab(void)
  */
 void cVideoRender::CreateGrabBuffers(bool grabPip)
 {
+	std::lock_guard<std::mutex> lock(m_grabMutex);
+
 	if (!m_startgrab)
 		return;
 
@@ -1180,6 +1184,8 @@ void cVideoRender::CreateGrabBuffers(bool grabPip)
  */
 void cVideoRender::ClearGrabBuffers(void)
 {
+	std::lock_guard<std::mutex> lock(m_grabMutex);
+
 	if (m_grabOsd.GetDrmBuf())
 		m_grabOsd.FreeDrmBuf();
 	if (m_grabVideo.GetDrmBuf())
