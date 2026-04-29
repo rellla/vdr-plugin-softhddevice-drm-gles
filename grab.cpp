@@ -341,12 +341,6 @@ bool cSoftHdGrab::Start(bool jpeg, int quality, int width, int height, int scree
 {
 	m_active = true;
 
-	if (width == 0 || height == 0) {
-		LOGDEBUG2(L_GRAB, "grab: %s: width and/or height must not be 0!", __FUNCTION__);
-		m_isActive = false;
-		return false;
-	}
-
 	LOGDEBUG2(L_GRAB, "grab: starting grab for %s image (%dx%d, quality %d)", jpeg ? "jpg" : "pnm", width, height, quality);
 
 	m_pRender->ClearGrabBuffers();
