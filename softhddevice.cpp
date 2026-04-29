@@ -1395,6 +1395,11 @@ int64_t cSoftHdDevice::GetFirstVideoPtsMsToPlay()
  */
 uchar *cSoftHdDevice::GrabImage(int &size, bool jpeg, int quality, int width, int height)
 {
+	if (!width || !height) {
+		LOGWARNING("device: %s: width or height is 0 - skip!", __FUNCTION__);
+		return nullptr;
+	}
+
 	if (IsDetached())
 		return nullptr;
 
