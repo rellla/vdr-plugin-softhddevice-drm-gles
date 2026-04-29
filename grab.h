@@ -12,6 +12,7 @@
 #ifndef __GRAB_H
 #define __GRAB_H
 
+#include <atomic>
 #include <cstdint>
 
 #include <vdr/osd.h>
@@ -90,12 +91,14 @@ public:
 	bool Start(bool, int, int, int, int, int);
 	uint8_t *Image(void) { return m_grabbedImage; };
 	int Size(void) { return m_grabbedSize; };
+	bool ProcessGrab(void);
+	void Finish(void);
 
 private:
 	cVideoRender *m_pRender;         ///< pointer to cVideoRender object
 	uint8_t *m_grabbedImage;         ///< pointer to the finished grabbed image
 	int m_grabbedSize;               ///< data size of the grabbed image
-	bool m_isActive = false;         ///< true, if a grab process is currently running
+	std::atomic<bool> m_isActive = false; ///< true, if a grab process is currently running
 
 	bool m_isJpeg = true;            ///< true, if a jpeg image was requested
 	int m_quality;                   ///< quality of the jpeg image
@@ -104,7 +107,6 @@ private:
 	int m_screenWidth;               ///< pixel screenwidth
 	int m_screenHeight;              ///< pixel screenheight
 
-	bool ProcessGrab(void);
 	uint8_t *GetGrab(int *, int *, int *, int *, int *, Grabtype);
 };
 

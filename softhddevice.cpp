@@ -1396,11 +1396,11 @@ int64_t cSoftHdDevice::GetFirstVideoPtsMsToPlay()
 uchar *cSoftHdDevice::GrabImage(int &size, bool jpeg, int quality, int width, int height)
 {
 	if (IsDetached())
-		return NULL;
+		return nullptr;
 
 	if (m_pGrab->Active()) {
 		LOGWARNING("device: %s: wait for the last grab to be finished - skip!", __FUNCTION__);
-		return NULL;
+		return nullptr;
 	}
 
 	LOGDEBUG2(L_GRAB, "device: %s: %d, %d, %d, %dx%d", __FUNCTION__, size, jpeg, quality, width, height);
@@ -1411,11 +1411,17 @@ uchar *cSoftHdDevice::GrabImage(int &size, bool jpeg, int quality, int width, in
 	GetOsdSize(screenWidth, screenHeight, aspectRatio);
 
 	if (!m_pGrab->Start(jpeg, quality, width, height, screenWidth, screenHeight))
-		return NULL;
+		return nullptr;
+
+	if (!m_pGrab->ProcessGrab())
+		return nullptr;
 
 	size = m_pGrab->Size();
+	uchar *result = m_pGrab->Image();
 
-	return m_pGrab->Image();
+	m_pGrab->Finish();
+
+	return result;
 }
 
 /**
