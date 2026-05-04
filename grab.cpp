@@ -1,4 +1,35 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-or-later AND BSD-3-Clause
+
+/*
+ * Portions of this file are derived from Raspberry Pi SAND conversion code:
+ *
+ * Copyright (c) 2018 Raspberry Pi (Trading) Ltd.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *     * Redistributions of source code must retain the above copyright
+ *       notice, this list of conditions and the following disclaimer.
+ *     * Redistributions in binary form must reproduce the above copyright
+ *       notice, this list of conditions and the following disclaimer in the
+ *       documentation and/or other materials provided with the distribution.
+ *     * Neither the name of the copyright holder nor the
+ *       names of its contributors may be used to endorse or promote products
+ *       derived from this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+ * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+ * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY
+ * DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+ * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+ * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+ * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ * Authors: John Cox
+ */
 
 /**
  * @file grab.cpp
@@ -6,6 +37,10 @@
  *
  * This file defines cGrabBuffer and cSoftHdGrab, which are used
  * to handle grab requests.
+ *
+ * This file contains code under multiple licenses:
+ * - Raspberry Pi code: BSD-3-Clause
+ * - Remaining code: AGPL-3.0-or-later
  *
  * @copyright 2025 - 2026 by Andreas Baierl. All Rights Reserved.
  *
@@ -39,6 +74,143 @@ extern "C" {
 #define UNMULTIPLY(color, alpha) ((0xff * color) / alpha)
 #define BLEND(back, front, alpha) ((front * alpha) + (back * (255 - alpha))) / 255
 
+// --- Begin Raspberry Pi BSD-licensed code ---
+
+/**
+ * Convert the luma (Y plane) from SAND to linear buffer (8bit)
+ */
+void Sand128ToPlanarY8(uint8_t *dst, const unsigned int dstStride, const uint8_t *src,
+                       unsigned int stride1, unsigned int stride2,
+                       unsigned int w, unsigned int h)
+{
+	const unsigned int mask = stride1 - 1;
+
+	if (w < stride1) {
+		// All in one sand stripe
+		const uint8_t *p = src;
+		for (unsigned int i = 0; i != h; ++i, dst += dstStride, p += stride1) {
+			memcpy(dst, p, w);
+		}
+	} else {
+		const unsigned int sstride = stride1 * stride2;
+		const uint8_t *p1 = src;
+		const uint8_t *p2 = p1 + sstride;
+		const unsigned int w1 = stride1;
+		const unsigned int w3 = w & mask;
+		const unsigned int w2 = w - (w1 + w3);
+
+		for (unsigned int i = 0; i != h; ++i, dst += dstStride, p1 += stride1, p2 += stride1) {
+			unsigned int j;
+			const uint8_t *p = p2;
+			uint8_t *d = dst;
+			memcpy(d, p1, w1);
+			d += w1;
+			for (j = 0; j < w2; j += stride1, d += stride1, p += sstride) {
+				memcpy(d, p, stride1);
+			}
+			memcpy(d, p, w3);
+		}
+	}
+}
+
+/**
+ * Convert the luma (Y plane) from SAND to linear buffer (10bit)
+ */
+static void Sand30ToPlanarY16(uint8_t *dst, const unsigned int dstStride,
+                              const uint8_t *src,
+                              unsigned int stride1, unsigned int stride2,
+                              unsigned int w, unsigned int h)
+{
+	const unsigned int x1 = (w / 3) * 4;
+	const unsigned int xrem1 = w - (x1 >> 2) * 3;
+	const unsigned int mask = stride1 - 1;
+
+	const uint8_t *p0 = src;
+	const unsigned int sliceInc = ((stride2 - 1) * stride1) >> 2;
+
+	if (x1 == 0)
+		return;
+
+	for (unsigned int i = 0; i != h; ++i, dst += dstStride, p0 += stride1) {
+		unsigned int x = 0;
+		const uint32_t *p = (const uint32_t *)p0;
+		uint16_t *d = (uint16_t *)dst;
+
+		while (x != x1) {
+			const uint32_t p3 = *p++;
+			*d++ = p3 & 0x3ff;
+			*d++ = (p3 >> 10) & 0x3ff;
+			*d++ = (p3 >> 20) & 0x3ff;
+
+			if (((x += 4) & mask) == 0)
+				p += sliceInc;
+		}
+
+		if (xrem1 != 0) {
+			const uint32_t p3 = *p;
+
+			*d++ = p3 & 0x3ff;
+			if (xrem1 == 2)
+				*d++ = (p3 >> 10) & 0x3ff;
+		}
+	}
+}
+
+/**
+ * Convert the chroma (UV plane) from SAND to linear buffer (10bit)
+ */
+static void Sand30ToPlanarC16(uint8_t *dstU, const unsigned int dstStrideU,
+                              uint8_t *dstV, const unsigned int dstStrideV,
+                              const uint8_t *src,
+                              unsigned int stride1, unsigned int stride2,
+                              unsigned int w, unsigned int h)
+{
+	const unsigned int x1 = (w / 3) * 8;
+	const unsigned int xrem1 = w - (x1 >> 3) * 3;
+	const unsigned int mask = stride1 - 1;
+
+	const uint8_t *p0 = src;
+	const unsigned int sliceInc = ((stride2 - 1) * stride1) >> 2;
+
+	if (x1 == 0)
+		return;
+
+	for (unsigned int i = 0; i != h; ++i, dstU += dstStrideU, dstV += dstStrideV, p0 += stride1) {
+		unsigned int x = 0;
+		const uint32_t *p = (const uint32_t *)p0;
+		uint16_t *du = (uint16_t *)dstU;
+		uint16_t *dv = (uint16_t *)dstV;
+
+		while (x != x1) {
+			const uint32_t p3a = *p++;
+			const uint32_t p3b = *p++;
+
+			*du++ = p3a & 0x3ff;
+			*dv++ = (p3a >> 10) & 0x3ff;
+			*du++ = (p3a >> 20) & 0x3ff;
+			*dv++ = p3b & 0x3ff;
+			*du++ = (p3b >> 10) & 0x3ff;
+			*dv++ = (p3b >> 20) & 0x3ff;
+
+			if (((x += 8) & mask) == 0)
+				p += sliceInc;
+		}
+
+		if (xrem1 != 0) {
+			const uint32_t p3a = *p++;
+			const uint32_t p3b = *p++;
+
+			*du++ = p3a & 0x3ff;
+			*dv++ = (p3a >> 10) & 0x3ff;
+			if (xrem1 == 2) {
+				*du++ = (p3a >> 20) & 0x3ff;
+				*dv++ = p3b & 0x3ff;
+			}
+		}
+	}
+}
+// --- End Raspberry Pi BSD-licensed code ---
+
 /**
  * Convert a DRM format to a ffmpeg AV format
  */
@@ -54,45 +226,9 @@ enum AVPixelFormat DrmFormatToAVFormat(cDrmBuffer *buf)
 		return AV_PIX_FMT_RGBA;
 
 	if (buf->PixFmt() == DRM_FORMAT_P030)
-		return AV_PIX_FMT_NONE;
+		return AV_PIX_FMT_YUV420P10;
 
 	return AV_PIX_FMT_NONE;
-}
-
-/**
- * Convert a tiled SAND128 memory layout to linear data
- *
- * @param[out] dst            pointer to the destination buffer
- * @param[in] dstStride       bytes per row in the destination buffer
- * @param[in] src             pointer to the source buffer in SAND128 tiled layout
- * @param[in] width           image width in bytes per row
- * @param[in] height          image height in rows
- * @param[in] stride1         tile width in bytes (128 for SAND128)
- * @param[in] stride2         distance in bytes between consecutive tile columns
- */
-static void Sand128ToLinearPlane(uint8_t *dst, int dstStride, const uint8_t *src,
-                                 int width, int height, int stride1, int stride2)
-{
-	const int mask = stride1 - 1;
-
-	for (int y = 0; y < height; y++) {
-		uint8_t *dstRow = dst + y * dstStride;
-		int x = 0;
-
-		while (x < width) {
-			int low  = x & mask;
-			int high = x & ~mask;
-
-			const uint8_t *p = src + low + y * stride1 + high * stride2;
-			int chunk = stride1 - low;
-
-			if (x + chunk > width)
-				chunk = width - x;
-
-			memcpy(dstRow + x, p, chunk);
-			x += chunk;
-		}
-	}
 }
 
 /**
@@ -158,8 +294,6 @@ static uint8_t *BufToRgb(cDrmBuffer *buf, int *size, int dstW, int dstH, enum AV
 	if (buf->Modifier() == DRM_FORMAT_MOD_BROADCOM_SAND128) {
 		if (buf->PixFmt() == DRM_FORMAT_NV12) {
 			int stride1 = 128;
-			int stride2Y = buf->Pitch(0);
-			int stride2UV = buf->Pitch(1);
 
 			tmpImgSize = av_image_alloc(tmpData, tmpLinesize, srcW, srcH, srcPixFmt, 1);
 			if (tmpImgSize < 0) {
@@ -168,13 +302,47 @@ static uint8_t *BufToRgb(cDrmBuffer *buf, int *size, int dstW, int dstH, enum AV
 				return NULL;
 			}
 
-			Sand128ToLinearPlane(tmpData[0], tmpLinesize[0], buf->Plane(0) + buf->Offset(0), srcW, srcH, stride1, stride2Y);
-			Sand128ToLinearPlane(tmpData[1], tmpLinesize[1], buf->Plane(1) + buf->Offset(1), srcW, srcH / 2, stride1, stride2UV);
+			Sand128ToPlanarY8(tmpData[0], tmpLinesize[0],
+			                  buf->Plane(0) + buf->Offset(0),
+			                  stride1, buf->Pitch(0),
+			                  srcW, srcH);
+			Sand128ToPlanarY8(tmpData[1], tmpLinesize[1],
+			                  buf->Plane(1) + buf->Offset(1),
+			                  stride1, buf->Pitch(1),
+			                  srcW, srcH / 2);
 
 			srcData[0] = tmpData[0];
 			srcData[1] = tmpData[1];
 			srcLinesize[0] = tmpLinesize[0];
 			srcLinesize[1] = tmpLinesize[1];
+
+			srcH = buf->Height();
+		} else if (buf->PixFmt() == DRM_FORMAT_P030) {
+			int stride1 = 128;
+
+			tmpImgSize = av_image_alloc(tmpData, tmpLinesize, srcW, srcH, srcPixFmt, 1);
+			if (tmpImgSize < 0) {
+				LOGERROR("grab: %s: Could not alloc tmp image", __FUNCTION__);
+				sws_freeContext(swsCtx);
+				return NULL;
+			}
+
+			Sand30ToPlanarY16(tmpData[0], tmpLinesize[0],
+			                  buf->Plane(0) + buf->Offset(0),
+			                  stride1, buf->Pitch(0),
+			                  srcW, srcH);
+			Sand30ToPlanarC16(tmpData[1], tmpLinesize[1],
+			                  tmpData[2], tmpLinesize[2],
+			                  buf->Plane(1) + buf->Offset(1),
+			                  stride1, buf->Pitch(1),
+			                  srcW / 2, srcH / 2);
+
+			srcData[0] = tmpData[0];
+			srcData[1] = tmpData[1];
+			srcData[2] = tmpData[2];
+			srcLinesize[0] = tmpLinesize[0];
+			srcLinesize[1] = tmpLinesize[1];
+			srcLinesize[2] = tmpLinesize[2];
 
 			srcH = buf->Height();
 		}
