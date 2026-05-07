@@ -1158,22 +1158,19 @@ void cVideoRender::CreateGrabBuffers(bool grabPip)
 
 	if (m_pBufOsd && m_osdShown) {
 		LOGDEBUG2(L_GRAB, "videorender: %s: Trigger osd grab arrived", __FUNCTION__);
-		cDrmBuffer *osdBuf = new cDrmBuffer(m_pBufOsd);
-		m_grabOsd.SetDrmBuf(osdBuf);
+		m_grabOsd.Set(m_pBufOsd);
 	}
 
-	cDrmBuffer *pbuf = m_pCurrentlyDisplayed ? m_pCurrentlyDisplayed : NULL;
+	cDrmBuffer *pbuf = m_pCurrentlyDisplayed ? m_pCurrentlyDisplayed : nullptr;
 	if (pbuf) {
 		LOGDEBUG2(L_GRAB, "videorender: %s: Trigger video grab arrived", __FUNCTION__);
-		cDrmBuffer *videoBuf = new cDrmBuffer(pbuf);
-		m_grabVideo.SetDrmBuf(videoBuf);
+		m_grabVideo.Set(pbuf);
 	}
 
-	cDrmBuffer *pipBuf = m_pCurrentlyPipDisplayed ? m_pCurrentlyPipDisplayed : NULL;
+	cDrmBuffer *pipBuf = m_pCurrentlyPipDisplayed ? m_pCurrentlyPipDisplayed : nullptr;
 	if (pipBuf && grabPip) {
 		LOGDEBUG2(L_GRAB, "videorender: %s: Trigger pip grab arrived", __FUNCTION__);
-		cDrmBuffer *pipVideoBuf = new cDrmBuffer(pipBuf);
-		m_grabPip.SetDrmBuf(pipVideoBuf);
+		m_grabPip.Set(pipBuf);
 	}
 
 	m_grabCond.Broadcast();
@@ -1186,12 +1183,9 @@ void cVideoRender::ClearGrabBuffers(void)
 {
 	std::lock_guard<std::mutex> lock(m_grabMutex);
 
-	if (m_grabOsd.GetDrmBuf())
-		m_grabOsd.FreeDrmBuf();
-	if (m_grabVideo.GetDrmBuf())
-		m_grabVideo.FreeDrmBuf();
-	if (m_grabPip.GetDrmBuf())
-		m_grabPip.FreeDrmBuf();
+	m_grabOsd.Clear();
+	m_grabVideo.Clear();
+	m_grabPip.Clear();
 }
 
 /**
