@@ -48,7 +48,6 @@ struct format_info {
 class cDrmBuffer {
 public:
 	cDrmBuffer(void);
-	cDrmBuffer(cDrmBuffer *src);
 #ifdef USE_GLES
 	cDrmBuffer(int, uint32_t, uint32_t, uint32_t, struct gbm_bo *);
 #endif
@@ -77,9 +76,12 @@ public:
 	int NumPlanes(void) { return m_numPlanes; };
 	void SetNumPlanes(int numPlanes) { m_numPlanes = numPlanes; };
 	int DmaBufHandle(void) { return m_dmaBufHandle[0]; };
+	int DmaBufHandle(int idx) { return m_dmaBufHandle[idx]; };
 	void SetDmaBufHandle(uint32_t fd) { m_dmaBufHandle[0] = fd; };
 	void SetNumObjects(int numObjects) { m_numObjects = numObjects; };
+	int NumObjects(void) { return m_numObjects; };
 	void SetObjectIndex(int idx, uint32_t objIdx) { m_objIdx[idx] = objIdx; };
+	int ObjectIndex(int idx) { return m_objIdx[idx]; };
 	uint8_t *Plane(int idx) { return m_pPlane[idx]; };
 	uint32_t PrimeHandle(int idx) { return m_planePrimeHandle[idx]; };
 	uint32_t *PrimeHandle(void) { return m_planePrimeHandle; };

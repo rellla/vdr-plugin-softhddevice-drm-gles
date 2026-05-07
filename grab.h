@@ -55,25 +55,49 @@ class cGrabBuffer {
 public:
 	cGrabBuffer(void) = default;
 
-	void FreeDrmBuf(void);
-	void SetDrmBuf(cDrmBuffer *);
+	void FreeInput(void);
+	void Clear(void);
+	void Set(cDrmBuffer *);
+	bool IsSet(void) { return !m_outputRect.IsEmpty(); };
 
 	// setters and getters
-	void SetData(uint8_t *result) { m_pResult = result; };
-	void SetSize(int size) { m_size = size; };
+	// output
+	void SetOutputData(uint8_t *result) { m_pOutputData = result; };
+	uint8_t *GetOutputData(void) { return m_pOutputData; };
+	void SetOutputSize(int size) { m_outputSize = size; };
+	int GetOutputSize(void) { return m_outputSize; };
+	int GetOutputX(void) { return m_outputRect.X(); };
+	int GetOutputY(void) { return m_outputRect.Y(); };
+	int GetOutputWidth(void) { return m_outputRect.Width(); };
+	int GetOutputHeight(void) { return m_outputRect.Height(); };
 
-	int GetX(void) { return m_rect.X(); };
-	int GetY(void) { return m_rect.Y(); };
-	int GetWidth(void) { return m_rect.Width(); };
-	int GetHeight(void) { return m_rect.Height(); };
-	uint8_t *GetData(void) { return m_pResult; };
-	int GetSize(void) { return m_size; };
-	cDrmBuffer *GetDrmBuf(void) { return m_pBuf; };
+	// input
+	uint32_t Width(void) { return m_width; };
+	uint32_t Height(void) { return m_height; };
+	uint32_t PixFmt(void) { return m_pixFmt; };
+	uint64_t Modifier(void) { return m_modifier; };
+	int NumPlanes(void) { return m_numPlanes; };
+	uint8_t *Plane(int idx) { return m_pPlane[idx]; };
+	uint32_t Offset(int idx) { return m_offset[idx]; };
+	uint32_t Pitch(int idx) { return m_pitch[idx]; };
+	uint32_t Size(int idx) { return m_size[idx]; };
+
 private:
-	uint8_t *m_pResult = nullptr;        ///< pointer to grabbed image
-	struct cDrmBuffer *m_pBuf = nullptr; ///< pointer to original buffer
-	int m_size = 0;                      ///< size of grabbed data
-	cRect m_rect;                        ///< rect of the grabbed data
+	// output
+	uint8_t *m_pOutputData = nullptr;    ///< pointer to grabbed image
+	int m_outputSize = 0;                ///< size of grabbed data
+	cRect m_outputRect;                  ///< rect of the grabbed data
+
+	// input
+	uint32_t m_width = 0;
+	uint32_t m_height = 0;
+	uint32_t m_pixFmt = 0;
+	uint64_t m_modifier = 0;
+	int m_numPlanes = 0;
+	uint8_t *m_pPlane[4] = {};
+	uint32_t m_offset[4] = {};
+	uint32_t m_pitch[4] = {};
+	uint32_t m_size[4] = {};
 };
 
 /**

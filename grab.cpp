@@ -214,22 +214,24 @@ static void Sand30ToPlanarC16(uint8_t *dstU, const unsigned int dstStrideU,
 /**
  * Convert a DRM format to a ffmpeg AV format
  */
-enum AVPixelFormat DrmFormatToAVFormat(cDrmBuffer *buf)
+enum AVPixelFormat DrmFormatToAVFormat(uint32_t pixFmt)
 {
-	if (buf->PixFmt() == DRM_FORMAT_NV12)
-		return AV_PIX_FMT_NV12;
-
-	if (buf->PixFmt() == DRM_FORMAT_YUV420)
-		return AV_PIX_FMT_YUV420P;
-
-	if (buf->PixFmt() == DRM_FORMAT_ARGB8888)
-		return AV_PIX_FMT_RGBA;
-
-	if (buf->PixFmt() == DRM_FORMAT_P030)
-		return AV_PIX_FMT_YUV420P10;
+	switch (pixFmt) {
+		case DRM_FORMAT_NV12:
+			return AV_PIX_FMT_NV12;
+		case DRM_FORMAT_YUV420:
+			return AV_PIX_FMT_YUV420P;
+		case DRM_FORMAT_ARGB8888:
+			return AV_PIX_FMT_RGBA;
+		case DRM_FORMAT_P030:
+			return AV_PIX_FMT_YUV420P10;
+		default:
+			return AV_PIX_FMT_NONE;
+	}
 
 	return AV_PIX_FMT_NONE;
 }
+
 
 /**
  * Convert a DRM buffer to rgb format image
@@ -244,17 +246,19 @@ enum AVPixelFormat DrmFormatToAVFormat(cDrmBuffer *buf)
  *
  * @return                    a pointer to the image data
  */
-static uint8_t *BufToRgb(cDrmBuffer *buf, int *size, int dstW, int dstH, enum AVPixelFormat dstPixFmt)
+static uint8_t *BufToRgb(cGrabBuffer *grab, int *size, enum AVPixelFormat dstPixFmt)
 {
 	uint8_t *srcData[4] = {nullptr};
 	uint8_t *dstData[4] = {nullptr};;
 	int srcLinesize[4] = {0};
 	int dstLinesize[4] = {0};
+	int dstW = grab->GetOutputWidth();
+	int dstH = grab->GetOutputHeight();
 
-	int srcW = buf->Width();
-	int srcH = buf->Height();
+	int srcW = grab->Width();
+	int srcH = grab->Height();
 
-	enum AVPixelFormat srcPixFmt = DrmFormatToAVFormat(buf);
+	enum AVPixelFormat srcPixFmt = DrmFormatToAVFormat(grab->PixFmt());
 	if (srcPixFmt == AV_PIX_FMT_NONE) {
 		LOGERROR("grab: %s: pixel format is not supported!", __FUNCTION__);
 		return NULL;
@@ -266,7 +270,7 @@ static uint8_t *BufToRgb(cDrmBuffer *buf, int *size, int dstW, int dstH, enum AV
 
 	// planes aren't mmapped, return
 	// this should be done before in VideoCloneBuf
-	if (!buf->Plane(0)) {
+	if (!grab->Plane(0)) {
 		LOGERROR("grab: %s: prime data is not mapped!", __FUNCTION__);
 		return NULL;
 	}
@@ -291,8 +295,8 @@ static uint8_t *BufToRgb(cDrmBuffer *buf, int *size, int dstW, int dstH, enum AV
 	uint8_t *tmpData[4] = {0};
 	int tmpLinesize[4] = {0};
 	int tmpImgSize = 0;
-	if (buf->Modifier() == DRM_FORMAT_MOD_BROADCOM_SAND128) {
-		if (buf->PixFmt() == DRM_FORMAT_NV12) {
+	if (grab->Modifier() == DRM_FORMAT_MOD_BROADCOM_SAND128) {
+		if (grab->PixFmt() == DRM_FORMAT_NV12) {
 			int stride1 = 128;
 
 			tmpImgSize = av_image_alloc(tmpData, tmpLinesize, srcW, srcH, srcPixFmt, 1);
@@ -303,21 +307,19 @@ static uint8_t *BufToRgb(cDrmBuffer *buf, int *size, int dstW, int dstH, enum AV
 			}
 
 			Sand128ToPlanarY8(tmpData[0], tmpLinesize[0],
-			                  buf->Plane(0) + buf->Offset(0),
-			                  stride1, buf->Pitch(0),
+			                  grab->Plane(0) + grab->Offset(0),
+			                  stride1, grab->Pitch(0),
 			                  srcW, srcH);
 			Sand128ToPlanarY8(tmpData[1], tmpLinesize[1],
-			                  buf->Plane(1) + buf->Offset(1),
-			                  stride1, buf->Pitch(1),
+			                  grab->Plane(1) + grab->Offset(1),
+			                  stride1, grab->Pitch(1),
 			                  srcW, srcH / 2);
 
 			srcData[0] = tmpData[0];
 			srcData[1] = tmpData[1];
 			srcLinesize[0] = tmpLinesize[0];
 			srcLinesize[1] = tmpLinesize[1];
-
-			srcH = buf->Height();
-		} else if (buf->PixFmt() == DRM_FORMAT_P030) {
+		} else if (grab->PixFmt() == DRM_FORMAT_P030) {
 			int stride1 = 128;
 
 			tmpImgSize = av_image_alloc(tmpData, tmpLinesize, srcW, srcH, srcPixFmt, 1);
@@ -328,13 +330,13 @@ static uint8_t *BufToRgb(cDrmBuffer *buf, int *size, int dstW, int dstH, enum AV
 			}
 
 			Sand30ToPlanarY16(tmpData[0], tmpLinesize[0],
-			                  buf->Plane(0) + buf->Offset(0),
-			                  stride1, buf->Pitch(0),
+			                  grab->Plane(0) + grab->Offset(0),
+			                  stride1, grab->Pitch(0),
 			                  srcW, srcH);
 			Sand30ToPlanarC16(tmpData[1], tmpLinesize[1],
 			                  tmpData[2], tmpLinesize[2],
-			                  buf->Plane(1) + buf->Offset(1),
-			                  stride1, buf->Pitch(1),
+			                  grab->Plane(1) + grab->Offset(1),
+			                  stride1, grab->Pitch(1),
 			                  srcW / 2, srcH / 2);
 
 			srcData[0] = tmpData[0];
@@ -343,21 +345,17 @@ static uint8_t *BufToRgb(cDrmBuffer *buf, int *size, int dstW, int dstH, enum AV
 			srcLinesize[0] = tmpLinesize[0];
 			srcLinesize[1] = tmpLinesize[1];
 			srcLinesize[2] = tmpLinesize[2];
-
-			srcH = buf->Height();
 		}
 	} else {
 		// copy src pitches and data
-		for (int i = 0; i < buf->NumPlanes(); i++) {
-			srcLinesize[i] = buf->Pitch(i);
-			srcData[i] = buf->Plane(i) + buf->Offset(i);
+		for (int i = 0; i < grab->NumPlanes(); i++) {
+			srcLinesize[i] = grab->Pitch(i);
+			srcData[i] = grab->Plane(i) + grab->Offset(i);
 		}
 	}
 
 	// scale image
-	sws_scale(swsCtx,
-	          (const uint8_t * const*)srcData, srcLinesize, 0, srcH,
-	          dstData, dstLinesize);
+	sws_scale(swsCtx, (const uint8_t * const*)srcData, srcLinesize, 0, srcH, dstData, dstLinesize);
 
 	sws_freeContext(swsCtx);
 	*size = dstBufsize;
@@ -530,31 +528,121 @@ extern "C" uint8_t * CreateJpeg(uint8_t * image, int *size, int quality,
  ****************************************************************************/
 
 /**
- * Free the grabbed drm buffer
+ * Free the grab input buffer
  */
-void cGrabBuffer::FreeDrmBuf(void)
+void cGrabBuffer::FreeInput(void)
 {
-	if (!m_pBuf)
+	// early return, because the grab buffer wasn't set
+	if (m_outputRect.IsEmpty())
 		return;
 
-	for (int plane = 0; plane < m_pBuf->NumPlanes(); plane++) {
-		if (m_pBuf->Size(plane)) {
-			LOGDEBUG2(L_GRAB, "grab: %s: free buf %p (plane %d)", __FUNCTION__, m_pBuf->Plane(plane), plane);
-			free(m_pBuf->Plane(plane));
+	// free the allocated memory
+	for (int plane = 0; plane < m_numPlanes; plane++) {
+		if (m_size[plane]) {
+			LOGDEBUG2(L_GRAB, "grab: %s: free buf %p (plane %d)", __FUNCTION__, m_pPlane[plane], plane);
+			free(m_pPlane[plane]);
 		}
 	}
-	delete m_pBuf;
 
-	m_pBuf = nullptr;
+	// reset member variables
+	m_width = 0;
+	m_height = 0;
+	m_pixFmt = 0;
+	m_modifier = 0;
+	m_numPlanes = 0;
+
+	for (int i = 0; i < 4; i++) {
+		m_offset[i] = 0;
+		m_pitch[i] = 0;
+		m_size[i] = 0;
+		m_pPlane[i] = nullptr;
+	}
+}
+
+void cGrabBuffer::Clear(void)
+{
+	m_outputRect.Set(0, 0, 0, 0);
+	m_outputSize = 0;
+	m_pOutputData = nullptr; // result needs to be freed by the caller of GetGrab()
+
+	FreeInput(); // input should already be freed and reset after Buf2Rgb
 }
 
 /**
  * Set the grab buffer and the dimensions how it is presented on the screen
  */
-void cGrabBuffer::SetDrmBuf(cDrmBuffer *buf)
+void cGrabBuffer::Set(cDrmBuffer *src)
 {
-	m_pBuf = buf;
-	m_rect.Set(buf->GetScreenRect().Point(), buf->GetScreenRect().Size());
+	if (src->GetScreenRect().IsEmpty())
+		return;
+
+	void *src_buffer = nullptr;
+	void *dst_buffer = nullptr;
+
+	// planes aren't mmapped, do it (PRIME)
+	if (!src->Plane(0)) {
+		for (int object = 0; object < src->NumObjects(); object++) {
+
+			// memcpy mmapped data
+			dst_buffer = malloc(src->Size(object));
+			if (!dst_buffer) {
+				LOGERROR("buffer: %s: cannot allocate destination buffer (%d): %m", __FUNCTION__, errno);
+				// @todo handle possible leaks of previous objects
+				return;
+			}
+
+			src_buffer = mmap(NULL, src->Size(object), PROT_READ, MAP_SHARED, src->DmaBufHandle(object), 0);
+			if (src_buffer == MAP_FAILED) {
+				free(dst_buffer);
+				LOGERROR("buffer: %s: cannot map buffer size %d prime_fd %d (%d): %m",
+					__FUNCTION__, src->Size(object), src->DmaBufHandle(object), errno);
+				// @todo handle possible leaks of previous objects
+				return;
+			}
+
+			LOGDEBUG2(L_GRAB, "buffer: %s: Copy %p to %p", __FUNCTION__, src_buffer, dst_buffer);
+			memcpy(dst_buffer, src_buffer, src->Size(object));
+			munmap(src_buffer, src->Size(object));
+
+			for (int plane = 0; plane < src->NumPlanes(); plane++) {
+				if (src->ObjectIndex(plane) == object) {
+					m_pPlane[plane] = (uint8_t *)dst_buffer;
+					LOGDEBUG2(L_GRAB, "buffer: %s: plane[%d] gets %p (object %d)", __FUNCTION__, plane, dst_buffer, object);
+				}
+			}
+		}
+	} else {
+		for (int plane = 0; plane < src->NumPlanes(); plane++) {
+			dst_buffer = malloc(src->Size(plane));
+			if (!dst_buffer) {
+				LOGERROR("buffer: %s: cannot allocate destination buffer (%d): %m", __FUNCTION__, errno);
+				return;
+			}
+			memcpy(dst_buffer, src->Plane(plane), src->Size(plane));
+			m_pPlane[plane] = (uint8_t *)dst_buffer;
+		}
+	}
+
+	m_width = src->Width();
+	m_height = src->Height();
+	m_pixFmt = src->PixFmt();
+	m_modifier = src->Modifier();
+	m_numPlanes = src->NumPlanes();
+
+	for (int i = 0; i < src->NumPlanes(); i++) {
+		m_offset[i] = src->Offset(i);
+		m_pitch[i] = src->Pitch(i);
+		m_size[i] = src->Size(i);
+	}
+
+	m_outputRect.Set(src->GetScreenRect().Point(), src->GetScreenRect().Size());
+
+	LOGDEBUG2(L_GRAB, "buffer: %s: Set input buffer: %dx%d pixFmt %d modifier %d num planes %d with %dx%d at %d|%d",
+		__FUNCTION__, m_width, m_height, m_pixFmt, m_modifier, m_numPlanes, m_outputRect.Width(), m_outputRect.Height(), m_outputRect.X(), m_outputRect.Y());
+	for (int plane = 0; plane < m_numPlanes; plane++) {
+		LOGDEBUG2(L_GRAB, "buffer: %s: Copied plane %d address %p pitch %d offset %d size %d",
+			__FUNCTION__, plane, m_pPlane[plane], m_pitch[plane], m_offset[plane], m_size[plane]);
+	}
 }
 
 /*****************************************************************************
@@ -642,37 +730,37 @@ uint8_t *cSoftHdGrab::GetGrab(int *size, int *width, int *height, int *x, int *y
 			LOGFATAL("grab: %s no valid type, bug!", __FUNCTION__);
 	}
 
-	cDrmBuffer *buf = grab->GetDrmBuf();
-
-	// early return if buf = NULL
-	if (!buf) {
-		grab->SetData(NULL);
-		grab->SetSize(0);
+	// early return if no grab buffer is set
+	if (!grab->IsSet()) {
+		grab->SetOutputData(NULL);
+		grab->SetOutputSize(0);
 		return nullptr;
 	}
 
-	for (int plane = 0; plane < buf->NumPlanes(); plane++) {
-		LOGDEBUG2(L_GRAB, "grab: %s: %s plane %d address %p pitch %d offset %d handle %d size %d", __FUNCTION__,
-			   GrabtypeToString(type), plane, buf->Plane(plane), buf->Pitch(plane), buf->Offset(plane), buf->PrimeHandle(plane), buf->Size(plane));
+	for (int plane = 0; plane < grab->NumPlanes(); plane++) {
+		LOGDEBUG2(L_GRAB, "grab: %s: %s plane %d address %p pitch %d offset %d", __FUNCTION__,
+			   GrabtypeToString(type), plane, grab->Plane(plane), grab->Pitch(plane), grab->Offset(plane));
 	}
+
 	// result's width and height are original dimensions how buffer is presented on the screen
-	uint8_t * result = BufToRgb(buf, &psize, grab->GetWidth(), grab->GetHeight(), type == Grabtype::GRABOSD ? AV_PIX_FMT_BGRA : AV_PIX_FMT_RGB24);
-	grab->SetData(result);
-	grab->SetSize(psize);
-	grab->FreeDrmBuf();
+	uint8_t *result = BufToRgb(grab, &psize, type == Grabtype::GRABOSD ? AV_PIX_FMT_BGRA : AV_PIX_FMT_RGB24);
+	grab->SetOutputData(result);
+	grab->SetOutputSize(psize);
 
 	if (size)
-		*size = grab->GetSize();
+		*size = grab->GetOutputSize();
 	if (width)
-		*width = grab->GetWidth();
+		*width = grab->GetOutputWidth();
 	if (height)
-		*height = grab->GetHeight();
+		*height = grab->GetOutputHeight();
 	if (x)
-		*x = grab->GetX();
+		*x = grab->GetOutputX();
 	if (y)
-		*y = grab->GetY();
+		*y = grab->GetOutputY();
 
-	return grab->GetData();
+	grab->FreeInput();
+
+	return grab->GetOutputData();
 }
 
 /**
