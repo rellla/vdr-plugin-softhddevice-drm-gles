@@ -18,9 +18,10 @@ Features
 - Audio passthrough support (AC3, E-AC3, DTS)
 - UHD support
 - HDR display support
+- Auto-switch display mode to video source (optional)
 - Picture-in-picture support (depending on hardware)
 - Integrated minimalistic media player
-- Grabbing support
+- Grabbing support - video, osd and pip - mpeg2, h264, hevc (8/10bit)
 - Detach/Attach support (release display, audio and GPU resources, but keep VDR running)
 - Many adjustable (expert) settings via setup menu
 
