@@ -232,142 +232,6 @@ enum AVPixelFormat DrmFormatToAVFormat(uint32_t pixFmt)
 	return AV_PIX_FMT_NONE;
 }
 
-
-/**
- * Convert a DRM buffer to rgb format image
- *
- * Conversion is done with ffmpegs swscale
- *
- * @param[in] buf             pointer to the source drm buffer struct
- * @param[out] size           size of the return data
- * @param[in] dstW            width of the returned image
- * @param[in] dstH            height of the returned image
- * @param[in] dstPixFmt       pixel format of the returned image
- *
- * @return                    a pointer to the image data
- */
-static uint8_t *BufToRgb(cGrabBuffer *grab, int *size, enum AVPixelFormat dstPixFmt)
-{
-	uint8_t *srcData[4] = {nullptr};
-	uint8_t *dstData[4] = {nullptr};;
-	int srcLinesize[4] = {0};
-	int dstLinesize[4] = {0};
-	int dstW = grab->GetOutputWidth();
-	int dstH = grab->GetOutputHeight();
-
-	int srcW = grab->Width();
-	int srcH = grab->Height();
-
-	enum AVPixelFormat srcPixFmt = DrmFormatToAVFormat(grab->PixFmt());
-	if (srcPixFmt == AV_PIX_FMT_NONE) {
-		LOGERROR("grab: %s: pixel format is not supported!", __FUNCTION__);
-		return NULL;
-	}
-
-	int dstBufsize = 0;
-	struct SwsContext *swsCtx;
-	int ret;
-
-	// planes aren't mmapped, return
-	// this should be done before in VideoCloneBuf
-	if (!grab->Plane(0)) {
-		LOGERROR("grab: %s: prime data is not mapped!", __FUNCTION__);
-		return NULL;
-	}
-
-	// convert yuv to rgb
-	swsCtx = sws_getContext(srcW, srcH, srcPixFmt,
-	                        dstW, dstH, dstPixFmt,
-	                        SWS_BILINEAR, NULL, NULL, NULL);
-	if (!swsCtx) {
-		LOGERROR("grab: %s: Could not create swsCtx", __FUNCTION__);
-		return NULL;
-	}
-
-	if ((ret = av_image_alloc(dstData, dstLinesize, dstW, dstH, dstPixFmt, 1)) < 0) {
-		LOGERROR("grab: %s: Could not alloc dst image", __FUNCTION__);
-		sws_freeContext(swsCtx);
-		return NULL;
-	}
-	dstBufsize = ret;
-
-	// De-tile sand format
-	uint8_t *tmpData[4] = {0};
-	int tmpLinesize[4] = {0};
-	int tmpImgSize = 0;
-	if (grab->Modifier() == DRM_FORMAT_MOD_BROADCOM_SAND128) {
-		if (grab->PixFmt() == DRM_FORMAT_NV12) {
-			int stride1 = 128;
-
-			tmpImgSize = av_image_alloc(tmpData, tmpLinesize, srcW, srcH, srcPixFmt, 1);
-			if (tmpImgSize < 0) {
-				LOGERROR("grab: %s: Could not alloc tmp image", __FUNCTION__);
-				sws_freeContext(swsCtx);
-				return NULL;
-			}
-
-			Sand128ToPlanarY8(tmpData[0], tmpLinesize[0],
-			                  grab->Plane(0) + grab->Offset(0),
-			                  stride1, grab->Pitch(0),
-			                  srcW, srcH);
-			Sand128ToPlanarY8(tmpData[1], tmpLinesize[1],
-			                  grab->Plane(1) + grab->Offset(1),
-			                  stride1, grab->Pitch(1),
-			                  srcW, srcH / 2);
-
-			srcData[0] = tmpData[0];
-			srcData[1] = tmpData[1];
-			srcLinesize[0] = tmpLinesize[0];
-			srcLinesize[1] = tmpLinesize[1];
-		} else if (grab->PixFmt() == DRM_FORMAT_P030) {
-			int stride1 = 128;
-
-			tmpImgSize = av_image_alloc(tmpData, tmpLinesize, srcW, srcH, srcPixFmt, 1);
-			if (tmpImgSize < 0) {
-				LOGERROR("grab: %s: Could not alloc tmp image", __FUNCTION__);
-				sws_freeContext(swsCtx);
-				return NULL;
-			}
-
-			Sand30ToPlanarY16(tmpData[0], tmpLinesize[0],
-			                  grab->Plane(0) + grab->Offset(0),
-			                  stride1, grab->Pitch(0),
-			                  srcW, srcH);
-			Sand30ToPlanarC16(tmpData[1], tmpLinesize[1],
-			                  tmpData[2], tmpLinesize[2],
-			                  grab->Plane(1) + grab->Offset(1),
-			                  stride1, grab->Pitch(1),
-			                  srcW / 2, srcH / 2);
-
-			srcData[0] = tmpData[0];
-			srcData[1] = tmpData[1];
-			srcData[2] = tmpData[2];
-			srcLinesize[0] = tmpLinesize[0];
-			srcLinesize[1] = tmpLinesize[1];
-			srcLinesize[2] = tmpLinesize[2];
-		}
-	} else {
-		// copy src pitches and data
-		for (int i = 0; i < grab->NumPlanes(); i++) {
-			srcLinesize[i] = grab->Pitch(i);
-			srcData[i] = grab->Plane(i) + grab->Offset(i);
-		}
-	}
-
-	// scale image
-	sws_scale(swsCtx, (const uint8_t * const*)srcData, srcLinesize, 0, srcH, dstData, dstLinesize);
-
-	sws_freeContext(swsCtx);
-	*size = dstBufsize;
-
-	if (tmpImgSize > 0)
-		av_freep(&tmpData[0]);
-
-	LOGDEBUG2(L_GRAB, "grab: %s: return image at %p size %d", __FUNCTION__, dstData[0], dstBufsize);
-
-	return dstData[0];
-}
-
 /**
  * Scale an image
  *
@@ -397,12 +261,12 @@ static uint8_t *ScaleRgb24(uint8_t *src, int *size, int srcW, int srcH, int dstW
 	                        dstW, dstH, AV_PIX_FMT_RGB24,
 	                        SWS_BILINEAR, NULL, NULL, NULL);
 	if (!swsCtx) {
-		LOGERROR("grab: %s: Could not create swsCtx", __FUNCTION__);
+		LOGERROR("%s: Could not create swsCtx", __FUNCTION__);
 		return NULL;
 	}
 
 	if ((ret = av_image_alloc(dstData, dstLinesize, dstW, dstH, AV_PIX_FMT_RGB24, 1)) < 0) {
-		LOGERROR("grab: %s: Could not alloc dst image", __FUNCTION__);
+		LOGERROR("%s: Could not alloc dst image", __FUNCTION__);
 		sws_freeContext(swsCtx);
 		return NULL;
 	}
@@ -415,7 +279,7 @@ static uint8_t *ScaleRgb24(uint8_t *src, int *size, int srcW, int srcH, int dstW
 	sws_freeContext(swsCtx);
 	*size = dstBufsize;
 
-	LOGDEBUG2(L_GRAB, "grab: %s: return scaled image at %p size %d", __FUNCTION__, dstData[0], dstBufsize);
+	LOGDEBUG2(L_GRAB, "%s: return scaled image at %p size %d", __FUNCTION__, dstData[0], dstBufsize);
 	return dstData[0];
 }
 
@@ -500,7 +364,7 @@ static int BlitVideo(uint8_t *dst, uint8_t *src, int dstW, int dstH, int dstX, i
 	int dstStride = dstW * 3;
 
 	if ((dstX + srcW > dstW) || (dstY + srcH > dstH)) {
-		LOGDEBUG2(L_GRAB, "grab: %s: wrong dimensions, cropping not supported!", __FUNCTION__);
+		LOGDEBUG2(L_GRAB, "%s: wrong dimensions, cropping not supported!", __FUNCTION__);
 		return -1;
 	}
 
@@ -539,7 +403,7 @@ void cGrabBuffer::FreeInput(void)
 	// free the allocated memory
 	for (int plane = 0; plane < m_numPlanes; plane++) {
 		if (m_size[plane]) {
-			LOGDEBUG2(L_GRAB, "grab: %s: free buf %p (plane %d)", __FUNCTION__, m_pPlane[plane], plane);
+			LOGDEBUG2(L_GRAB, "%s: %s: free buf %p (plane %d)", m_identifier, __FUNCTION__, m_pPlane[plane], plane);
 			free(m_pPlane[plane]);
 		}
 	}
@@ -559,17 +423,22 @@ void cGrabBuffer::FreeInput(void)
 	}
 }
 
+/**
+ * Clear the grab buffer (input and output data)
+ */
 void cGrabBuffer::Clear(void)
 {
+	FreeInput(); // input should already be freed and reset after ConvertToRgb
+
 	m_outputRect.Set(0, 0, 0, 0);
 	m_outputSize = 0;
-	m_pOutputData = nullptr; // result needs to be freed by the caller of GetGrab()
-
-	FreeInput(); // input should already be freed and reset after Buf2Rgb
+	m_pOutputData = nullptr; // result needs to be freed by the caller of GetGrabbedData()
 }
 
 /**
  * Set the grab buffer and the dimensions how it is presented on the screen
+ *
+ * @param src          original drm buffer, where the parameters and data is copied from
  */
 void cGrabBuffer::Set(cDrmBuffer *src)
 {
@@ -586,7 +455,7 @@ void cGrabBuffer::Set(cDrmBuffer *src)
 			// memcpy mmapped data
 			dst_buffer = malloc(src->Size(object));
 			if (!dst_buffer) {
-				LOGERROR("buffer: %s: cannot allocate destination buffer (%d): %m", __FUNCTION__, errno);
+				LOGERROR("%s: %s: cannot allocate destination buffer (%d): %m", m_identifier, __FUNCTION__, errno);
 				// @todo handle possible leaks of previous objects
 				return;
 			}
@@ -594,28 +463,25 @@ void cGrabBuffer::Set(cDrmBuffer *src)
 			src_buffer = mmap(NULL, src->Size(object), PROT_READ, MAP_SHARED, src->DmaBufHandle(object), 0);
 			if (src_buffer == MAP_FAILED) {
 				free(dst_buffer);
-				LOGERROR("buffer: %s: cannot map buffer size %d prime_fd %d (%d): %m",
-					__FUNCTION__, src->Size(object), src->DmaBufHandle(object), errno);
+				LOGERROR("%s: %s: cannot map buffer size %d prime_fd %d (%d): %m",
+					m_identifier, __FUNCTION__, src->Size(object), src->DmaBufHandle(object), errno);
 				// @todo handle possible leaks of previous objects
 				return;
 			}
 
-			LOGDEBUG2(L_GRAB, "buffer: %s: Copy %p to %p", __FUNCTION__, src_buffer, dst_buffer);
 			memcpy(dst_buffer, src_buffer, src->Size(object));
 			munmap(src_buffer, src->Size(object));
 
 			for (int plane = 0; plane < src->NumPlanes(); plane++) {
-				if (src->ObjectIndex(plane) == object) {
+				if (src->ObjectIndex(plane) == object)
 					m_pPlane[plane] = (uint8_t *)dst_buffer;
-					LOGDEBUG2(L_GRAB, "buffer: %s: plane[%d] gets %p (object %d)", __FUNCTION__, plane, dst_buffer, object);
-				}
 			}
 		}
 	} else {
 		for (int plane = 0; plane < src->NumPlanes(); plane++) {
 			dst_buffer = malloc(src->Size(plane));
 			if (!dst_buffer) {
-				LOGERROR("buffer: %s: cannot allocate destination buffer (%d): %m", __FUNCTION__, errno);
+				LOGERROR("%s: %s: cannot allocate destination buffer (%d): %m", m_identifier, __FUNCTION__, errno);
 				return;
 			}
 			memcpy(dst_buffer, src->Plane(plane), src->Size(plane));
@@ -637,13 +503,146 @@ void cGrabBuffer::Set(cDrmBuffer *src)
 
 	m_outputRect.Set(src->GetScreenRect().Point(), src->GetScreenRect().Size());
 
-	LOGDEBUG2(L_GRAB, "buffer: %s: Set input buffer: %dx%d pixFmt %d modifier %d num planes %d with %dx%d at %d|%d",
-		__FUNCTION__, m_width, m_height, m_pixFmt, m_modifier, m_numPlanes, m_outputRect.Width(), m_outputRect.Height(), m_outputRect.X(), m_outputRect.Y());
+	LOGDEBUG2(L_GRAB, "%s: %s: Set input buffer: %dx%d pixFmt %d modifier %d num planes %d with %dx%d at %d|%d",
+		m_identifier, __FUNCTION__, m_width, m_height, m_pixFmt, m_modifier, m_numPlanes, m_outputRect.Width(), m_outputRect.Height(), m_outputRect.X(), m_outputRect.Y());
 	for (int plane = 0; plane < m_numPlanes; plane++) {
-		LOGDEBUG2(L_GRAB, "buffer: %s: Copied plane %d address %p pitch %d offset %d size %d",
-			__FUNCTION__, plane, m_pPlane[plane], m_pitch[plane], m_offset[plane], m_size[plane]);
+		LOGDEBUG2(L_GRAB, "%s: %s: Copied plane %d address %p pitch %d offset %d size %d",
+			m_identifier, __FUNCTION__, plane, m_pPlane[plane], m_pitch[plane], m_offset[plane], m_size[plane]);
 	}
 }
+
+/**
+ * Convert a grabbed buffer to rgb format image
+ *
+ * Conversion is done with ffmpegs swscale
+ *
+ * @param[out] size           size of the return data
+ *
+ * @return                    a pointer to the image data
+ */
+uint8_t *cGrabBuffer::ConvertToRgb(int *size)
+{
+	uint8_t *srcData[4] = {nullptr};
+	uint8_t *dstData[4] = {nullptr};;
+	int srcLinesize[4] = {0};
+	int dstLinesize[4] = {0};
+	int dstW = GetOutputWidth();
+	int dstH = GetOutputHeight();
+	enum AVPixelFormat dstPixFmt = strcmp(m_identifier, "OSD") == 0 ? AV_PIX_FMT_BGRA : AV_PIX_FMT_RGB24;
+
+	int srcW = m_width;
+	int srcH = m_height;
+
+	enum AVPixelFormat srcPixFmt = DrmFormatToAVFormat(m_pixFmt);
+	if (srcPixFmt == AV_PIX_FMT_NONE) {
+		LOGERROR("%s: %s: pixel format is not supported!", m_identifier, __FUNCTION__);
+		return NULL;
+	}
+
+	int dstBufsize = 0;
+	struct SwsContext *swsCtx;
+	int ret;
+
+	// planes aren't mmapped, return
+	if (!m_pPlane[0]) {
+		LOGERROR("%s: %s: prime data is not mapped!", m_identifier, __FUNCTION__);
+		return NULL;
+	}
+
+	// convert yuv to rgb
+	swsCtx = sws_getContext(srcW, srcH, srcPixFmt,
+	                        dstW, dstH, dstPixFmt,
+	                        SWS_BILINEAR, NULL, NULL, NULL);
+	if (!swsCtx) {
+		LOGERROR("%s: %s: Could not create swsCtx", m_identifier, __FUNCTION__);
+		return NULL;
+	}
+
+	if ((ret = av_image_alloc(dstData, dstLinesize, dstW, dstH, dstPixFmt, 1)) < 0) {
+		LOGERROR("%s: %s: Could not alloc dst image", m_identifier, __FUNCTION__);
+		sws_freeContext(swsCtx);
+		return NULL;
+	}
+	dstBufsize = ret;
+
+	// De-tile sand format
+	uint8_t *tmpData[4] = {0};
+	int tmpLinesize[4] = {0};
+	int tmpImgSize = 0;
+	if (m_modifier == DRM_FORMAT_MOD_BROADCOM_SAND128) {
+		if (m_pixFmt == DRM_FORMAT_NV12) {
+			int stride1 = 128;
+
+			tmpImgSize = av_image_alloc(tmpData, tmpLinesize, srcW, srcH, srcPixFmt, 1);
+			if (tmpImgSize < 0) {
+				LOGERROR("%s: %s: Could not alloc tmp image", m_identifier, __FUNCTION__);
+				sws_freeContext(swsCtx);
+				return NULL;
+			}
+
+			Sand128ToPlanarY8(tmpData[0], tmpLinesize[0],
+			                  m_pPlane[0] + m_offset[0],
+			                  stride1, m_pitch[0],
+			                  srcW, srcH);
+			Sand128ToPlanarY8(tmpData[1], tmpLinesize[1],
+			                  m_pPlane[1] + m_offset[1],
+			                  stride1, m_pitch[1],
+			                  srcW, srcH / 2);
+
+			srcData[0] = tmpData[0];
+			srcData[1] = tmpData[1];
+			srcLinesize[0] = tmpLinesize[0];
+			srcLinesize[1] = tmpLinesize[1];
+		} else if (m_pixFmt == DRM_FORMAT_P030) {
+			int stride1 = 128;
+
+			tmpImgSize = av_image_alloc(tmpData, tmpLinesize, srcW, srcH, srcPixFmt, 1);
+			if (tmpImgSize < 0) {
+				LOGERROR("%s: %s: Could not alloc tmp image", m_identifier, __FUNCTION__);
+				sws_freeContext(swsCtx);
+				return NULL;
+			}
+
+			Sand30ToPlanarY16(tmpData[0], tmpLinesize[0],
+			                  m_pPlane[0] + m_offset[0],
+			                  stride1, m_pitch[0],
+			                  srcW, srcH);
+			Sand30ToPlanarC16(tmpData[1], tmpLinesize[1],
+			                  tmpData[2], tmpLinesize[2],
+			                  m_pPlane[1] + m_offset[1],
+			                  stride1, m_pitch[1],
+			                  srcW / 2, srcH / 2);
+
+			srcData[0] = tmpData[0];
+			srcData[1] = tmpData[1];
+			srcData[2] = tmpData[2];
+			srcLinesize[0] = tmpLinesize[0];
+			srcLinesize[1] = tmpLinesize[1];
+			srcLinesize[2] = tmpLinesize[2];
+		}
+	} else {
+		// copy src pitches and data
+		for (int i = 0; i < m_numPlanes; i++) {
+			srcLinesize[i] = m_pitch[i];
+			srcData[i] = m_pPlane[i] + m_offset[i];
+		}
+	}
+
+	// scale image
+	sws_scale(swsCtx, (const uint8_t * const*)srcData, srcLinesize, 0, srcH, dstData, dstLinesize);
+
+	sws_freeContext(swsCtx);
+	*size = dstBufsize;
+
+	if (tmpImgSize > 0)
+		av_freep(&tmpData[0]);
+
+	LOGDEBUG2(L_GRAB, "%s: %s: return image at %p size %d", m_identifier, __FUNCTION__, dstData[0], dstBufsize);
+
+	return dstData[0];
+}
+
+
 
 /*****************************************************************************
  * cSoftHdGrab class
@@ -663,8 +662,9 @@ bool cSoftHdGrab::Start(bool jpeg, int quality, int width, int height, int scree
 {
 	m_active = true;
 
-	LOGDEBUG2(L_GRAB, "grab: starting grab for %s image (%dx%d, quality %d)", jpeg ? "jpg" : "pnm", width, height, quality);
+	LOGDEBUG2(L_GRAB, "Starting grab for %s image (%dx%d, quality %d)", jpeg ? "jpg" : "pnm", width, height, quality);
 
+	// always clear the buffers in case sth. unexpected happend
 	m_pRender->ClearGrabBuffers();
 
 	m_isJpeg = jpeg;
@@ -679,7 +679,7 @@ bool cSoftHdGrab::Start(bool jpeg, int quality, int width, int height, int scree
 
 	if (m_pRender->TriggerGrab()) {
 		Finish();
-		LOGDEBUG2(L_GRAB, "grab: grabbing %s image (%dx%d, quality %d) failed", jpeg ? "jpg" : "pnm", width, height, quality);
+		LOGDEBUG2(L_GRAB, "Grabbing %s image (%dx%d, quality %d) failed", jpeg ? "jpg" : "pnm", width, height, quality);
 		return false;
 	}
 
@@ -698,6 +698,25 @@ void cSoftHdGrab::Finish(void)
 	m_active = false;
 }
 
+uint8_t *cSoftHdGrab::GetGrabbedVideoData(int *size, int *width, int *height, int *x, int *y)
+{
+	cGrabBuffer *grab = m_pRender->GetGrabbedVideoBuffer();
+	return GetGrabbedData(size, width, height, x, y, grab);
+}
+
+uint8_t *cSoftHdGrab::GetGrabbedPipData(int *size, int *width, int *height, int *x, int *y)
+{
+	cGrabBuffer *grab = m_pRender->GetGrabbedPipBuffer();
+	return GetGrabbedData(size, width, height, x, y, grab);
+}
+
+uint8_t *cSoftHdGrab::GetGrabbedOsdData(int *size, int *width, int *height, int *x, int *y)
+{
+	cGrabBuffer *grab = m_pRender->GetGrabbedOsdBuffer();
+	return GetGrabbedData(size, width, height, x, y, grab);
+}
+
+
 /**
  * Convert the cloned drm buffer data to RGB(void, pip) or ARGB (osd)
  * and return a pointer to the raw data.
@@ -707,28 +726,13 @@ void cSoftHdGrab::Finish(void)
  * @param[out] height          height of the grabbed buffer
  * @param[out] x               x offset of the grabbed buffer
  * @param[out] y               y offset of the grabbed buffer
- * @param[in]  buffer type     buffer type (Grabtype)
+ * @param[in]  grab            grabbed buffer
  *
  * @return a pointer to the raw buffer data
  */
-uint8_t *cSoftHdGrab::GetGrab(int *size, int *width, int *height, int *x, int *y, Grabtype type)
+uint8_t *cSoftHdGrab::GetGrabbedData(int *size, int *width, int *height, int *x, int *y, cGrabBuffer *grab)
 {
 	int psize = 0;
-	cGrabBuffer *grab = nullptr;
-
-	switch (type) {
-		case Grabtype::GRABVIDEO:
-			grab = m_pRender->GetGrabbedVideoBuffer();
-			break;
-		case Grabtype::GRABPIP:
-			grab = m_pRender->GetGrabbedPipBuffer();
-			break;
-		case Grabtype::GRABOSD:
-			grab = m_pRender->GetGrabbedOsdBuffer();
-			break;
-		default:
-			LOGFATAL("grab: %s no valid type, bug!", __FUNCTION__);
-	}
 
 	// early return if no grab buffer is set
 	if (!grab->IsSet()) {
@@ -737,13 +741,10 @@ uint8_t *cSoftHdGrab::GetGrab(int *size, int *width, int *height, int *x, int *y
 		return nullptr;
 	}
 
-	for (int plane = 0; plane < grab->NumPlanes(); plane++) {
-		LOGDEBUG2(L_GRAB, "grab: %s: %s plane %d address %p pitch %d offset %d", __FUNCTION__,
-			   GrabtypeToString(type), plane, grab->Plane(plane), grab->Pitch(plane), grab->Offset(plane));
-	}
-
 	// result's width and height are original dimensions how buffer is presented on the screen
-	uint8_t *result = BufToRgb(grab, &psize, type == Grabtype::GRABOSD ? AV_PIX_FMT_BGRA : AV_PIX_FMT_RGB24);
+	uint8_t *result = grab->ConvertToRgb(&psize);
+	grab->FreeInput();
+
 	grab->SetOutputData(result);
 	grab->SetOutputSize(psize);
 
@@ -757,8 +758,6 @@ uint8_t *cSoftHdGrab::GetGrab(int *size, int *width, int *height, int *x, int *y
 		*x = grab->GetOutputX();
 	if (y)
 		*y = grab->GetOutputY();
-
-	grab->FreeInput();
 
 	return grab->GetOutputData();
 }
@@ -794,23 +793,23 @@ bool cSoftHdGrab::ProcessGrab(void)
 
 	// fetch video data
 	// Video comes as RGB, width and height is original screen dimension (video is maybe scaled)
-	uint8_t *video = GetGrab(&videoSize, &videoWidth, &videoHeight, &videoX, &videoY, Grabtype::GRABVIDEO);
+	uint8_t *video = GetGrabbedVideoData(&videoSize, &videoWidth, &videoHeight, &videoX, &videoY);
 	if (!video) {
-		LOGDEBUG2(L_GRAB, "grab: %s: no video data available, create black screen!", __FUNCTION__);
+		LOGDEBUG2(L_GRAB, "%s: no video data available, create black screen!", __FUNCTION__);
 		video = (uint8_t *)calloc(1, screenSize);
 	}
 
 	// fetch pip data
 	// Pip video comes as RGB, width and height is original screen dimension (video is maybe scaled)
-	uint8_t *pip = GetGrab(&pipSize, &pipWidth, &pipHeight, &pipX, &pipY, Grabtype::GRABPIP);
+	uint8_t *pip = GetGrabbedPipData(&pipSize, &pipWidth, &pipHeight, &pipX, &pipY);
 	if (!pip)
-		LOGDEBUG2(L_GRAB, "grab: %s: no pip data available, skip it", __FUNCTION__);
+		LOGDEBUG2(L_GRAB, "%s: no pip data available, skip it", __FUNCTION__);
 
 	// fetch osd data
 	// OSD comes as ARGB, width and height is original screen dimension (osd is always fullscreen)
-	uint8_t *osd = GetGrab(NULL, NULL, NULL, NULL, NULL, Grabtype::GRABOSD);
+	uint8_t *osd = GetGrabbedOsdData(NULL, NULL, NULL, NULL, NULL);
 	if (!osd)
-		LOGDEBUG2(L_GRAB, "grab: %s: no osd data available, skip it", __FUNCTION__);
+		LOGDEBUG2(L_GRAB, "%s: no osd data available, skip it", __FUNCTION__);
 
 	// blit the video into a full black screen if scaled
 	uint8_t *videoResult = video;
@@ -822,7 +821,7 @@ bool cSoftHdGrab::ProcessGrab(void)
 			free(videoResult);
 			free(video);
 			Finish();
-			LOGDEBUG2(L_GRAB, "grab: grab failed during VIDEO blit");
+			LOGDEBUG2(L_GRAB, "grab failed during VIDEO blit");
 			return false;
 		}
 		free(video);
@@ -834,7 +833,7 @@ bool cSoftHdGrab::ProcessGrab(void)
 			free(videoResult);
 			free(pip);
 			Finish();
-			LOGDEBUG2(L_GRAB, "grab: grab failed during PIP blit");
+			LOGDEBUG2(L_GRAB, "grab failed during PIP blit");
 			return false;
 		}
 		free(pip);
@@ -872,7 +871,7 @@ bool cSoftHdGrab::ProcessGrab(void)
 	}
 
 	free(scaledResult);
-	LOGDEBUG2(L_GRAB, "grab: finished %s image (%dx%d, quality %d) at %p (size %d)", m_isJpeg ? "jpg" : "pnm", m_grabbedWidth, m_grabbedHeight, m_isJpeg ? m_quality : 0, m_grabbedImage, m_grabbedSize);
+	LOGDEBUG2(L_GRAB, "Finished %s image (%dx%d, quality %d) at %p (size %d)", m_isJpeg ? "jpg" : "pnm", m_grabbedWidth, m_grabbedHeight, m_isJpeg ? m_quality : 0, m_grabbedImage, m_grabbedSize);
 
 	return true;
 }
