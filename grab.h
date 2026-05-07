@@ -21,28 +21,6 @@ class cDrmBuffer;
 class cVideoRender;
 
 /**
- * @addtogroup misc
- * @{
- */
-
-enum Grabtype {
-	GRABVIDEO,
-	GRABPIP,
-	GRABOSD
-};
-
-inline const char* GrabtypeToString(Grabtype t) {
-    switch(t) {
-        case Grabtype::GRABVIDEO: return "VIDEO";
-        case Grabtype::GRABPIP: return "PIP";
-        case Grabtype::GRABOSD: return "OSD";
-    }
-    return "Unknown";
-}
-
-/** @} */
-
-/**
  * Grabbing Buffer
  *
  * Holds the data for a grabbed buffer.
@@ -53,15 +31,15 @@ inline const char* GrabtypeToString(Grabtype t) {
  */
 class cGrabBuffer {
 public:
-	cGrabBuffer(void) = default;
+	cGrabBuffer(const char *identifier) : m_identifier(identifier) {};
 
 	void FreeInput(void);
 	void Clear(void);
 	void Set(cDrmBuffer *);
 	bool IsSet(void) { return !m_outputRect.IsEmpty(); };
+	uint8_t *ConvertToRgb(int *);
 
 	// setters and getters
-	// output
 	void SetOutputData(uint8_t *result) { m_pOutputData = result; };
 	uint8_t *GetOutputData(void) { return m_pOutputData; };
 	void SetOutputSize(int size) { m_outputSize = size; };
@@ -71,24 +49,13 @@ public:
 	int GetOutputWidth(void) { return m_outputRect.Width(); };
 	int GetOutputHeight(void) { return m_outputRect.Height(); };
 
-	// input
-	uint32_t Width(void) { return m_width; };
-	uint32_t Height(void) { return m_height; };
-	uint32_t PixFmt(void) { return m_pixFmt; };
-	uint64_t Modifier(void) { return m_modifier; };
-	int NumPlanes(void) { return m_numPlanes; };
-	uint8_t *Plane(int idx) { return m_pPlane[idx]; };
-	uint32_t Offset(int idx) { return m_offset[idx]; };
-	uint32_t Pitch(int idx) { return m_pitch[idx]; };
-	uint32_t Size(int idx) { return m_size[idx]; };
-
 private:
 	// output
 	uint8_t *m_pOutputData = nullptr;    ///< pointer to grabbed image
 	int m_outputSize = 0;                ///< size of grabbed data
 	cRect m_outputRect;                  ///< rect of the grabbed data
 
-	// input
+	// input (copied from original cDrmBuffer)
 	uint32_t m_width = 0;
 	uint32_t m_height = 0;
 	uint32_t m_pixFmt = 0;
@@ -98,6 +65,8 @@ private:
 	uint32_t m_offset[4] = {};
 	uint32_t m_pitch[4] = {};
 	uint32_t m_size[4] = {};
+
+	const char *m_identifier;
 };
 
 /**
@@ -131,7 +100,10 @@ private:
 	int m_screenWidth;               ///< pixel screenwidth
 	int m_screenHeight;              ///< pixel screenheight
 
-	uint8_t *GetGrab(int *, int *, int *, int *, int *, Grabtype);
+	uint8_t *GetGrabbedVideoData(int *, int *, int *, int *, int *);
+	uint8_t *GetGrabbedPipData(int *, int *, int *, int *, int *);
+	uint8_t *GetGrabbedOsdData(int *, int *, int *, int *, int *);
+	uint8_t *GetGrabbedData(int *, int *, int *, int *, int *, cGrabBuffer *);
 };
 
 #endif
