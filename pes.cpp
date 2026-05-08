@@ -226,8 +226,11 @@ void cPes::Init(void)
 			LOGWARNING("pes: %s: packet too short: %d %02X", __FUNCTION__, m_size, GetStreamId());
 		else
 			m_valid = true;
-	} else
-		LOGDEBUG("pes: %s: invalid packet: %d %02X", __FUNCTION__, m_size, GetStreamId());
+	} else if (PesLongEnough(m_size)) {
+		LOGDEBUG("pes: %s: invalid packet: %d %02X%02X%02X | %02X", __FUNCTION__, m_size, m_data[0], m_data[1], m_data[2], GetStreamId());
+	} else {
+		LOGDEBUG("pes: %s: packet too short: %d", __FUNCTION__, m_size);
+	}
 }
 
 /**
