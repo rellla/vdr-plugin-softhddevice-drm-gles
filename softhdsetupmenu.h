@@ -108,6 +108,7 @@ protected:
 #ifdef USE_GLES
 	int m_cMaxSizeGPUImageCache;
 #endif
+	int m_cShowChannelSwitchDurationMessage;
 
 private:
 	cSoftHdDevice *m_pDevice;

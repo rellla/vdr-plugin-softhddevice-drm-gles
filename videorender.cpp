@@ -769,6 +769,8 @@ bool cVideoRender::DisplayFrame(void)
 			auto now = std::chrono::steady_clock::now();
 			auto channelSwitchDurationMs = std::chrono::duration_cast<std::chrono::milliseconds>(now - m_pDevice->GetChannelSwitchStartTime()).count();
 			auto durationSinceFirstPacketMs = std::chrono::duration_cast<std::chrono::milliseconds>(now - m_pDevice->GetChannelSwitchFirstPacketTime()).count();
+			if (m_pConfig->ConfigShowChannelSwitchDurationMessage)
+				Skins.Message(mtInfo, cString::sprintf(tr("channel switch done in %ldms (%ldms)"), channelSwitchDurationMs, durationSinceFirstPacketMs));
 			LOGDEBUG("channel switch done in %dms, %dms after first packet was received", channelSwitchDurationMs, durationSinceFirstPacketMs);
 		}
 

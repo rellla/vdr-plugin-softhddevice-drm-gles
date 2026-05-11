@@ -105,6 +105,7 @@ public:
 #ifdef USE_GLES
 	int ConfigMaxSizeGPUImageCache = 128;       ///< config max gpu image cache size
 #endif
+	int ConfigShowChannelSwitchDurationMessage = 0; ///< let the skin show a short message about the channel switch duration
 
 	//
 	// command line parameters

@@ -102,6 +102,7 @@ bool cSoftHdConfig::SetupParse(const char *name, const char *value)
 #ifdef USE_GLES
 	} else if (!strcasecmp(name, "MaxSizeGPUImageCache"))  { ConfigMaxSizeGPUImageCache = atoi(value);
 #endif
+	} else if (!strcasecmp(name, "ShowChannelSwitchDurationMessage"))  { ConfigShowChannelSwitchDurationMessage = atoi(value);
 	} else
 		return false;
 
