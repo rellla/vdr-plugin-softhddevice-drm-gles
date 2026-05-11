@@ -335,6 +335,12 @@ msgstr " OSD Einstellungen"
 msgid " GPU mem used for image caching (MB)"
 msgstr " GPU-Speichergröße für Bild-Zwischenspeicher (MB)"
 
+msgid " Misc settings"
+msgstr " Verschiedene Einstellungen"
+
+msgid " Show channel switch duration"
+msgstr " Zeige Kanalwechseldauer"
+
 #, c-format
 msgid "default %dx%d@%.2f%s"
 msgstr "Standard %dx%d@%.2f%s"
@@ -352,3 +358,7 @@ msgstr "an Video angepasst (interlaced) %dx%d@%.2f%s"
 
 msgid "match video (interlaced)"
 msgstr "an Video anpassen (interlaced)"
+
+#, c-format
+msgid "channel switch done in %ldms (%ldms)"
+msgstr "Kanal gewechselt in %ldms (%ldms)"

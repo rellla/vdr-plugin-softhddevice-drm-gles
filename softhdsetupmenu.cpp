@@ -223,6 +223,8 @@ void cMenuSetupSoft::Create(void)
 			Add(new cMenuEditIntItem(tr(" GPU mem used for image caching (MB)"), &m_cMaxSizeGPUImageCache, 0, 4000));
 		}
 #endif
+		Add(SeparatorName(tr(" Misc settings")));
+		Add(new cMenuEditBoolItem(tr(" Show channel switch duration"), &m_cShowChannelSwitchDurationMessage, trVDR("no"), trVDR("yes")));
 	}
 
 	SetCurrent(Get(current));	// restore selected menu entry
@@ -383,6 +385,7 @@ cMenuSetupSoft::cMenuSetupSoft(cSoftHdDevice *device)
 #ifdef USE_GLES
 	m_cMaxSizeGPUImageCache = m_pConfig->ConfigMaxSizeGPUImageCache;
 #endif
+	m_cShowChannelSwitchDurationMessage = m_pConfig->ConfigShowChannelSwitchDurationMessage;
 
 	Create();
 }
@@ -583,6 +586,7 @@ void cMenuSetupSoft::Store(void)
 #ifdef USE_GLES
 	SetupStore("MaxSizeGPUImageCache", m_pConfig->ConfigMaxSizeGPUImageCache = m_cMaxSizeGPUImageCache);
 #endif
+	SetupStore("ShowChannelSwitchDurationMessage", m_pConfig->ConfigShowChannelSwitchDurationMessage = m_cShowChannelSwitchDurationMessage);
 
 	if (displayModeChanged)
 		m_pDevice->SetDisplayMode(m_pConfig->ConfigVideoDisplayMode);

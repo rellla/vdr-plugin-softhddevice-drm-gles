@@ -206,6 +206,9 @@ Setup: /etc/vdr/setup.conf
 	softhddevice-drm-gles.MaxSizeGPUImageCache = 128
 		how many GPU memory should be used for image caching
 
+	softhddevice-drm-gles.ShowChannelSwitchDurationMessage = 0
+		1 = the skin shows an info message of the channel switch duration
+
 	softhddevice-drm-gles.AdditionalBufferLengthMs = 0
 		0 = default (min 450ms fixed)
 		1 - 1000 = length of additional buffering duration in ms
