@@ -203,8 +203,10 @@ static const std::map<AVCodecID, CodecInfo> AudioCodecMap = {
  * @param data     Pointer to the raw PES packet data
  * @param size     Size of the PES packet in bytes
  */
-cPes::cPes(const uint8_t *data, int size)
-	: m_data(data), m_size(size)
+cPes::cPes(const uint8_t *data, int size, bool isAudio)
+	: m_data(data),
+	  m_size(size),
+	  m_identifier(isAudio ? "audio" : "video")
 {
 }
 
@@ -223,13 +225,13 @@ void cPes::Init(void)
 {
 	if (IsHeaderValid() && IsStreamIdValid()) {
 		if (m_size <= 8 || PesPayloadOffset(m_data) > m_size) // header length field is at position 8 when the PES extension is present
-			LOGWARNING("pes: %s: packet too short: %d %02X", __FUNCTION__, m_size, GetStreamId());
+			LOGWARNING("pes: %s: %s packet too short: %d %02X", __FUNCTION__, m_identifier, m_size, GetStreamId());
 		else
 			m_valid = true;
 	} else if (PesLongEnough(m_size)) {
-		LOGDEBUG("pes: %s: invalid packet: %d %02X%02X%02X | %02X", __FUNCTION__, m_size, m_data[0], m_data[1], m_data[2], GetStreamId());
+		LOGDEBUG("pes: %s: invalid %s packet: %d %02X%02X%02X | %02X", __FUNCTION__, m_identifier, m_size, m_data[0], m_data[1], m_data[2], GetStreamId());
 	} else {
-		LOGDEBUG("pes: %s: packet too short: %d", __FUNCTION__, m_size);
+		LOGDEBUG("pes: %s: %s packet too short: %d", __FUNCTION__, m_identifier, m_size);
 	}
 }
 
