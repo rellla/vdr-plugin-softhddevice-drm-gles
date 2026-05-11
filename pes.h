@@ -29,7 +29,7 @@ extern "C"
  */
 class cPes {
 public:
-	cPes(const uint8_t *, int);
+	cPes(const uint8_t *, int, bool);
 	bool IsValid(void);
 	bool HasPts(void);
 	int64_t GetPts(void);
@@ -46,6 +46,7 @@ protected:
 	bool m_valid = false;      ///< flag indicating if the PES packet is valid
 	const uint8_t *m_data;     ///< pointer to the raw PES packet data
 	int m_size;                ///< size of the PES packet
+	const char *m_identifier;  ///< identifier string for logging
 
 	// According to H.222.0 03/2017 Table 2-21 ("PES packet") packet_start_code_prefix
 	// And also according to H.264/HEVC payload
@@ -62,7 +63,7 @@ protected:
  */
 class cPesVideo : public cPes {
 public:
-	cPesVideo(const uint8_t *data, int size) : cPes(data, size) { cPes::Init(); }
+	cPesVideo(const uint8_t *data, int size) : cPes(data, size, false) { cPes::Init(); }
 private:
 	bool IsStreamIdValid(void) override { return (GetStreamId() & 0xF0) == 0xE0; } // Video stream IDs are in the range 0xE0-0xEF
 };
@@ -77,7 +78,7 @@ private:
  */
 class cPesAudio : public cPes {
 public:
-	cPesAudio(const uint8_t *data, int size) : cPes(data, size) { cPes::Init(); }
+	cPesAudio(const uint8_t *data, int size) : cPes(data, size, true) { cPes::Init(); }
 	bool IsAudioStreamId(void) { return (GetStreamId() & 0xF0) == 0xC0; } // Audio stream IDs are in the range 0xC0-0xCF
 private:
 	bool IsStreamIdValid(void) override { return IsAudioStreamId() || IsPrivateStreamId(); }
