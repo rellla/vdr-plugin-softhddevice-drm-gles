@@ -304,6 +304,8 @@ private:
 	std::mutex m_sizeMutex;          ///< mutex to lock screen size (which is accessed by different threads)
 	std::atomic<bool> m_receivedAudio = false; ///< flag if audio packets have been received
 	std::atomic<bool> m_receivedVideo = false; ///< flag if video packets have been received
+	std::atomic<bool> m_receivedValidAudio = false; ///< flag if valid audio packets have been received
+	std::atomic<bool> m_receivedValidVideo = false; ///< flag if valid video packets have been received
 	bool m_pipUseAlt;                ///< use alternative pip position
 	bool m_drmCanDisplayPip = true;  ///< true, if the drm device is able to display a pip video
 	bool m_disablePip = false;       ///< true, if pip was disabled by the user
