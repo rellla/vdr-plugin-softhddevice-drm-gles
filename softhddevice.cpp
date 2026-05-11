@@ -600,6 +600,8 @@ void cSoftHdDevice::OnLeavingState(State state) {
 		case STOP:
 			m_receivedAudio = false;
 			m_receivedVideo = false;
+			m_receivedValidAudio = false;
+			m_receivedValidVideo = false;
 			break;
 		case DETACHED:
 			m_pAudio = new cSoftHdAudio(this);
@@ -1089,15 +1091,6 @@ int cSoftHdDevice::PlayAudio(const uchar *data, int size, uchar id)
 	if (IsDetached())
 		return size;
 
-	if (!m_receivedAudio && Transferring()) {
-		auto now = std::chrono::steady_clock::now();
-		auto timeUntilFirstPacketReceived = std::chrono::duration_cast<std::chrono::milliseconds>(now - m_channelSwitchStartTime).count();
-		LOGDEBUG("device: first audio packet arrives %dms after channel switch was triggered", timeUntilFirstPacketReceived);
-
-		if (!m_receivedVideo)
-			m_dataReceivedTime = now;
-	}
-
 	m_receivedAudio = true;
 
 	if (m_pAudio->IsBufferFull())
@@ -1110,6 +1103,16 @@ int cSoftHdDevice::PlayAudio(const uchar *data, int size, uchar id)
 
 		return size;
 	}
+
+	if (!m_receivedValidAudio && Transferring()) {
+		auto now = std::chrono::steady_clock::now();
+		auto timeUntilFirstPacketReceived = std::chrono::duration_cast<std::chrono::milliseconds>(now - m_channelSwitchStartTime).count();
+		LOGDEBUG("device: first valid audio packet arrives %dms after channel switch was triggered", timeUntilFirstPacketReceived);
+
+		if (!m_receivedValidVideo)
+			m_dataReceivedTime = now;
+	}
+	m_receivedValidAudio = true;
 
 	if (Transferring()) { // compensation is only necessary with live streams
 		m_pAudio->ClockDriftCompensation();
@@ -1206,15 +1209,6 @@ int cSoftHdDevice::PlayVideo(const uchar *data, int size)
 	if (IsDetached())
 		return size;
 
-	if (!m_receivedVideo && Transferring()) {
-		auto now = std::chrono::steady_clock::now();
-		auto timeUntilFirstPacketReceived = std::chrono::duration_cast<std::chrono::milliseconds>(now - m_channelSwitchStartTime).count();
-		LOGDEBUG("device: first video packet arrives %dms after channel switch was triggered", timeUntilFirstPacketReceived);
-
-		if (!m_receivedAudio)
-			m_dataReceivedTime = now;
-	}
-
 	m_receivedVideo = true;
 
 	return PlayVideoInternal(m_pVideoStream, &m_videoReassemblyBuffer, data, size, Transferring());
@@ -1267,6 +1261,17 @@ int cSoftHdDevice::PlayVideoInternal(cVideoStream *stream, cReassemblyBufferVide
 
 		return size;
 	}
+
+	if (!m_receivedValidVideo && Transferring()) {
+		auto now = std::chrono::steady_clock::now();
+		auto timeUntilFirstPacketReceived = std::chrono::duration_cast<std::chrono::milliseconds>(now - m_channelSwitchStartTime).count();
+		LOGDEBUG("device: first valid video packet arrives %dms after channel switch was triggered", timeUntilFirstPacketReceived);
+
+		if (!m_receivedValidAudio)
+			m_dataReceivedTime = now;
+
+	}
+	m_receivedValidVideo = true;
 
 	if (trackJitter) {
 		m_videoJitterTracker.PacketReceived();
