@@ -41,6 +41,7 @@ protected:
 	int m_cVideoMenu;
 	int m_cVideoEnableHDR;
 	int m_cVideoDisplayMode;
+	int m_cVideoDisplayOutput;
 
 	// Audio
 	int m_cAudioMenu;
@@ -118,9 +119,13 @@ private:
 	std::vector<std::string> m_displayMode;
 	std::vector<const char *> m_displayModePtrs;
 
+	std::vector<std::string> m_displayOutput;
+	std::vector<const char *> m_displayOutputPtrs;
+
 	inline cOsdItem * CollapsedItem(const char *, int &, const char * = NULL);
 	void Create(void);
 	void BuildDisplayModeList(void);
+	void BuildDisplayOutputList(void);
 
 protected:
 	virtual void Store(void);

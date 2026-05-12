@@ -77,6 +77,7 @@ void cMenuSetupSoft::Create(void)
 	if (m_cVideoMenu) {
 		Add(new cMenuEditBoolItem(tr(" Enable HDR"), &m_cVideoEnableHDR, trVDR("no"), trVDR("yes")));
 		Add(new cMenuEditStraItem(tr(" Display mode"), &m_cVideoDisplayMode, m_displayModePtrs.size(), m_displayModePtrs.data()));
+		Add(new cMenuEditStraItem(tr(" Display output"), &m_cVideoDisplayOutput, m_displayOutputPtrs.size(), m_displayOutputPtrs.data()));
 	}
 
 	//
@@ -300,10 +301,12 @@ cMenuSetupSoft::cMenuSetupSoft(cSoftHdDevice *device)
 	// Video
 	//
 	BuildDisplayModeList();
+	BuildDisplayOutputList();
 
 	m_cVideoMenu = 0;
 	m_cVideoEnableHDR          = m_pConfig->ConfigVideoEnableHDR;
 	m_cVideoDisplayMode        = m_pConfig->ConfigVideoDisplayMode;
+	m_cVideoDisplayOutput      = m_pConfig->ConfigVideoDisplayOutput;
 
 	//
 	// Audio
@@ -435,6 +438,21 @@ void cMenuSetupSoft::BuildDisplayModeList(void)
 		m_displayModePtrs.push_back(s.c_str());
 }
 
+void cMenuSetupSoft::BuildDisplayOutputList(void)
+{
+	m_displayOutput.clear();
+
+	m_displayOutput.push_back(*cString::sprintf(tr("current (%s)"), m_pConfig->CurrentDrmConnector.c_str()));
+
+	for (size_t i = 1; i < m_pConfig->CollectedDrmConnectors.size() + 1; i++) {
+		m_displayOutput.push_back(*cString::sprintf("%s", m_pConfig->CollectedDrmConnectors[i - 1].c_str()));
+	}
+
+	m_displayOutputPtrs.clear();
+	for (auto &s : m_displayOutput)
+		m_displayOutputPtrs.push_back(s.c_str());
+}
+
 /**
  * Store settings
  */
@@ -450,11 +468,15 @@ void cMenuSetupSoft::Store(void)
 	//
 	SetupStore("VideoEnableHDR", m_pConfig->ConfigVideoEnableHDR = m_cVideoEnableHDR);
 	m_pDevice->SetEnableHdr(m_pConfig->ConfigVideoEnableHDR);
+
 	bool displayModeChanged = m_pConfig->ConfigVideoDisplayMode != m_cVideoDisplayMode;
 	m_pConfig->ConfigVideoDisplayMode = m_cVideoDisplayMode;
 	// only save default and auto adjusted modes
 	if (m_pConfig->ConfigVideoDisplayMode < CONFIG_DISPLAY_MODE_MANUAL)
 		SetupStore("VideoDisplayMode", m_cVideoDisplayMode);
+
+	bool outputModeChanged = m_pConfig->ConfigVideoDisplayOutput != m_cVideoDisplayOutput;
+	m_pConfig->ConfigVideoDisplayOutput = m_cVideoDisplayOutput;
 
 	//
 	// Audio
@@ -590,4 +612,7 @@ void cMenuSetupSoft::Store(void)
 
 	if (displayModeChanged)
 		m_pDevice->SetDisplayMode(m_pConfig->ConfigVideoDisplayMode);
+
+	if (outputModeChanged)
+		m_pDevice->SetDisplayOutput(m_pConfig->ConfigVideoDisplayOutput);
 }

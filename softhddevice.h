@@ -210,6 +210,7 @@ public:
 	void SetDecoderFallbackToSw(bool);
 	void SetEnableHdr(bool);
 	void SetDisplayMode(int);
+	void SetDisplayOutput(int);
 
 	// osd
 #ifdef USE_GLES

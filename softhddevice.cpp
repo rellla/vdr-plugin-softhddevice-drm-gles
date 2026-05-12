@@ -1873,6 +1873,21 @@ void cSoftHdDevice::HandleDisplayModeChange(const sDrmMode &mode)
 }
 
 /**
+ * Trigger a display output change event if the output changed
+ *
+ * @param idx     setup menu array index of the output
+ */
+void cSoftHdDevice::SetDisplayOutput(int idx)
+{
+	std::string newOutput = m_pConfig->CurrentDrmConnector;
+
+	if (idx > 0 && idx < m_pConfig->CollectedDrmConnectors.size() + 1)
+		newOutput = m_pConfig->CollectedDrmConnectors[idx -  1];
+
+	LOGDEBUG("Change display output to %s", newOutput.c_str());
+}
+
+/**
  * Create and start the event handler thread
  */
 cEventHandler::cEventHandler(cSoftHdDevice *device)

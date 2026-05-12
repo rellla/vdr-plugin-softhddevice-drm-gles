@@ -15,6 +15,7 @@
 
 #include <atomic>
 #include <mutex>
+#include <string>
 #include <vector>
 
 /**
@@ -135,6 +136,9 @@ public:
 	sDrmMode CurrentDrmMode;                            ///< currently used drm mode on the current connector
 	sDrmMode CurrentVideoDrmMode;                       ///< currently used video drm mode
 	sDrmMode RequestedDrmMode;                          ///< is set to the requested mode which should be changed to
+	std::vector<std::string> CollectedDrmConnectors;
+	std::string CurrentDrmConnector;
+	int ConfigVideoDisplayOutput = 0;                   ///< display output
 
 	cSoftHdConfig(void) = default;
 	bool SetupParse(const char *, const char *);

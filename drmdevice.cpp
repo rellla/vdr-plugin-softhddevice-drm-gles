@@ -218,6 +218,18 @@ drmModeConnector *cDrmDevice::FindDrmConnector(int fd, drmModeRes *resources, co
 	drmModeConnector *connector = NULL;
 	int i;
 
+	// fill config with available connectors for later selection from setup menu
+	// can be unconnected and without available modes for now
+	m_pConfig->CollectedDrmConnectors.clear();
+	for (i = 0; i < resources->count_connectors; i++) {
+		connector = drmModeGetConnector(fd, resources->connectors[i]);
+		if (connector) {
+			m_pConfig->CollectedDrmConnectors.push_back(ConnectorName(connector));
+			drmModeFreeConnector(connector);
+		}
+	}
+	connector = NULL;
+
 	// search for the user requested connector (can be unconnected)
 	for (i = 0; i < resources->count_connectors && userRequestedConnector; i++) {
 		connector = drmModeGetConnector(fd, resources->connectors[i]);
@@ -689,6 +701,8 @@ int cDrmDevice::Init(void)
 	drmModeFreePlaneResources(planeRes);
 	drmModeFreeEncoder(encoder);
 	drmModeFreeResources(resources);
+
+	m_pConfig->CurrentDrmConnector = m_connectorName;
 
 	if (m_pipPlane.GetId()) {
 		LOGINFO("DRM setup - CRTC: %i video_plane: %i (%s %" PRIu64 ") osd_plane: %i (%s %" PRIu64 ") pip_plane: %i (%s %" PRIu64 ") m_useZpos: %d",
