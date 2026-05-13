@@ -646,6 +646,12 @@ bool cSoftHdDevice::SetPlayMode(ePlayMode play_mode)
 {
 	LOGDEBUG("device: %s: %d", __FUNCTION__, play_mode);
 
+	// A new play mode arrived, attach first if we did detach because of an external player
+	if (m_externalPlayerActive) {
+		OnEventReceived(AttachEvent{});
+		m_externalPlayerActive = false;
+	}
+
 	switch (play_mode) {
 	case pmNone:
 		OnEventReceived(StopEvent{});
@@ -656,13 +662,20 @@ bool cSoftHdDevice::SetPlayMode(ePlayMode play_mode)
 	case pmVideoOnly:
 		OnEventReceived(PlayEvent{});
 		break;
+	case pmExtern_THIS_SHOULD_BE_AVOIDED:
+		// External players like mpv (vdr-plugin-mpv) want to acquire DRM/ALSA
+		// so we release it here and set a flag. As soon as the next SetPlayMode arrives
+		// we then can attach again before changing to the new playmode.
+		OnEventReceived(DetachEvent{});
+		m_externalPlayerActive = true;
+		break;
 	default:
 		LOGERROR("device: %s: playmode not supported %d", play_mode);
-		return 0;
+		return false;
 		break;
 	}
 
-	return 1;
+	return true;
 }
 
 /**
