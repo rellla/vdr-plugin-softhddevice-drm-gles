@@ -317,6 +317,7 @@ private:
 	int m_screenHeight;
 
 	bool m_forceDetached = false; ///< start the plugin in detached state
+	bool m_externalPlayerActive = false; ///< true, if we detached for an external player
 
 	int PlayVideoInternal(cVideoStream *, cReassemblyBufferVideo *, const uchar *, int, bool);
 	void FlushAudio(void);
