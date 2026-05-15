@@ -13,6 +13,8 @@
  * @license{AGPL-3.0-or-later}
  */
 
+#include <atomic>
+#include <cstddef>
 #include <cstdio>
 #include <cstdint>
 #include <cstdlib>
@@ -29,23 +31,14 @@
  * @param size    Size of the ring buffer
  */
 cSoftHdRingbuffer::cSoftHdRingbuffer(size_t size)
-	: m_size(size)
+	: m_buffer(size),
+	  m_pBuffer(m_buffer.data()),
+	  m_size(size),
+	  m_pBufferEnd(m_pBuffer + size),
+	  m_pReadPointer(m_pBuffer),
+	  m_pWritePointer(m_pBuffer),
+	  m_filled(0)
 {
-	if (!(m_pBuffer = (char *)malloc(size)))	// allocate buffer
-		LOGFATAL("ringbuffer: %s: can't allocate memory for ringbuffer", __FUNCTION__);
-
-	m_pBufferEnd = m_pBuffer + size;
-	m_pReadPointer = m_pBuffer;
-	m_pWritePointer = m_pBuffer;
-	atomic_set(&m_filled, 0);
-}
-
-/**
- * cSoftHdRingbuffer destructor
- */
-cSoftHdRingbuffer::~cSoftHdRingbuffer(void)
-{
-	free(m_pBuffer);
 }
 
 /**
@@ -55,7 +48,7 @@ void cSoftHdRingbuffer::Reset(void)
 {
 	m_pReadPointer = m_pBuffer;
 	m_pWritePointer = m_pBuffer;
-	atomic_set(&m_filled, 0);
+	m_filled.store(0, std::memory_order_release);
 }
 
 /**
@@ -69,7 +62,7 @@ size_t cSoftHdRingbuffer::WriteAdvance(size_t cnt)
 {
 	size_t n;
 
-	n = m_size - atomic_read(&m_filled);
+	n = m_size - m_filled.load(std::memory_order_acquire);
 	if (cnt > n) {		// not enough space
 		cnt = n;
 	}
@@ -90,7 +83,7 @@ size_t cSoftHdRingbuffer::WriteAdvance(size_t cnt)
 	//
 	//	Only atomic modification!
 	//
-	atomic_add(cnt, &m_filled);
+	m_filled.fetch_add(cnt, std::memory_order_release);
 	return cnt;
 }
 
@@ -106,7 +99,7 @@ size_t cSoftHdRingbuffer::Write(const void *buf, size_t cnt)
 {
 	size_t n;
 
-	n = m_size - atomic_read(&m_filled);
+	n = m_size - m_filled.load(std::memory_order_acquire);
 	if (cnt > n) {			// not enough space
 		cnt = n;
 	}
@@ -131,7 +124,7 @@ size_t cSoftHdRingbuffer::Write(const void *buf, size_t cnt)
 	//
 	//	Only atomic modification!
 	//
-	atomic_add(cnt, &m_filled);
+	m_filled.fetch_add(cnt, std::memory_order_release);
 	return cnt;
 }
 
@@ -149,7 +142,7 @@ size_t cSoftHdRingbuffer::GetWritePointer(void **wp)
 	size_t cnt;
 
 	//	Total free bytes available in ring buffer
-	cnt = m_size - atomic_read(&m_filled);
+	cnt = m_size - m_filled.load(std::memory_order_acquire);
 
 	*wp = m_pWritePointer;
 
@@ -174,7 +167,7 @@ size_t cSoftHdRingbuffer::ReadAdvance(size_t cnt)
 {
 	size_t n;
 
-	n = atomic_read(&m_filled);
+	n = m_filled.load(std::memory_order_acquire);
 	if (cnt > n) {			// not enough filled
 		cnt = n;
 	}
@@ -195,7 +188,7 @@ size_t cSoftHdRingbuffer::ReadAdvance(size_t cnt)
 	//
 	//	Only atomic modification!
 	//
-	atomic_sub(cnt, &m_filled);
+	m_filled.fetch_sub(cnt, std::memory_order_release);
 	return cnt;
 }
 
@@ -211,7 +204,7 @@ size_t cSoftHdRingbuffer::Read(void *buf, size_t cnt)
 {
 	size_t n;
 
-	n = atomic_read(&m_filled);
+	n = m_filled.load(std::memory_order_acquire);
 	if (cnt > n) {			// not enough filled
 		cnt = n;
 	}
@@ -236,7 +229,7 @@ size_t cSoftHdRingbuffer::Read(void *buf, size_t cnt)
 	//
 	//	Only atomic modification!
 	//
-	atomic_sub(cnt, &m_filled);
+	m_filled.fetch_sub(cnt, std::memory_order_release);
 	return cnt;
 }
 
@@ -254,7 +247,7 @@ size_t cSoftHdRingbuffer::GetReadPointer(const void **rp)
 	size_t cnt;
 
 	//	Total used bytes in ring buffer
-	cnt = atomic_read(&m_filled);
+	cnt = m_filled.load(std::memory_order_acquire);
 
 	*rp = m_pReadPointer;
 
@@ -275,7 +268,7 @@ size_t cSoftHdRingbuffer::GetReadPointer(const void **rp)
  */
 size_t cSoftHdRingbuffer::FreeBytes(void)
 {
-	return m_size - atomic_read(&m_filled);
+	return m_size - m_filled.load(std::memory_order_acquire);
 }
 
 /**
@@ -285,5 +278,5 @@ size_t cSoftHdRingbuffer::FreeBytes(void)
  */
 size_t cSoftHdRingbuffer::UsedBytes(void)
 {
-	return atomic_read(&m_filled);
+	return m_filled.load(std::memory_order_acquire);
 }

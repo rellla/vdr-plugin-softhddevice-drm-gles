@@ -13,26 +13,9 @@
 #ifndef __SOFTHDRINGBUFFER_H
 #define __SOFTHDRINGBUFFER_H
 
+#include <atomic>
 #include <cstddef>
-
-/**
- * @addtogroup audio
- * @{
- */
-
-/**
- * Atomic Wrapper Macros
- */
-typedef volatile int atomic_t;  ///< atomic type, 24 bit useable
-
-#define atomic_set(ptr, val) __atomic_store_n(ptr, val, __ATOMIC_SEQ_CST)
-#define atomic_read(ptr) __atomic_load_n(ptr, __ATOMIC_SEQ_CST)
-#define atomic_inc(ptr) __atomic_add_fetch(ptr, 1, __ATOMIC_SEQ_CST)
-#define atomic_dec(ptr) __atomic_sub_fetch(ptr, 1, __ATOMIC_SEQ_CST)
-#define atomic_add(val, ptr) __atomic_add_fetch(ptr, val, __ATOMIC_SEQ_CST)
-#define atomic_sub(val, ptr) __atomic_sub_fetch(ptr, val, __ATOMIC_SEQ_CST)
-
-/** @} */
+#include <vector>
 
 /**
  * Ringbuffer (FIFO) Implementation
@@ -42,7 +25,7 @@ typedef volatile int atomic_t;  ///< atomic type, 24 bit useable
 class cSoftHdRingbuffer {
 public:
 	cSoftHdRingbuffer(size_t);
-	~cSoftHdRingbuffer(void);
+
 	void Reset(void);
 	size_t Write(const void *, size_t);
 	size_t GetWritePointer(void **);
@@ -54,14 +37,17 @@ public:
 	size_t UsedBytes(void);
 
 private:
-	char *m_pBuffer;              ///< ring buffer data
-	const char *m_pBufferEnd;     ///< end of buffer
+	std::vector<char> m_buffer;   ///< ring buffer data
+	char *m_pBuffer;              ///< pointer ring buffer data
+
 	size_t m_size;                ///< bytes in buffer (for faster calc)
+
+	const char *m_pBufferEnd;     ///< end of buffer
 	const char *m_pReadPointer;   ///< only used by reader
 	char *m_pWritePointer;        ///< only used by writer
 
 	// The only thing modified by both
-	atomic_t m_filled;            ///< how many of the buffer is used
+	std::atomic<size_t> m_filled; ///< how many of the buffer is used
 };
 
 #endif
