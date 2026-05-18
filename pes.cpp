@@ -168,7 +168,7 @@ static const std::map<AVCodecID, CodecInfo> AudioCodecMap = {
 		},
 		.GetFrameSize = [](const uint8_t* data) -> int {
 			if ((data[4] & 0xF0) == 0xF0)
-				throw std::invalid_argument("AC3: invalid fscod fscod2");
+				throw std::invalid_argument("E-AC3: invalid fscod fscod2");
 
 			return (((data[2] & 0x07) << 8) + data[3] + 1) * 2;
 		}
