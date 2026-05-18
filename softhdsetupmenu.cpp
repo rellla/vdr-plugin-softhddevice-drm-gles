@@ -197,6 +197,7 @@ void cMenuSetupSoft::Create(void)
 	if (m_cExpertMenu) {
 		Add(SeparatorName(tr(" Audio settings")));
 		Add(new cMenuEditIntItem(tr(" Adjust a/v buffer size (ms)"), &m_cAdditionalBufferLengthMs, - (m_pDevice->GetMinBufferFillLevelThresholdMs() - 100), 1000));
+		Add(new cMenuEditBoolItem(tr(" Disable passthrough pause fills"), &m_cDisableSendingPassthroughPause, trVDR("no"), trVDR("yes")));
 
 		int shortTermAudioJitter = m_pConfig->StatMaxShortTermAudioJitterMs;
 		int longTermAudioJitter = m_pConfig->StatMaxLongTermAudioJitterMs;
@@ -374,7 +375,8 @@ cMenuSetupSoft::cMenuSetupSoft(cSoftHdDevice *device)
 	// Expert settings
 	//
 	m_cExpertMenu = 0;
-	m_cAdditionalBufferLengthMs= m_pConfig->ConfigAdditionalBufferLengthMs;
+	m_cAdditionalBufferLengthMs = m_pConfig->ConfigAdditionalBufferLengthMs;
+	m_cDisableSendingPassthroughPause = m_pConfig->ConfigDisableSendingPassthroughPause;
 	m_cDisableDeint = m_pConfig->ConfigDisableDeint;
 	m_cDecoderNeedsIFrame = m_pConfig->ConfigDecoderNeedsIFrame;
 	m_cParseH264Dimensions = m_pConfig->ConfigParseH264Dimensions;
@@ -569,6 +571,7 @@ void cMenuSetupSoft::Store(void)
 	// Expert settings
 	//
 	SetupStore("AdditionalBufferLengthMs", m_pConfig->ConfigAdditionalBufferLengthMs = m_cAdditionalBufferLengthMs);
+	SetupStore("DisableSendingPassthroughPause", m_pConfig->ConfigDisableSendingPassthroughPause = m_cDisableSendingPassthroughPause);
 	SetupStore("DisableDeint", m_pConfig->ConfigDisableDeint = m_cDisableDeint);
 	if (m_pConfig->ConfigDisableDeint) {
 		LOGDEBUG("Disable deinterlacer!");

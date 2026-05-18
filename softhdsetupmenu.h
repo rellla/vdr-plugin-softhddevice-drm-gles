@@ -98,6 +98,7 @@ protected:
 	// Expert settings
 	int m_cExpertMenu;
 	int m_cAdditionalBufferLengthMs;
+	int m_cDisableSendingPassthroughPause;
 	int m_cDisableDeint;
 	int m_cDecoderNeedsIFrame;
 	int m_cParseH264Dimensions;

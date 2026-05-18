@@ -95,6 +95,7 @@ public:
 
 	// Expert Settings
 	int ConfigAdditionalBufferLengthMs = 0;     ///< config size ms of a/v buffer
+	int ConfigDisableSendingSpdifPause = 0;     ///< don't send null-data bursts in passthrough mode if paused
 	bool ConfigDisableDeint = false;            ///< disable deinterlacer
 	bool ConfigDecoderFallbackToSw = false;     ///< fallback to software decoder if the hardware decoder fails
 	int ConfigDecoderFallbackToSwNumPkts = 22;  ///< maximum number of packets sent before fallback to sw decoder

@@ -91,14 +91,15 @@ bool cSoftHdConfig::SetupParse(const char *name, const char *value)
 	                                                         cSoftHdLogger::GetLogger()->SetLogLevel(ConfigLogState ? ConfigLogLevels : 0);
 
 	// Expert Settings
-	} else if (!strcasecmp(name, "AdditionalBufferLengthMs"))   { ConfigAdditionalBufferLengthMs = atoi(value);
-	} else if (!strcasecmp(name, "DisableDeint"))               { ConfigDisableDeint = atoi(value);
-	} else if (!strcasecmp(name, "DecoderFallbackToSw"))        { ConfigDecoderFallbackToSw = atoi(value);
-	} else if (!strcasecmp(name, "DecoderFallbackToSwNumPkts")) { ConfigDecoderFallbackToSwNumPkts = atoi(value);
-	} else if (!strcasecmp(name, "DecoderNeedsIFrame"))         { ConfigDecoderNeedsIFrame = atoi(value);
-	} else if (!strcasecmp(name, "ParseH264Dimensions"))        { ConfigParseH264Dimensions = atoi(value);
-	} else if (!strcasecmp(name, "ParseH264StreamStart"))       { ConfigParseH264StreamStart = atoi(value);
-	} else if (!strcasecmp(name, "DropInvalidH264PFrames"))     { ConfigDropInvalidH264PFrames = atoi(value);
+	} else if (!strcasecmp(name, "AdditionalBufferLengthMs"))       { ConfigAdditionalBufferLengthMs = atoi(value);
+	} else if (!strcasecmp(name, "DisableSendingPassthroughPause")) { ConfigDisableSendingPassthroughPause = atoi(value);
+	} else if (!strcasecmp(name, "DisableDeint"))                   { ConfigDisableDeint = atoi(value);
+	} else if (!strcasecmp(name, "DecoderFallbackToSw"))            { ConfigDecoderFallbackToSw = atoi(value);
+	} else if (!strcasecmp(name, "DecoderFallbackToSwNumPkts"))     { ConfigDecoderFallbackToSwNumPkts = atoi(value);
+	} else if (!strcasecmp(name, "DecoderNeedsIFrame"))             { ConfigDecoderNeedsIFrame = atoi(value);
+	} else if (!strcasecmp(name, "ParseH264Dimensions"))            { ConfigParseH264Dimensions = atoi(value);
+	} else if (!strcasecmp(name, "ParseH264StreamStart"))           { ConfigParseH264StreamStart = atoi(value);
+	} else if (!strcasecmp(name, "DropInvalidH264PFrames"))         { ConfigDropInvalidH264PFrames = atoi(value);
 #ifdef USE_GLES
 	} else if (!strcasecmp(name, "MaxSizeGPUImageCache"))  { ConfigMaxSizeGPUImageCache = atoi(value);
 #endif

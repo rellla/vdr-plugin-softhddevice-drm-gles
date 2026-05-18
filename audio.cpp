@@ -1395,8 +1395,8 @@ bool cSoftHdAudio::CyclicCall(void)
 
 	size_t freeAlsaBufferBytes = snd_pcm_frames_to_bytes(m_pAlsaPCMHandle, freeAlsaBufferFrames);
 	if (m_passthrough && m_paused) {
-		// only write, if there is space for a full pause burst
-		if ((int)freeAlsaBufferBytes < m_spdifBurstSize)
+		// only write, if there is space for a full pause burst and sending pause bursts isn't disabled
+		if ((int)freeAlsaBufferBytes < m_spdifBurstSize || m_pConfig->ConfigDisableSendingPassthroughPause)
 			return false;
 
 		// send a pause burst to keep the audio stream locked
