@@ -191,6 +191,19 @@ static const std::map<AVCodecID, CodecInfo> AudioCodecMap = {
 		.GetFrameSize = [](const uint8_t* data) -> int {
 			return ((data[3] & 0x03) << 11) | ((data[4] & 0xFF) << 3) | ((data[5] & 0xE0) >> 5);
 		}
+	}},
+	{AV_CODEC_ID_DTS, {
+		.minSize = 10,
+		.MatchSyncWord = [](const uint8_t* data) -> bool {
+			constexpr uint32_t DTS_CORE_SYNC_WORD = 0xFE7F0180;
+
+			uint32_t syncWord = ReadBytes(data, 4);
+			return (syncWord & 0xFFFFFFFF) == DTS_CORE_SYNC_WORD;
+		},
+		.GetFrameSize = [](const uint8_t* data) -> int {
+			int frameSize = ((data[4] & 0x03) << 12) | (data[7] << 4) | ((data[6] & 0xF0) >> 4);
+			return frameSize + 1;
+		}
 	}}
 };
 
