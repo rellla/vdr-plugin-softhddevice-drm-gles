@@ -113,11 +113,11 @@ static const std::map<AVCodecID, CodecInfo> AudioCodecMap = {
 	{AV_CODEC_ID_AAC_LATM, {
 		.minSize = 3,
 		.MatchSyncWord = [](const uint8_t* data) -> bool {
-			constexpr uint32_t LAOS_SYNC_WORD_MASK = 0xFFE000;
-			constexpr uint32_t LAOS_SYNC_WORD = 0x2B7 << (24-11);
+			constexpr uint32_t LOAS_SYNC_WORD_MASK = 0xFFE000;
+			constexpr uint32_t LOAS_SYNC_WORD = 0x2B7 << (24-11);
 
 			uint32_t syncWord = ReadBytes(data, 3);
-			return (syncWord & LAOS_SYNC_WORD_MASK) == LAOS_SYNC_WORD;
+			return (syncWord & LOAS_SYNC_WORD_MASK) == LOAS_SYNC_WORD;
 		},
 		.GetFrameSize = [](const uint8_t* data) -> int {
 			return ((data[1] & 0x1F) << 8) + data[2] + 3;
