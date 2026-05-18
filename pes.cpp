@@ -101,9 +101,12 @@ static const std::map<AVCodecID, CodecInfo> AudioCodecMap = {
 					frameSize = (frameSize + padding) * 4;
 					break;
 				case 2:
+					frameSize = (144 * bitRate) / sampleRate;
+					frameSize = frameSize + padding;
+					break;
 				case 3:
 				default:
-					frameSize = (144 * bitRate) / sampleRate;
+					frameSize = (((mpeg2 || mpeg25) ? 72 : 144) * bitRate) / sampleRate;
 					frameSize = frameSize + padding;
 					break;
 			}
