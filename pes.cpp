@@ -174,7 +174,7 @@ static const std::map<AVCodecID, CodecInfo> AudioCodecMap = {
 		}
 	}},
 	{AV_CODEC_ID_AAC, {
-		.minSize = 3,
+		.minSize = 7,
 		.MatchSyncWord = [](const uint8_t* data) -> bool {
 			constexpr uint32_t ADTS_SYNC_WORD = 0xFFF000;
 			constexpr uint32_t ADTS_LAYER = 0x000000;
