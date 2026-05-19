@@ -1791,83 +1791,82 @@ void cSoftHdAudio::AlsaSetVolume(int volume)
  */
 int cSoftHdAudio::AlsaSetup(int channels, int sample_rate, int passthrough)
 {
-	snd_pcm_hw_params_t *hwparams;
-	int err;
-	unsigned bufferTimeUs = 100'000;
-
 	if (Active()) {
 		Stop();
 		DropAlsaBuffers();
 	}
 
+	int err;
 	m_downmix = 0;
+	m_alsaUseMmap = false;
 
+	// fill hw params
+	snd_pcm_hw_params_t *hwparams;
 	snd_pcm_hw_params_alloca(&hwparams);
 	if ((err = snd_pcm_hw_params_any(m_pAlsaPCMHandle, hwparams)) < 0) {
-		LOGERROR("audio: %s: Read HW config failed! %s", __FUNCTION__, snd_strerror(err));
+		LOGERROR("audio: %s: Read HW config failed (%s)", __FUNCTION__, snd_strerror(err));
 		return -1;
 	}
 
-	if (!snd_pcm_hw_params_test_access(m_pAlsaPCMHandle, hwparams, SND_PCM_ACCESS_MMAP_INTERLEAVED)) {
+	// pre-test mmap access
+	if (!snd_pcm_hw_params_test_access(m_pAlsaPCMHandle, hwparams, SND_PCM_ACCESS_MMAP_INTERLEAVED))
 		m_alsaUseMmap = true;
-	}
 
+	// pre-test, if sample rate could be set near requested rate
 	m_hwSampleRate = sample_rate;
 	if ((err = snd_pcm_hw_params_set_rate_near(m_pAlsaPCMHandle, hwparams, &m_hwSampleRate, 0)) < 0) {
-		LOGERROR("audio: %s: SampleRate %d not supported! %s", __FUNCTION__, sample_rate, snd_strerror(err));
+		LOGERROR("audio: %s: SampleRate %d not supported (%s)", __FUNCTION__, sample_rate, snd_strerror(err));
 		return -1;
 	}
-	if ((int)m_hwSampleRate != sample_rate) {
+	if ((int)m_hwSampleRate != sample_rate)
 		LOGDEBUG2(L_SOUND, "audio: %s: sample_rate %d m_hwSampleRate %d", __FUNCTION__, sample_rate, m_hwSampleRate);
-	}
 
+	// pre-test, if channels could be set near requested channels or if a donwmix is necessary
 	m_hwNumChannels = channels;
-	if ((err = snd_pcm_hw_params_set_channels_near(m_pAlsaPCMHandle, hwparams, &m_hwNumChannels)) < 0) {
+	if ((err = snd_pcm_hw_params_set_channels_near(m_pAlsaPCMHandle, hwparams, &m_hwNumChannels)) < 0)
 		LOGWARNING("audio: %s: %d channels not supported! %s", __FUNCTION__, m_hwNumChannels, snd_strerror(err));
-	}
-	if ((int)m_hwNumChannels != channels && !passthrough) {
+	if ((int)m_hwNumChannels != channels && !passthrough)
 		m_downmix = 1;
-	}
-	if ((err = snd_pcm_hw_params_set_buffer_time_near(m_pAlsaPCMHandle, hwparams, &bufferTimeUs, NULL)) < 0) {
+
+	// pre-test setting buffer time
+	unsigned bufferTimeUs = 100'000;
+	if ((err = snd_pcm_hw_params_set_buffer_time_near(m_pAlsaPCMHandle, hwparams, &bufferTimeUs, NULL)) < 0)
 		LOGWARNING("audio: %s: bufferTime %d not supported! %s", __FUNCTION__, bufferTimeUs, snd_strerror(err));
-	}
 
-	snd_pcm_uframes_t periodSize = 0;
-	if ((err = snd_pcm_hw_params_get_period_size_max(hwparams, &periodSize, NULL)) < 0) {
-		LOGWARNING("audio: %s: getting max periodSize not supported! %s", __FUNCTION__, snd_strerror(err));
-	}
-
-	snd_pcm_uframes_t bufferSize = 0;
-	if ((err = snd_pcm_hw_params_get_buffer_size_max(hwparams, &bufferSize)) < 0) {
-		LOGWARNING("audio: %s: getting max bufferSize not supported! %s", __FUNCTION__, snd_strerror(err));
-	}
-
-	m_alsaBufferSizeFrames = MsToFrames(bufferTimeUs / 1000);
-
-/*	err = snd_pcm_hw_params_test_format(m_pAlsaPCMHandle, hwparams, SND_PCM_FORMAT_S16);
-	if (err < 0)	// err == 0 if is supported
-		LOGERROR("audio: %s: SND_PCM_FORMAT_S16 not supported! %s", __FUNCTION__,
-			snd_strerror(err));
-*/
+	// set params
 	if ((err = snd_pcm_set_params(m_pAlsaPCMHandle, SND_PCM_FORMAT_S16,
-		m_alsaUseMmap ? SND_PCM_ACCESS_MMAP_INTERLEAVED :
-		SND_PCM_ACCESS_RW_INTERLEAVED, m_hwNumChannels, m_hwSampleRate, 1, bufferTimeUs))) {
+		m_alsaUseMmap ? SND_PCM_ACCESS_MMAP_INTERLEAVED : SND_PCM_ACCESS_RW_INTERLEAVED,
+		m_hwNumChannels, m_hwSampleRate, 1, bufferTimeUs))) {
 
 		snd_pcm_state_t state = snd_pcm_state(m_pAlsaPCMHandle);
 		LOGERROR("audio: %s: set params error: %s\n"
-			"           Channels %d SampleRate %d\n"
-			"           HWChannels %d HWSampleRate %d SampleFormat %s\n"
-			"           mmap: %s\n"
-			"           AlsaBufferTime %dms pcm state: %s\n"
-			"           periodSize %d frames, bufferSize %d frames",
-			__FUNCTION__,
-			snd_strerror(err), channels, sample_rate, m_hwNumChannels,
-			m_hwSampleRate, snd_pcm_format_name(SND_PCM_FORMAT_S16),
-			m_alsaUseMmap ? "yes" : "no",
-			bufferTimeUs / 1000, snd_pcm_state_name(state),
-			periodSize, bufferSize);
+			"           Requested: Channels %d SampleRate %d\n"
+			"           Try to set: HWChannels %d HWSampleRate %d\n"
+			"           Format %s , use mmap: %s\n"
+			"           AlsaBufferTime %dms pcm state: %s",
+			__FUNCTION__, snd_strerror(err),
+			channels, sample_rate,
+			m_hwNumChannels, m_hwSampleRate,
+			snd_pcm_format_name(SND_PCM_FORMAT_S16), m_alsaUseMmap ? "yes" : "no",
+			bufferTimeUs / 1000, snd_pcm_state_name(state));
 		return -1;
 	}
+
+	// get the currently set hw params
+	if ((err = snd_pcm_hw_params_current(m_pAlsaPCMHandle, hwparams)) < 0) {
+		LOGERROR("audio: %s: Reading current HW config failed (%s)", __FUNCTION__, snd_strerror(err));
+		return -1;
+	}
+
+	snd_pcm_hw_params_get_rate(hwparams, &m_hwSampleRate, 0);
+	snd_pcm_hw_params_get_channels(hwparams, &m_hwNumChannels);
+
+	snd_pcm_uframes_t periodSize;
+	snd_pcm_uframes_t bufferSize;
+	snd_pcm_get_params(m_pAlsaPCMHandle, &bufferSize, &periodSize);
+	snd_pcm_hw_params_get_buffer_time(hwparams, &bufferTimeUs, 0);
+
+	m_alsaBufferSizeFrames = bufferSize;
 
 	auto alsaMap = GetAlsaChannelLayoutAsArray(m_pAlsaPCMHandle);
 	std::string channelMapString;
@@ -1879,18 +1878,17 @@ int cSoftHdAudio::AlsaSetup(int channels, int sample_rate, int passthrough)
 
 	snd_pcm_state_t state = snd_pcm_state(m_pAlsaPCMHandle);
 	LOGINFO("audio: %s:\n"
-		"           Channels %d (%s) SampleRate %d%s\n"
-		"           HWChannels %d HWSampleRate %d SampleFormat %s\n"
-		"           mmap: %s\n"
+		"           Requested: Channels %d (%s) SampleRate %d%s\n"
+		"           Set: HWChannels %d HWSampleRate %d\n"
+		"           Format %s, use mmap: %s\n"
 		"           AlsaBufferTime %dms, pcm state: %s\n"
-		"           periodSize %d frames, bufferSize %d frames",
+		"           periodSize %d frames, bufferSize %d (%d) frames",
 		__FUNCTION__,
 		channels, channelMapString.c_str(), sample_rate, passthrough ? " -> passthrough" : "",
 		m_hwNumChannels, m_hwSampleRate,
-		snd_pcm_format_name(SND_PCM_FORMAT_S16),
-		m_alsaUseMmap ? "yes" : "no",
+		snd_pcm_format_name(SND_PCM_FORMAT_S16), m_alsaUseMmap ? "yes" : "no",
 		bufferTimeUs / 1000, snd_pcm_state_name(state),
-		periodSize, bufferSize);
+		periodSize, m_alsaBufferSizeFrames);
 
 	Start();
 
