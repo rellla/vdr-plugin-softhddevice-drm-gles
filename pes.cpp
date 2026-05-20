@@ -414,6 +414,9 @@ AVPacket *cReassemblyBuffer::PopAvPacket(int size)
  */
 bool cReassemblyBufferVideo::ParseCodecHeader(const uint8_t *fragment, int size)
 {
+	if (size < VIDEO_FRAME_START_CODE_LEN)
+		return false;
+
 	const uint8_t *codecPayload = &fragment[VIDEO_FRAME_START_CODE_LEN];
 	uint32_t startCode = ReadBytes(fragment, VIDEO_FRAME_START_CODE_LEN);
 
@@ -470,12 +473,15 @@ AVPacket *cReassemblyBufferAudio::PopAvPacket(void)
 	if (detectedCodec == AV_CODEC_ID_NONE)
 		return nullptr; // No sync word found in the buffer. Wait for more data.
 	else if (m_codec != AV_CODEC_ID_NONE && detectedCodec != m_codec)
-		LOGERROR("pes: %s: audio codec changed unexpectedly from %d to %d", __FUNCTION__, avcodec_get_name(m_codec), avcodec_get_name(detectedCodec));
+		LOGERROR("pes: %s: audio codec changed unexpectedly from %s to %s", __FUNCTION__, avcodec_get_name(m_codec), avcodec_get_name(detectedCodec));
 
 	m_codec = detectedCodec;
 
 	try {
 		AVPacket *packet = cReassemblyBuffer::PopAvPacket(AudioCodecMap.at(m_codec).GetFrameSize(m_buffer.Peek()));
+
+		if (!packet)
+			return nullptr;
 
 		if (m_ptsInvalid) { // the PTS is invalid for this packet because the buffer was truncated before
 			packet->pts = AV_NOPTS_VALUE;
@@ -678,6 +684,11 @@ void cPtsTrackingBuffer::Erase(size_t amount)
 {
 	if (m_data.empty() || amount == 0)
 		return;
+
+	if (amount > m_data.size()) {
+		LOGERROR("pes: %s: %s: erase amount %zu exceeds buffer size %zu!", __FUNCTION__, m_identifier, amount, m_data.size());
+		amount = m_data.size();
+	}
 
 	// Only PES packets have PTS values, but not the (fragmented) frames inside.
 	// The reassembled frame's PTS value will become the PTS value of the PES packet where the frame starts.
