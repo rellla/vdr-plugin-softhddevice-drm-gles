@@ -171,7 +171,7 @@ struct SyncWordInfo {
  * Audio Stream Reassembly Buffer
  *
  * Reassembles audio elementary streams by detecting sync words and validating
- * frame headers. Supports MP2, AAC (LATM/ADTS), AC3, and E-AC3 codecs.
+ * frame headers. Supports MP2, AAC (LATM/ADTS), AC3, E-AC3 and DTS codecs.
  *
  * @ingroup misc
  */
