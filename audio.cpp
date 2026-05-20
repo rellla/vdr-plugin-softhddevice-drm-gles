@@ -505,7 +505,7 @@ int cSoftHdAudio::InitFilter(AVCodecContext *audioCtx)
 		(audioCtx->ch_layout.nb_channels != (int)m_hwNumChannels &&
 		!(m_downmix && m_hwNumChannels == 2))) {
 
-		err = AlsaSetup(audioCtx->ch_layout.nb_channels, audioCtx->sample_rate, 0);
+		err = AlsaSetup(audioCtx->ch_layout.nb_channels, audioCtx->sample_rate, false);
 		if (err)
 			return err;
 	}
@@ -761,7 +761,7 @@ void cSoftHdAudio::EnqueueFrame(AVFrame *frame)
 	if (m_normalize)       // in place operation
 		Normalize(buffer, byteCount);
 
-	Enqueue((uint16_t *)buffer, byteCount, frame);
+	Enqueue((uint16_t *)buffer, byteCount, frame->pts);
 
 	av_frame_free(&frame);
 }
@@ -772,6 +772,10 @@ void cSoftHdAudio::EnqueueFrame(AVFrame *frame)
 void cSoftHdAudio::BuildPauseBurst(void)
 {
 	uint16_t *spdif = m_pauseBurst.data();
+
+	constexpr int IEC61937_PREAMBLE1 = 0xF872;
+	constexpr int IEC61937_PREAMBLE2 = 0x4E1F;
+	constexpr int IEC61937_NULL = 0x00;
 
 	spdif[0] = htole16(IEC61937_PREAMBLE1);
 	spdif[1] = htole16(IEC61937_PREAMBLE2);
@@ -788,9 +792,9 @@ void cSoftHdAudio::BuildPauseBurst(void)
  *
  * @param buffer     data buffer
  * @param count      number of bytes in data buffer
- * @param frame      decoded frame (used to get frame parameters)
+ * @param pts        pts of the buffer
  */
-void cSoftHdAudio::EnqueueSpdif(uint16_t *buffer, int count, AVFrame *frame)
+void cSoftHdAudio::EnqueueSpdif(const uint16_t *buffer, int count, int64_t pts)
 {
 	std::lock_guard<std::mutex> lock(m_pauseMutex);
 
@@ -802,7 +806,7 @@ void cSoftHdAudio::EnqueueSpdif(uint16_t *buffer, int count, AVFrame *frame)
 		BuildPauseBurst();
 	}
 
-	Enqueue(buffer, count, frame);
+	Enqueue(buffer, count, pts);
 }
 
 /**
@@ -810,9 +814,9 @@ void cSoftHdAudio::EnqueueSpdif(uint16_t *buffer, int count, AVFrame *frame)
  *
  * @param buffer     data buffer
  * @param count      number of bytes in data buffer
- * @param frame      decoded frame (used to get frame parameters)
+ * @param pts        pts to set
  */
-void cSoftHdAudio::Enqueue(uint16_t *buffer, int count, AVFrame *frame)
+void cSoftHdAudio::Enqueue(const uint16_t *buffer, int count, int64_t pts)
 {
 	std::lock_guard<std::mutex> lock(m_mutex);
 
@@ -837,16 +841,18 @@ void cSoftHdAudio::Enqueue(uint16_t *buffer, int count, AVFrame *frame)
 
 	m_fillLevel.ReceivedFrames(snd_pcm_bytes_to_frames(m_pAlsaPCMHandle, bytesWritten));
 
-	if (frame->pts != AV_NOPTS_VALUE) {
+	if (pts != AV_NOPTS_VALUE) {
 		// discontinuity check, force a resync if the new pts differs more than AV_SYNC_BORDER_MS to the last
-		if (m_inputPts != AV_NOPTS_VALUE && std::abs(PtsToMs(m_inputPts) - PtsToMs(frame->pts)) > AV_SYNC_BORDER_MS) {
+		if (m_inputPts != AV_NOPTS_VALUE && std::abs(PtsToMs(m_inputPts) - PtsToMs(pts)) > AV_SYNC_BORDER_MS) {
 			LOGDEBUG2(L_AV_SYNC, "audio: %s: discontinuity detected in audio PTS %s -> %s%s", __FUNCTION__,
-				Timestamp2String(PtsToMs(m_inputPts), 1), Timestamp2String(PtsToMs(frame->pts), 1),
-				PtsToMs(m_inputPts) > PtsToMs(frame->pts) ? " (PTS wrapped)" : "");
-			m_eventQueue.push_back(ScheduleResyncAtPtsMsEvent{PtsToMs(frame->pts)});
+				Timestamp2String(PtsToMs(m_inputPts), 1), Timestamp2String(PtsToMs(pts), 1),
+				PtsToMs(m_inputPts) > PtsToMs(pts) ? " (PTS wrapped)" : "");
+			m_eventQueue.push_back(ScheduleResyncAtPtsMsEvent{PtsToMs(pts)});
 		}
 
-		m_inputPts = frame->pts;
+		m_inputPts = pts;
+	} else if (m_inputPts != AV_NOPTS_VALUE) {
+		m_inputPts += FramesToPts(snd_pcm_bytes_to_frames(m_pAlsaPCMHandle, count));
 	}
 }
 
@@ -864,7 +870,7 @@ void cSoftHdAudio::Enqueue(uint16_t *buffer, int count, AVFrame *frame)
  * @retval -1               something gone wrong in AlsaSetup
  * @retval 1                no parameter change, no setup needed
  */
-int cSoftHdAudio::Setup(AVCodecContext *ctx, int samplerate, int channels, int passthrough)
+int cSoftHdAudio::Setup(AVCodecContext *ctx, int samplerate, int channels, bool passthrough)
 {
 	int err = 0;
 
@@ -1808,7 +1814,7 @@ void cSoftHdAudio::AlsaSetVolume(int volume)
  *
  * @todo FIXME: remove pointer for freq + channels
  */
-int cSoftHdAudio::AlsaSetup(int channels, int sample_rate, int passthrough)
+int cSoftHdAudio::AlsaSetup(int channels, int sample_rate, bool passthrough)
 {
 	if (Active()) {
 		Stop();
@@ -1895,6 +1901,8 @@ int cSoftHdAudio::AlsaSetup(int channels, int sample_rate, int passthrough)
 		if (i < alsaMap.size() - 1)
 			channelMapString += " ";
 	}
+
+	m_passthroughActive = passthrough;
 
 	snd_pcm_state_t state = snd_pcm_state(m_pAlsaPCMHandle);
 	LOGINFO("audio: %s:\n"

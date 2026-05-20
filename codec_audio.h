@@ -13,11 +13,14 @@
 #ifndef __CODEC_AUDIO_H
 #define __CODEC_AUDIO_H
 
+#include <array>
 #include <cstdint>
 #include <mutex>
+#include <vector>
 
 extern "C" {
 #include <libavcodec/avcodec.h>
+#include <libavformat/avformat.h>
 }
 
 class cSoftHdAudio;
@@ -38,50 +41,6 @@ enum PassthroughMask {
 	CODEC_AC3  = (1 << 2), ///< AC-3 bit mask
 	CODEC_EAC3 = (1 << 3), ///< E-AC-3 bit mask
 	CODEC_DTS  = (1 << 4), ///< DTS bit mask
-};
-
-/**
- * IEC Data type
- *
- * @ingroup audiodecoder
- */
-enum IEC61937Type {
-	IEC61937_NULL   = 0x00, ///< no data
-	IEC61937_AC3    = 0x01, ///< AC-3 data
-	IEC61937_EAC3   = 0x15, ///< E-AC-3 data
-	IEC61937_DTS1   = 0x0B, ///< DTS type I (512 samples)
-	IEC61937_DTS2   = 0x0C, ///< DTS type II (1024 samples)
-	IEC61937_DTS3   = 0x0D, ///< DTS type III (2048 samples)
-	IEC61937_DTSHD  = 0x11, ///< DTS HD data (not used)
-	IEC61937_TRUEHD = 0x16, ///< TrueHD data (not used)
-};
-
-/**
- * IEC Preambles
- *
- * @ingroup audiodecoder
- */
-enum IEC61937Preamble {
-	IEC61937_PREAMBLE1  = 0xF872,
-	IEC61937_PREAMBLE2  = 0x4E1F,
-	DTS_PREAMBLE_16BE_1 = 0x7FFE,
-	DTS_PREAMBLE_16BE_2 = 0x8001,
-};
-
-/**
- * Codec frame sizes for spdif
- *
- * @ingroup audiodecoder
- */
-enum CodecFrameSizes {
-	DTS1_FRAME_SIZE   = 512,
-	DTS2_FRAME_SIZE   = 1024,
-	DTS3_FRAME_SIZE   = 2048,
-	AC3_FRAME_SIZE    = 1536,
-	EAC3_FRAME_SIZE   = 6144,
-	MAX_FRAME_SIZE    = EAC3_FRAME_SIZE,
-
-	TRUEHD_FRAME_SIZE = 15360, ///< (not used)
 };
 
 /**
@@ -120,14 +79,28 @@ private:
 	int m_currentNumChannels;                   ///< current number of channels
 	int m_currentHwSampleRate;                  ///< current hw sample rate
 	int m_currentHwNumChannels;                 ///< current number of hw channels
-	uint16_t m_spdifOutput[(MAX_FRAME_SIZE * 4 + 16) / 2]; ///< SPDIF output buffer
-	int m_spdifIndex;                           ///< index into SPDIF output buffer
-	int m_spdifRepeatCount;                     ///< SPDIF repeat counter
 	std::mutex m_mutex;                         ///< decoder mutex
 
-	int DecodePassthrough(const AVPacket *, AVFrame *);
-	int UpdateFormat(void);
-	void ResetSpdif(void);
+	std::array<uint8_t, 32768> m_spdifIoBuffer; ///< spdif I/O buffer
+	AVFormatContext *m_spdifFmtCtx = nullptr;   ///< spdif muxer context
+	std::vector<uint8_t> m_spdifOutputBuf;      ///< spdif muxer output
+
+	constexpr static int AUDIO_PASSTHROUGH_NUM_CHANNELS = 2; ///< fixed passthrough channel number
+	constexpr static int AUDIO_PASSTHROUGH_RATE_HZ = 48000;  ///< fixed passthrough sample rate
+
+	bool OpenSpdifMuxer(AVCodecID, int);
+	void CloseSpdifMuxer(void);
+	const std::vector<uint8_t> &BuildIEC61937(const AVPacket *);
+#if LIBAVFORMAT_VERSION_MAJOR >= 61
+	static int SpdifWriteCallback(void *, const uint8_t *, int);
+#else
+	static int SpdifWriteCallback(void *, uint8_t *, int);
+#endif
+
+	bool ShouldTryPassthrough(void);
+	int Passthrough(const AVPacket *);
+	void DecodePCM(const AVPacket *);
+	int CheckUpdateFormat(bool);
 };
 
 #endif
