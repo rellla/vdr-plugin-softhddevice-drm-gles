@@ -191,6 +191,23 @@ static const std::map<AVCodecID, CodecInfo> AudioCodecMap = {
 		.GetFrameSize = [](const uint8_t* data) -> int {
 			return ((data[3] & 0x03) << 11) | ((data[4] & 0xFF) << 3) | ((data[5] & 0xE0) >> 5);
 		}
+	}},
+	{AV_CODEC_ID_DTS, {
+		.minSize = 8,
+		.MatchSyncWord = [](const uint8_t* data) -> bool {
+			constexpr uint32_t DTS_SYNC_WORD = 0x7FFE8001;
+
+			uint32_t syncWord = ReadBytes(data, 4);
+			return syncWord == DTS_SYNC_WORD;
+		},
+		.GetFrameSize = [](const uint8_t* data) -> int {
+			int frameSize = ((data[5] & 0x03) << 12) | ((data[6] & 0xFF) << 4) | ((data[7] & 0xF0) >> 4);
+			frameSize += 1;
+			if (frameSize < 80 || frameSize > 8191)
+				throw std::invalid_argument("DTS: invalid frame size");
+
+			return frameSize;
+		}
 	}}
 };
 
@@ -557,6 +574,7 @@ SyncWordInfo cReassemblyBufferAudio::FindTwoConsecutiveFramesWithSameSyncWord(vo
 				//   - AC3: 2788 bytes (frmsizcod=37, fscod=1: 1394 * 2)
 				//   - EAC3: 4096 bytes (11-bit field max: 2048 * 2)
 				//   - AAC ADTS: 8191 bytes (13-bit length field max: 0x1FFF)
+				//   - DTS: 8192 bytes (14-bit length field max: 0x1FFF + 1)
 				return SyncWordInfo{AV_CODEC_ID_NONE, firstFrame.pos};
 			} else if (DetectCodecFromSyncWord(&m_buffer.Peek()[secondSyncWord], m_buffer.GetSize() - secondSyncWord) == firstFrame.codecId)
 				// two consecutive frames with the same sync word found, and the first frame's header length field is valid
@@ -575,7 +593,7 @@ SyncWordInfo cReassemblyBufferAudio::FindTwoConsecutiveFramesWithSameSyncWord(vo
  * Find the first audio sync word in data
  *
  * Scans the data byte-by-byte looking for any recognized audio sync word pattern.
- * Checks all supported audio codecs (MP2, AAC LATM, AAC ADTS, AC3, E-AC3).
+ * Checks all supported audio codecs (MP2, AAC LATM, AAC ADTS, AC3, E-AC3, DTS).
  *
  * @param data Pointer to audio data
  * @param size Size of the data in bytes
@@ -597,7 +615,7 @@ SyncWordInfo cReassemblyBufferAudio::FindSyncWord(const uint8_t *data, int size)
  * Detect audio codec from sync word pattern
  *
  * Checks if the data starts with a valid sync word for any supported audio codec.
- * Uses the AudioCodecMap to test sync word patterns for MP2, AAC LATM, AAC ADTS, AC3, and E-AC3.
+ * Uses the AudioCodecMap to test sync word patterns for MP2, AAC LATM, AAC ADTS, AC3, E-AC3 and DTS.
  *
  * @param syncWord Pointer to potential sync word data
  * @param size Size of available data
