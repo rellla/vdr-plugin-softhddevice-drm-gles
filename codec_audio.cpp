@@ -16,10 +16,12 @@
 
 #include <cstdint>
 #include <mutex>
+#include <vector>
 #include <unistd.h>
 
 extern "C" {
 #include <libavcodec/avcodec.h>
+#include <libavformat/avformat.h>
 }
 
 #include "audio.h"
@@ -113,6 +115,8 @@ void cAudioDecoder::Close(void)
 	if (!m_pAudioCtx)
 		return;
 
+	CloseSpdifMuxer();
+
 	LOGDEBUG2(L_CODEC, "audiocodec: %s", __FUNCTION__);
 
 	avcodec_free_context(&m_pAudioCtx);
@@ -122,217 +126,178 @@ void cAudioDecoder::Close(void)
 }
 
 /**
- * Passthrough audio data
+ * Callback for the spdif muxer
  *
- * Build spdif headers depending on the codec and send the
- * data to the audio device.
- * Currently supported: AC3, EAC3, DTS
- *
- * @param avpkt         undecoded audio packet
- * @param frame         decoded audio frame
- *
- * @retval 0            codec is not supported for passthrough, use Filter to handle the data
- * @retval -1           sth went wrong, data will be discarded
- * @retval 1            data accepted
- *                      if finished, spdif header was created and data was sent to passthrough device
+ * This is called, whenever FFmpeg flushes data from the muxer to the AVIOContext.
+ * In the current implementation, a flush is forced after every muxer input write.
  */
-int cAudioDecoder::DecodePassthrough(const AVPacket * avpkt, AVFrame *frame)
+#if LIBAVFORMAT_VERSION_MAJOR >= 61
+int cAudioDecoder::SpdifWriteCallback(void *opaque, const uint8_t *buffer, int bufferSize)
+#else
+int cAudioDecoder::SpdifWriteCallback(void *opaque, uint8_t *buffer, int bufferSize)
+#endif
 {
-	m_pAudio->SetTimebase(&m_pAudioCtx->pkt_timebase);
+	auto &output = *static_cast<std::vector<uint8_t> *>(opaque);
+	output.insert(output.end(), buffer, buffer + bufferSize);
 
-	// AC3 passthrough
-	if (m_currentPassthroughMask & CODEC_AC3 && m_pAudioCtx->codec_id == AV_CODEC_ID_AC3) {
-		uint16_t *spdif = m_spdifOutput;
-		int spdifSize = AC3_FRAME_SIZE * 4; // frames * channels * (samplesize / 8)
-
-		if (spdifSize < avpkt->size + 8) {
-			LOGERROR("audiocodec: %s: too much data for spdif buffer!", __FUNCTION__);
-			return -1;
-		}
-
-		if (avpkt->size < 6)
-			return -1;
-
-		// build SPDIF header and append AC3 audio data to it
-		int bitstreamMode = avpkt->data[5] & 0x07;
-		spdif[0] = htole16(IEC61937_PREAMBLE1);
-		spdif[1] = htole16(IEC61937_PREAMBLE2);
-		spdif[2] = htole16(IEC61937_AC3 | bitstreamMode << 8);
-		spdif[3] = htole16(avpkt->size * 8);
-		swab(avpkt->data, spdif + 4, avpkt->size);
-		memset((uint8_t *)(spdif + 4) + avpkt->size, 0, spdifSize - 8 - avpkt->size);
-
-		m_pAudio->EnqueueSpdif(spdif, spdifSize, frame);
-		return 1;
-	}
-
-	// EAC3 passthrough
-	if (m_currentPassthroughMask & CODEC_EAC3 && m_pAudioCtx->codec_id == AV_CODEC_ID_EAC3) {
-		uint16_t *spdif = m_spdifOutput;
-		int spdifSize = EAC3_FRAME_SIZE * 4; // frames * channels * (samplesize / 8)
-		int repeat = 1;
-
-		// spdifSize is smaller, if we don't have 192000
-		if (m_currentHwSampleRate == 48000) {
-			spdifSize /= 4;
-		}
-
-		if (spdifSize < m_spdifIndex + avpkt->size + 8) {
-			LOGERROR("audiocodec: %s: too much data for spdif buffer!", __FUNCTION__);
-			ResetSpdif();
-			return -1;
-		}
-
-		if (avpkt->size < 5) {
-			LOGERROR("audiocodec: %s: avpkt size too small!", __FUNCTION__);
-			ResetSpdif();
-			return -1;
-		}
-
-		// check if we need to pack multiple packets
-		int fscod = (avpkt->data[4] >> 6) & 0x3;
-		int numblkscod = 6;
-		if (fscod != 0x3) {
-			numblkscod = (avpkt->data[4] >> 4) & 0x3;
-			static const uint8_t eac3_repeat[4] = { 6, 3, 2, 1 };
-			repeat = eac3_repeat[numblkscod];
-		}
-
-		if (repeat * avpkt->size > spdifSize - 8) {
-			LOGERROR("audiocodec: %s: spdif size too small!", __FUNCTION__);
-			ResetSpdif();
-			return -1;
-		}
-
-		// pack upto repeat EAC-3 pakets into one IEC 61937 burst
-		swab(avpkt->data, (uint8_t *)(spdif + 4) + m_spdifIndex, avpkt->size);
-		m_spdifIndex += avpkt->size;
-
-//		LOGDEBUG2(L_CODEC, "audiocodec: %s: E-AC3: set repeat to %d (fscod = %d, numblkscode = %d) avpkt->size %d (spdifSize %d) (repeatCount gets %d) (m_spdifIndex = %d)",
-//			__FUNCTION__, repeat, fscod, numblkscod, avpkt->size, spdifSize, m_spdifRepeatCount + 1, m_spdifIndex);
-
-		if (++m_spdifRepeatCount < repeat)
-			return 1;
-
-		if (m_spdifRepeatCount > 6) {
-			ResetSpdif();
-			return -1;
-		}
-
-		// build SPDIF header and append E-AC3 audio data to it
-		spdif[0] = htole16(IEC61937_PREAMBLE1);
-		spdif[1] = htole16(IEC61937_PREAMBLE2);
-		spdif[2] = htole16(IEC61937_EAC3);
-		spdif[3] = htole16(m_spdifIndex * 8);
-		int pad = spdifSize - 8 - m_spdifIndex;
-		if (pad > 0)
-			memset((uint8_t *)(spdif + 4) + m_spdifIndex, 0, pad);
-
-		m_pAudio->EnqueueSpdif(spdif, spdifSize, frame);
-		ResetSpdif();
-		return 1;
-	}
-
-	// DTS passthrough
-	if (m_currentPassthroughMask & CODEC_DTS && m_pAudioCtx->codec_id == AV_CODEC_ID_DTS) {
-		uint16_t *spdif = m_spdifOutput;
-
-		uint8_t nbs;
-		int bsid;
-		int burstSz;
-
-		if (avpkt->size < 6) {
-			LOGERROR("audiocodec: %s: avpkt size too small!", __FUNCTION__);
-			return -1;
-		}
-
-		nbs = (uint8_t)((avpkt->data[4] & 0x01) << 6) |
-		               ((avpkt->data[5] >> 2) & 0x3f);
-		switch(nbs) {
-		case 0x07:
-			bsid = 0x0a;	// MPEG-2 layer 3 is used when?
-			burstSz = 1024;
-			break;
-		case 0x0f:
-			bsid = IEC61937_DTS1;
-			burstSz = DTS1_FRAME_SIZE * 4; // frames * channels * (samplesize / 8)
-			break;
-		case 0x1f:
-			bsid = IEC61937_DTS2;
-			burstSz = DTS2_FRAME_SIZE * 4; // frames * channels * (samplesize / 8)
-			break;
-		case 0x3f:
-			bsid = IEC61937_DTS3;
-			burstSz = DTS3_FRAME_SIZE * 4; // frames * channels * (samplesize / 8)
-			break;
-		default:
-			bsid = IEC61937_NULL;
-			if (nbs < 5)
-				nbs = 127;
-			burstSz = (nbs + 1) * 32 * 2 + 2;
-			break;
-		}
-
-		// build SPDIF header and append DTS audio data to it
-		if (burstSz < avpkt->size + 8) {
-			LOGERROR("audiocodec: %s: too much data for spdif buffer!", __FUNCTION__);
-			return -1;
-		}
-		spdif[0] = htole16(IEC61937_PREAMBLE1);
-		spdif[1] = htole16(IEC61937_PREAMBLE2);
-		spdif[2] = htole16(bsid);
-		spdif[3] = htole16(avpkt->size * 8);
-		spdif[4] = htole16(DTS_PREAMBLE_16BE_1);
-		spdif[5] = htole16(DTS_PREAMBLE_16BE_2);
-		swab(avpkt->data, spdif + 6, avpkt->size);
-		memset((uint8_t *)(spdif + 6) + avpkt->size, 0, burstSz - 12 - avpkt->size);
-
-		m_pAudio->EnqueueSpdif(spdif, burstSz, frame);
-		return 1;
-	}
-
-	return 0;
+	return bufferSize;
 }
 
 /**
- * Handle audio format changes
+ * Open the spdif muxer
  *
- * Setup audio, if format changed
+ * @param codecId         Codec ID of the stream
+ * @param sampleRate      Samplerate of the stream
+ *
+ * @return                true, if the spdif muxer could be opened
+ *                        false on any error
+ */
+bool cAudioDecoder::OpenSpdifMuxer(AVCodecID codecId, int sampleRate)
+{
+	CloseSpdifMuxer();
+
+	if (avformat_alloc_output_context2(&m_spdifFmtCtx, nullptr, "spdif", nullptr) < 0 || !m_spdifFmtCtx) {
+		LOGERROR("audiocodec: %s: failed to allocate spdif muxer", __FUNCTION__);
+		return false;
+	}
+
+	m_spdifFmtCtx->pb = avio_alloc_context(m_spdifIoBuffer.data(), m_spdifIoBuffer.size(), 1, &m_spdifOutputBuf, nullptr, &cAudioDecoder::SpdifWriteCallback, nullptr);
+	if (!m_spdifFmtCtx->pb) {
+		avformat_free_context(m_spdifFmtCtx);
+		m_spdifFmtCtx = nullptr;
+		return false;
+	}
+
+	AVStream *stream = avformat_new_stream(m_spdifFmtCtx, nullptr);
+	if (!stream) {
+		CloseSpdifMuxer();
+		return false;
+	}
+
+	stream->codecpar->codec_type = AVMEDIA_TYPE_AUDIO;
+	stream->codecpar->codec_id = codecId;
+	stream->codecpar->sample_rate = sampleRate;
+	av_channel_layout_default(&stream->codecpar->ch_layout, 2);
+	stream->time_base = AVRational{1, sampleRate};
+
+	if (avformat_write_header(m_spdifFmtCtx, nullptr) < 0) {
+		LOGERROR("audiocodec: %s: failed to write avformat header", __FUNCTION__);
+		CloseSpdifMuxer();
+		return false;
+	}
+
+	LOGDEBUG2(L_CODEC, "audiocodec: %s: opened spdif muxer for %s @ %dHz", __FUNCTION__, avcodec_get_name(codecId), sampleRate);
+
+	return true;
+}
+
+/**
+ * Close the spdif muxer and free the resources
+ */
+void cAudioDecoder::CloseSpdifMuxer(void)
+{
+	if (m_spdifFmtCtx) {
+		LOGDEBUG2(L_CODEC, "audiocodec: %s: close spdif muxer", __FUNCTION__);
+		if (m_spdifFmtCtx->pb) {
+			m_spdifFmtCtx->pb->buffer = nullptr;
+			avio_context_free(&m_spdifFmtCtx->pb);
+		}
+		avformat_free_context(m_spdifFmtCtx);
+		m_spdifFmtCtx = nullptr;
+	}
+
+	m_spdifOutputBuf.clear();
+}
+
+/**
+ * Prepend an IEC61937 header to the raw audio data by sending the avpkt to the spdif muxer
+ *
+ * @param avpkt        input packet
+ *
+ * @return             output data from the spdif muxer (maybe nullptr, if no output is available)
+ */
+const std::vector<uint8_t> &cAudioDecoder::BuildIEC61937(const AVPacket *avpkt)
+{
+	if (!m_spdifFmtCtx || !avpkt || !avpkt->data || avpkt->size <= 0) {
+		m_spdifOutputBuf.clear();
+		return m_spdifOutputBuf;
+	}
+
+	m_spdifOutputBuf.clear();
+
+	AVPacket pkt = {};
+	int ret = av_packet_ref(&pkt, avpkt);
+	if (ret < 0) {
+		LOGERROR("audiocodec: %s: av_packet_ref failed: %s", __FUNCTION__, av_err2str(ret));
+		return m_spdifOutputBuf;
+	}
+
+	pkt.stream_index = 0;
+
+	ret = av_write_frame(m_spdifFmtCtx, &pkt);
+	av_packet_unref(&pkt);
+	if (ret < 0) {
+		LOGERROR("audiocodec: %s: av_write_frame failed: %s", __FUNCTION__, av_err2str(ret));
+		m_spdifOutputBuf.clear();
+		return m_spdifOutputBuf;
+	}
+
+	// always flush to see, if new output is ready
+	avio_flush(m_spdifFmtCtx->pb);
+
+	return m_spdifOutputBuf;
+}
+
+/**
+ * Test, if passthrough audio should be tried
+ *
+ * To enable passthrough, the current codec must be enabled in the setup
+ *
+ * Currently supported: AC3, E-AC-3, DTS
+ *
+ * @return             true, if the data should be passed through
+ */
+bool cAudioDecoder::ShouldTryPassthrough(void)
+{
+	return (m_passthroughMask & CODEC_AC3  && m_pAudioCtx->codec_id == AV_CODEC_ID_AC3) ||
+	       (m_passthroughMask & CODEC_EAC3 && m_pAudioCtx->codec_id == AV_CODEC_ID_EAC3) ||
+	       (m_passthroughMask & CODEC_DTS  && m_pAudioCtx->codec_id == AV_CODEC_ID_DTS);
+}
+
+/**
+ * Handle audio format changes and setup audio, if format changed
  *
  * @retval 0     if new audio was correctly set up,
  *               otherwise return value of cSoftHdAudio::Setup()
  */
-int cAudioDecoder::UpdateFormat(void)
+int cAudioDecoder::CheckUpdateFormat(bool passthrough)
 {
-	int isPassthrough = 0;
-	int err = 0;
+	if (m_currentPassthroughMask == m_passthroughMask &&
+	    m_currentNumChannels     == m_currentHwNumChannels &&
+	    m_currentSampleRate      == m_currentHwSampleRate)
+		return 0;
 
-	m_currentSampleRate = m_pAudioCtx->sample_rate;
 	m_currentHwSampleRate = m_pAudioCtx->sample_rate;
-	m_currentNumChannels = m_pAudioCtx->ch_layout.nb_channels;
 	m_currentHwNumChannels = m_pAudioCtx->ch_layout.nb_channels;
 	m_currentPassthroughMask = m_passthroughMask;
 
-	if ((m_currentPassthroughMask & CODEC_AC3  && m_pAudioCtx->codec_id == AV_CODEC_ID_AC3) ||
-	    (m_currentPassthroughMask & CODEC_EAC3 && m_pAudioCtx->codec_id == AV_CODEC_ID_EAC3) ||
-	    (m_currentPassthroughMask & CODEC_DTS  && m_pAudioCtx->codec_id == AV_CODEC_ID_DTS)) {
+	if (passthrough) {
+		CloseSpdifMuxer();
+		m_currentHwSampleRate = AUDIO_PASSTHROUGH_RATE_HZ;
+		m_currentHwNumChannels = AUDIO_PASSTHROUGH_NUM_CHANNELS;
 
 		// E-AC3 over HDMI: some receivers need HBR
 		if (m_pAudioCtx->codec_id == AV_CODEC_ID_EAC3)
 			m_currentHwSampleRate *= 4;
-
-		m_currentHwNumChannels = 2;
-		m_spdifIndex = 0;
-		m_spdifRepeatCount = 0;
-		isPassthrough = 1;
 	}
 
-	if ((err = m_pAudio->Setup(m_pAudioCtx, m_currentHwSampleRate, m_currentHwNumChannels, isPassthrough)) < 0) {
+	int err = 0;
+	if ((err = m_pAudio->Setup(m_pAudioCtx, m_currentHwSampleRate, m_currentHwNumChannels, passthrough)) < 0) {
 		// E-AC3 over HDMI: try without HBR
 		m_currentHwSampleRate /= 4;
 
 		if (m_pAudioCtx->codec_id != AV_CODEC_ID_EAC3 ||
-		  ((err = m_pAudio->Setup(m_pAudioCtx, m_currentHwSampleRate, m_currentHwNumChannels, isPassthrough)) < 0)) {
+		  ((err = m_pAudio->Setup(m_pAudioCtx, m_currentHwSampleRate, m_currentHwNumChannels, passthrough)) < 0)) {
 			LOGERROR("audiocodec: %s: format change update error", __FUNCTION__);
 			m_currentHwSampleRate = 0;
 			m_currentHwNumChannels = 0;
@@ -340,34 +305,80 @@ int cAudioDecoder::UpdateFormat(void)
 		}
 	}
 
-	if (!err) {
-		LOGDEBUG2(L_SOUND, "audiocodec: %s: format change %s %dHz *%d channels%s%s%s%s%d", __FUNCTION__,
-			av_get_sample_fmt_name(m_pAudioCtx->sample_fmt), m_pAudioCtx->sample_rate, m_pAudioCtx->ch_layout.nb_channels,
-			m_passthroughMask & CODEC_AC3 ? " AC3" : "",
-			m_passthroughMask & CODEC_EAC3 ? " EAC3" : "",
-			m_passthroughMask & CODEC_DTS ? " DTS" : "",
-			m_passthroughMask ? " passthrough mask " : "",
-			m_passthroughMask ? m_passthroughMask : 0);
+	// remember for next update check
+	m_currentSampleRate = m_currentHwSampleRate;
+	m_currentNumChannels = m_currentHwNumChannels;
+
+	LOGDEBUG2(L_SOUND, "audiocodec: %s: format change %s %dHz *%d channels%s%s%s%s%d", __FUNCTION__,
+		av_get_sample_fmt_name(m_pAudioCtx->sample_fmt), m_currentHwSampleRate, m_currentHwNumChannels,
+		m_passthroughMask & CODEC_AC3 ? " AC3" : "",
+		m_passthroughMask & CODEC_EAC3 ? " EAC3" : "",
+		m_passthroughMask & CODEC_DTS ? " DTS" : "",
+		m_passthroughMask ? " passthrough mask " : "",
+		m_passthroughMask ? m_passthroughMask : 0);
+
+	return 0;
+}
+
+/**
+ * Forward an audio packet either to the decoder or passthrough
+ *
+ * @param avpkt        audio packet to decode
+ */
+void cAudioDecoder::Decode(const AVPacket *avpkt)
+{
+	std::lock_guard<std::mutex> lock(m_mutex);
+
+	if (ShouldTryPassthrough())
+		Passthrough(avpkt);
+	else
+		DecodePCM(avpkt);
+}
+
+/**
+ * Passthrough audio data
+ *
+ * Build spdif headers depending on the codec and send the
+ * data to the audio device.
+ *
+ * @param avpkt         undecoded audio packet
+ *
+ * @retval 0            codec is not supported for passthrough, sth. went wrong or we need more data to finish a spdif burst packet
+ * @retval 1            spdif burst was enqueued
+ */
+int cAudioDecoder::Passthrough(const AVPacket *avpkt)
+{
+	if (CheckUpdateFormat(true)) {
+		LOGERROR("audiocodec: %s: unsupported format!", __FUNCTION__);
+		return 0;
 	}
 
-	return err;
+	if (!m_spdifFmtCtx && !OpenSpdifMuxer(m_pAudioCtx->codec_id, m_currentHwSampleRate)) {
+		LOGERROR("audiocodec: %s: failed to open spdif muxer for codec %s @ %dHz!", __FUNCTION__, avcodec_get_name(m_pAudioCtx->codec_id), m_currentHwSampleRate);
+		return 0;
+	}
+
+	m_pAudio->SetTimebase(&m_pAudioCtx->pkt_timebase);
+
+	const auto &burst = BuildIEC61937(avpkt);
+
+	if (burst.empty())
+		return 0;
+
+	m_pAudio->EnqueueSpdif(reinterpret_cast<const uint16_t *>(burst.data()), burst.size(), avpkt->pts);
+	return 1;
 }
 
 /**
  * Decode an audio packet
  *
- * This function holds the decoding loop
- *
  * @param avpkt        audio packet to decode
  */
-void cAudioDecoder::Decode(const AVPacket * avpkt)
+void cAudioDecoder::DecodePCM(const AVPacket *avpkt)
 {
-	std::lock_guard<std::mutex> lock(m_mutex);
-
 	int retSend, retRec;
 	AVFrame *frame;
 
-	// decoded frame is also needed for passthrough to set the PTS
 	frame = m_pFrame;
 	av_frame_unref(frame);
 
@@ -391,7 +402,7 @@ void cAudioDecoder::Decode(const AVPacket * avpkt)
 				continue;
 			}
 
-			// update audio clock and remeber last PTS or guess the next PTS
+			// update audio clock and remember last PTS or guess the next PTS
 			if (frame->pts != AV_NOPTS_VALUE) {
 				m_lastPts = frame->pts;
 			} else if (m_lastPts != AV_NOPTS_VALUE) {
@@ -400,22 +411,14 @@ void cAudioDecoder::Decode(const AVPacket * avpkt)
 				m_lastPts = frame->pts;
 			}
 
-			if (m_currentPassthroughMask != m_passthroughMask ||
-			    m_currentNumChannels     != m_pAudioCtx->ch_layout.nb_channels ||
-			    m_currentSampleRate      != m_pAudioCtx->sample_rate) {
-				UpdateFormat();
-			}
-
-			if (!m_currentHwNumChannels || !m_currentHwSampleRate) {
+			if (CheckUpdateFormat(false)) {
 				LOGERROR("audiocodec: %s: unsupported format!", __FUNCTION__);
 				av_frame_unref(frame);
 				return;
 			}
 
-			if (DecodePassthrough(avpkt, frame)) {
-				av_frame_unref(frame);
-			} else
-				m_pAudio->Filter(frame, m_pAudioCtx);
+			m_pAudio->Filter(frame, m_pAudioCtx);
+
 		} while (retRec == 0);
 	} while (retSend == AVERROR(EAGAIN));
 }
@@ -435,17 +438,6 @@ void cAudioDecoder::FlushBuffers(void)
 
 	m_lastPts = AV_NOPTS_VALUE;
 	m_codecId = AV_CODEC_ID_NONE;
-
-	ResetSpdif();
-}
-
-/**
- * Rest the internal SPDIF burst buffer
- */
-void cAudioDecoder::ResetSpdif(void)
-{
-	m_spdifIndex = 0;
-	m_spdifRepeatCount = 0;
 }
 
 /**

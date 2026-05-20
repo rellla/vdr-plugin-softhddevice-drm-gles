@@ -61,24 +61,6 @@ class cSoftHdAudio;
  * @addtogroup render
  */
 
-/**
- * Sync Corridor
- *
- * The current sync logic drops all old audio data at playback start to start with nearly the same
- * audio and video pts. So the theoretical initial AV-diff is 0ms. However, the real one isn't because
- * it takes some time from BufferingThresholdReached() to the first AV Sync.
- * The tolerance window historically changed from -25/+55ms (original softhddevice) to -5/+35 (softhddevice-drm)
- * up to -20/20ms, which is a symmetrical window around the theoretical 0ms-sync-destination.
- * The AV-diff is mostly stable once synched (except for the consequences of ClockDriftCompensation) but has
- * outliers ~3-4ms from time to time due to audio pts fluctuation.
- * Now, if the initial sync was done to -4ms and such an outlier arrives, we land at -7ms, the frame is dropped
- * and our new AV-diff is +14ms now. This can be avoided by the -20/+20ms window.
- *
- * @ingroup render
- */
-#define AV_SYNC_THRESHOLD_AUDIO_BEHIND_VIDEO_MS 20  ///< threshold in ms, when to duplicate video frames to keep audio and video in sync
-#define AV_SYNC_THRESHOLD_AUDIO_AHEAD_VIDEO_MS 20   ///< threshold in ms, when to drop video frames to keep audio and video in sync
-
 enum drmColorSpace {
 	COLORSPACE_BT709_YCC = 2,
 	COLORSPACE_BT2020_RGB = 9
@@ -287,6 +269,21 @@ private:
 	cGrabBuffer m_grabVideo;            ///< keeps the current grabbed video
 	cGrabBuffer m_grabPip;              ///< keeps the current grabbed pip video
 
+	/**
+	 * Sync Corridor
+	 *
+	 * The current sync logic drops all old audio data at playback start to start with nearly the same
+	 * audio and video pts. So the theoretical initial AV-diff is 0ms. However, the real one isn't because
+	 * it takes some time from BufferingThresholdReached() to the first AV Sync.
+	 * The tolerance window historically changed from -25/+55ms (original softhddevice) to -5/+35 (softhddevice-drm)
+	 * up to -20/20ms, which is a symmetrical window around the theoretical 0ms-sync-destination.
+	 * The AV-diff is mostly stable once synched (except for the consequences of ClockDriftCompensation) but has
+	 * outliers ~3-4ms from time to time due to audio pts fluctuation.
+	 * Now, if the initial sync was done to -4ms and such an outlier arrives, we land at -7ms, the frame is dropped
+	 * and our new AV-diff is +14ms now. This can be avoided by the -20/+20ms window.
+	 */
+	constexpr static int AV_SYNC_THRESHOLD_AUDIO_BEHIND_VIDEO_MS = 20; ///< threshold in ms, when to duplicate video frames to keep audio and video in sync
+	constexpr static int AV_SYNC_THRESHOLD_AUDIO_AHEAD_VIDEO_MS  = 20; ///< threshold in ms, when to drop video frames to keep audio and video in sync
 	int m_startCounter = 0;             ///< counter for displayed frames, indicates a video start
 	int m_framesDuped = 0;              ///< number of frames duplicated
 	int m_framesDropped = 0;            ///< number of frames dropped

@@ -53,11 +53,11 @@ public:
 
 	void LazyInit(void);
 	void Exit(void);
-	int Setup(AVCodecContext *, int , int , int);
+	int Setup(AVCodecContext *, int , int , bool);
 	void SetPaused(bool);
 	bool IsPaused(void) { return m_paused; };
 	void Filter(AVFrame *, AVCodecContext *);
-	void EnqueueSpdif(uint16_t *, int, AVFrame *);
+	void EnqueueSpdif(const uint16_t *, int, int64_t pts);
 	bool IsBufferFull(void) { return m_pRingbuffer.FreeBytes() <= AUDIO_MIN_BUFFER_FREE; }
 
 	void FlushBuffers(void);
@@ -94,6 +94,7 @@ private:
 	constexpr static int AUDIO_MIN_BUFFER_FREE = 3072 * 8 * 8; ///< Minimum free space in audio buffer 8 packets for 8 channels
 	constexpr static int NORMALIZE_MAX_INDEX = 128;            ///< number of normalize average samples
 	constexpr static int AV_SYNC_BORDER_MS = 5000;             ///< absolute max a/v difference in ms which should trigger a resync
+
 	cSoftHdDevice *m_pDevice;               ///< pointer to device
 	cSoftHdConfig *m_pConfig;               ///< pointer to config
 	IEventReceiver *m_pEventReceiver;       ///< pointer to event receiver
@@ -116,6 +117,7 @@ private:
 	int m_pitchAdjustFrameCounter = 0;      ///< counter for pitch adjustment frames
 
 	int m_downmix;                          ///< set stereo downmix
+	std::atomic<bool> m_passthroughActive = false; ///< set, if passthrough is active
 
 	int64_t m_inputPts = AV_NOPTS_VALUE;    ///< pts clock (last pts in ringbuffer)
 	std::atomic<bool> m_paused = true;      ///< audio is paused
@@ -129,7 +131,7 @@ private:
 	snd_pcm_sframes_t m_hwBaseline = 0;     ///< saves the hw delay (pause bursts) once a real audio frame to correctly do the AV-Sync
 	bool m_firstRealAudioReceived = false;  ///< false, as long as no real audio was sent - used to trigger the baseline set
 
-	void Enqueue(uint16_t *, int, AVFrame *);
+	void Enqueue(const uint16_t *, int, int64_t);
 	void EnqueueFrame(AVFrame *);
 	bool SendAudio(int);
 	bool SendPause(void);
@@ -189,7 +191,7 @@ private:
 	int m_alsaRatio;                     ///< internal -> mixer ratio * 1000
 	bool m_alsaUseMmap;                  ///< use mmap
 
-	int AlsaSetup(int, int, int);
+	int AlsaSetup(int, int, bool);
 	char *OpenAlsaDevice(const char *);
 	char *FindAlsaDevice(const char *, const char *);
 	void AlsaInitDevice(void);
@@ -209,6 +211,7 @@ private:
 	int64_t MsToPts(int64_t ptsMs) { return ptsMs / av_q2d(*m_pTimebase) / 1000; }
 	int MsToFrames(int milliseconds) { return (int64_t)milliseconds * m_hwSampleRate / 1000; }
 	int FramesToMs(int frames) { return (int64_t)frames * 1000 / m_hwSampleRate; }
+	int64_t FramesToPts(int frames) { return MsToPts((int64_t)frames * 1000 / m_hwSampleRate); }
 	double FramesToMsDouble(int frames) { return (double)frames * 1000 / m_hwSampleRate; }
 };
 
