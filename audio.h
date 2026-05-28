@@ -101,7 +101,7 @@ private:
 	cBufferFillLevelLowPassFilter m_fillLevel;                  ///< low pass filter for the buffer fill level
 	cPidController m_pidController{3, 0.005, 0, 1000};          ///< PID controller for clock drift compensation with tuning values coming from educated guesses
 	std::chrono::steady_clock::time_point m_lastPidInvocation;  ///< last time the PID controller was invoked
-	int m_alsaBufferSizeFrames = 0;         ///< alsa buffer size in frames
+	snd_pcm_uframes_t m_alsaBufferSizeFrames = 0; ///< alsa buffer size in frames
 	int m_packetCounter = 0;                ///< packet counter for logging
 
 	// common audio, alsa

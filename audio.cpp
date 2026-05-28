@@ -1910,7 +1910,7 @@ int cSoftHdAudio::AlsaSetup(int channels, int sample_rate, bool passthrough)
 		"           Set: HWChannels %d HWSampleRate %d\n"
 		"           Format %s, use mmap: %s\n"
 		"           AlsaBufferTime %dms, pcm state: %s\n"
-		"           periodSize %d frames, bufferSize %d (%d) frames",
+		"           periodSize %d frames, bufferSize %d frames",
 		__FUNCTION__,
 		channels, channelMapString.c_str(), sample_rate, passthrough ? " -> passthrough" : "",
 		m_hwNumChannels, m_hwSampleRate,
