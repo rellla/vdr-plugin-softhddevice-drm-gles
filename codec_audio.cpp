@@ -36,7 +36,7 @@ extern "C" {
  */
 cAudioDecoder::cAudioDecoder(cSoftHdAudio *audio)
 	: m_pAudio(audio),
-	  m_passthroughMask(m_pAudio->GetPassthrough() & (CODEC_AC3 | CODEC_EAC3 | CODEC_DTS))
+	  m_passthroughMask(m_pAudio->GetPassthroughMask() & (CODEC_AC3 | CODEC_EAC3 | CODEC_DTS))
 {
 	if (!(m_pFrame = av_frame_alloc()))
 		LOGFATAL("audiocodec: %s: can't allocate audio decoder frame buffer", __FUNCTION__);
