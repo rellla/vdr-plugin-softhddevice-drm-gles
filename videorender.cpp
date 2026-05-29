@@ -507,19 +507,25 @@ int cVideoRender::CommitBuffer(cDrmBuffer *buf, cDrmBuffer *pip)
  */
 void cVideoRender::LogDroppedDuped(int64_t audioPtsMs, int64_t videoPtsMs, int audioBehindVideoByMs)
 {
-	if (audioBehindVideoByMs > 0)
-		m_framesDuped++;
-	else
-		m_framesDropped++;
+	bool logDropDup = true;
 
-	LOGDEBUG2(L_AV_SYNC, "Frame %s (drop %d, dup %d, total %d) Pkts %d Frames %d UsedBytes %d audio %s video %s Delay %dms kernel buffer delay %dms diff %dms",
-		audioBehindVideoByMs > 0 ? "duped" : "dropped",
+	if (audioBehindVideoByMs > AV_SYNC_THRESHOLD_AUDIO_BEHIND_VIDEO_MS)
+		m_framesDuped++;
+	else if (audioBehindVideoByMs < -AV_SYNC_THRESHOLD_AUDIO_AHEAD_VIDEO_MS)
+		m_framesDropped++;
+	else
+		logDropDup = false;
+
+	LOGDEBUG2(L_AV_SYNC, "%s (%d|%d|%d) Pkts %d Frames %d Rb %d bytes (%dms) PTS: in %s a %s v %s user delay %dms hw delay %dms diff %dms",
+		(logDropDup && (audioBehindVideoByMs > 0)) ? "Frame duped" : (logDropDup ? "Frame dropped" : "Frames:"),
 		m_framesDropped,
 		m_framesDuped,
 		m_startCounter,
 		m_pDevice->VideoStream()->GetAvPacketsFilled(),
 		m_drmBufferQueue.Size(),
-		m_pAudio->GetUsedBytes(),
+		m_pAudio->GetUsedRingbufferBytes(),
+		m_pAudio->GetUsedRingbufferMs(),
+		Timestamp2String(m_pAudio->GetInputPtsMs(), 1),
 		Timestamp2String(audioPtsMs, 1),
 		Timestamp2String(videoPtsMs, 1),
 		m_pDevice->GetVideoAudioDelayMs(),
@@ -684,6 +690,8 @@ bool cVideoRender::FrameDropNecessary(int64_t audioPtsMs, int64_t videoPtsMs)
 
 		return true;
 	}
+
+//	LogDroppedDuped(audioPtsMs, videoPtsMs, audioBehindVideoByMs);
 
 	// log AV diff for the first 10 frames and every 10 seconds
 //	if (m_startCounter < 10 || m_startCounter % 500 == 0)

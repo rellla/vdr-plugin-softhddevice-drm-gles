@@ -61,7 +61,8 @@ public:
 	bool IsBufferFull(void) { return m_pRingbuffer.FreeBytes() <= AUDIO_MIN_BUFFER_FREE; }
 
 	void FlushBuffers(void);
-	int GetUsedBytes(void);
+	int GetUsedRingbufferBytes(void);
+	int GetUsedRingbufferMs(void);
 	int64_t GetHardwareOutputPtsMs(void);
 	int64_t GetHardwareOutputDelayMs(void);
 	int64_t GetHardwareOutputPtsTimebaseUnits(void);
