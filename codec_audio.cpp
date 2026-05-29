@@ -332,9 +332,11 @@ int cAudioDecoder::CheckUpdateFormat(bool passthrough)
 	m_currentNumChannels = m_currentHwNumChannels;
 	m_currentPassthroughMask = m_passthroughMask;
 
-	LOGDEBUG2(L_SOUND, "audiocodec: %s: format change %s %dHz *%d channels%s", __FUNCTION__,
-		av_get_sample_fmt_name(m_pAudioCtx->sample_fmt), m_currentHwSampleRate, m_currentHwNumChannels,
-		GetPassthroughMaskString(m_passthroughMask).c_str());
+	// audio was newly set up (err == 0)
+	if (!err)
+		LOGDEBUG2(L_SOUND, "audiocodec: %s: format changed %s %dHz *%d channels%s", __FUNCTION__,
+			av_get_sample_fmt_name(m_pAudioCtx->sample_fmt), m_currentHwSampleRate, m_currentHwNumChannels,
+			GetPassthroughMaskString(m_passthroughMask).c_str());
 
 	return 0;
 }
