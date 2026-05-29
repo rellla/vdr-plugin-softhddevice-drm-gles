@@ -481,17 +481,12 @@ int cSoftHdAudio::InitFilter(AVCodecContext *audioCtx)
 	char optionsStr[1024];
 	int err, i, numFilter = 0;
 
-	// Before filter init set HW parameter.
-	if (audioCtx->sample_rate != (int)m_hwSampleRate ||
-		(audioCtx->ch_layout.nb_channels != (int)m_hwNumChannels &&
-		!(m_downmix && m_hwNumChannels == 2))) {
-
-		err = AlsaSetup(audioCtx->ch_layout.nb_channels, audioCtx->sample_rate, false);
-		if (err)
-			return err;
+	// Before filter init setup HW parameter
+	err = Setup(audioCtx->pkt_timebase, audioCtx->sample_rate, audioCtx->ch_layout.nb_channels, false);
+	if (err < 0) {
+		LOGERROR("audio: %s: failed!", __FUNCTION__);
+		return err;
 	}
-
-	m_pTimebase = &audioCtx->pkt_timebase;
 
 #if LIBAVFILTER_VERSION_INT < AV_VERSION_INT(7,16,100)
 	avfilter_register_all();
@@ -842,7 +837,7 @@ void cSoftHdAudio::Enqueue(const uint16_t *buffer, int count, int64_t pts)
  *
  * only used for passthrough atm, setting up PCM goes via Filter()
  *
- * @param AudioCtx          AVCodec audio decoding context
+ * @param timebase          codec timebase
  * @param samplerate        stream samplerate
  * @param channels          stream nb of channels
  * @param passthrough       passthrough enabled
@@ -851,15 +846,16 @@ void cSoftHdAudio::Enqueue(const uint16_t *buffer, int count, int64_t pts)
  * @retval -1               something gone wrong in AlsaSetup
  * @retval 1                no parameter change, no setup needed
  */
-int cSoftHdAudio::Setup(AVCodecContext *ctx, int samplerate, int channels, bool passthrough)
+int cSoftHdAudio::Setup(AVRational timebase, int samplerate, int channels, bool passthrough)
 {
 	int err = 0;
 
-	m_pTimebase = &ctx->pkt_timebase;
+	m_pTimebase = timebase;
 
 	// skip setup, nothing changed
 	if (samplerate == (int)m_hwSampleRate &&
-	   (channels == (int)m_hwNumChannels || (m_downmix && m_hwNumChannels == 2)))
+	   (channels == (int)m_hwNumChannels || (m_downmix && m_hwNumChannels == 2)) &&
+	    m_passthroughActive == passthrough)
 		return 1;
 
 	err = AlsaSetup(channels, samplerate, passthrough);
@@ -1787,8 +1783,6 @@ void cSoftHdAudio::AlsaSetVolume(int volume)
  *
  * @retval 0            everything ok
  * @retval -1           something gone wrong
- *
- * @todo FIXME: remove pointer for freq + channels
  */
 int cSoftHdAudio::AlsaSetup(int channels, int sample_rate, bool passthrough)
 {

@@ -53,7 +53,7 @@ public:
 
 	void LazyInit(void);
 	void Exit(void);
-	int Setup(AVCodecContext *, int , int , bool);
+	int Setup(AVRational, int , int , bool);
 	void SetPaused(bool);
 	bool IsPaused(void) { return m_paused; };
 	void Filter(AVFrame *, AVCodecContext *);
@@ -80,7 +80,7 @@ public:
 	void SetStereoDescent(int);
 	void SetPassthroughMask(int);
 	void SetAutoAES(bool appendAes) { m_appendAES = appendAes; }
-	void SetTimebase(AVRational *timebase) { m_pTimebase = timebase; };
+	void SetTimebase(AVRational timebase) { m_pTimebase = timebase; };
 
 	void DropSamplesOlderThanPtsMs(int64_t);
 	void ClockDriftCompensation(void);
@@ -109,7 +109,7 @@ private:
 	const int m_bytesPerSample = 2;         ///< number of bytes per sample
 	unsigned int m_hwSampleRate = 0;        ///< hardware sample rate in Hz
 	unsigned int m_hwNumChannels = 0;       ///< number of hardware channels
-	AVRational *m_pTimebase;                ///< pointer to AVCodecContext pkts_timebase
+	AVRational m_pTimebase;                 ///< pointer to AVCodecContext pkts_timebase
 	std::mutex m_mutex;                     ///< mutex for thread safety
 	std::mutex m_pauseMutex;                ///< mutex for a safe thread pausing
 	std::vector<Event> m_eventQueue;        ///< event queue for incoming events
@@ -207,8 +207,8 @@ private:
 	void HandleError(int);
 
 	int64_t GetOutputPtsMsInternal(void);
-	int64_t PtsToMs(int64_t pts) { return pts * av_q2d(*m_pTimebase) * 1000; }
-	int64_t MsToPts(int64_t ptsMs) { return ptsMs / av_q2d(*m_pTimebase) / 1000; }
+	int64_t PtsToMs(int64_t pts) { return pts * av_q2d(m_pTimebase) * 1000; }
+	int64_t MsToPts(int64_t ptsMs) { return ptsMs / av_q2d(m_pTimebase) / 1000; }
 	int MsToFrames(int milliseconds) { return (int64_t)milliseconds * m_hwSampleRate / 1000; }
 	int FramesToMs(int frames) { return (int64_t)frames * 1000 / m_hwSampleRate; }
 	int64_t FramesToPts(int frames) { return MsToPts((int64_t)frames * 1000 / m_hwSampleRate); }

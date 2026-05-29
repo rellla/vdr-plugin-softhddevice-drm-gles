@@ -292,12 +292,12 @@ int cAudioDecoder::CheckUpdateFormat(bool passthrough)
 	}
 
 	int err = 0;
-	if ((err = m_pAudio->Setup(m_pAudioCtx, m_currentHwSampleRate, m_currentHwNumChannels, passthrough)) < 0) {
+	if ((err = m_pAudio->Setup(m_pAudioCtx->pkt_timebase, m_currentHwSampleRate, m_currentHwNumChannels, passthrough)) < 0) {
 		// E-AC3 over HDMI: try without HBR
 		m_currentHwSampleRate /= 4;
 
 		if (m_pAudioCtx->codec_id != AV_CODEC_ID_EAC3 ||
-		  ((err = m_pAudio->Setup(m_pAudioCtx, m_currentHwSampleRate, m_currentHwNumChannels, passthrough)) < 0)) {
+		  ((err = m_pAudio->Setup(m_pAudioCtx->pkt_timebase, m_currentHwSampleRate, m_currentHwNumChannels, passthrough)) < 0)) {
 			LOGERROR("audiocodec: %s: format change update error", __FUNCTION__);
 			m_currentHwSampleRate = 0;
 			m_currentHwNumChannels = 0;
@@ -358,7 +358,7 @@ int cAudioDecoder::Passthrough(const AVPacket *avpkt)
 		return 0;
 	}
 
-	m_pAudio->SetTimebase(&m_pAudioCtx->pkt_timebase);
+	m_pAudio->SetTimebase(m_pAudioCtx->pkt_timebase);
 
 	const auto &burst = BuildIEC61937(avpkt);
 
