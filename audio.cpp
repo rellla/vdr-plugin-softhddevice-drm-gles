@@ -56,7 +56,7 @@ cSoftHdAudio::cSoftHdAudio(cSoftHdDevice *device)
 	  m_pEventReceiver(device),
 	  m_downmix(m_pConfig->ConfigAudioDownmix),
 	  m_softVolume(m_pConfig->ConfigAudioSoftvol),
-	  m_passthrough(m_pConfig->ConfigAudioPassthroughState ? m_pConfig->ConfigAudioPassthroughMask : 0),
+	  m_passthroughMask(m_pConfig->ConfigAudioPassthroughState ? m_pConfig->ConfigAudioPassthroughMask : 0),
 	  m_pAlsaPCMDevice(m_pConfig->ConfigAudioPCMDevice),
 	  m_appendAES(m_pConfig->ConfigAudioAutoAES),
 	  m_pMixerChannel(m_pConfig->ConfigAudioMixerChannel)
@@ -1104,7 +1104,7 @@ void cSoftHdAudio::SetVolume(int volume)
 {
 	m_volume = volume;
 	// reduce loudness for stereo output
-	if (m_stereoDescent && m_hwNumChannels == 2 && !m_passthrough) {
+	if (m_stereoDescent && m_hwNumChannels == 2 && !m_passthroughMask) {
 		volume -= m_stereoDescent;
 		if (volume < 0) {
 			volume = 0;
@@ -1180,11 +1180,11 @@ void cSoftHdAudio::SetStereoDescent(int delta)
  */
 void cSoftHdAudio::SetPassthroughMask(int mask)
 {
-	m_passthrough = mask;
+	m_passthroughMask = mask;
 
 	// Reset m_pitchPpm if we change the passthrough handling, otherwise
 	// we may continue to adjust the pitch in Enqueue() when in passthrough
-	if (m_passthrough)
+	if (m_passthroughMask)
 		m_pitchPpm = 0;
 }
 
@@ -1236,7 +1236,7 @@ void cSoftHdAudio::Exit(void)
 void cSoftHdAudio::HandleError(int error)
 {
 
-	if (snd_pcm_state(m_pAlsaPCMHandle) == SND_PCM_STATE_XRUN && m_passthrough == 0)
+	if (snd_pcm_state(m_pAlsaPCMHandle) == SND_PCM_STATE_XRUN && m_passthroughMask == 0)
 		m_eventQueue.push_back(BufferUnderrunEvent{AUDIO});
 
 	if (snd_pcm_recover(m_pAlsaPCMHandle, error, 0) < 0)
@@ -1275,7 +1275,7 @@ void cSoftHdAudio::FlushAlsaBuffersInternal(bool drop)
 	LOGDEBUG2(L_SOUND, "audio: %s entered in pcm state %s", __FUNCTION__, snd_pcm_state_name(state));
 
 	int err;
-	if (m_passthrough && !drop) {
+	if (m_passthroughMask && !drop) {
 		switch (state) {
 			case SND_PCM_STATE_SETUP:
 			case SND_PCM_STATE_XRUN:
@@ -1364,7 +1364,7 @@ bool cSoftHdAudio::CyclicCall(void)
 	std::lock_guard<std::mutex> lock1(m_pauseMutex);
 
 	// do nothing in paused PCM mode
-	if (m_paused && !m_passthrough)
+	if (m_paused && !m_passthroughMask)
 		return false;
 
 	// check, if the alsa device is ready for input
@@ -1400,7 +1400,7 @@ bool cSoftHdAudio::CyclicCall(void)
 	}
 
 	size_t freeAlsaBufferBytes = snd_pcm_frames_to_bytes(m_pAlsaPCMHandle, freeAlsaBufferFrames);
-	if (m_passthrough && m_paused) {
+	if (m_passthroughMask && m_paused) {
 		// only write, if there is space for a full pause burst
 		if ((int)freeAlsaBufferBytes < m_spdifBurstSize)
 			return false;
@@ -1435,7 +1435,7 @@ bool cSoftHdAudio::SendAudio(int freeAlsaBufferFrames)
 		return false;
 
 	// muting pass-through AC-3, can produce disturbance
-	if (m_volume == 0 || (m_softVolume && !m_passthrough)) {
+	if (m_volume == 0 || (m_softVolume && !m_passthroughMask)) {
 		// FIXME: quick&dirty cast
 		SoftAmplify((int16_t *) data, bytesToWrite);
 		// FIXME: if not all are written, we double amplify them
@@ -1519,7 +1519,7 @@ void cSoftHdAudio::SetHwDelayBaseline(void)
 	if (!m_firstRealAudioReceived) {
 		m_hwBaseline = 0;
 
-		if (!m_passthrough)
+		if (!m_passthroughMask)
 			return;
 
 		snd_pcm_sframes_t delayFrames = 0;
@@ -1569,9 +1569,9 @@ char *cSoftHdAudio::OpenAlsaDevice(const char *device)
 	if (!device)
 		return NULL;
 
-	LOGDEBUG2(L_SOUND, "audio: %s: try opening %sdevice '%s'", __FUNCTION__, m_passthrough ? "pass-through " : "", device);
+	LOGDEBUG2(L_SOUND, "audio: %s: try opening %sdevice '%s'", __FUNCTION__, m_passthroughMask ? "pass-through " : "", device);
 
-	if (m_passthrough && m_appendAES) {
+	if (m_passthroughMask && m_appendAES) {
 		if (!(strchr(device, ':'))) {
 			sprintf(tmp, "%s:AES0=%d,AES1=%d,AES2=0,AES3=%d",
 				device,
@@ -1598,7 +1598,7 @@ char *cSoftHdAudio::OpenAlsaDevice(const char *device)
 		return NULL;
 	}
 
-	LOGDEBUG2(L_SOUND, "audio: %s: opened %sdevice '%s'", __FUNCTION__, m_passthrough ? "pass-through " : "", device);
+	LOGDEBUG2(L_SOUND, "audio: %s: opened %sdevice '%s'", __FUNCTION__, m_passthroughMask ? "pass-through " : "", device);
 
 	return (char *)device;
 }
@@ -1653,7 +1653,7 @@ void cSoftHdAudio::AlsaInitDevice(void)
 	char *device = NULL;
 	bool freeDevice = false;  // track if device needs to be freed
 	int err;
-	LOGDEBUG2(L_SOUND, "audio: %s: passthrough %d", __FUNCTION__, m_passthrough);
+	LOGDEBUG2(L_SOUND, "audio: %s: passthrough %d", __FUNCTION__, m_passthroughMask);
 
 	// try user set device
 	device = OpenAlsaDevice(getenv("ALSA_DEVICE"));
@@ -1698,10 +1698,10 @@ void cSoftHdAudio::AlsaInitDevice(void)
 
 	if (!strcmp(device, "null"))
 		LOGWARNING("audio: %s: using %sdevice '%s'", __FUNCTION__,
-			m_passthrough ? "pass-through " : "", device);
+			m_passthroughMask ? "pass-through " : "", device);
 	else
 		LOGINFO("audio: using %sdevice '%s'",
-			m_passthrough ? "pass-through " : "", device);
+			m_passthroughMask ? "pass-through " : "", device);
 
 	// Free device string if it was allocated by FindAlsaDevice
 	if (freeDevice)
@@ -1960,7 +1960,7 @@ void cSoftHdAudio::AlsaExit(void)
  */
 void cSoftHdAudio::ClockDriftCompensation(void)
 {
-	if (m_passthrough)
+	if (m_passthroughMask)
 		return;
 
 	double bufferFillLevelMs = FramesToMsDouble(m_fillLevel.GetBufferFillLevelFramesAvg());

@@ -65,7 +65,7 @@ public:
 	int64_t GetHardwareOutputPtsMs(void);
 	int64_t GetHardwareOutputDelayMs(void);
 	int64_t GetHardwareOutputPtsTimebaseUnits(void);
-	int GetPassthrough(void) const { return m_passthrough; }
+	int GetPassthroughMask(void) const { return m_passthroughMask; }
 	bool HasInputPts(void) { return m_inputPts != AV_NOPTS_VALUE; }
 	int64_t GetInputPtsMs(void) { return PtsToMs(m_inputPts); }
 	int64_t GetOutputPtsMs(void);
@@ -123,7 +123,7 @@ private:
 	std::atomic<bool> m_paused = true;      ///< audio is paused
 
 	bool m_softVolume;                      ///< flag to use soft volume
-	int m_passthrough;                      ///< passthrough mask
+	int m_passthroughMask;                  ///< passthrough mask
 	const char *m_pAlsaPCMDevice;           ///< Alsa PCM device name
 	bool m_appendAES;                       ///< flag ato utomatic append AES
 	int m_spdifBurstSize = 0;               ///< size of the current spdif burst
