@@ -16,6 +16,7 @@
 
 #include <cstdint>
 #include <mutex>
+#include <string>
 #include <vector>
 #include <unistd.h>
 
@@ -30,6 +31,28 @@ extern "C" {
 #include "misc.h"
 
 /**
+ * Build a passthrough mask logging string
+ *
+ * @param mask    passthrough bitmask
+ *
+ * @return a string like " (passthrough mask: AC3 E-AC-3 DTS)"
+ */
+static std::string GetPassthroughMaskString(int mask)
+{
+	std::string passthrough = "";
+
+	if (mask) {
+		passthrough += " (passthrough mask:";
+		if (mask & CODEC_AC3)  passthrough += " AC3";
+		if (mask & CODEC_EAC3) passthrough += " E-AC-3";
+		if (mask & CODEC_DTS)  passthrough += " DTS";
+		passthrough += ")";
+	}
+
+	return passthrough;
+}
+
+/**
  * Create a new audio decoder for the given audio context
  *
  * @param audio    audio context
@@ -41,7 +64,7 @@ cAudioDecoder::cAudioDecoder(cSoftHdAudio *audio)
 	if (!(m_pFrame = av_frame_alloc()))
 		LOGFATAL("audiocodec: %s: can't allocate audio decoder frame buffer", __FUNCTION__);
 
-	LOGDEBUG2(L_CODEC, "audiocodec: %s: Set passthrough mask %d", __FUNCTION__, m_passthroughMask);
+	LOGDEBUG2(L_CODEC, "audiocodec: create %s%s", __FUNCTION__, GetPassthroughMaskString(m_passthroughMask).c_str());
 }
 
 cAudioDecoder::~cAudioDecoder(void)
@@ -96,7 +119,7 @@ void cAudioDecoder::Open(AVCodecID codecId, AVCodecParameters *par, AVRational t
 	if (avcodec_open2(m_pAudioCtx, m_pAudioCtx->codec, NULL) < 0)
 		LOGFATAL("audiocodec: %s: can't open audio codec", __FUNCTION__);
 
-	LOGDEBUG2(L_CODEC, "audiocodec: %s: Codec %s found, passthrough mask %d", __FUNCTION__, m_pAudioCtx->codec->long_name, m_passthroughMask);
+	LOGDEBUG2(L_CODEC, "audiocodec: %s: Codec %s found%s", __FUNCTION__, m_pAudioCtx->codec->long_name, GetPassthroughMaskString(m_passthroughMask).c_str());
 
 	m_currentSampleRate = 0;
 	m_currentHwSampleRate = 0;
@@ -279,7 +302,6 @@ int cAudioDecoder::CheckUpdateFormat(bool passthrough)
 
 	m_currentHwSampleRate = m_pAudioCtx->sample_rate;
 	m_currentHwNumChannels = m_pAudioCtx->ch_layout.nb_channels;
-	m_currentPassthroughMask = m_passthroughMask;
 
 	if (passthrough) {
 		CloseSpdifMuxer();
@@ -308,14 +330,11 @@ int cAudioDecoder::CheckUpdateFormat(bool passthrough)
 	// remember for next update check
 	m_currentSampleRate = m_currentHwSampleRate;
 	m_currentNumChannels = m_currentHwNumChannels;
+	m_currentPassthroughMask = m_passthroughMask;
 
-	LOGDEBUG2(L_SOUND, "audiocodec: %s: format change %s %dHz *%d channels%s%s%s%s%d", __FUNCTION__,
+	LOGDEBUG2(L_SOUND, "audiocodec: %s: format change %s %dHz *%d channels%s", __FUNCTION__,
 		av_get_sample_fmt_name(m_pAudioCtx->sample_fmt), m_currentHwSampleRate, m_currentHwNumChannels,
-		m_passthroughMask & CODEC_AC3 ? " AC3" : "",
-		m_passthroughMask & CODEC_EAC3 ? " EAC3" : "",
-		m_passthroughMask & CODEC_DTS ? " DTS" : "",
-		m_passthroughMask ? " passthrough mask " : "",
-		m_passthroughMask ? m_passthroughMask : 0);
+		GetPassthroughMaskString(m_passthroughMask).c_str());
 
 	return 0;
 }
