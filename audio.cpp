@@ -1002,10 +1002,21 @@ void cSoftHdAudio::FlushBuffers(void)
 /**
  * Get used bytes in audio ringbuffer
  */
-int cSoftHdAudio::GetUsedBytes(void)
+int cSoftHdAudio::GetUsedRingbufferBytes(void)
 {
-	// FIXME: not correct, if multiple buffer are in use
+	std::lock_guard<std::mutex> lock(m_mutex);
+
 	return m_pRingbuffer.UsedBytes();
+}
+
+/**
+ * Get used ms in audio ringbuffer
+ */
+int cSoftHdAudio::GetUsedRingbufferMs(void)
+{
+	std::lock_guard<std::mutex> lock(m_mutex);
+
+	return FramesToMs(snd_pcm_bytes_to_frames(m_pAlsaPCMHandle, m_pRingbuffer.UsedBytes()));
 }
 
 /**
