@@ -558,8 +558,10 @@ void cMenuSetupSoft::Store(void)
 	m_pConfig->ConfigLogState = m_cLogDefault;
 	if (m_pConfig->ConfigLogState) {
 		SetupStore("LogLevel", m_pConfig->ConfigLogLevels);
-		m_pConfig->PrintLogLevel(m_pConfig->ConfigLogLevels);
-		cSoftHdLogger::GetLogger()->SetLogLevel(m_pConfig->ConfigLogLevels);
+		if (cSoftHdLogger::GetLogger()->GetLogLevel() != m_pConfig->ConfigLogLevels) {
+			m_pConfig->PrintLogLevel(m_pConfig->ConfigLogLevels);
+			cSoftHdLogger::GetLogger()->SetLogLevel(m_pConfig->ConfigLogLevels);
+		}
 	} else {
 		SetupStore("LogLevel", -m_pConfig->ConfigLogLevels);
 		cSoftHdLogger::GetLogger()->SetLogLevel(0);

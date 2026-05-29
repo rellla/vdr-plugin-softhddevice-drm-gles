@@ -90,7 +90,9 @@ public:
 	void LogDebug(const char *format, ...);
 	void LogDebug2(const int cat, const char *format, ...);
 	void LogFFmpeg(const char *, va_list);
-	void SetLogLevel(int level);
+
+	void SetLogLevel(int level) { m_logLevel = level; };
+	int GetLogLevel(void) { return m_logLevel; };
 
 private:
 	cSoftHdLogger(void) = default;

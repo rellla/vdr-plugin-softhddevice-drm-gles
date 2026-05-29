@@ -447,6 +447,5 @@ void cAudioDecoder::FlushBuffers(void)
  */
 void cAudioDecoder::SetPassthroughMask(int mask)
 {
-	LOGDEBUG2(L_CODEC, "audiocodec: %s: %d", __FUNCTION__, mask);
 	m_passthroughMask = mask & (CODEC_AC3 | CODEC_EAC3 | CODEC_DTS);
 }

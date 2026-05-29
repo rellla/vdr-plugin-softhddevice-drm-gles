@@ -47,16 +47,6 @@ std::shared_ptr<cSoftHdLogger> cSoftHdLogger::GetLogger()
 }
 
 /**
- * Set the loglevel
- *
- * @param level       new loglevel
- */
-void cSoftHdLogger::SetLogLevel(int level)
-{
-	m_logLevel = level;
-}
-
-/**
  * Log to syslog LOG_ERR and abort
  */
 void cSoftHdLogger::LogFatal(const char *format, ...)
