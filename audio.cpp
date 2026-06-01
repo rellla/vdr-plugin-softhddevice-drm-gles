@@ -403,6 +403,20 @@ static bool LayoutsMatch(const std::vector<std::string> &ff, const std::vector<s
 }
 
 /**
+ * Check, if the channel layout has channels named "NA" (N/A, silent)
+ *
+ * @param channelLayout    channel layout
+ *
+ * @return true if the channel layout doesn't contain "NA" (N/A, silent)
+ *
+ * @ingroup audio
+ */
+static bool LayoutIsValid(const std::vector<std::string> &channelLayout)
+{
+	return std::find(channelLayout.begin(), channelLayout.end(), "NA") == channelLayout.end();
+}
+
+/**
  * Build the "|"-separated mappings list for the channelmap filter
  *
  * @param pcmHandle      current Alsa PCM handle
@@ -418,7 +432,7 @@ static std::string BuildChannelMapFilter(snd_pcm_t *pcmHandle, const AVChannelLa
 	auto alsa = GetAlsaChannelLayoutAsArray(pcmHandle);
 
 	if (ff.size() != alsa.size()) {
-		LOGWARNING("audio: %s: FFmpeg and Alsa channel count differs: FFmpeg %zu ALSA %zu", __FUNCTION__, ff.size(), alsa.size());
+		LOGWARNING("audio: %s: Skip channelmap filter, FFmpeg and Alsa channel count differs: FFmpeg %zu ALSA %zu", __FUNCTION__, ff.size(), alsa.size());
 		return "";
 	}
 
@@ -436,8 +450,13 @@ static std::string BuildChannelMapFilter(snd_pcm_t *pcmHandle, const AVChannelLa
 			alsaString += " ";
 	}
 
+	if (!LayoutIsValid(alsa)) {
+		LOGDEBUG2(L_SOUND, "audio: %s: Skip channelmap filter, alsa channel layout isn't valid: %s", __FUNCTION__, alsaString.c_str());
+		return "";
+	}
+
 	if (LayoutsMatch(ff, alsa)) {
-		LOGDEBUG2(L_SOUND, "audio: %s: FFmpeg and Alsa channel layouts match: %s", __FUNCTION__, ffString.c_str());
+		LOGDEBUG2(L_SOUND, "audio: %s: Skip channelmap filter, FFmpeg and Alsa channel layouts match: %s", __FUNCTION__, ffString.c_str());
 		return "";
 	}
 
