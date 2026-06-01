@@ -1797,7 +1797,7 @@ int cSoftHdAudio::AlsaSetup(int channels, int sample_rate, int passthrough)
 	}
 
 	int err;
-	m_downmix = 0;
+	m_downmix = m_pConfig->ConfigAudioDownmix;
 	m_alsaUseMmap = false;
 
 	// fill hw params
@@ -1825,6 +1825,7 @@ int cSoftHdAudio::AlsaSetup(int channels, int sample_rate, int passthrough)
 	m_hwNumChannels = channels;
 	if ((err = snd_pcm_hw_params_set_channels_near(m_pAlsaPCMHandle, hwparams, &m_hwNumChannels)) < 0)
 		LOGWARNING("audio: %s: %d channels not supported! %s", __FUNCTION__, m_hwNumChannels, snd_strerror(err));
+	// force downmix without respect to the setup menu entry
 	if ((int)m_hwNumChannels != channels && !passthrough)
 		m_downmix = 1;
 
