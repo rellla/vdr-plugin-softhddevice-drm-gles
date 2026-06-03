@@ -34,6 +34,7 @@ extern "C" {
 
 #include <vdr/thread.h>
 
+#include "audioprocessor.h"
 #include "event.h"
 #include "filllevel.h"
 #include "pidcontroller.h"
@@ -72,12 +73,14 @@ public:
 	int64_t GetOutputPtsMs(void);
 	int GetAvResyncBorderMs(void) { return AV_SYNC_BORDER_MS; };
 
-	void SetEq(int[18], int);
 	void SetVolume(int);
 	void SetDownmix(int downMix) { m_downmix = downMix; };
 	void SetSoftvol(bool softVolume) { m_softVolume = softVolume; };
+
 	void SetNormalize(bool, int);
 	void SetCompression(bool, int);
+	void SetEqualizer(bool, int[18]);
+
 	void SetStereoDescent(int);
 	void SetPassthroughMask(int);
 	void SetAutoAES(bool appendAes) { m_appendAES = appendAes; }
@@ -93,8 +96,8 @@ protected:
 
 private:
 	constexpr static int AUDIO_MIN_BUFFER_FREE = 3072 * 8 * 8; ///< Minimum free space in audio buffer 8 packets for 8 channels
-	constexpr static int NORMALIZE_MAX_INDEX = 128;            ///< number of normalize average samples
 	constexpr static int AV_SYNC_BORDER_MS = 5000;             ///< absolute max a/v difference in ms which should trigger a resync
+	constexpr static int BYTES_PER_SAMPLE = 2;                 ///< number of bytes per sample
 
 	cSoftHdDevice *m_pDevice;               ///< pointer to device
 	cSoftHdConfig *m_pConfig;               ///< pointer to config
@@ -107,7 +110,6 @@ private:
 
 	// common audio, alsa
 	bool m_initialized = false;             ///< class initialized
-	const int m_bytesPerSample = 2;         ///< number of bytes per sample
 	unsigned int m_hwSampleRate = 0;        ///< hardware sample rate in Hz
 	unsigned int m_hwNumChannels = 0;       ///< number of hardware channels
 	AVRational m_pTimebase;                 ///< pointer to AVCodecContext pkts_timebase
@@ -117,6 +119,8 @@ private:
 	std::atomic<double> m_pitchPpm = 0;     ///< pitch adjustment in ppm. Positive values are faster
 	int m_pitchAdjustFrameCounter = 0;      ///< counter for pitch adjustment frames
 
+	int m_volume = 0;                       ///< current volume (0 .. 1000)
+	int m_stereoDescent;                    ///< volume descent for stereo
 	int m_downmix;                          ///< set stereo downmix
 	std::atomic<bool> m_passthroughActive = false; ///< set, if passthrough is active
 
@@ -139,33 +143,11 @@ private:
 	void BuildPauseBurst(void);
 	void Stop(void);
 
-	// Normalizer
-	bool m_normalize;                       ///< flag to use volume normalize
-	const int m_normalizeSamples = 4096;    ///< number of normalize samples
-	int m_normalizeCounter;                 ///< normalize sample counter
-	uint32_t m_normalizeAverage[NORMALIZE_MAX_INDEX]; ///< average of n last normalize sample blocks
-	int m_normalizeIndex;                   ///< index into normalize average table
-	int m_normalizeReady;                   ///< index normalize counter
-	int m_normalizeFactor;                  ///< current normalize factor
-	const int m_normalizeMinFactor = 100;   ///< min. normalize factor
-	int m_normalizeMaxFactor;               ///< max. normalize factor
-	void Normalize(uint16_t *, int);
-
-	// Compressor
-	bool m_compression;                     ///< flag to use compress volume
-	int m_compressionFactor = 0;            ///< current compression factor
-	int m_compressionMaxFactor;             ///< max. compression factor
-	void Compress(uint16_t *, int);
-
-	// Amplifier
-	int m_amplifier;                        ///< software volume amplify factor
-	int m_stereoDescent;                    ///< volume descent for stereo
-	int m_volume = 0;                       ///< current volume (0 .. 1000)
-	void SoftAmplify(int16_t *, int);
-
-	// Equalizer
-	int m_useEqualizer;                     ///< flag to use equalizer
-	float m_equalizerBand[18];              ///< equalizer band
+	// audio manipulation
+	cAudioProcessor m_audioProcessor;
+	bool m_useNormalizer;                   ///< flag to use volume normalize
+	bool m_useCompressor;                   ///< flag to use compress volume
+	bool m_useEqualizer;                    ///< flag to use equalizer
 
 	// mixer
 	const char *m_pMixerDevice = nullptr;   ///< mixer device name (not used)

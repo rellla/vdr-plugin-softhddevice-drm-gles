@@ -36,6 +36,7 @@ extern "C" {
 #include <vdr/thread.h>
 
 #include "audio.h"
+#include "audioprocessor.h"
 #include "codec_audio.h"
 #include "config.h"
 #include "event.h"
@@ -59,259 +60,18 @@ cSoftHdAudio::cSoftHdAudio(cSoftHdDevice *device)
 	  m_passthroughMask(m_pConfig->ConfigAudioPassthroughState ? m_pConfig->ConfigAudioPassthroughMask : 0),
 	  m_pAlsaPCMDevice(m_pConfig->ConfigAudioPCMDevice),
 	  m_appendAES(m_pConfig->ConfigAudioAutoAES),
+	  m_audioProcessor(BYTES_PER_SAMPLE),
 	  m_pMixerChannel(m_pConfig->ConfigAudioMixerChannel)
 {
 	SetNormalize(m_pConfig->ConfigAudioNormalize, m_pConfig->ConfigAudioMaxNormalize);
 	SetCompression(m_pConfig->ConfigAudioCompression, m_pConfig->ConfigAudioMaxCompression);
 	SetStereoDescent(m_pConfig->ConfigAudioStereoDescent);
-	SetEq(m_pConfig->ConfigAudioEqBand, m_pConfig->ConfigAudioEq);
+	SetEqualizer(m_pConfig->ConfigAudioEq, m_pConfig->ConfigAudioEqBand);
 }
 
 /******************************************************************************
- * Audio filter and manipulation
+ * Audio Filter
  *****************************************************************************/
-
-/**
- * Normalize audio samples
- *
- * @param samples   sample buffer
- * @param count     number of bytes in sample buffer
- */
-void cSoftHdAudio::Normalize(uint16_t *samples, int count)
-{
-	int i;
-	int l;
-	int n;
-	uint32_t avg;
-	int factor;
-	uint16_t *data;
-
-	// average samples
-	l = count / m_bytesPerSample;
-	data = samples;
-	do {
-		n = l;
-		if (m_normalizeCounter + n > m_normalizeSamples) {
-			n = m_normalizeSamples - m_normalizeCounter;
-		}
-		avg = m_normalizeAverage[m_normalizeIndex];
-		for (i = 0; i < n; ++i) {
-			int t;
-
-			t = data[i];
-			avg += (t * t) / m_normalizeSamples;
-		}
-		m_normalizeAverage[m_normalizeIndex] = avg;
-		m_normalizeCounter += n;
-		if (m_normalizeCounter >= m_normalizeSamples) {
-			if (m_normalizeReady < NORMALIZE_MAX_INDEX) {
-				m_normalizeReady++;
-			} else {
-				avg = 0;
-				for (i = 0; i < NORMALIZE_MAX_INDEX; ++i) {
-					avg += m_normalizeAverage[i] / NORMALIZE_MAX_INDEX;
-				}
-
-			// calculate normalize factor
-			if (avg > 0) {
-				factor = ((INT16_MAX / 8) * 1000U) / (uint32_t) sqrt(avg);
-				// smooth normalize
-				m_normalizeFactor = (m_normalizeFactor * 500 + factor * 500) / 1000;
-				if (m_normalizeFactor < m_normalizeMinFactor) {
-					m_normalizeFactor = m_normalizeMinFactor;
-				}
-				if (m_normalizeFactor > m_normalizeMaxFactor) {
-					m_normalizeFactor = m_normalizeMaxFactor;
-				}
-			} else {
-				factor = 1000;
-			}
-			LOGDEBUG2(L_SOUND, "audio: %s: avg %8d, fac=%6.3f, norm=%6.3f", __FUNCTION__,
-					  avg, factor / 1000.0, m_normalizeFactor / 1000.0);
-			}
-
-			m_normalizeIndex = (m_normalizeIndex + 1) % NORMALIZE_MAX_INDEX;
-			m_normalizeCounter = 0;
-			m_normalizeAverage[m_normalizeIndex] = 0U;
-		}
-		data += n;
-		l -= n;
-	} while (l > 0);
-
-	// apply normalize factor
-	for (i = 0; i < count / m_bytesPerSample; ++i) {
-		int t;
-
-		t = (samples[i] * m_normalizeFactor) / 1000;
-		if (t < INT16_MIN) {
-			t = INT16_MIN;
-		} else if (t > INT16_MAX) {
-			t = INT16_MAX;
-		}
-		samples[i] = t;
-	}
-}
-
-/**
- * Compress audio samples
- *
- * @param samples   sample buffer
- * @param count     number of bytes in sample buffer
- */
-void cSoftHdAudio::Compress(uint16_t *samples, int count)
-{
-	int maxSample;
-	int i;
-	int factor;
-
-	// find loudest sample
-	maxSample = 0;
-	for (i = 0; i < count / m_bytesPerSample; ++i) {
-		int t;
-
-		t = abs(samples[i]);
-		if (t > maxSample) {
-			maxSample = t;
-		}
-	}
-
-	// calculate compression factor
-	if (maxSample > 0) {
-		factor = (INT16_MAX * 1000) / maxSample;
-		// smooth compression (FIXME: make configurable?)
-		m_compressionFactor = (m_compressionFactor * 950 + factor * 50) / 1000;
-		if (m_compressionFactor > factor) {
-			m_compressionFactor = factor;	// no clipping
-		}
-		if (m_compressionFactor > m_compressionMaxFactor) {
-			m_compressionFactor = m_compressionMaxFactor;
-		}
-	} else {
-		return; // silent nothing todo
-	}
-
-	LOGDEBUG2(L_SOUND, "audio: %s: max %5d, fac=%6.3f, com=%6.3f", __FUNCTION__, maxSample,
-	          factor / 1000.0, m_compressionFactor / 1000.0);
-
-	// apply compression factor
-	for (i = 0; i < count / m_bytesPerSample; ++i) {
-		int t;
-
-		t = (samples[i] * m_compressionFactor) / 1000;
-		if (t < INT16_MIN) {
-			t = INT16_MIN;
-		} else if (t > INT16_MAX) {
-			t = INT16_MAX;
-		}
-		samples[i] = t;
-	}
-}
-
-/**
- * Amplify the samples in software
- *
- * @param samples   sample buffer
- * @param count     number of bytes in sample buffer
- *
- * @todo FIXME: this does hard clipping
- */
-void cSoftHdAudio::SoftAmplify(int16_t *samples, int count)
-{
-	int i;
-
-	// silence
-	if (m_volume == 0 || !m_amplifier) {
-		memset(samples, 0, count);
-		return;
-	}
-
-	for (i = 0; i < count / m_bytesPerSample; ++i) {
-		int t;
-
-		t = (samples[i] * m_amplifier) / 1000;
-		if (t < INT16_MIN) {
-			t = INT16_MIN;
-		} else if (t > INT16_MAX) {
-			t = INT16_MAX;
-		}
-		samples[i] = t;
-	}
-}
-
-/**
- * Set equalizer bands
- *
- * @param band      setting frequenz bands
- * @param onoff     set using equalizer
- */
-void cSoftHdAudio::SetEq(int band[18], int onoff)
-{
-	int i;
-/*
-	LOGDEBUG2(L_SOUND, "audio: %s: %i %i %i %i %i %i %i %i %i %i %i %i %i %i %i %i %i %i onoff %d", __FUNCTION__,
-	          band[0], band[1], band[2], band[3], band[4], band[5], band[6], band[7],
-	          band[8], band[9], band[10], band[11], band[12], band[13], band[14],
-	          band[15], band[16], band[17], onoff);
-*/
-	for (i = 0; i < 18; i++) {
-		switch (band[i]) {
-			case 1:
-				m_equalizerBand[i] = 1.5;
-				break;
-			case 0:
-				m_equalizerBand[i] = 1;
-				break;
-			case -1:
-				m_equalizerBand[i] = 0.95;
-				break;
-			case -2:
-				m_equalizerBand[i] = 0.9;
-				break;
-			case -3:
-				m_equalizerBand[i] = 0.85;
-				break;
-			case -4:
-				m_equalizerBand[i] = 0.8;
-				break;
-			case -5:
-				m_equalizerBand[i] = 0.75;
-				break;
-			case -6:
-				m_equalizerBand[i] = 0.7;
-				break;
-			case -7:
-				m_equalizerBand[i] = 0.65;
-				break;
-			case -8:
-				m_equalizerBand[i] = 0.6;
-				break;
-			case -9:
-				m_equalizerBand[i] = 0.55;
-				break;
-			case -10:
-				m_equalizerBand[i] = 0.5;
-				break;
-			case -11:
-				m_equalizerBand[i] = 0.45;
-				break;
-			case -12:
-				m_equalizerBand[i] = 0.4;
-				break;
-			case -13:
-				m_equalizerBand[i] = 0.35;
-				break;
-			case -14:
-				m_equalizerBand[i] = 0.3;
-				break;
-			case -15:
-				m_equalizerBand[i] = 0.25;
-				break;
-		}
-	}
-
-	m_filterChanged = 1;
-	m_useEqualizer = onoff;
-}
 
 /**
  * FFmpeg does not have channels called "RL" or "RR"
@@ -591,13 +351,10 @@ int cSoftHdAudio::InitFilter(AVCodecContext *audioCtx)
 			avfilter_graph_free(&m_pFilterGraph);
 			return -1;
 		}
-		snprintf(optionsStr, sizeof(optionsStr),"1b=%.2f:2b=%.2f:3b=%.2f:4b=%.2f:5b=%.2f"
-			":6b=%.2f:7b=%.2f:8b=%.2f:9b=%.2f:10b=%.2f:11b=%.2f:12b=%.2f:13b=%.2f:14b=%.2f:"
-			"15b=%.2f:16b=%.2f:17b=%.2f:18b=%.2f ", m_equalizerBand[0], m_equalizerBand[1],
-			m_equalizerBand[2], m_equalizerBand[3], m_equalizerBand[4], m_equalizerBand[5],
-			m_equalizerBand[6], m_equalizerBand[7], m_equalizerBand[8], m_equalizerBand[9],
-			m_equalizerBand[10], m_equalizerBand[11], m_equalizerBand[12], m_equalizerBand[13],
-			m_equalizerBand[14], m_equalizerBand[15], m_equalizerBand[16], m_equalizerBand[17]);
+
+		std::string equalizerOptions = m_audioProcessor.GetEqualizerOptions();
+		snprintf(optionsStr, sizeof(optionsStr), "%s", equalizerOptions.c_str());
+
 		if (avfilter_init_str(pFilterCtx[numFilter], optionsStr) < 0) {
 			LOGWARNING("audio: %s: Could not initialize the superequalizer filter.", __FUNCTION__);
 			avfilter_graph_free(&m_pFilterGraph);
@@ -747,14 +504,14 @@ void cSoftHdAudio::EnqueueFrame(AVFrame *frame)
 
 	uint16_t *buffer;
 
-	int byteCount = frame->nb_samples * frame->ch_layout.nb_channels * m_bytesPerSample;
+	int byteCount = frame->nb_samples * frame->ch_layout.nb_channels * BYTES_PER_SAMPLE;
 	buffer = (uint16_t *)frame->data[0];
 
-	if (m_compression)     // in place operation
-		Compress(buffer, byteCount);
+	if (m_useCompressor)       // in place operation
+		m_audioProcessor.Compress(buffer, byteCount);
 
-	if (m_normalize)       // in place operation
-		Normalize(buffer, byteCount);
+	if (m_useNormalizer)       // in place operation
+		m_audioProcessor.Normalize(buffer, byteCount);
 
 	Enqueue((uint16_t *)buffer, byteCount, frame->pts);
 
@@ -1138,7 +895,8 @@ void cSoftHdAudio::SetVolume(int volume)
 			volume = 1000;
 		}
 	}
-	m_amplifier = volume;
+
+	m_audioProcessor.SetAmplifier(volume);
 	if (!m_softVolume) {
 		AlsaSetVolume(volume);
 	}
@@ -1165,8 +923,8 @@ void cSoftHdAudio::SetPaused(bool pause)
  */
 void cSoftHdAudio::SetNormalize(bool enable, int maxfac)
 {
-	m_normalize = enable;
-	m_normalizeMaxFactor = maxfac;
+	m_useNormalizer = enable;
+	m_audioProcessor.SetNormalizer(maxfac);
 }
 
 /**
@@ -1177,15 +935,21 @@ void cSoftHdAudio::SetNormalize(bool enable, int maxfac)
  */
 void cSoftHdAudio::SetCompression(bool enable, int maxfac)
 {
-	m_compression = enable;
+	m_useCompressor = enable;
+	m_audioProcessor.SetCompressor(maxfac);
+}
 
-	m_compressionMaxFactor = maxfac;
-	if (!m_compressionFactor) {
-		m_compressionFactor = 1000;
-	}
-	if (m_compressionFactor > m_compressionMaxFactor) {
-		m_compressionFactor = m_compressionMaxFactor;
-	}
+/**
+ * Set equalizer bands
+ *
+ * @param enable    set using equalizer
+ * @param band      setting frequenz bands
+ */
+void cSoftHdAudio::SetEqualizer(bool enable, int band[18])
+{
+	m_filterChanged = 1;
+	m_useEqualizer = enable;
+	m_audioProcessor.SetEqualizer(band);
 }
 
 /**
@@ -1317,18 +1081,8 @@ void cSoftHdAudio::FlushAlsaBuffersInternal(bool drop)
 			LOGERROR("audio: %s: snd_pcm_prepare(): %s", __FUNCTION__, snd_strerror(err));
 	}
 
-	// reset audio processing values
-	m_compressionFactor = 2000;
-	if (m_compressionFactor > m_compressionMaxFactor)
-		m_compressionFactor = m_compressionMaxFactor;
-
-	m_normalizeCounter = 0;
-	m_normalizeReady = 0;
-
-	for (int i = 0; i < NORMALIZE_MAX_INDEX; ++i)
-		m_normalizeAverage[i] = 0U;
-
-	m_normalizeFactor = 1000;
+	m_audioProcessor.ResetCompressor();
+	m_audioProcessor.ResetNormalizer();
 
 	state = snd_pcm_state(m_pAlsaPCMHandle);
 	LOGDEBUG2(L_SOUND, "audio: %s left in pcm state %s", __FUNCTION__, snd_pcm_state_name(state));
@@ -1458,7 +1212,7 @@ bool cSoftHdAudio::SendAudio(int freeAlsaBufferFrames)
 	// muting pass-through AC-3, can produce disturbance
 	if (m_volume == 0 || (m_softVolume && !m_passthroughActive)) {
 		// FIXME: quick&dirty cast
-		SoftAmplify((int16_t *) data, bytesToWrite);
+		m_audioProcessor.Amplify((int16_t *) data, bytesToWrite, m_volume);
 		// FIXME: if not all are written, we double amplify them
 	}
 

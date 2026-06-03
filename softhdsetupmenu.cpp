@@ -513,7 +513,7 @@ void cMenuSetupSoft::Store(void)
 	SetupStore("AudioEqBand16b", m_pConfig->ConfigAudioEqBand[15] = m_cAudioEqBand[15]);
 	SetupStore("AudioEqBand17b", m_pConfig->ConfigAudioEqBand[16] = m_cAudioEqBand[16]);
 	SetupStore("AudioEqBand18b", m_pConfig->ConfigAudioEqBand[17] = m_cAudioEqBand[17]);
-	m_pAudioDevice->SetEq(m_pConfig->ConfigAudioEqBand, m_pConfig->ConfigAudioEq);
+	m_pAudioDevice->SetEqualizer(m_pConfig->ConfigAudioEq, m_pConfig->ConfigAudioEqBand);
 
 	//
 	// Picture-in-picture
