@@ -816,7 +816,7 @@ void cSoftHdAudio::Enqueue(const uint16_t *buffer, int count, int64_t pts)
 	std::lock_guard<std::mutex> lock(m_mutex);
 
 	// pitch adjustment
-	if (m_pitchAdjustFrameCounter == 0 && std::abs(m_pitchPpm) > 1) { // only adjust if pitch has a significant value to prevent overly large values/division by zero
+	if (!m_passthroughActive && m_pitchAdjustFrameCounter == 0 && std::abs(m_pitchPpm) > 1) { // only adjust if pitch has a significant value to prevent overly large values/division by zero
 		int oneFrameBytes = snd_pcm_frames_to_bytes(m_pAlsaPCMHandle, 1);
 
 		if (m_pitchPpm < 0 && m_pRingbuffer.Write((const uint16_t *)buffer, oneFrameBytes)) // insert additional frame
@@ -1207,11 +1207,6 @@ void cSoftHdAudio::SetStereoDescent(int delta)
 void cSoftHdAudio::SetPassthroughMask(int mask)
 {
 	m_passthroughMask = mask;
-
-	// Reset m_pitchPpm if we change the passthrough handling, otherwise
-	// we may continue to adjust the pitch in Enqueue() when in passthrough
-	if (mask)
-		m_pitchPpm = 0;
 }
 
 /**
