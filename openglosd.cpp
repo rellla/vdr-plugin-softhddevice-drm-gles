@@ -1382,7 +1382,6 @@ bool cOglCmdDrawText::Execute(void)
 	VertexBuffers[vbText]->Bind();
 
 	int xGlyph = m_x;
-	int yGlyph = m_y;
 	int fontHeight = f->Height();
 	int bottom = f->Bottom();
 	FT_ULong sym = 0;
@@ -1459,8 +1458,6 @@ bool cOglCmdDrawText::Execute(void)
 			vertices.push_back(g->OffsetY() + g->Height() / (float)fa->Height());
 
 			xGlyph += kerning + g->AdvanceX();
-			yGlyph += kerning + g->AdvanceY();
-
 
 			if ( xGlyph > m_pFramebuffer->Width() - 1 )
 				break;
