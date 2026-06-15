@@ -2,10 +2,10 @@
 
 /**
  * @file audio.cpp
- * Audio and Alsa Interface
+ * Audio Interface
  *
  * cSoftHdAudio handles everything audio related except
- * the decoding itself (see cAudioDecoder).
+ * the decoding itself (see cAudioDecoder) and ALSA output (see cAlsaDevice).
  *
  * @copyright 2009 - 2014 by Johns.  All Rights Reserved.
  * @copyright 2018 by zille.  All Rights Reserved.
@@ -22,8 +22,6 @@
 #include <sstream>
 #include <vector>
 
-#include <alsa/asoundlib.h>
-
 extern "C" {
 #include <libavcodec/avcodec.h>
 #include <libavfilter/avfilter.h>
@@ -35,6 +33,7 @@ extern "C" {
 
 #include <vdr/thread.h>
 
+#include "alsadevice.h"
 #include "audio.h"
 #include "audioprocessor.h"
 #include "codec_audio.h"
@@ -54,12 +53,9 @@ cSoftHdAudio::cSoftHdAudio(cSoftHdDevice *device)
 	: cThread("softhd audio"),
 	  m_pDevice(device),
 	  m_pConfig(m_pDevice->Config()),
+	  m_alsa(m_pConfig),
 	  m_pEventReceiver(device),
-	  m_downmix(m_pConfig->ConfigAudioDownmix),
 	  m_softVolume(m_pConfig->ConfigAudioSoftvol),
-	  m_passthroughMask(m_pConfig->ConfigAudioPassthroughState ? m_pConfig->ConfigAudioPassthroughMask : 0),
-	  m_pAlsaPCMDevice(m_pConfig->ConfigAudioPCMDevice),
-	  m_appendAES(m_pConfig->ConfigAudioAutoAES),
 	  m_audioProcessor(BYTES_PER_SAMPLE),
 	  m_pMixerChannel(m_pConfig->ConfigAudioMixerChannel)
 {
@@ -72,48 +68,6 @@ cSoftHdAudio::cSoftHdAudio(cSoftHdDevice *device)
 /******************************************************************************
  * Audio Filter
  *****************************************************************************/
-
-/**
- * FFmpeg does not have channels called "RL" or "RR"
- * So "rename" Alsas RL (rear left) and RR (rear right) to
- * FFmpegs BL (back left) and BR (back right) to make the channelmap
- * filter parser happy.
- *
- * @ingroup audio
- */
-static const char *alsaToFFmpegChannel(const char *alsaName)
-{
-	if (!strcmp(alsaName, "RL")) return "BL";
-	if (!strcmp(alsaName, "RR")) return "BR";
-
-	return alsaName;
-}
-
-/**
- * Put Alsa channel layout in a dynamic array of strings
- *
- * @param pcmHandle      current Alsa PCM handle
- *
- * @return alsa channel layout as an array of strings
- *
- * @ingroup audio
- */
-static std::vector<std::string> GetAlsaChannelLayoutAsArray(snd_pcm_t *pcmHandle)
-{
-	std::vector<std::string> layout;
-	snd_pcm_chmap_t *map = snd_pcm_get_chmap(pcmHandle);
-	if (!map)
-		return layout;
-
-	for (unsigned int i = 0; i < map->channels; i++) {
-		const char *name = alsaToFFmpegChannel(snd_pcm_chmap_name(static_cast<snd_pcm_chmap_position>(map->pos[i])));
-		if (!name)
-			continue;
-		layout.push_back(std::string(name));
-	}
-	free(map);
-	return layout;
-}
 
 /**
  * Put FFmpeg channel layout in a dynamic array of strings
@@ -179,17 +133,16 @@ static bool LayoutIsValid(const std::vector<std::string> &channelLayout)
 /**
  * Build the "|"-separated mappings list for the channelmap filter
  *
- * @param pcmHandle      current Alsa PCM handle
  * @param layout         current FFmpeg channel layout
  *
  * @return mapping string to feed into the channelmap filter
  *
  * @ingroup audio
  */
-static std::string BuildChannelMapFilter(snd_pcm_t *pcmHandle, const AVChannelLayout &layout)
+std::string cSoftHdAudio::BuildChannelMapFilter(const AVChannelLayout &layout)
 {
 	auto ff = GetFFmpegChannelLayoutAsArray(layout);
-	auto alsa = GetAlsaChannelLayoutAsArray(pcmHandle);
+	auto alsa = m_alsa.GetChannelLayoutAsArray();
 
 	if (ff.size() != alsa.size()) {
 		LOGWARNING("audio: %s: Skip channelmap filter, FFmpeg and Alsa channel count differs: FFmpeg %zu ALSA %zu", __FUNCTION__, ff.size(), alsa.size());
@@ -316,9 +269,9 @@ int cSoftHdAudio::InitFilter(AVCodecContext *audioCtx)
 	// The channel mapping is skipped, if
 	//   - a stereo downmix is forced (downmix will be done later in aformat filter)
 	//   - channel count differs, aformat will handle downmix later
-	if (!(m_downmix && m_hwNumChannels == 2)) {
+	if (!(m_alsa.GetDownmix() && m_alsa.GetHwNumChannels() == 2)) {
 		std::string channelMapString;
-		channelMapString = BuildChannelMapFilter(m_pAlsaPCMHandle, audioCtx->ch_layout);
+		channelMapString = BuildChannelMapFilter(audioCtx->ch_layout);
 
 		if (!channelMapString.empty()) {
 			if (!(channelmap = avfilter_get_by_name("channelmap"))) {
@@ -365,7 +318,7 @@ int cSoftHdAudio::InitFilter(AVCodecContext *audioCtx)
 
 	// aformat
 	AVChannelLayout channel_layout;
-	if (m_downmix && m_hwNumChannels == 2) {
+	if (m_alsa.GetDownmix() && m_alsa.GetHwNumChannels() == 2) {
 		// explicit stereo downmix
 		av_channel_layout_default(&channel_layout, 2);
 	} else {
@@ -375,17 +328,17 @@ int cSoftHdAudio::InitFilter(AVCodecContext *audioCtx)
 		}
 
 		// clamp channels if the hardware doesn't support them
-		if (channel_layout.nb_channels > (int)m_hwNumChannels) {
-			LOGDEBUG2(L_SOUND, "audio: %s: clamp channels from %d -> %d", __FUNCTION__, channel_layout.nb_channels, m_hwNumChannels);
+		if (channel_layout.nb_channels > (int)m_alsa.GetHwNumChannels()) {
+			LOGDEBUG2(L_SOUND, "audio: %s: clamp channels from %d -> %d", __FUNCTION__, channel_layout.nb_channels, m_alsa.GetHwNumChannels());
 			av_channel_layout_uninit(&channel_layout);
-			av_channel_layout_default(&channel_layout, m_hwNumChannels);
+			av_channel_layout_default(&channel_layout, m_alsa.GetHwNumChannels());
 		}
 	}
 	av_channel_layout_describe(&channel_layout, channelLayout, sizeof(channelLayout));
 	av_channel_layout_uninit(&channel_layout);
 
-	LOGDEBUG2(L_SOUND, "audio: %s: OUT m_downmix %d m_hwNumChannels %d m_hwSampleRate %d channelLayout %s bytes_per_sample %d",
-			  __FUNCTION__, m_downmix, m_hwNumChannels, m_hwSampleRate, channelLayout, av_get_bytes_per_sample(AV_SAMPLE_FMT_S16));
+	LOGDEBUG2(L_SOUND, "audio: %s: OUT downmix %d hwNumChannels %d hwSampleRate %d channelLayout %s bytes_per_sample %d",
+			  __FUNCTION__, m_alsa.GetDownmix(), m_alsa.GetHwNumChannels(), m_alsa.GetHwSampleRate(), channelLayout, av_get_bytes_per_sample(AV_SAMPLE_FMT_S16));
 
 	if (!(aformat = avfilter_get_by_name("aformat"))) {
 		LOGWARNING("audio: %s: Could not find the aformat filter.", __FUNCTION__);
@@ -399,7 +352,7 @@ int cSoftHdAudio::InitFilter(AVCodecContext *audioCtx)
 	}
 	snprintf(optionsStr, sizeof(optionsStr),
 		"sample_fmts=%s:sample_rates=%d:channel_layouts=%s",
-		av_get_sample_fmt_name(AV_SAMPLE_FMT_S16), m_hwSampleRate, channelLayout);
+		av_get_sample_fmt_name(AV_SAMPLE_FMT_S16), m_alsa.GetHwSampleRate(), channelLayout);
 	if (avfilter_init_str(pFilterCtx[numFilter], optionsStr) < 0) {
 		LOGWARNING("audio: %s: Could not initialize the aformat filter.", __FUNCTION__);
 		avfilter_graph_free(&m_pFilterGraph);
@@ -473,8 +426,8 @@ void cSoftHdAudio::DropSamplesOlderThanPtsMs(int64_t ptsMs)
 		return;
 
 	int64_t dropMs = std::max((int64_t)0, ptsMs - GetOutputPtsMsInternal());
-	int dropFrames = MsToFrames(dropMs);
-	int dropBytes = snd_pcm_frames_to_bytes(m_pAlsaPCMHandle, dropFrames);
+	int dropFrames = m_alsa.MsToFrames(dropMs);
+	int dropBytes = m_alsa.FramesToBytes(dropFrames);
 
 	dropBytes = std::min(dropBytes, (int)m_pRingbuffer.UsedBytes());
 
@@ -573,8 +526,8 @@ void cSoftHdAudio::Enqueue(const uint16_t *buffer, int count, int64_t pts)
 	std::lock_guard<std::mutex> lock(m_mutex);
 
 	// pitch adjustment
-	if (!m_passthroughActive && m_pitchAdjustFrameCounter == 0 && std::abs(m_pitchPpm) > 1) { // only adjust if pitch has a significant value to prevent overly large values/division by zero
-		int oneFrameBytes = snd_pcm_frames_to_bytes(m_pAlsaPCMHandle, 1);
+	if (!m_alsa.IsPassthroughActive() && m_pitchAdjustFrameCounter == 0 && std::abs(m_pitchPpm) > 1) { // only adjust if pitch has a significant value to prevent overly large values/division by zero
+		int oneFrameBytes = m_alsa.FramesToBytes(1);
 
 		if (m_pitchPpm < 0 && m_pRingbuffer.Write((const uint16_t *)buffer, oneFrameBytes)) // insert additional frame
 			m_fillLevel.ReceivedFrames(1);
@@ -584,27 +537,27 @@ void cSoftHdAudio::Enqueue(const uint16_t *buffer, int count, int64_t pts)
 		m_pitchAdjustFrameCounter = std::round(1'000'000.0 / std::abs(m_pitchPpm));
 	}
 
-	m_pitchAdjustFrameCounter = std::max(0, m_pitchAdjustFrameCounter - (int)snd_pcm_bytes_to_frames(m_pAlsaPCMHandle, count));
+	m_pitchAdjustFrameCounter = std::max(0, m_pitchAdjustFrameCounter - m_alsa.BytesToFrames(count));
 
 	// write to ringbuffer
 	int bytesWritten = m_pRingbuffer.Write((const uint16_t *)buffer, count);
 	if (bytesWritten != count)
 		LOGERROR("audio: %s: can't place %d samples in ring buffer", __FUNCTION__, count);
 
-	m_fillLevel.ReceivedFrames(snd_pcm_bytes_to_frames(m_pAlsaPCMHandle, bytesWritten));
+	m_fillLevel.ReceivedFrames(m_alsa.BytesToFrames(bytesWritten));
 
 	if (pts != AV_NOPTS_VALUE) {
 		// discontinuity check, force a resync if the new pts differs more than AV_SYNC_BORDER_MS to the last
-		if (m_inputPts != AV_NOPTS_VALUE && std::abs(PtsToMs(m_inputPts) - PtsToMs(pts)) > AV_SYNC_BORDER_MS) {
+		if (m_inputPts != AV_NOPTS_VALUE && std::abs(m_alsa.PtsToMs(m_inputPts, av_q2d(m_timebase)) - m_alsa.PtsToMs(pts, av_q2d(m_timebase))) > AV_SYNC_BORDER_MS) {
 			LOGDEBUG2(L_AV_SYNC, "audio: %s: discontinuity detected in audio PTS %s -> %s%s", __FUNCTION__,
-				Timestamp2String(PtsToMs(m_inputPts), 1), Timestamp2String(PtsToMs(pts), 1),
-				PtsToMs(m_inputPts) > PtsToMs(pts) ? " (PTS wrapped)" : "");
-			m_eventQueue.push_back(ScheduleResyncAtPtsMsEvent{PtsToMs(pts)});
+				Timestamp2String(m_alsa.PtsToMs(m_inputPts, av_q2d(m_timebase)), 1), Timestamp2String(m_alsa.PtsToMs(pts, av_q2d(m_timebase)), 1),
+				m_alsa.PtsToMs(m_inputPts, av_q2d(m_timebase)) > m_alsa.PtsToMs(pts, av_q2d(m_timebase)) ? " (PTS wrapped)" : "");
+			m_eventQueue.push_back(ScheduleResyncAtPtsMsEvent{m_alsa.PtsToMs(pts, av_q2d(m_timebase))});
 		}
 
 		m_inputPts = pts;
 	} else if (m_inputPts != AV_NOPTS_VALUE) {
-		m_inputPts += FramesToPts(snd_pcm_bytes_to_frames(m_pAlsaPCMHandle, count));
+		m_inputPts += m_alsa.FramesToPts(m_alsa.BytesToFrames(count), av_q2d(m_timebase));
 	}
 }
 
@@ -626,17 +579,24 @@ int cSoftHdAudio::Setup(AVRational timebase, int samplerate, int channels, bool 
 {
 	int err = 0;
 
-	m_pTimebase = timebase;
+	m_timebase = timebase;
 
 	// skip setup, nothing changed
-	if (samplerate == (int)m_hwSampleRate &&
-	   (channels == (int)m_hwNumChannels || (m_downmix && m_hwNumChannels == 2)) &&
-	    m_passthroughActive == passthrough)
+	if (samplerate == (int)m_alsa.GetHwSampleRate() &&
+	    passthrough == m_alsa.IsPassthroughActive() &&
+	   (channels == (int)m_alsa.GetHwNumChannels() || (m_alsa.GetDownmix() && m_alsa.GetHwNumChannels() == 2)))
 		return 1;
 
-	err = AlsaSetup(channels, samplerate, passthrough);
+	if (Active()) {
+		Stop();
+		DropAlsaBuffers();
+	}
+
+	err = m_alsa.Setup(channels, samplerate, passthrough, m_pConfig->ConfigAudioDownmix);
 	if (err)
 		LOGERROR("audio: %s: failed!", __FUNCTION__);
+	else
+		Start();
 
 	return err;
 }
@@ -792,7 +752,7 @@ int cSoftHdAudio::GetUsedRingbufferMs(void)
 {
 	std::lock_guard<std::mutex> lock(m_mutex);
 
-	return FramesToMs(snd_pcm_bytes_to_frames(m_pAlsaPCMHandle, m_pRingbuffer.UsedBytes()));
+	return m_alsa.FramesToMs(m_alsa.BytesToFrames(m_pRingbuffer.UsedBytes()));
 }
 
 /**
@@ -816,7 +776,7 @@ int64_t cSoftHdAudio::GetOutputPtsMs(void)
 
 int64_t cSoftHdAudio::GetOutputPtsMsInternal(void)
 {
-	return PtsToMs(m_inputPts) - FramesToMs(snd_pcm_bytes_to_frames(m_pAlsaPCMHandle, m_pRingbuffer.UsedBytes()));
+	return m_alsa.PtsToMs(m_inputPts, av_q2d(m_timebase)) - m_alsa.FramesToMs(m_alsa.BytesToFrames(m_pRingbuffer.UsedBytes()));
 }
 
 /**
@@ -832,17 +792,15 @@ int64_t cSoftHdAudio::GetHardwareOutputPtsMs(void)
 {
 	std::lock_guard<std::mutex> lock(m_mutex);
 
-	if (!m_hwSampleRate || !m_pAlsaPCMHandle || m_inputPts == AV_NOPTS_VALUE)
+	if (!m_alsa.IsRunning() || m_inputPts == AV_NOPTS_VALUE)
 		return AV_NOPTS_VALUE;
 
-	snd_pcm_sframes_t delayFrames;
-	if (snd_pcm_delay(m_pAlsaPCMHandle, &delayFrames) < 0)
-		delayFrames = 0L;
+	int delayFrames = m_alsa.GetHwDelayFrames();
 
 	// subtract baseline to ignore pause bursts already in the buffer
 	delayFrames -= m_hwBaseline;
 
-	return GetOutputPtsMsInternal() - FramesToMs(delayFrames);
+	return GetOutputPtsMsInternal() - m_alsa.FramesToMs(delayFrames);
 }
 
 /**
@@ -854,14 +812,12 @@ int64_t cSoftHdAudio::GetHardwareOutputDelayMs(void)
 {
 	std::lock_guard<std::mutex> lock(m_mutex);
 
-	if (!m_hwSampleRate || !m_pAlsaPCMHandle || m_inputPts == AV_NOPTS_VALUE)
+	if (!m_alsa.IsRunning() || m_inputPts == AV_NOPTS_VALUE)
 		return AV_NOPTS_VALUE;
 
-	snd_pcm_sframes_t delayFrames;
-	if (snd_pcm_delay(m_pAlsaPCMHandle, &delayFrames) < 0)
-		delayFrames = 0L;
+	int delayFrames = m_alsa.GetHwDelayFrames();
 
-	return FramesToMs(delayFrames);
+	return m_alsa.FramesToMs(delayFrames);
 }
 
 /**
@@ -875,7 +831,7 @@ int64_t cSoftHdAudio::GetHardwareOutputPtsTimebaseUnits(void)
 	if (ptsMs == AV_NOPTS_VALUE)
 		return AV_NOPTS_VALUE;
 
-	return MsToPts(ptsMs);
+	return m_alsa.MsToPts(ptsMs, av_q2d(m_timebase));
 }
 
 /**
@@ -887,19 +843,17 @@ void cSoftHdAudio::SetVolume(int volume)
 {
 	m_volume = volume;
 	// reduce loudness for stereo output
-	if (m_stereoDescent && m_hwNumChannels == 2 && !m_passthroughActive) {
+	if (m_stereoDescent && m_alsa.GetHwNumChannels() == 2 && !m_alsa.IsPassthroughActive()) {
 		volume -= m_stereoDescent;
-		if (volume < 0) {
+		if (volume < 0)
 			volume = 0;
-		} else if (volume > 1000) {
+		else if (volume > 1000)
 			volume = 1000;
-		}
 	}
 
 	m_audioProcessor.SetAmplifier(volume);
-	if (!m_softVolume) {
-		AlsaSetVolume(volume);
-	}
+	if (!m_softVolume)
+		m_alsa.SetVolume(volume);
 }
 
 /**
@@ -964,16 +918,6 @@ void cSoftHdAudio::SetStereoDescent(int delta)
 }
 
 /**
- * Set audio passthrough mask
- *
- * @param mask    passthrough mask (as a bitmask)
- */
-void cSoftHdAudio::SetPassthroughMask(int mask)
-{
-	m_passthroughMask = mask;
-}
-
-/**
  * Initialize audio output module (alsa)
  *
  * The init is done lazily as soon as there is a STOP->PLAY state change
@@ -985,7 +929,8 @@ void cSoftHdAudio::SetPassthroughMask(int mask)
 void cSoftHdAudio::LazyInit()
 {
 	if (!m_initialized) {
-		AlsaInit();
+		if (!m_alsa.Init())
+			LOGFATAL("audio: could not initialize alsa, abort!");
 		m_initialized = true;
 	}
 }
@@ -1007,27 +952,8 @@ void cSoftHdAudio::Exit(void)
 		return;
 
 	avfilter_graph_free(&m_pFilterGraph);
-	AlsaExit();
+	m_alsa.Exit();
 	m_initialized = false;
-}
-
-/******************************************************************************
- * A L S A
- *****************************************************************************/
-
-/**
- * Handle an alsa error
- */
-void cSoftHdAudio::HandleError(int error)
-{
-
-	if (snd_pcm_state(m_pAlsaPCMHandle) == SND_PCM_STATE_XRUN && !m_passthroughActive)
-		m_eventQueue.push_back(BufferUnderrunEvent{AUDIO});
-
-	if (snd_pcm_recover(m_pAlsaPCMHandle, error, 0) < 0)
-		LOGERROR("audio: %s: Cannot recover: %s", __FUNCTION__, snd_strerror(error));
-
-	snd_pcm_prepare(m_pAlsaPCMHandle);
 }
 
 /**
@@ -1035,7 +961,10 @@ void cSoftHdAudio::HandleError(int error)
  */
 void cSoftHdAudio::FlushAlsaBuffers(void)
 {
-	FlushAlsaBuffersInternal(false);
+	m_alsa.FlushBuffers(false);
+
+	m_audioProcessor.ResetCompressor();
+	m_audioProcessor.ResetNormalizer();
 }
 
 /**
@@ -1043,49 +972,10 @@ void cSoftHdAudio::FlushAlsaBuffers(void)
  */
 void cSoftHdAudio::DropAlsaBuffers(void)
 {
-	FlushAlsaBuffersInternal(true);
-}
-
-/**
- * Flush alsa buffers internally
- *
- * @param drop       force a snd_pcm_drop of the audio frames already in the kernel
- */
-void cSoftHdAudio::FlushAlsaBuffersInternal(bool drop)
-{
-	snd_pcm_state_t state = snd_pcm_state(m_pAlsaPCMHandle);
-	if (state == SND_PCM_STATE_OPEN)
-		return;
-
-	LOGDEBUG2(L_SOUND, "audio: %s entered in pcm state %s", __FUNCTION__, snd_pcm_state_name(state));
-
-	int err;
-	if (m_passthroughActive && !drop) {
-		switch (state) {
-			case SND_PCM_STATE_SETUP:
-			case SND_PCM_STATE_XRUN:
-			case SND_PCM_STATE_DRAINING:
-				err = snd_pcm_prepare(m_pAlsaPCMHandle);
-				if (err < 0)
-					LOGERROR("audio: %s: snd_pcm_prepare(): %s", __FUNCTION__, snd_strerror(err));
-				break;
-			default:
-				break;
-		}
-	} else {
-		err = snd_pcm_drop(m_pAlsaPCMHandle);
-		if (err < 0)
-			LOGERROR("audio: %s: snd_pcm_drop(): %s", __FUNCTION__, snd_strerror(err));
-		err = snd_pcm_prepare(m_pAlsaPCMHandle);
-		if (err < 0)
-			LOGERROR("audio: %s: snd_pcm_prepare(): %s", __FUNCTION__, snd_strerror(err));
-	}
+	m_alsa.FlushBuffers(true);
 
 	m_audioProcessor.ResetCompressor();
 	m_audioProcessor.ResetNormalizer();
-
-	state = snd_pcm_state(m_pAlsaPCMHandle);
-	LOGDEBUG2(L_SOUND, "audio: %s left in pcm state %s", __FUNCTION__, snd_pcm_state_name(state));
 }
 
 /******************************************************************************
@@ -1139,44 +1029,32 @@ bool cSoftHdAudio::CyclicCall(void)
 	std::lock_guard<std::mutex> lock1(m_pauseMutex);
 
 	// do nothing in paused PCM mode
-	if (m_paused && !m_passthroughActive)
+	if (m_paused && !m_alsa.IsPassthroughActive())
 		return false;
 
-	// check, if the alsa device is ready for input
-	int ret = snd_pcm_wait(m_pAlsaPCMHandle, 150);
-	if (ret < 0) {
-		LOGDEBUG2(L_SOUND, "audio: %s: Handle error in wait", __FUNCTION__);
-		HandleError(ret);
+	int err = m_alsa.WaitUntilReady();
+	if (err < 0) {
+		if (m_alsa.HandleError(err))
+			m_eventQueue.push_back(BufferUnderrunEvent{AUDIO});
 		return false;
-	} else if (ret == 0) {
-		snd_pcm_state_t state = snd_pcm_state(m_pAlsaPCMHandle);
-		LOGERROR("audio: %s: snd_pcm_wait() timeout (state %s)", __FUNCTION__, snd_pcm_state_name(state));
-		if (state == SND_PCM_STATE_PREPARED) {
-			LOGDEBUG2(L_SOUND, "audio: %s: force start", __FUNCTION__);
-			snd_pcm_start(m_pAlsaPCMHandle);
-			return true;
-		}
-		return false;
+	} else if (err == 0) {
+		return true;
 	}
 
 	std::lock_guard<std::mutex> lock2(m_mutex);
 
-	// query available space in alsa buffer
-	int freeAlsaBufferFrames = snd_pcm_avail_update(m_pAlsaPCMHandle);
-	if (freeAlsaBufferFrames < 0) {
-		if (freeAlsaBufferFrames == -EAGAIN) {
-			LOGDEBUG2(L_SOUND, "audio: %s: -EAGAIN", __FUNCTION__);
-			return true;
-		}
-
-		LOGDEBUG2(L_SOUND, "audio: %s: Handle error in avail", __FUNCTION__);
-		HandleError(freeAlsaBufferFrames);
+	int freeAlsaBufferFrames = m_alsa.GetAvailableBufferFrames(false);
+	if (freeAlsaBufferFrames == -EAGAIN)
+		return true; // ?? is this correct?
+	else if (freeAlsaBufferFrames < 0) {
+		if (m_alsa.HandleError(freeAlsaBufferFrames))
+			m_eventQueue.push_back(BufferUnderrunEvent{AUDIO});
 		return false;
 	}
 
-	size_t freeAlsaBufferBytes = snd_pcm_frames_to_bytes(m_pAlsaPCMHandle, freeAlsaBufferFrames);
-	if (m_passthroughActive && m_paused) {
+	if (m_alsa.IsPassthroughActive() && m_paused) {
 		// only write, if there is space for a full pause burst
+		size_t freeAlsaBufferBytes = m_alsa.FramesToBytes(freeAlsaBufferFrames);
 		if ((int)freeAlsaBufferBytes < m_spdifBurstSize)
 			return false;
 
@@ -1186,6 +1064,7 @@ bool cSoftHdAudio::CyclicCall(void)
 
 	return SendAudio(freeAlsaBufferFrames);
 }
+
 
 /**
  * Write regular audio data from the ringbuffer to the hardware
@@ -1198,7 +1077,7 @@ bool cSoftHdAudio::CyclicCall(void)
 bool cSoftHdAudio::SendAudio(int freeAlsaBufferFrames)
 {
 	int bytesToWrite;
-	int freeAlsaBufferBytes = snd_pcm_frames_to_bytes(m_pAlsaPCMHandle, freeAlsaBufferFrames);
+	int freeAlsaBufferBytes = m_alsa.FramesToBytes(freeAlsaBufferFrames);
 
 	// query ringbuffer fill level
 	const void *data;
@@ -1210,44 +1089,18 @@ bool cSoftHdAudio::SendAudio(int freeAlsaBufferFrames)
 		return false;
 
 	// muting pass-through AC-3, can produce disturbance
-	if (m_volume == 0 || (m_softVolume && !m_passthroughActive)) {
+	if (m_volume == 0 || (m_softVolume && !m_alsa.IsPassthroughActive())) {
 		// FIXME: quick&dirty cast
 		m_audioProcessor.Amplify((int16_t *) data, bytesToWrite, m_volume);
 		// FIXME: if not all are written, we double amplify them
 	}
 
-	int framesToWrite = snd_pcm_bytes_to_frames(m_pAlsaPCMHandle, bytesToWrite);
-	int framesWritten;
-	if (m_alsaUseMmap)
-		framesWritten = snd_pcm_mmap_writei(m_pAlsaPCMHandle, data, framesToWrite);
-	else
-		framesWritten = snd_pcm_writei(m_pAlsaPCMHandle, data, framesToWrite);
-
+	int framesToWrite = m_alsa.BytesToFrames(bytesToWrite);
+	int framesWritten = m_alsa.Write(data, framesToWrite);
 	m_fillLevel.WroteFrames(framesWritten);
+	m_pRingbuffer.ReadAdvance(m_alsa.FramesToBytes(framesWritten));
 
-	int bytesWritten = snd_pcm_frames_to_bytes(m_pAlsaPCMHandle, framesWritten);
-	m_pRingbuffer.ReadAdvance(bytesWritten);
-
-	if (framesWritten < 0) {
-		if (framesWritten == -EAGAIN) {
-			LOGDEBUG2(L_SOUND, "audio: %s: -EAGAIN", __FUNCTION__);
-			return true;
-		}
-
-		LOGWARNING("audio: %s: writei failed: %s", __FUNCTION__, snd_strerror(framesWritten));
-
-		if (snd_pcm_recover(m_pAlsaPCMHandle, framesWritten, 0) < 0)
-			LOGERROR("audio: %s: failed to recover from writei: %s", __FUNCTION__, snd_strerror(framesWritten));
-
-		return false;
-	}
-
-	if (framesWritten != framesToWrite) {
-		LOGWARNING("audio: %s: not all frames written", __FUNCTION__);
-		return false;
-	}
-
-	return true;
+	return m_alsa.CheckWrittenFrames(framesWritten, framesToWrite);
 }
 
 /**
@@ -1257,34 +1110,12 @@ bool cSoftHdAudio::SendAudio(int freeAlsaBufferFrames)
  */
 bool cSoftHdAudio::SendPause(void)
 {
-	int framesToWrite = snd_pcm_bytes_to_frames(m_pAlsaPCMHandle, m_spdifBurstSize);
+	int framesToWrite = m_alsa.BytesToFrames(m_spdifBurstSize);
+	int framesWritten = m_alsa.Write(m_pauseBurst.data(), framesToWrite);
 
-	int framesWritten;
-	if (m_alsaUseMmap)
-		framesWritten = snd_pcm_mmap_writei(m_pAlsaPCMHandle, m_pauseBurst.data(), framesToWrite);
-	else
-		framesWritten = snd_pcm_writei(m_pAlsaPCMHandle, m_pauseBurst.data(), framesToWrite);
-
-	if (framesWritten != framesToWrite) {
-		if (framesWritten < 0) {
-			if (framesWritten == -EAGAIN)
-				return true;
-
-			LOGWARNING("audio: %s: writei failed: %s", __FUNCTION__, snd_strerror(framesWritten));
-
-			if (snd_pcm_recover(m_pAlsaPCMHandle, framesWritten, 0) < 0)
-				LOGERROR("audio: %s: failed to recover from writei: %s", __FUNCTION__, snd_strerror(framesWritten));
-
-			return false;
-		} else {
-			LOGWARNING("audio: %s: not all frames written", __FUNCTION__);
-			return false;
-		}
-	}
-
-//	LOGDEBUG2(L_SOUND, "audio: %s: %d frames (%dms) written", __FUNCTION__, framesWritten, FramesToMs(framesWritten));
-	return true;
+	return m_alsa.CheckWrittenFrames(framesWritten, framesToWrite);
 }
+
 
 /**
  * Set the hw delay baseline
@@ -1294,14 +1125,12 @@ void cSoftHdAudio::SetHwDelayBaseline(void)
 	if (!m_firstRealAudioReceived) {
 		m_hwBaseline = 0;
 
-		if (!m_passthroughActive)
+		if (!m_alsa.IsPassthroughActive())
 			return;
 
-		snd_pcm_sframes_t delayFrames = 0;
-		if (snd_pcm_delay(m_pAlsaPCMHandle, &delayFrames) >= 0)
-			m_hwBaseline = delayFrames;
+		m_hwBaseline = m_alsa.GetHwDelayFrames();
 
-		LOGDEBUG2(L_SOUND, "audio: %s: first real audio was sent, hwBaseline %ld frames (%dms)", __FUNCTION__, m_hwBaseline, FramesToMs(m_hwBaseline));
+		LOGDEBUG2(L_SOUND, "audio: %s: first real audio was sent, hwBaseline %ld frames (%dms)", __FUNCTION__, m_hwBaseline, m_alsa.FramesToMs(m_hwBaseline));
 		m_firstRealAudioReceived = true;
 	}
 }
@@ -1330,395 +1159,6 @@ void cSoftHdAudio::ProcessEvents(void)
 }
 
 /**
- * Open an alsa device
- *
- * @param device             alsa device to be opened
- *
- * @return   the alsa device if successful, NULL otherwise
- */
-char *cSoftHdAudio::OpenAlsaDevice(const char *device)
-{
-	int err;
-	char prefix[40];
-	char tmp[80];
-
-	if (!device)
-		return NULL;
-
-	LOGDEBUG2(L_SOUND, "audio: %s: try opening device '%s'%s", __FUNCTION__, device, m_passthroughMask ? " (pass-through)" : "");
-
-	if (m_passthroughMask && m_appendAES) {
-		if (!(strchr(device, ':')))
-			snprintf(prefix, sizeof(prefix), "%s:", device);
-		else
-			snprintf(prefix, sizeof(prefix), "%s,", device);
-
-		snprintf(tmp, sizeof(tmp), "%sAES0=%d,AES1=%d,AES2=0,AES3=%d",
-			prefix,
-			IEC958_AES0_NONAUDIO | IEC958_AES0_PRO_EMPHASIS_NONE,
-			IEC958_AES1_CON_ORIGINAL | IEC958_AES1_CON_PCM_CODER,
-			IEC958_AES3_CON_FS_48000);
-
-		LOGDEBUG2(L_SOUND, "audio: %s: auto append AES: %s -> %s", __FUNCTION__, device, tmp);
-	} else {
-		snprintf(tmp, sizeof(tmp), "%s", device);
-	}
-
-	// open none blocking; if device is already used, we don't want wait
-	if ((err = snd_pcm_open(&m_pAlsaPCMHandle, tmp, SND_PCM_STREAM_PLAYBACK, SND_PCM_NONBLOCK)) < 0) {
-		LOGWARNING("audio: %s: could not open device '%s' error: %s", __FUNCTION__, device, snd_strerror(err));
-		return NULL;
-	}
-
-	LOGDEBUG2(L_SOUND, "audio: %s: opened device '%s'%s", __FUNCTION__, device, m_passthroughMask ? " (pass-through)" : "");
-
-	return (char *)device;
-}
-
-/**
- * Find alsa device giving some search hints
- *
- * @param devname          interface identification (e.g. "pcm")
- * @param hint             string to compare with device name hints
- *
- * @return   an opened alsa device name if successful, NULL otherwise
- *           NOTE: Returned string is allocated and must be freed by caller
- */
-char *cSoftHdAudio::FindAlsaDevice(const char *devname, const char *hint)
-{
-	char **hints;
-	int err;
-	char **n;
-	char *name;
-
-	err = snd_device_name_hint(-1, devname, (void ***)&hints);
-	if (err != 0) {
-		LOGWARNING("audio: %s: Cannot get device names for %s!", __FUNCTION__, hint);
-		return NULL;
-	}
-
-	n = hints;
-	while (*n != NULL) {
-		name = snd_device_name_get_hint(*n, "NAME");
-
-		if (name && strstr(name, hint)) {
-			if (OpenAlsaDevice(name)) {
-				snd_device_name_free_hint((void **)hints);
-				return name;
-			}
-		}
-
-		if (name)
-			free(name);
-		n++;
-	}
-
-	snd_device_name_free_hint((void **)hints);
-	return NULL;
-}
-
-/**
- * Search for an alsa pcm device and open it
- */
-void cSoftHdAudio::AlsaInitDevice(void)
-{
-	char *device = NULL;
-	bool freeDevice = false;  // track if device needs to be freed
-	int err;
-	LOGDEBUG2(L_SOUND, "audio: %s", __FUNCTION__);
-
-	// try user set device
-	device = OpenAlsaDevice(getenv("ALSA_DEVICE"));
-	if (!device)
-		device = OpenAlsaDevice(m_pAlsaPCMDevice);
-
-	// walkthrough hdmi: devices
-	if (!device) {
-		LOGDEBUG2(L_SOUND, "audio: %s: Try hdmi: devices...", __FUNCTION__);
-		device = FindAlsaDevice("pcm", "hdmi:");
-		freeDevice = (device != NULL);  // FindAlsaDevice allocates memory
-	}
-
-	// Rockchip mainline kernel
-	if (!device) {
-		LOGDEBUG2(L_SOUND, "audio: %s: Try default:CARD=hdmisound devices...", __FUNCTION__);
-		device = FindAlsaDevice("pcm", "default:CARD=hdmisound");
-		freeDevice = (device != NULL);  // FindAlsaDevice allocates memory
-	}
-
-	// walkthrough default: devices
-	if (!device) {
-		LOGDEBUG2(L_SOUND, "audio: %s: Try default: devices...", __FUNCTION__);
-		device = FindAlsaDevice("pcm", "default:");
-		freeDevice = (device != NULL);  // FindAlsaDevice allocates memory
-	}
-
-	// try default device
-	if (!device) {
-		LOGDEBUG2(L_SOUND, "audio: %s: Try default device...", __FUNCTION__);
-		device = OpenAlsaDevice("default");
-	}
-
-	// use null device
-	if (!device) {
-		LOGDEBUG2(L_SOUND, "audio: %s: Try null device...", __FUNCTION__);
-		device = OpenAlsaDevice("null");
-	}
-
-	if (!device)
-		LOGFATAL("audio: %s: could not open any device, abort!", __FUNCTION__);
-
-	if (!strcmp(device, "null"))
-		LOGWARNING("audio: %s: using device '%s'", __FUNCTION__, device);
-	else
-		LOGINFO("audio: using device '%s'", device);
-
-	// Free device string if it was allocated by FindAlsaDevice
-	if (freeDevice)
-		free(device);
-
-	if ((err = snd_pcm_nonblock(m_pAlsaPCMHandle, 0)) < 0) {
-		LOGERROR("audio: %s: can't set block mode: %s", __FUNCTION__, snd_strerror(err));
-	}
-}
-
-/******************************************************************************
- * Alsa Mixer
- *****************************************************************************/
-
-/**
- * Initialize alsa mixer
- */
-void cSoftHdAudio::AlsaInitMixer(void)
-{
-	const char *device;
-	const char *channel;
-	snd_mixer_t *alsaMixer;
-	snd_mixer_elem_t *alsaMixerElem;
-	long alsaMixerElemMin;
-	long alsaMixerElemMax;
-
-	if (!(device = getenv("ALSA_MIXER"))) {
-		if (!(device = m_pMixerDevice)) {
-			device = "default";
-		}
-	}
-	if (!(channel = getenv("ALSA_MIXER_CHANNEL"))) {
-		if (!(channel = m_pMixerChannel)) {
-			channel = "PCM";
-		}
-	}
-	LOGDEBUG2(L_SOUND, "audio: %s: mixer %s - %s open", __FUNCTION__, device, channel);
-	snd_mixer_open(&alsaMixer, 0);
-	if (alsaMixer && snd_mixer_attach(alsaMixer, device) >= 0
-		&& snd_mixer_selem_register(alsaMixer, NULL, NULL) >= 0
-		&& snd_mixer_load(alsaMixer) >= 0) {
-
-		const char *const alsaMixerElem_name = channel;
-
-		alsaMixerElem = snd_mixer_first_elem(alsaMixer);
-		while (alsaMixerElem) {
-			const char *name;
-
-			name = snd_mixer_selem_get_name(alsaMixerElem);
-			if (!strcasecmp(name, alsaMixerElem_name)) {
-				snd_mixer_selem_get_playback_volume_range(alsaMixerElem, &alsaMixerElemMin, &alsaMixerElemMax);
-				m_alsaRatio = 1000 * (alsaMixerElemMax - alsaMixerElemMin);
-				LOGDEBUG2(L_SOUND, "audio: %s: %s mixer found %ld - %ld ratio %d", __FUNCTION__, channel, alsaMixerElemMin, alsaMixerElemMax, m_alsaRatio);
-				break;
-			}
-
-			alsaMixerElem = snd_mixer_elem_next(alsaMixerElem);
-		}
-
-		m_pAlsaMixer = alsaMixer;
-		m_pAlsaMixerElem = alsaMixerElem;
-	} else {
-		LOGERROR("audio: %s: can't open mixer '%s'", __FUNCTION__, device);
-	}
-}
-
-/**
- * Set alsa mixer volume (0-1000)
- *
- * @param volume      volume (0 .. 1000)
- */
-void cSoftHdAudio::AlsaSetVolume(int volume)
-{
-	int v;
-	if (m_pAlsaMixer && m_pAlsaMixerElem) {
-		v = (volume * m_alsaRatio) / (1000 * 1000);
-		snd_mixer_selem_set_playback_volume(m_pAlsaMixerElem, SND_MIXER_SCHN_FRONT_LEFT, v);
-		snd_mixer_selem_set_playback_volume(m_pAlsaMixerElem, SND_MIXER_SCHN_FRONT_RIGHT, v);
-	}
-}
-
-/**
- * Setup alsa audio for requested format
- *
- * @param channels      Channels requested
- * @param sample_rate   SampleRate requested
- * @param passthrough   use pass-through (AC-3, ...) device
- *
- * @retval 0            everything ok
- * @retval -1           something gone wrong
- */
-int cSoftHdAudio::AlsaSetup(int channels, int sample_rate, bool passthrough)
-{
-	if (Active()) {
-		Stop();
-		DropAlsaBuffers();
-	}
-
-	int err;
-	m_downmix = m_pConfig->ConfigAudioDownmix;
-	m_alsaUseMmap = false;
-
-	// fill hw params
-	snd_pcm_hw_params_t *hwparams;
-	snd_pcm_hw_params_alloca(&hwparams);
-	if ((err = snd_pcm_hw_params_any(m_pAlsaPCMHandle, hwparams)) < 0) {
-		LOGERROR("audio: %s: Read HW config failed (%s)", __FUNCTION__, snd_strerror(err));
-		return -1;
-	}
-
-	// pre-test mmap access
-	if (!snd_pcm_hw_params_test_access(m_pAlsaPCMHandle, hwparams, SND_PCM_ACCESS_MMAP_INTERLEAVED))
-		m_alsaUseMmap = true;
-
-	// pre-test, if sample rate could be set near requested rate
-	m_hwSampleRate = sample_rate;
-	if ((err = snd_pcm_hw_params_set_rate_near(m_pAlsaPCMHandle, hwparams, &m_hwSampleRate, 0)) < 0) {
-		LOGERROR("audio: %s: SampleRate %d not supported (%s)", __FUNCTION__, sample_rate, snd_strerror(err));
-		return -1;
-	}
-	if ((int)m_hwSampleRate != sample_rate)
-		LOGDEBUG2(L_SOUND, "audio: %s: sample_rate %d m_hwSampleRate %d", __FUNCTION__, sample_rate, m_hwSampleRate);
-
-	// pre-test, if channels could be set near requested channels or if a donwmix is necessary
-	m_hwNumChannels = channels;
-	if ((err = snd_pcm_hw_params_set_channels_near(m_pAlsaPCMHandle, hwparams, &m_hwNumChannels)) < 0)
-		LOGWARNING("audio: %s: %d channels not supported! %s", __FUNCTION__, m_hwNumChannels, snd_strerror(err));
-	// force downmix without respect to the setup menu entry
-	if ((int)m_hwNumChannels != channels && !passthrough)
-		m_downmix = 1;
-
-	// pre-test setting buffer time
-	unsigned bufferTimeUs = 100'000;
-	if ((err = snd_pcm_hw_params_set_buffer_time_near(m_pAlsaPCMHandle, hwparams, &bufferTimeUs, NULL)) < 0)
-		LOGWARNING("audio: %s: bufferTime %d not supported! %s", __FUNCTION__, bufferTimeUs, snd_strerror(err));
-
-	// set params
-	if ((err = snd_pcm_set_params(m_pAlsaPCMHandle, SND_PCM_FORMAT_S16,
-		m_alsaUseMmap ? SND_PCM_ACCESS_MMAP_INTERLEAVED : SND_PCM_ACCESS_RW_INTERLEAVED,
-		m_hwNumChannels, m_hwSampleRate, 1, bufferTimeUs))) {
-
-		snd_pcm_state_t state = snd_pcm_state(m_pAlsaPCMHandle);
-		LOGERROR("audio: %s: set params error: %s\n"
-			"           Requested: Channels %d SampleRate %d\n"
-			"           Try to set: HWChannels %d HWSampleRate %d\n"
-			"           Format %s , use mmap: %s\n"
-			"           AlsaBufferTime %dms pcm state: %s",
-			__FUNCTION__, snd_strerror(err),
-			channels, sample_rate,
-			m_hwNumChannels, m_hwSampleRate,
-			snd_pcm_format_name(SND_PCM_FORMAT_S16), m_alsaUseMmap ? "yes" : "no",
-			bufferTimeUs / 1000, snd_pcm_state_name(state));
-		return -1;
-	}
-
-	// get the currently set hw params
-	if ((err = snd_pcm_hw_params_current(m_pAlsaPCMHandle, hwparams)) < 0) {
-		LOGERROR("audio: %s: Reading current HW config failed (%s)", __FUNCTION__, snd_strerror(err));
-		return -1;
-	}
-
-	snd_pcm_hw_params_get_rate(hwparams, &m_hwSampleRate, 0);
-	snd_pcm_hw_params_get_channels(hwparams, &m_hwNumChannels);
-
-	snd_pcm_uframes_t periodSize;
-	snd_pcm_uframes_t bufferSize;
-	snd_pcm_get_params(m_pAlsaPCMHandle, &bufferSize, &periodSize);
-	snd_pcm_hw_params_get_buffer_time(hwparams, &bufferTimeUs, 0);
-
-	m_alsaBufferSizeFrames = bufferSize;
-
-	auto alsaMap = GetAlsaChannelLayoutAsArray(m_pAlsaPCMHandle);
-	std::string channelMapString;
-	for (size_t i = 0; i < alsaMap.size(); i++) {
-		channelMapString += alsaMap[i];
-		if (i < alsaMap.size() - 1)
-			channelMapString += " ";
-	}
-
-	m_passthroughActive = passthrough;
-
-	snd_pcm_state_t state = snd_pcm_state(m_pAlsaPCMHandle);
-	LOGINFO("audio: %s:\n"
-		"           Requested: Channels %d (%s) SampleRate %d%s\n"
-		"           Set: HWChannels %d HWSampleRate %d\n"
-		"           Format %s, use mmap: %s\n"
-		"           AlsaBufferTime %dms, pcm state: %s\n"
-		"           periodSize %d frames, bufferSize %d frames",
-		__FUNCTION__,
-		channels, channelMapString.c_str(), sample_rate, passthrough ? " -> passthrough" : " -> PCM",
-		m_hwNumChannels, m_hwSampleRate,
-		snd_pcm_format_name(SND_PCM_FORMAT_S16), m_alsaUseMmap ? "yes" : "no",
-		bufferTimeUs / 1000, snd_pcm_state_name(state),
-		periodSize, m_alsaBufferSizeFrames);
-
-	Start();
-
-	return 0;
-}
-
-/**
- * Empty log callback
- *
- * @ingroup audio
- */
-static void AlsaNoopCallback( __attribute__ ((unused))
-	const char *file, __attribute__ ((unused))
-	int line, __attribute__ ((unused))
-	const char *function, __attribute__ ((unused))
-	int err, __attribute__ ((unused))
-	const char *fmt, ...)
-{
-}
-
-/**
- * Initialize the alsa audio output module
- */
-void cSoftHdAudio::AlsaInit(void)
-{
-#ifdef ALSA_DEBUG
-	(void)AlsaNoopCallback;
-#else
-	// disable display of alsa error messages
-	snd_lib_error_set_handler(AlsaNoopCallback);
-#endif
-
-	AlsaInitDevice();
-	AlsaInitMixer();
-}
-
-/**
- * Cleanup the alsa audio output module
- */
-void cSoftHdAudio::AlsaExit(void)
-{
-	if (m_pAlsaPCMHandle) {
-		snd_pcm_close(m_pAlsaPCMHandle);
-		m_pAlsaPCMHandle = NULL;
-	}
-	if (m_pAlsaMixer) {
-		snd_mixer_close(m_pAlsaMixer);
-		m_pAlsaMixer = NULL;
-		m_pAlsaMixerElem = NULL;
-	}
-}
-
-/**
  * Calculate clock drift compensation
  *
  * Uses a PID controller to adjust the playback pitch based on the
@@ -1729,10 +1169,10 @@ void cSoftHdAudio::AlsaExit(void)
  */
 void cSoftHdAudio::ClockDriftCompensation(void)
 {
-	if (m_passthroughActive)
+	if (m_alsa.IsPassthroughActive())
 		return;
 
-	double bufferFillLevelMs = FramesToMsDouble(m_fillLevel.GetBufferFillLevelFramesAvg());
+	double bufferFillLevelMs = m_alsa.FramesToMsDouble(m_fillLevel.GetBufferFillLevelFramesAvg());
 	if (m_fillLevel.IsSettled()) {
 		auto now = std::chrono::steady_clock::now();
 		std::chrono::duration<double> elapsedSec = now - m_lastPidInvocation;
@@ -1754,10 +1194,8 @@ void cSoftHdAudio::ClockDriftCompensation(void)
 	}
 
 	// buffer fill level low pass filter
-	int hardwareBufferFillLevelFrames = m_alsaBufferSizeFrames - snd_pcm_avail(m_pAlsaPCMHandle);
+	int availableFrames = m_alsa.GetAvailableBufferFrames(true);
 
-	if (hardwareBufferFillLevelFrames < 0)
-		LOGWARNING("audio: %s: snd_pcm_avail() failes: %s", __FUNCTION__, snd_strerror(hardwareBufferFillLevelFrames));
-	else
-		m_fillLevel.UpdateAvgBufferFillLevel(hardwareBufferFillLevelFrames);
+	if (availableFrames >= 0)
+		m_fillLevel.UpdateAvgBufferFillLevel(m_alsa.GetBufferSizeFrames() - availableFrames);
 }
