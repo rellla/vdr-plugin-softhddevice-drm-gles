@@ -190,7 +190,7 @@ eOSState cSoftHdMenu::ProcessKey(eKeys key)
 			break;
 		case HotkeyState::Blue:              // pip
 			if (k0 <= key && key <= k9) {
-				int hotkeyCode = PIPKEYBASE + key - k0;
+				int hotkeyCode = static_cast<int>(PIPKEYBASE) + static_cast<int>(key) - static_cast<int>(k0);
 				m_hotkeyState = HotkeyState::Initial;
 				HandleHotKey(hotkeyCode);
 				return osEnd;
@@ -199,7 +199,7 @@ eOSState cSoftHdMenu::ProcessKey(eKeys key)
 			break;
 		case HotkeyState::Red:               // detach/ attach
 			if (k0 <= key && key <= k9) {
-				int hotkeyCode = DETACHKEYBASE + key - k0;
+				int hotkeyCode = static_cast<int>(DETACHKEYBASE) + static_cast<int>(key) - static_cast<int>(k0);
 				m_hotkeyState = HotkeyState::Initial;
 				HandleHotKey(hotkeyCode);
 				return osEnd;
