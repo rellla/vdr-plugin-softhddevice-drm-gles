@@ -371,12 +371,9 @@ cDrmBuffer *cDrmBufferPool::FindByDmaBufHandle(int primeFd)
  */
 cDrmBuffer *cDrmBufferPool::FindUninitilized()
 {
-	int i = 0;
 	for (const auto &buf : buffer) {
 		if (!buf->IsDirty())
 			return buf.get();
-
-		i++;
 	}
 
 	return nullptr;
