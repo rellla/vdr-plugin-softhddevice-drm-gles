@@ -38,7 +38,7 @@ VERSION = $(shell grep 'static const char \*const VERSION *=' $(PLUGIN).cpp | aw
 # On a tag with clean tree: empty string
 # On a tag with dirty tree: show hash with -dirty (prefixed with dash)
 # Not on a tag: show hash (with -dirty if dirty, prefixed with dash)
-GIT_DESCRIBE := $(shell git describe --tags --exact-match HEAD 2>/dev/null >/dev/null && git diff --quiet && git diff --cached --quiet && echo "" || (HASH=$$(git describe --tags --always --dirty --exclude "*" 2>/dev/null || echo "unknown"); echo "-$$HASH"))
+GIT_DESCRIBE ?= $(shell git describe --tags --exact-match HEAD 2>/dev/null >/dev/null && git diff --quiet && git diff --cached --quiet && echo "" || (HASH=$$(git describe --tags --always --dirty --exclude "*" 2>/dev/null || echo "unknown"); echo "-$$HASH"))
 GIT_VERSION_FILE := git-version.h
 
 ### The directory environment:
