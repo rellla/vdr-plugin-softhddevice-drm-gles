@@ -926,14 +926,21 @@ void cSoftHdAudio::SetStereoDescent(int delta)
  *
  * This function can safely be called anytime, because it does nothing,
  * if the init has already be done.
+ *
+ * @retval 0 on success, or if already initialized
+ * @retval -1 on error
  */
-void cSoftHdAudio::LazyInit()
+int cSoftHdAudio::LazyInit()
 {
 	if (!m_initialized) {
-		if (!m_alsa.Init())
-			LOGFATAL("audio: could not initialize alsa, abort!");
+		if (!m_alsa.Init()) {
+			LOGERROR("audio: could not initialize alsa, abort!");
+			return -1;
+		}
 		m_initialized = true;
 	}
+
+	return 0;
 }
 
 /**

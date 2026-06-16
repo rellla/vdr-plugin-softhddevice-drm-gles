@@ -1331,19 +1331,24 @@ void cVideoRender::ReInitDisplayMode(void)
 
 /**
  * Initialize the renderer
+ *
+ * @retval 0 on success
+ * @retval -1 on error
  */
-void cVideoRender::Init(void)
+int cVideoRender::Init(void)
 {
-	if (m_pDrmDevice->Init())
-		LOGFATAL("videorender: %s: Init drm device failed", __FUNCTION__);
+	if (m_pDrmDevice->Init()) {
+		LOGERROR("videorender: %s: Init drm device failed", __FUNCTION__);
+		return -1;
+	}
 
 #ifdef USE_GLES
 	if (!m_disableOglOsd) {
-		if (m_pDrmDevice->InitGbm())
-			LOGFATAL("videorender: %s: Init gbm failed", __FUNCTION__);
-
-		if (m_pDrmDevice->InitEGL())
-			LOGFATAL("videorender: %s: Init EGL failed", __FUNCTION__);
+		if (m_pDrmDevice->InitGbm() || m_pDrmDevice->InitEGL()) {
+			LOGERROR("videorender: %s: Init failed", __FUNCTION__);
+			Exit();
+			return -1;
+		}
 	}
 #endif
 
@@ -1426,6 +1431,8 @@ void cVideoRender::Init(void)
 	m_pDrmDevice->InitEvent();
 
 	Start();
+
+	return 0;
 }
 
 /**
@@ -1477,6 +1484,10 @@ void cVideoRender::Exit(void)
 
 	DeleteBuffers();
 
+#ifdef USE_GLES
+	if (!m_disableOglOsd)
+		m_pDrmDevice->ExitGbm();
+#endif
 	m_pDrmDevice->Close();
 }
 

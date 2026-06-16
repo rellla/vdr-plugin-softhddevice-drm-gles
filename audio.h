@@ -52,7 +52,7 @@ class cSoftHdAudio : public cThread {
 public:
 	cSoftHdAudio(cSoftHdDevice *);
 
-	void LazyInit(void);
+	int LazyInit(void);
 	void Exit(void);
 	int Setup(AVRational, int , int , bool);
 	void SetPaused(bool);

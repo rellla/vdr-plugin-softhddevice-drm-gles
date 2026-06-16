@@ -255,12 +255,19 @@ void cSoftHdDevice::OnEventReceived(const Event& event)
 			break;
 		case State::STOP:
 			std::visit(overload{
-				[this](const PlayEvent&) {
-					m_pAudio->LazyInit();
-					m_pAudio->SetVolume((m_volume * 1000) / 255);
-					SetState(BUFFERING);
-					m_pRender->ResetFrameCounter();
-					m_pVideoStream->ResetFilterThreadNeededCheck();
+				[this, &needsResume](const PlayEvent&) {
+					if (m_pAudio->LazyInit()) {
+						// audio init failed, force detached state
+						m_forceDetached = true;
+						m_pPipHandler->HandleEvent(PIPSTOP);
+						SetState(DETACHED);
+						needsResume = false;
+					} else {
+						m_pAudio->SetVolume((m_volume * 1000) / 255);
+						SetState(BUFFERING);
+						m_pRender->ResetFrameCounter();
+						m_pVideoStream->ResetFilterThreadNeededCheck();
+					}
 				},
 				[&invalid](const PauseEvent&) { invalid(); },
 				[&invalid](const StopEvent&) { invalid(); },
@@ -513,6 +520,10 @@ void cSoftHdDevice::OnEnteringState(State state) {
 			m_pRender->ResetBufferReuseStrategy();
 			break;
 		case STOP:
+			if (m_forceDetached) {
+				m_state = DETACHED;
+				break;
+			}
 			FlushAudio();
 
 			m_pVideoStream->CancelFilterThread();
@@ -609,7 +620,16 @@ void cSoftHdDevice::OnLeavingState(State state) {
 			m_pGrab = new cSoftHdGrab(m_pRender);
 			m_pVideoStream = new cMainVideoStream(m_pRender, m_pHardwareDevice->GetQuirks(), m_pRender->GetMainOutputBuffer(), m_pConfig, std::bind(&cVideoRender::PushMainFrame, m_pRender, std::placeholders::_1));
 			m_pAudioDecoder = new cAudioDecoder(m_pAudio);
-			m_pRender->Init(); // starts display thread
+			int err = m_pRender->Init(); // starts display thread
+			if (err < 0) { // drm init failed -> force detached mode
+				delete m_pAudioDecoder;
+				delete m_pVideoStream;
+				delete m_pGrab;
+				delete m_pRender;
+				delete m_pAudio;
+				m_forceDetached = true;
+				break;
+			}
 			m_pVideoStream->StartDecoder(); // starts decoding thread
 			m_pPipStream = new cPipVideoStream(m_pRender, m_pHardwareDevice->GetQuirks(), m_pRender->GetPipOutputBuffer(), m_pConfig, std::bind(&cVideoRender::PushPipFrame, m_pRender, std::placeholders::_1));
 			m_pPipStream->StartDecoder(); // starts decoding thread
@@ -1711,7 +1731,8 @@ void cSoftHdDevice::SetVideoCodec(enum AVCodecID codecId, AVCodecParameters * pa
  */
 int cSoftHdDevice::PlayAudioPkts(AVPacket * pkt)
 {
-	m_pAudio->LazyInit();
+	if (m_pAudio->LazyInit())
+		LOGFATAL("%s: audio init failed, abort!", __FUNCTION__);
 
 	if (m_pAudio->IsBufferFull())
 		return 0;
@@ -1730,7 +1751,8 @@ int cSoftHdDevice::PlayAudioPkts(AVPacket * pkt)
  */
 int cSoftHdDevice::PlayVideoPkts(AVPacket * pkt)
 {
-	m_pAudio->LazyInit();
+	if (m_pAudio->LazyInit())
+		LOGFATAL("%s: audio init failed, abort!", __FUNCTION__);
 
 	if (m_pVideoStream->GetAvPacketsFilled() >= (size_t)m_pVideoStream->GetVideoPacketMax() - 10)
 		return 0;
