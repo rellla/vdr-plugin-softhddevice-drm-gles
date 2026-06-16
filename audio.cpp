@@ -472,10 +472,19 @@ void cSoftHdAudio::EnqueueFrame(AVFrame *frame)
 }
 
 /**
- * Build a pause spdif burst with the size of the last recognized normal spdif audio
+ * Rebuild the pause spdif burst with the size of the last recognized normal spdif audio if size changed
+ *
+ * @param size     spdif burst size in bytes
  */
-void cSoftHdAudio::BuildPauseBurst(void)
+void cSoftHdAudio::RebuildPauseBurst(int size)
 {
+	if (size == m_spdifBurstSize)
+		return;
+
+	LOGDEBUG2(L_SOUND, "audio: %s: spdif burst size changed %d -> %d, rebuild pause burst", __FUNCTION__, m_spdifBurstSize, size);
+
+	m_spdifBurstSize = size;
+	m_pauseBurst.resize(size / 2);
 	uint16_t *spdif = m_pauseBurst.data();
 
 	constexpr int IEC61937_PREAMBLE1 = 0xF872;
@@ -503,13 +512,7 @@ void cSoftHdAudio::EnqueueSpdif(const uint16_t *buffer, int count, int64_t pts)
 {
 	std::lock_guard<std::mutex> lock(m_pauseMutex);
 
-	if (count != m_spdifBurstSize) {
-		LOGDEBUG2(L_SOUND, "audio: %s: spdif burst size changed %d -> %d, rebuild pause burst", __FUNCTION__, m_spdifBurstSize, count);
-		m_spdifBurstSize = count;
-		m_pauseBurst.resize(m_spdifBurstSize / 2);
-
-		BuildPauseBurst();
-	}
+	RebuildPauseBurst(count);
 
 	Enqueue(buffer, count, pts);
 }

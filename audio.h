@@ -134,7 +134,7 @@ private:
 	void EnqueueFrame(AVFrame *);
 	bool SendAudio(int);
 	bool SendPause(void);
-	void BuildPauseBurst(void);
+	void RebuildPauseBurst(int);
 	void Stop(void);
 	void FlushAlsaBuffers(void);
 	void DropAlsaBuffers(void);
