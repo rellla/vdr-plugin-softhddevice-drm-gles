@@ -274,9 +274,9 @@ public:
 private:
 	static constexpr int MIN_BUFFER_FILL_LEVEL_THRESHOLD_MS = 450; ///< min buffering threshold in ms
 
-	std::atomic<State> m_state = DETACHED; ///< current plugin state, normal plugin start sets detached state
-	std::mutex m_eventMutex;         ///< mutex to protect event queue
-	bool m_needsMakePrimary = false;
+	std::atomic<State> m_state = DETACHED;          ///< current plugin state, normal plugin start sets detached state
+	std::mutex m_eventMutex;                        ///< mutex to protect event queue
+	bool m_needsMakePrimary = false;                ///< true, if device should be made a primary device after attach
 	cDvbSpuDecoder *m_pSpuDecoder;                  ///< pointer to spu decoder
 	cSoftHdConfig *m_pConfig;                       ///< pointer to cSoftHdConfig object
 	cVideoRender *m_pRender;                        ///< pointer to cVideoRender object
