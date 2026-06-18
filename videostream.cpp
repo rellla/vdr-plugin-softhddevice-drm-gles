@@ -69,7 +69,7 @@ cVideoStream::cVideoStream(cVideoRender *render, int hardwareQuirks, cQueue<cDrm
 
 cVideoStream::~cVideoStream(void)
 {
-	LOGDEBUG("videostream %s:", __FUNCTION__);
+	LOGDEBUG("videostream %s: %s", __FUNCTION__, m_identifier);
 }
 
 /**
