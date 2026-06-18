@@ -112,6 +112,7 @@ private:
 	bool m_initialized = false;             ///< class initialized
 	std::mutex m_mutex;                     ///< mutex for thread safety
 	std::mutex m_pauseMutex;                ///< mutex for a safe thread pausing
+	std::mutex m_queueMutex;                ///< mutex for queue safety
 	std::vector<Event> m_eventQueue;        ///< event queue for incoming events
 	std::atomic<double> m_pitchPpm = 0;     ///< pitch adjustment in ppm. Positive values are faster
 	int m_pitchAdjustFrameCounter = 0;      ///< counter for pitch adjustment frames
