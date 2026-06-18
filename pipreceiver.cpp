@@ -222,13 +222,16 @@ int cPipHandler::Start(int channelNum)
 	if (!channelNum)
 		channelNum = m_pDevice->CurrentChannel();
 
-	LOCK_CHANNELS_READ;
 	const cChannel *channel;
 	cDevice *device;
 	cPipReceiver *receiver;
 
-	if (channelNum && (channel = Channels->GetByNumber(channelNum)) &&
-	   (device = m_pDevice->GetDevice(channel, 0, false, false))) {
+	{
+		LOCK_CHANNELS_READ;
+		channel = Channels->GetByNumber(channelNum);
+	}
+
+	if (channelNum && channel && (device = m_pDevice->GetDevice(channel, 0, false, false))) {
 		Stop();
 		device->SwitchChannel(channel, false);
 		receiver = new cPipReceiver(channel, m_pDevice);
@@ -316,14 +319,16 @@ void cPipHandler::HandleChannelChange(int direction)
 
 	Stop();
 
-	LOCK_CHANNELS_READ;
 	while (channel) {
 		bool ndr;
 		cDevice *device;
 
-		channel = direction > 0 ? Channels->Next(channel) : Channels->Prev(channel);
-		if (!channel && Setup.ChannelsWrap)
-			channel = direction > 0 ? Channels->First() : Channels->Last();
+		{
+			LOCK_CHANNELS_READ;
+			channel = direction > 0 ? Channels->Next(channel) : Channels->Prev(channel);
+			if (!channel && Setup.ChannelsWrap)
+				channel = direction > 0 ? Channels->First() : Channels->Last();
+		}
 
 		if (channel && !channel->GroupSep() && (device = cDevice::GetDevice(channel, 0, false, true)) &&
 			device->ProvidesChannel(channel, 0, &ndr) && !ndr) {
@@ -413,9 +418,11 @@ void cPipHandler::ChannelSwap(bool closePip)
 	else
 		m_pEventReceiver->OnEventReceived(PipEvent{PIPCHANSWAP}); // resets the pip channel to the current channel
 
-	LOCK_CHANNELS_READ;
 	LOGDEBUG("piphandler: %s: switch main stream to %d", __FUNCTION__, channel->Number());
-	Channels->SwitchTo(channel->Number());
+	{
+		LOCK_CHANNELS_READ;
+		Channels->SwitchTo(channel->Number());
+	}
 }
 
 /**
