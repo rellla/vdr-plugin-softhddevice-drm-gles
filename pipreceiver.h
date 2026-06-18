@@ -71,7 +71,7 @@ private:
 	cSoftHdDevice *m_pDevice;               ///< pointer to device
 	IEventReceiver *m_pEventReceiver;       ///< pointer to event receiver
 	cPipReceiver *m_pPipReceiver = nullptr; ///< pointer to pip receiver
-	int m_pipChannelNum;                    ///< current pip channel number
+	int m_pipChannelNum = 0;                ///< current pip channel number
 	const cChannel *m_pPipChannel;          ///< current pip channel
 	bool m_active = false;                  ///< true, if pip is active
 
