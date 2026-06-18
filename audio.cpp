@@ -552,6 +552,7 @@ void cSoftHdAudio::Enqueue(const uint16_t *buffer, int count, int64_t pts)
 			LOGDEBUG2(L_AV_SYNC, "audio: %s: discontinuity detected in audio PTS %s -> %s%s", __FUNCTION__,
 				Timestamp2String(m_alsa.PtsToMs(m_inputPts, av_q2d(m_timebase)), 1), Timestamp2String(m_alsa.PtsToMs(pts, av_q2d(m_timebase)), 1),
 				m_alsa.PtsToMs(m_inputPts, av_q2d(m_timebase)) > m_alsa.PtsToMs(pts, av_q2d(m_timebase)) ? " (PTS wrapped)" : "");
+			std::lock_guard<std::mutex> lock(m_queueMutex);
 			m_eventQueue.push_back(ScheduleResyncAtPtsMsEvent{m_alsa.PtsToMs(pts, av_q2d(m_timebase))});
 		}
 
@@ -1034,8 +1035,10 @@ bool cSoftHdAudio::CyclicCall(void)
 
 	int err = m_alsa.WaitUntilReady();
 	if (err < 0) {
-		if (m_alsa.HandleError(err))
+		if (m_alsa.HandleError(err)) {
+			std::lock_guard<std::mutex> lock(m_queueMutex);
 			m_eventQueue.push_back(BufferUnderrunEvent{AUDIO});
+		}
 		return false;
 	} else if (err == 0) {
 		return true;
@@ -1047,8 +1050,10 @@ bool cSoftHdAudio::CyclicCall(void)
 	if (freeAlsaBufferFrames == -EAGAIN)
 		return true; // ?? is this correct?
 	else if (freeAlsaBufferFrames < 0) {
-		if (m_alsa.HandleError(freeAlsaBufferFrames))
+		if (m_alsa.HandleError(freeAlsaBufferFrames)) {
+			std::lock_guard<std::mutex> lock(m_queueMutex);
 			m_eventQueue.push_back(BufferUnderrunEvent{AUDIO});
+		}
 		return false;
 	}
 
@@ -1152,6 +1157,7 @@ void cSoftHdAudio::ResetHwDelayBaseline(void)
  */
 void cSoftHdAudio::ProcessEvents(void)
 {
+	std::lock_guard<std::mutex> lock(m_queueMutex);
 	for (Event event : m_eventQueue)
 		m_pEventReceiver->OnEventReceived(event);
 
