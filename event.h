@@ -31,17 +31,6 @@ enum BufferUnderrunType {
 	AUDIO,
 };
 
-enum PipState {
-	PIPSTART,
-	PIPSTOP,
-	PIPTOGGLE,
-	PIPCHANUP,
-	PIPCHANDOWN,
-	PIPCHANSWAP,
-	PIPSIZECHANGE,
-	PIPSWAPPOSITION
-};
-
 struct PlayEvent {};
 struct PauseEvent {};
 struct StopEvent {};
@@ -60,9 +49,6 @@ struct BufferUnderrunEvent {
 	BufferUnderrunType type;
 };
 struct BufferingThresholdReachedEvent {};
-struct PipEvent {
-	PipState state;
-};
 struct ScheduleResyncAtPtsMsEvent {
 	int64_t pts;
 };
@@ -81,7 +67,6 @@ using Event = std::variant<
 	AttachEvent,
 	BufferUnderrunEvent,
 	BufferingThresholdReachedEvent,
-	PipEvent,
 	ScheduleResyncAtPtsMsEvent,
 	ResyncEvent,
 	DisplayChangeEvent

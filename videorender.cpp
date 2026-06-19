@@ -989,7 +989,7 @@ bool cVideoRender::IsOutputBufferFull(void)
  */
 void cVideoRender::PushMainFrame(AVFrame *frame)
 {
-	PushFrame(frame, IsTrickSpeed(), m_bufferReuseStrategy, m_decodingStrategy, &m_drmBufferQueue, &m_drmBufferPool);
+	PushFrame(frame, IsTrickSpeed(), m_bufferReuseStrategy, m_decodingStrategy, &m_drmBufferQueue, &m_drmBufferPool, true);
 }
 
 /**
@@ -997,7 +997,7 @@ void cVideoRender::PushMainFrame(AVFrame *frame)
  */
 void cVideoRender::PushPipFrame(AVFrame *frame)
 {
-	PushFrame(frame, false, m_pipBufferReuseStrategy, m_pipDecodingStrategy, &m_pipDrmBufferQueue, &m_pipDrmBufferPool);
+	PushFrame(frame, false, m_pipBufferReuseStrategy, m_pipDecodingStrategy, &m_pipDrmBufferQueue, &m_pipDrmBufferPool, false);
 }
 
 /**
@@ -1009,7 +1009,8 @@ void cVideoRender::PushFrame(
 	std::atomic<cBufferStrategy*> &bufferReuseStrategy,
 	std::atomic<cDecodingStrategy*> &decodingStrategy,
 	cQueue<cDrmBuffer>* drmBufferQueue,
-	cDrmBufferPool *drmBufferPool)
+	cDrmBufferPool *drmBufferPool,
+	bool mainFrame)
 {
 	if (bufferReuseStrategy == nullptr) {
 		if (trickspeed)
@@ -1033,7 +1034,7 @@ void cVideoRender::PushFrame(
 	// (except setting it to AV_NOPTS_VALUE in cSofthdDevice::Clear() and SetState(STOP))
 	// We only store here, if the stream recently started and the clock wasn't set already in the display thread
 
-	if (GetVideoClock() == AV_NOPTS_VALUE && frame->pts != AV_NOPTS_VALUE)
+	if (mainFrame && GetVideoClock() == AV_NOPTS_VALUE && frame->pts != AV_NOPTS_VALUE)
 		SetVideoClock(frame->pts);
 
 	AVDRMFrameDescriptor *primedata = (AVDRMFrameDescriptor *)frame->data[0];

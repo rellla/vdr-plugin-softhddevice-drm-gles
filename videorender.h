@@ -353,7 +353,7 @@ private:
 	bool FrameDropNecessary(int64_t, int64_t);
 	void LogDroppedDuped(int64_t, int64_t, int);
 	int64_t PtsToMs(int64_t);
-	void PushFrame(AVFrame *, bool, std::atomic<cBufferStrategy*> &, std::atomic<cDecodingStrategy*> &, cQueue<cDrmBuffer> *, cDrmBufferPool *);
+	void PushFrame(AVFrame *, bool, std::atomic<cBufferStrategy*> &, std::atomic<cDecodingStrategy*> &, cQueue<cDrmBuffer> *, cDrmBufferPool *, bool);
 	int GetFramePresentationCount(int64_t);
 	void SetHdrBlob(struct hdr_output_metadata);
 	void SetColorSpace(drmColorRange);
