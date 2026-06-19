@@ -84,7 +84,6 @@ inline const char* EventToString(const Event& e) {
 		[](const AttachEvent&) -> const char* { return "AttachEvent"; },
 		[](const BufferUnderrunEvent& e) -> const char* { return e.type == AUDIO ? "BufferUnderrunEvent: Audio" : "BufferUnderrunEvent: Video"; },
 		[](const BufferingThresholdReachedEvent&) -> const char* { return "BufferingThresholdReachedEvent"; },
-		[](const PipEvent&) -> const char* { return "PipEvent"; },
 		[](const ScheduleResyncAtPtsMsEvent&) -> const char* { return "ScheduleResyncAtPtsMsEvent"; },
 		[](const ResyncEvent&) -> const char* { return "ResyncEvent"; },
 		[](const DisplayChangeEvent&) -> const char* { return "DisplayChangeEvent"; },
@@ -319,7 +318,7 @@ private:
 	bool m_forceDetached = false; ///< start the plugin in detached state
 	bool m_externalPlayerActive = false; ///< true, if we detached for an external player
 
-	int PlayVideoInternal(cVideoStream *, cReassemblyBufferVideo *, const uchar *, int, bool);
+	int PlayVideoInternal(cVideoStream *, cReassemblyBufferVideo *, const uchar *, int, bool, bool);
 	void FlushAudio(void);
 	void OnEventReceived(const Event&);
 	void HandleStillPicture(const uchar *data, int size);

@@ -12,7 +12,6 @@
 #include <vdr/remux.h>
 #include <vdr/skins.h>
 
-#include "event.h"
 #include "logger.h"
 #include "pipreceiver.h"
 #include "softhddevice.h"
@@ -22,7 +21,9 @@
  ****************************************************************************/
 
 /**
- * Create a new receiver for the pip stream handling only video pid
+ * Create a new receiver for the pip stream
+ *
+ * Only the video pid is handled
  *
  * @param channel    channel to receive
  * @param device     pointer to cSoftHdDevice object
@@ -40,7 +41,7 @@ cPipReceiver::cPipReceiver(const cChannel *channel, cSoftHdDevice *device)
  */
 cPipReceiver::~cPipReceiver(void)
 {
-	LOGDEBUG("pipreceiver: %s", __FUNCTION__);
+	LOGDEBUG("pipreceiver: %s, try detach", __FUNCTION__);
 	Detach();
 }
 
@@ -59,6 +60,8 @@ void cPipReceiver::Activate(bool on)
  * Receive data from the receiver
  *
  * This code is taken from VDRs cTransfer::Receive()
+ *
+ * @note Receive() must return as soon as possible, because it's part of the VDR device main loop
  */
 void cPipReceiver::Receive(const uchar *data, int size)
 {
@@ -71,6 +74,7 @@ void cPipReceiver::Receive(const uchar *data, int size)
 			return;
 		cCondWait::SleepMs(RETRYWAITMS);
 	}
+	m_pDevice->ResetPipStream();
 	m_numLostPackets++;
 	if (cTimeMs::Now() - m_lastErrorReport > ERRORDELTASEC) {
 		LOGWARNING("pipreceiver: %d TS packet(s) not accepted in pip stream", m_numLostPackets);
@@ -152,58 +156,13 @@ int cPipReceiver::PlayTs(const uchar *data, int size)
  ****************************************************************************/
 
 cPipHandler::cPipHandler(cSoftHdDevice *device)
-	: m_pDevice(device),
-	  m_pEventReceiver(device)
+	: m_pDevice(device)
 {
 }
 
 cPipHandler::~cPipHandler(void)
 {
 	Stop();
-}
-
-/*****************************************************************************
- * Handle events
- *
- * The following functions are called from within the state change and must
- * not trigger any new events. Otherwise we end up in a dead lock!
- ****************************************************************************/
-
-/**
- * Handle a pip event
- */
-void cPipHandler::HandleEvent(enum PipState event)
-{
-	switch (event) {
-		case PIPSTART:
-			HandleEnable(true);
-			break;
-		case PIPSTOP:
-			HandleEnable(false);
-			break;
-		case PIPTOGGLE:
-			HandleEnable(!m_active);
-			break;
-		case PIPCHANUP:
-			HandleChannelChange(1);
-			break;
-		case PIPCHANDOWN:
-			HandleChannelChange(-1);
-			break;
-		case PIPCHANSWAP:
-			Stop();
-			Start(0);
-			break;
-		case PIPSIZECHANGE:
-			m_pDevice->SetRenderPipSize();
-			break;
-		case PIPSWAPPOSITION:
-			m_pDevice->ToggleRenderPipPosition();
-			m_pDevice->SetRenderPipSize();
-			break;
-		default:
-			break;
-	}
 }
 
 /**
@@ -214,8 +173,6 @@ void cPipHandler::HandleEvent(enum PipState event)
  *
  * @retval 0     pip was enabled
  * @retval -1    pip wasn't enabled, no device for channel available
- *
- * @note This function is called within the state change and must not trigger any new events!
  */
 int cPipHandler::Start(int channelNum)
 {
@@ -231,7 +188,9 @@ int cPipHandler::Start(int channelNum)
 		channel = Channels->GetByNumber(channelNum);
 	}
 
-	if (channelNum && channel && (device = m_pDevice->GetDevice(channel, 0, false, false))) {
+	device = m_pDevice->GetDevice(channel, 0, false);
+
+	if (channelNum && channel && device) {
 		Stop();
 		device->SwitchChannel(channel, false);
 		receiver = new cPipReceiver(channel, m_pDevice);
@@ -254,10 +213,8 @@ int cPipHandler::Start(int channelNum)
  * Delete the pip receiver, clear decoder and display buffers
  * and disable rendering the pip window.
  *
- * We do not need to halt main stream decoder and display thread for this,
- * so only halt the pip decoding thread here (in m_pDevice->ResetPipStream()) - not in OnEventReceived().
- *
- * @note This function is called within the state change and must not trigger any new events!
+ * We do not need to halt main stream decoder for this,
+ * so only halt the PiP decoding and render thread here (in m_pDevice->ResetPipStream())
  */
 void cPipHandler::Stop(void)
 {
@@ -268,6 +225,7 @@ void cPipHandler::Stop(void)
 
 	LOGDEBUG("piphandler: %s: deleting receiver for channel (%d) %s", __FUNCTION__, m_pPipChannel->Number(), m_pPipChannel->Name());
 
+	// both, PiP decoding and render thread are halted and resumed in ResetPipStream
 	m_pDevice->ResetPipStream();
 
 	delete m_pPipReceiver;
@@ -279,8 +237,6 @@ void cPipHandler::Stop(void)
  * Enable/ disable picture-in-picture
  *
  * @param on       true, if pip should be enabled
- *
- * @note This function is called within the state change and must not trigger any new events!
  */
 void cPipHandler::HandleEnable(bool on)
 {
@@ -294,8 +250,8 @@ void cPipHandler::HandleEnable(bool on)
 		LOGDEBUG("piphandler: %s: pip is already disabled", __FUNCTION__);
 	} else if (!on && m_active){
 		LOGDEBUG("piphandler: %s: disabling pip", __FUNCTION__);
-		m_pDevice->SetRenderPipActive(false);
 		Stop();
+		m_pDevice->SetRenderPipActive(false);
 	}
 }
 
@@ -303,25 +259,19 @@ void cPipHandler::HandleEnable(bool on)
  * Change the pip channel
  *
  * @param direction      1: channel up, -1: channel down
- *
- * @note This function is called within the state change and must not trigger any new events!
  */
 void cPipHandler::HandleChannelChange(int direction)
 {
 	if (!m_active)
 		return;
 
-	const cChannel *channel;
-	const cChannel *first;
-
-	channel = m_pPipChannel;
-	first = channel;
+	const cChannel *channel = m_pPipChannel;
+	const cChannel *first = m_pPipChannel;
 
 	Stop();
 
 	while (channel) {
 		bool ndr;
-		cDevice *device;
 
 		{
 			LOCK_CHANNELS_READ;
@@ -330,10 +280,11 @@ void cPipHandler::HandleChannelChange(int direction)
 				channel = direction > 0 ? Channels->First() : Channels->Last();
 		}
 
-		if (channel && !channel->GroupSep() && (device = cDevice::GetDevice(channel, 0, false, true)) &&
-			device->ProvidesChannel(channel, 0, &ndr) && !ndr) {
-				Start(channel->Number());
-				return;
+		cDevice *device = m_pDevice->GetDevice(channel, 0, false, true);
+
+		if (channel && !channel->GroupSep() && device && device->ProvidesChannel(channel, 0, &ndr) && !ndr) {
+			Start(channel->Number());
+			return;
 		}
 
 		if (channel == first) {
@@ -344,10 +295,9 @@ void cPipHandler::HandleChannelChange(int direction)
 }
 
 /*****************************************************************************
- * Trigger events
+ * PiP handler public API
  *
- * These (public) functions are wrapped by cSoftHdDevice and can be called
- * to trigger a pip event.
+ * These (public) functions are wrapped by cSoftHdDevice.
  ****************************************************************************/
 
 /**
@@ -358,7 +308,7 @@ void cPipHandler::Enable(void)
 	if (m_active)
 		return;
 
-	m_pEventReceiver->OnEventReceived(PipEvent{PIPSTART});
+	HandleEnable(true);
 }
 
 /**
@@ -369,7 +319,7 @@ void cPipHandler::Disable(void)
 	if (!m_active)
 		return;
 
-	m_pEventReceiver->OnEventReceived(PipEvent{PIPSTOP});
+	HandleEnable(false);
 }
 
 /**
@@ -377,7 +327,7 @@ void cPipHandler::Disable(void)
  */
 void cPipHandler::Toggle(void)
 {
-	m_pEventReceiver->OnEventReceived(PipEvent{PIPTOGGLE});
+	HandleEnable(!m_active);
 }
 
 /**
@@ -391,16 +341,13 @@ void cPipHandler::ChannelChange(int direction)
 		return;
 
 	if (direction > 0)
-		m_pEventReceiver->OnEventReceived(PipEvent{PIPCHANUP});
+		HandleChannelChange(1);
 	else
-		m_pEventReceiver->OnEventReceived(PipEvent{PIPCHANDOWN});
+		HandleChannelChange(-1);
 }
 
 /**
  * Swap the pip channel with main live channel
- *
- * The channel switch of the main stream must be done out of OnEventReceived()
- * because it triggers a SetPlayMode() which end in a deadlock otherwise.
  *
  * @param closePip      close the pip window after the channel swap
  */
@@ -413,10 +360,9 @@ void cPipHandler::ChannelSwap(bool closePip)
 	if (!channel)
 		return;
 
-	if (closePip)
-		m_pEventReceiver->OnEventReceived(PipEvent{PIPSTOP});
-	else
-		m_pEventReceiver->OnEventReceived(PipEvent{PIPCHANSWAP}); // resets the pip channel to the current channel
+	Stop();
+	if (!closePip)
+		Start(0); // resets the pip channel to the current channel
 
 	LOGDEBUG("piphandler: %s: switch main stream to %d", __FUNCTION__, channel->Number());
 	{
@@ -430,7 +376,7 @@ void cPipHandler::ChannelSwap(bool closePip)
  */
 void cPipHandler::SetSize(void)
 {
-	m_pEventReceiver->OnEventReceived(PipEvent{PIPSIZECHANGE});
+	m_pDevice->SetRenderPipSize();
 }
 
 /**
@@ -438,5 +384,6 @@ void cPipHandler::SetSize(void)
  */
 void cPipHandler::SwapPosition(void)
 {
-	m_pEventReceiver->OnEventReceived(PipEvent{PIPSWAPPOSITION});
+	m_pDevice->ToggleRenderPipPosition();
+	m_pDevice->SetRenderPipSize();
 }

@@ -12,9 +12,9 @@
 #ifndef __PIPRECEIVER_H
 #define __PIPRECEIVER_H
 
-#include <vdr/receiver.h>
+#include <atomic>
 
-#include "event.h"
+#include <vdr/receiver.h>
 
 class cSoftHdDevice;
 
@@ -57,7 +57,6 @@ public:
 	cPipHandler(cSoftHdDevice *);
 	virtual ~cPipHandler(void);
 
-	bool IsEnabled(void) { return m_active; };
 	void Enable(void);
 	void Disable(void);
 	void Toggle(void);
@@ -65,15 +64,15 @@ public:
 	void ChannelSwap(bool);
 	void SetSize(void);
 	void SwapPosition(void);
-	void HandleEvent(enum PipState);
+
+	bool IsEnabled(void) { return m_active; };
 
 private:
 	cSoftHdDevice *m_pDevice;               ///< pointer to device
-	IEventReceiver *m_pEventReceiver;       ///< pointer to event receiver
 	cPipReceiver *m_pPipReceiver = nullptr; ///< pointer to pip receiver
 	int m_pipChannelNum = 0;                ///< current pip channel number
 	const cChannel *m_pPipChannel;          ///< current pip channel
-	bool m_active = false;                  ///< true, if pip is active
+	std::atomic<bool> m_active = false;     ///< true, if pip is active
 
 	int Start(int);
 	void Stop(void);

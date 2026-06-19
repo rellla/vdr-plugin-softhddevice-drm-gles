@@ -105,6 +105,7 @@ int cSoftHdDevice::Start(void)
 void cSoftHdDevice::Stop(void)
 {
 	LOGDEBUG("device: %s", __FUNCTION__);
+	m_pPipHandler->Disable();
 	OnEventReceived(DetachEvent{});
 }
 
@@ -246,7 +247,6 @@ void cSoftHdDevice::OnEventReceived(const Event& event)
 				},
 				[&invalid](const BufferUnderrunEvent&) { invalid(); },
 				[&invalid](const BufferingThresholdReachedEvent&) { invalid(); },
-				[&invalid](const PipEvent&) { invalid(); },
 				[&invalid](const ScheduleResyncAtPtsMsEvent&) { invalid(); },
 				[&invalid](const ResyncEvent&) { invalid(); },
 				[&invalid](const DisplayChangeEvent&) { invalid(); },
@@ -269,16 +269,12 @@ void cSoftHdDevice::OnEventReceived(const Event& event)
 					HandleStillPicture(s.data, s.size);
 				},
 				[this, &needsResume](const DetachEvent&) {
-					m_pPipHandler->HandleEvent(PIPSTOP);
 					SetState(DETACHED);
 					needsResume = false;
 				},
 				[&invalid](const AttachEvent&) { invalid(); },
 				[&invalid](const BufferUnderrunEvent&) { invalid(); },
 				[&invalid](const BufferingThresholdReachedEvent&) { invalid(); },
-				[this](const PipEvent& p) {
-					m_pPipHandler->HandleEvent(p.state);
-				},
 				[&invalid](const ScheduleResyncAtPtsMsEvent&) { invalid(); },
 				[&invalid](const ResyncEvent&) { invalid(); },
 				[this](const DisplayChangeEvent& d) {
@@ -335,9 +331,6 @@ void cSoftHdDevice::OnEventReceived(const Event& event)
 						LOGFATAL("device: buffering threshold reached and no a/v available. This is a bug.");
 
 					SetState(PLAY);
-				},
-				[this](const PipEvent& p) {
-					m_pPipHandler->HandleEvent(p.state);
 				},
 				[this](const ScheduleResyncAtPtsMsEvent& s) {
 					SetState(PLAY);
@@ -398,7 +391,6 @@ void cSoftHdDevice::OnEventReceived(const Event& event)
 					HandleStillPicture(s.data, s.size);
 				},
 				[this, &needsResume](const DetachEvent&) {
-					m_pPipHandler->HandleEvent(PIPSTOP);
 					SetState(DETACHED);
 					needsResume = false;
 				},
@@ -408,9 +400,6 @@ void cSoftHdDevice::OnEventReceived(const Event& event)
 				},
 				[&invalid](const BufferingThresholdReachedEvent&) {
 					// ignore
-				},
-				[this](const PipEvent& p) {
-					m_pPipHandler->HandleEvent(p.state);
 				},
 				[this](const ScheduleResyncAtPtsMsEvent& s) {
 					m_pRender->ScheduleResyncAtPtsMs(s.pts);
@@ -445,7 +434,6 @@ void cSoftHdDevice::OnEventReceived(const Event& event)
 					HandleStillPicture(s.data, s.size);
 				},
 				[this, &needsResume](const DetachEvent&) {
-					m_pPipHandler->HandleEvent(PIPSTOP);
 					SetState(DETACHED);
 					needsResume = false;
 				},
@@ -454,9 +442,6 @@ void cSoftHdDevice::OnEventReceived(const Event& event)
 					// ignore during trick speed. Fast forward/reverse as fast and as demanded as possible
 				},
 				[&invalid](const BufferingThresholdReachedEvent&) { invalid(); },
-				[this](const PipEvent& p) {
-					m_pPipHandler->HandleEvent(p.state);
-				},
 				[&invalid](const ScheduleResyncAtPtsMsEvent&) { invalid(); },
 				[&invalid](const ResyncEvent&) { invalid(); },
 				[this](const DisplayChangeEvent& d) {
@@ -666,6 +651,7 @@ bool cSoftHdDevice::SetPlayMode(ePlayMode play_mode)
 		// External players like mpv (vdr-plugin-mpv) want to acquire DRM/ALSA
 		// so we release it here and set a flag. As soon as the next SetPlayMode arrives
 		// we then can attach again before changing to the new playmode.
+		m_pPipHandler->Disable();
 		OnEventReceived(DetachEvent{});
 		m_externalPlayerActive = true;
 		break;
@@ -878,7 +864,7 @@ void cSoftHdDevice::HandleStillPicture(const uchar *data, int size)
 		cPesVideo pesPacket((const uint8_t*)currentPacketStart, size - (currentPacketStart - data));
 
 		if (pesPacket.IsValid())
-			PlayVideoInternal(m_pVideoStream, &m_videoReassemblyBuffer, currentPacketStart, pesPacket.GetPacketLength(), false);
+			PlayVideoInternal(m_pVideoStream, &m_videoReassemblyBuffer, currentPacketStart, pesPacket.GetPacketLength(), false, true);
 		else {
 			LOGWARNING("device: %s: invalid PES packet", __FUNCTION__);
 			break;
@@ -1224,7 +1210,7 @@ int cSoftHdDevice::PlayVideo(const uchar *data, int size)
 
 	m_receivedVideo = true;
 
-	return PlayVideoInternal(m_pVideoStream, &m_videoReassemblyBuffer, data, size, Transferring());
+	return PlayVideoInternal(m_pVideoStream, &m_videoReassemblyBuffer, data, size, Transferring(), true);
 }
 
 /**
@@ -1248,7 +1234,7 @@ int cSoftHdDevice::PlayPipVideo(const uchar *data, int size)
 	if (m_pPipStream->IsInputBufferFull())
 		return size;
 
-	return PlayVideoInternal(m_pPipStream, &m_pipReassemblyBuffer, data, size, false);
+	return PlayVideoInternal(m_pPipStream, &m_pipReassemblyBuffer, data, size, false, false);
 }
 
 /**
@@ -1259,10 +1245,11 @@ int cSoftHdDevice::PlayPipVideo(const uchar *data, int size)
  * @param data            A complete PES packet with optionally fragmented payload
  * @param size            the length of the PES packet including header
  * @param trackJitter     whether to track jitter for this packet
+ * @param mainStream      this is a packet of the main stream
  */
-int cSoftHdDevice::PlayVideoInternal(cVideoStream *stream, cReassemblyBufferVideo *buffer, const uchar *data, int size, bool trackJitter)
+int cSoftHdDevice::PlayVideoInternal(cVideoStream *stream, cReassemblyBufferVideo *buffer, const uchar *data, int size, bool trackJitter, bool mainStream)
 {
-	// LOGDEBUG("device: %s: %p %d", __FUNCTION__, data, size);
+	// LOGDEBUG("device: %s: %p %d %s", __FUNCTION__, data, size, mainStream ? "video" : "pip");
 
 	if (stream->IsInputBufferFull())
 		return 0;
@@ -1275,16 +1262,18 @@ int cSoftHdDevice::PlayVideoInternal(cVideoStream *stream, cReassemblyBufferVide
 		return size;
 	}
 
-	if (!m_receivedValidVideo && Transferring()) {
-		auto now = std::chrono::steady_clock::now();
-		auto timeUntilFirstPacketReceived = std::chrono::duration_cast<std::chrono::milliseconds>(now - m_channelSwitchStartTime).count();
-		LOGDEBUG("device: first valid video packet arrives %dms after channel switch was triggered", timeUntilFirstPacketReceived);
+	if (mainStream) {
+		if (!m_receivedValidVideo && Transferring()) {
+			auto now = std::chrono::steady_clock::now();
+			auto timeUntilFirstPacketReceived = std::chrono::duration_cast<std::chrono::milliseconds>(now - m_channelSwitchStartTime).count();
+			LOGDEBUG("device: first valid video packet arrives %dms after channel switch was triggered", timeUntilFirstPacketReceived);
 
-		if (!m_receivedValidAudio)
-			m_dataReceivedTime = now;
+			if (!m_receivedValidAudio)
+				m_dataReceivedTime = now;
 
+		}
+		m_receivedValidVideo = true;
 	}
-	m_receivedValidVideo = true;
 
 	if (trackJitter) {
 		m_videoJitterTracker.PacketReceived();
@@ -1762,6 +1751,7 @@ void cSoftHdDevice::Detach(void)
 		MakePrimaryDevice(false);
 	}
 
+	m_pPipHandler->Disable();
 	OnEventReceived(DetachEvent{});
 }
 
@@ -1801,16 +1791,22 @@ bool cSoftHdDevice::IsDetached(void) const
  */
 void cSoftHdDevice::ResetPipStream(void)
 {
+	std::lock_guard<std::mutex> lock(m_mutex);
+
 	m_pPipStream->Halt();
 
 	m_pPipStream->CancelFilterThread();
 	m_pipReassemblyBuffer.Reset();
 	m_pPipStream->ClearVdrCoreToDecoderQueue();
+	m_pPipStream->CloseDecoder();
+
+	m_pRender->Halt();
+
 	m_pRender->ClearPipDecoderToDisplayQueue();
 	m_pRender->ResetPipDecodingStrategy();
 	m_pRender->ResetPipBufferReuseStrategy();
-	m_pPipStream->CloseDecoder();
 
+	m_pRender->Resume();
 	m_pPipStream->Resume();
 }
 
@@ -1823,11 +1819,25 @@ bool cSoftHdDevice::PipIsEnabled(void)
 	return m_pPipHandler->IsEnabled();
 }
 
-/**
+/*
  * Wrapper functions for cVideoRender and cPipHandler
  */
-void cSoftHdDevice::SetRenderPipSize(void) { m_pRender->SetPipSize(m_pipUseAlt); };
-void cSoftHdDevice::SetRenderPipActive(bool active) { m_pRender->SetPipActive(active); };
+void cSoftHdDevice::SetRenderPipSize(void)
+{
+	std::lock_guard<std::mutex> lock(m_mutex);
+	m_pRender->Halt();
+	m_pRender->SetPipSize(m_pipUseAlt);
+	m_pRender->Resume();
+};
+
+void cSoftHdDevice::SetRenderPipActive(bool active)
+{
+	std::lock_guard<std::mutex> lock(m_mutex);
+	m_pRender->Halt();
+	m_pRender->SetPipActive(active);
+	m_pRender->Resume();
+};
+
 void cSoftHdDevice::PipEnable(void) { m_pPipHandler->Enable(); };
 void cSoftHdDevice::PipDisable(void) { m_pPipHandler->Disable(); };
 void cSoftHdDevice::PipToggle(void) { m_pPipHandler->Toggle(); };
