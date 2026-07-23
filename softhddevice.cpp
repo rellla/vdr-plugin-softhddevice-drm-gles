@@ -334,10 +334,15 @@ void cSoftHdDevice::OnEventReceived(const Event& event)
 						LOGDEBUG("device: video only detected");
 						m_playbackMode = VIDEO_ONLY;
 						m_pRender->SchedulePlaybackStartAtPtsMs(m_pRender->GetOutputPtsMs());
-					} else
-						LOGFATAL("device: buffering threshold reached and no a/v available. This is a bug.");
+					} else {
+						// Sometimes a DeviceClear() can jump in between signalling the ThresholdReachedEvent
+						// and progressing it, e.g. the video thread signals the ThresholdReached, VDR sends a DeviceClear()
+						// and OnEventReceived wants to process the ThresholdReachedEvent with empty buffers.
+						LOGDEBUG("device: buffering threshold reached and no a/v available, keep BUFFERING state");
+					}
 
-					SetState(PLAY);
+					if (receivedAudio || receivedVideo)
+						SetState(PLAY);
 				},
 				[this](const ScheduleResyncAtPtsMsEvent& s) {
 					SetState(PLAY);
