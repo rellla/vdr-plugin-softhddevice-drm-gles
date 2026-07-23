@@ -52,25 +52,21 @@ extern "C" {
  * @param config       pointer to cSoftHdConfig class
  */
 cSoftHdDevice::cSoftHdDevice(cSoftHdConfig *config)
-	: m_pSpuDecoder(new cDvbSpuDecoder()),
-	  m_pConfig(config),
-	  m_pipUseAlt(m_pConfig->ConfigPipUseAlt)
+	: m_pConfig(config)
 {
-//	LOGDEBUG("device: %s:", __FUNCTION__);
-	m_pEventHandler = new cEventHandler(this);
-
-	m_channelSwitchStartTime = std::chrono::steady_clock::now();
-	m_dataReceivedTime = m_channelSwitchStartTime;
 }
 
 /**
  * Destroy the device
  *
- * Only deletes spu decoder, which was created in constructor
+ * Only delete objects, if they were created in Initialize()
  */
 cSoftHdDevice::~cSoftHdDevice(void)
 {
-	LOGDEBUG("device: %s:", __FUNCTION__);
+	if (!m_initialized)
+		return;
+
+	m_initialized = false; // not necessary, just for documentation
 
 	delete m_pEventHandler;
 	delete m_pHardwareDevice;
@@ -83,7 +79,18 @@ cSoftHdDevice::~cSoftHdDevice(void)
 bool cSoftHdDevice::Initialize(void)
 {
 	LOGDEBUG("device: %s:", __FUNCTION__);
-	m_pHardwareDevice = new cHardwareDevice(); // deleted in destructor
+
+	// the following are deleted in the destructor
+	m_pSpuDecoder = new cDvbSpuDecoder();
+	m_pHardwareDevice = new cHardwareDevice();
+	m_pEventHandler = new cEventHandler(this);
+
+	m_channelSwitchStartTime = std::chrono::steady_clock::now();
+	m_dataReceivedTime = m_channelSwitchStartTime;
+
+	m_pipUseAlt = m_pConfig->ConfigPipUseAlt;
+
+	m_initialized = true;
 
 	return true;
 }
