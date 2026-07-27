@@ -415,7 +415,7 @@ int cVideoDecoder::SendPacket(const AVPacket *avpkt)
 
 	// force a flush, if avpkt is NULL, this initiates a decoder drain
 	if (!avpkt) {
-		LOGDEBUG2(L_CODEC, "videocodec: %s: %s: send NULL packet, flush reqeusted", m_identifier, __FUNCTION__);
+		LOGDEBUG2(L_CODEC, "videocodec: %s: %s: send NULL packet, flush requested", m_identifier, __FUNCTION__);
 		avcodec_send_packet(m_pVideoCtx, NULL);
 		return 0;
 	}

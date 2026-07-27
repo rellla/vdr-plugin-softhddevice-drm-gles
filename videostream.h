@@ -72,8 +72,7 @@ public:
 	enum AVCodecID GetCodecId(void) { return m_codecId; };
 	void ResetTrickSpeedFramesSentCounter(void) { m_sentTrickPkts = 0; };
 	bool HasInputPts(void) { return m_inputPts != AV_NOPTS_VALUE; }
-	int64_t GetInputPtsMs(void);
-	int64_t GetInputPts(void) { return m_inputPts; };
+	int64_t GetInputPtsMs(void) { return m_inputPts * 1000 * av_q2d(m_timebase); };
 	void ResetInputPts(void) { m_inputPts = AV_NOPTS_VALUE; };
 	void GetVideoSize(int *, int *, double *);
 	int GetVideoPacketMax(void) { return VIDEO_PACKET_MAX; };
@@ -114,6 +113,7 @@ private:
 
 	constexpr static int VIDEO_PACKET_MAX = 192;    ///< max number of video packets held in the buffer
 	cQueue<AVPacket> m_packets{VIDEO_PACKET_MAX};   ///< AVPackets queue
+	constexpr static int AV_SYNC_BORDER_MS = 5000;  ///< absolute max a/v difference which should trigger a decoder flush
 
 	enum AVCodecID m_codecId = AV_CODEC_ID_NONE;    ///< current codec id
 	AVCodecParameters *m_pPar = nullptr;            ///< current codec parameters
@@ -125,7 +125,8 @@ private:
 	double m_framerate = 0.0;                       ///< current stream framerate
 
 	int64_t m_inputPts = AV_NOPTS_VALUE;            ///< PTS of the first packet in the input buffer
-	int64_t m_lastPts = AV_NOPTS_VALUE;             ///< helper PTS to calculate a framerate at stream start
+	int64_t m_ptsForFramerateDetection = AV_NOPTS_VALUE; ///< helper PTS to calculate a framerate at stream start
+	int64_t m_lastDecodedPts = AV_NOPTS_VALUE;      ///< PTS of the latest packet, which was sent to the decoder in order to detect stream discontinuity
 
 	// h264 parsing
 	std::vector<std::string> m_naluTypesAtStart;    ///< array of strings to log the H.264 frames at stream start
@@ -144,6 +145,8 @@ private:
 	void CheckForcingFrameDecode(void);
 	void OpenDecoder(void);
 	bool ParseH264Packet(AVPacket *);
+	bool PacketDropNeeded(AVPacket *);
+	int64_t PtsToMs(int64_t pts) { return pts * av_q2d(m_timebase) * 1000; };
 };
 
 /**
