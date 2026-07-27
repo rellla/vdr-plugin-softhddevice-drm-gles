@@ -101,11 +101,6 @@ bool cVideoStream::PushAvPacket(AVPacket *avpkt)
 	return m_packets.Push(avpkt);
 }
 
-int64_t cVideoStream::GetInputPtsMs(void)
-{
-	return m_inputPts * 1000 * av_q2d(m_timebase);
-}
-
 /**
  * Exit video stream
  */
@@ -167,7 +162,8 @@ void cVideoStream::CloseDecoder(void)
 	m_maxFrameNum = 1;
 	m_naluTypesAtStart.clear();
 	m_dpbFrames.clear();
-	m_lastPts = AV_NOPTS_VALUE;
+	m_ptsForFramerateDetection = AV_NOPTS_VALUE;
+	m_lastDecodedPts = AV_NOPTS_VALUE;
 	m_framerate = 0.0;
 }
 
@@ -180,6 +176,7 @@ void cVideoStream::CloseDecoder(void)
 void cVideoStream::FlushDecoder(void)
 {
 	LOGDEBUG2(L_CODEC, "videostream %s: %s", m_identifier, __FUNCTION__);
+	m_lastDecodedPts = AV_NOPTS_VALUE;
 
 	if ((m_hardwareQuirks & QUIRK_CODEC_FLUSH_WORKAROUND) && m_pDecoder->IsHardwareDecoder()) {
 		if (m_pDecoder->ReopenCodec(m_codecId, m_pPar, m_timebase, 0))
@@ -265,6 +262,15 @@ void cVideoStream::OpenDecoder(void)
 
 /**
  * Parse an H.264 packet
+ * and test, if the packet is a P-Slice with invalid backward references
+ *
+ * @param avpkt          AVPacket to parse
+ * @return               true, if
+ *                           - the packet is a P-Slice and
+ *                           - the packet has invalid backward references and
+ *                           - dropping P-Slices is configured in the setup.conf and
+ *                           - the P-Slice arrived before the number of configured I-Frames
+ *                       false, otherwise
  */
 bool cVideoStream::ParseH264Packet(AVPacket *avpkt)
 {
@@ -292,7 +298,11 @@ bool cVideoStream::ParseH264Packet(AVPacket *avpkt)
 		h264Packet.AddFrameNumber(-1);
 	}
 
-	bool dropPacket = false;
+	if (h264Packet.IsISlice())
+		m_numIFrames++;
+
+	m_naluTypesAtStart.push_back(h264Packet.GetNalUnitString());
+
 	if (h264Packet.IsPSlice() || h264Packet.IsBSlice()) {
 		int numRefL0 = h264Packet.GetNumRefIdxL0Active();
 		int numRefL1 = h264Packet.GetNumRefIdxL1Active();
@@ -327,18 +337,40 @@ bool cVideoStream::ParseH264Packet(AVPacket *avpkt)
 		h264Packet.BuildInvalidReferenceString(frameNumber);
 		// h264Packet.BuildValidReferenceString();
 
-		if (h264Packet.HasInvalidBackwardReferences() && h264Packet.IsPSlice() &&  m_numIFrames < m_dropInvalidPackets) {
+		if (h264Packet.HasInvalidBackwardReferences() && h264Packet.IsPSlice() && m_numIFrames - 1 < m_dropInvalidPackets) {
 			LOGDEBUG2(L_CODEC, "videostream %s: %s: invalid backward reference, drop P-Frame %d", m_identifier, __FUNCTION__, frameNumber);
-			dropPacket = true;
+			return true;
 		}
 	}
 
-	if (h264Packet.IsISlice())
-		m_numIFrames++;
+	return false;
+}
 
-	m_naluTypesAtStart.push_back(h264Packet.GetNalUnitString());
+/**
+ * Test if the packet should be dropped and parse it if needed (see cVideoStream::ParseH264())
+ *
+ * @param avpkt          AVPacket to test
+ * @return               true, if the packet should be dropped, false otherwise
+ */
+bool cVideoStream::PacketDropNeeded(AVPacket *avpkt)
+{
+	if (!avpkt || m_codecId != AV_CODEC_ID_H264 || m_isResend || (!m_logPackets && !m_dropInvalidPackets))
+		return false;
 
-	return dropPacket;
+	// Check, if the packet should be dropped
+	if (m_numIFrames < m_logPackets || m_numIFrames < m_dropInvalidPackets)
+		return ParseH264Packet(avpkt);
+
+	// otherwise just log H.264 frames up to the given number of I-Frames
+	if (m_logPackets) {
+		LOGDEBUG("videostream %s: %s: parsed H.264 stream:", m_identifier, __FUNCTION__);
+		for (std::size_t i = 0; i < m_naluTypesAtStart.size(); i++)
+			LOGDEBUG("[H264] (%02d) %s", i, m_naluTypesAtStart[i].c_str());
+
+		m_logPackets = 0;
+	}
+
+	return false;
 }
 
 /**
@@ -355,28 +387,25 @@ void cVideoStream::DecodeInput(void)
 	if (m_newStream)
 		OpenDecoder();
 
+	// caution: avpkt can be a nullptr from cVideoStream::Flush(), we may not dereference it later without nullptr-check!
 	AVPacket *avpkt = m_packets.Peek();
 
-	// log H.264 frames up to the given number of I-Frames
-	bool dropPacket = false;
-	if (avpkt && m_codecId == AV_CODEC_ID_H264 && (m_logPackets || m_dropInvalidPackets) && !m_isResend) {
-		if (m_numIFrames < m_logPackets || m_numIFrames < m_dropInvalidPackets) {
-			dropPacket = ParseH264Packet(avpkt);
-		} else if (m_logPackets) {
-			LOGDEBUG("videostream %s: %s: parsed H.264 stream:", m_identifier, __FUNCTION__);
-			for (std::size_t i = 0; i < m_naluTypesAtStart.size(); i++) {
-				LOGDEBUG("[H264] (%02d) %s", i, m_naluTypesAtStart[i].c_str());
-			}
-			m_logPackets = 0;
-		}
-	}
+	// force a decoder drain if the new pts differs more than AV_SYNC_BORDER_MS to the last
+	if (avpkt && avpkt->pts != AV_NOPTS_VALUE && m_lastDecodedPts != AV_NOPTS_VALUE && std::abs(PtsToMs(avpkt->pts) - PtsToMs(m_lastDecodedPts)) > AV_SYNC_BORDER_MS) {
+		LOGDEBUG2(L_CODEC, "videostream: %s: discontinuity detected in video PTS %s -> %s, force decoder flush", __FUNCTION__,
+			Timestamp2String(m_lastDecodedPts, 90), Timestamp2String(avpkt->pts, 90));
+
+		m_pDecoder->SendPacket(NULL);
+		m_lastDecodedPts = avpkt->pts;
 
 	// send packet to decoder
-	if (!dropPacket) {
+	} else if (!PacketDropNeeded(avpkt)) {
 		ret = m_pDecoder->SendPacket(avpkt);
 
 		if (ret != AVERROR(EAGAIN) && ret != AVERROR_EOF) {
 			avpkt = m_packets.Pop();
+			if (avpkt && avpkt->pts != AV_NOPTS_VALUE)
+				m_lastDecodedPts = avpkt->pts;
 			av_packet_free(&avpkt);
 			m_isResend = false;
 		} else {
@@ -385,6 +414,8 @@ void cVideoStream::DecodeInput(void)
 
 		if (!ret && m_pRender->IsTrickSpeed())
 			CheckForcingFrameDecode();
+
+	// drop packet
 	} else {
 		avpkt = m_packets.Pop();
 		av_packet_free(&avpkt);
@@ -518,11 +549,11 @@ void cVideoStream::RenderFrame(AVFrame * frame)
 			// The decoder has no valid framerate, calculate it from pts and timebase
 			// @todo We are only using the first two frames here.
 			// If there are issues in the stream this might not be correct.
-			if (m_lastPts != AV_NOPTS_VALUE) {
-				int64_t delta = frame->pts - m_lastPts;
+			if (m_ptsForFramerateDetection != AV_NOPTS_VALUE) {
+				int64_t delta = frame->pts - m_ptsForFramerateDetection;
 				m_framerate = 1.0 / (delta * av_q2d(m_timebase));
 			}
-			m_lastPts = frame->pts;
+			m_ptsForFramerateDetection = frame->pts;
 		}
 	}
 
