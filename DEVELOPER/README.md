@@ -24,8 +24,7 @@ graph TD
     Player --> ToClearPlay["**Play():**<br>pmStill<br>pmFast(forward)<br>pmFast(backward)<br>pmSlow(backward)"]
     Player --> ToClearPause["**Pause():**<br>pmFast(forward)<br>pmFast(backward)<br>pmSlow(backward)"]
     Player--> ToClearForward["**Forward():**<br>pmPlay<br>pmFast(forward)<br>pmFast(backward)<br>pmSlow(backward)"]
-    Player --> ToClearBackward["**Backward():**<br>pmPlay<br>pmFast(forward)<br>pmFast(backward)<br>pmSlowforward<br>pmSlow(backward)"]
-    Player --> ToMuteBackward["**Backward():**<br>pmStill<br>pmPause"]
+    Player --> ToClearBackward["**Backward():**<br>pmStill<br>pmPause<br>pmPlay<br>pmFast(forward)<br>pmFast(backward)<br>pmSlowforward<br>pmSlow(backward)"]
 
     Player --> ToClearStillPicture["**Goto():**<br>Mark editing<br>(pause after edit)"]
     ToClearStillPicture ---> DeviceClear["DeviceClear()"]
@@ -46,7 +45,6 @@ graph TD
     ToClearPause ---> DeviceClear["DeviceClear()"]
     ToClearForward ---> DeviceClear["DeviceClear()"]
     ToClearBackward ---> DeviceClear["DeviceClear()"]
-    ToMuteBackward ------> DeviceMute["DeviceMute()"]
 
     Player --> ToFreeze["**Pause():**<br>pmPlay<br>pmSlow(forward)"]
     ToFreeze --------> DeviceFreeze["DeviceFreeze()"]
@@ -59,12 +57,12 @@ graph TD
     ClearToPlayBackward ----> DevicePlay["DevicePlay()"]
 
     DeviceClear ---> ClearToMuteForward["**Forward():**<br>pmPlay<br>pmFast(backward)<br>pmSlow(backward)"]
-    DeviceClear ---> ClearToMuteBackward["**Backward():**<br>pmPlay<br>pmFast(forward)<br>pmSlow(forward)"]
+    DeviceClear ---> ClearToMuteBackward["**Backward():**<br>pmStill<br>pmPause<br>pmPlay<br>pmFast(forward)<br>pmSlow(forward)"]
     ClearToMuteForward --> DeviceMute["DeviceMute()"]
     ClearToMuteBackward --> DeviceMute["DeviceMute()"]
 
     DeviceMute --> ToTrickSpeedForward["**Forward():**<br>pmStill<br>pmPause<br>pmPlay<br>pmFast(backward)<br>pmSlow(backward)"]
-    DeviceMute --> ToTrickSpeedBackward["**Backward():**<br>pmStill<br>pmPause<br>pmPlay<br>pmFast(forward)<br>pmSlow(forward)"]
+    DeviceMute --> ToTrickSpeedBackward["**Backward():**<br>pmStill<br>pmPause<br>pmStill<br>pmPause<br>pmPlay<br>pmFast(forward)<br>pmSlow(forward)"]
     ToTrickSpeedForward --> DeviceTrickSpeed["DeviceTrickSpeed"]
     ToTrickSpeedBackward --> DeviceTrickSpeed["DeviceTrickSpeed"]
 
