@@ -98,6 +98,7 @@ private:
 	constexpr static int AUDIO_MIN_BUFFER_FREE = 3072 * 8 * 8; ///< Minimum free space in audio buffer 8 packets for 8 channels
 	constexpr static int AV_SYNC_BORDER_MS = 5000;             ///< absolute max a/v difference in ms which should trigger a resync
 	constexpr static int BYTES_PER_SAMPLE = 2;                 ///< number of bytes per sample
+	constexpr static int64_t PTS_WRAP = 1LL << 33;             ///< wraparound mod for a 33-bit PTS
 
 	cSoftHdDevice *m_pDevice;               ///< pointer to device
 	cSoftHdConfig *m_pConfig;               ///< pointer to config
