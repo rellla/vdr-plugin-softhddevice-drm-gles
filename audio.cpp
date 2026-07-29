@@ -550,11 +550,13 @@ void cSoftHdAudio::Enqueue(const uint16_t *buffer, int count, int64_t pts)
 	m_fillLevel.ReceivedFrames(m_alsa.BytesToFrames(bytesWritten));
 
 	if (pts != AV_NOPTS_VALUE) {
-		// discontinuity check, force a resync if the new pts differs more than AV_SYNC_BORDER_MS to the last
-		if (m_inputPts != AV_NOPTS_VALUE && std::abs(m_alsa.PtsToMs(m_inputPts, av_q2d(m_timebase)) - m_alsa.PtsToMs(pts, av_q2d(m_timebase))) > AV_SYNC_BORDER_MS) {
-			LOGDEBUG2(L_AV_SYNC, "audio: %s: discontinuity detected in audio PTS %s -> %s%s", __FUNCTION__,
-				Timestamp2String(m_alsa.PtsToMs(m_inputPts, av_q2d(m_timebase)), 1), Timestamp2String(m_alsa.PtsToMs(pts, av_q2d(m_timebase)), 1),
-				m_alsa.PtsToMs(m_inputPts, av_q2d(m_timebase)) > m_alsa.PtsToMs(pts, av_q2d(m_timebase)) ? " (PTS wrapped)" : "");
+		// Discontinuity check:
+		// - force a resync if the new pts is more than AV_SYNC_BORDER_MS greater than the last
+		// - a PTS wrap is not recognized, because of the ">"
+		// - not sure, if a forward SkipSeconds() could trigger this, but then the resync is skipped in the video thread
+		if (m_inputPts != AV_NOPTS_VALUE && (m_alsa.PtsToMs(pts, av_q2d(m_timebase)) - m_alsa.PtsToMs(m_inputPts, av_q2d(m_timebase))) > AV_SYNC_BORDER_MS) {
+			LOGDEBUG2(L_AV_SYNC, "audio: %s: discontinuity detected in audio PTS %s -> %s", __FUNCTION__,
+				Timestamp2String(m_alsa.PtsToMs(m_inputPts, av_q2d(m_timebase)), 1), Timestamp2String(m_alsa.PtsToMs(pts, av_q2d(m_timebase)), 1));
 			std::lock_guard<std::mutex> lock(m_queueMutex);
 			m_eventQueue.push_back(ScheduleResyncAtPtsMsEvent{m_alsa.PtsToMs(pts, av_q2d(m_timebase))});
 		}
@@ -780,7 +782,16 @@ int64_t cSoftHdAudio::GetOutputPtsMs(void)
 
 int64_t cSoftHdAudio::GetOutputPtsMsInternal(void)
 {
-	return m_alsa.PtsToMs(m_inputPts, av_q2d(m_timebase)) - m_alsa.FramesToMs(m_alsa.BytesToFrames(m_pRingbuffer.UsedBytes()));
+	if (m_inputPts == AV_NOPTS_VALUE)
+		return AV_NOPTS_VALUE;
+
+	int64_t ptsMs = m_alsa.PtsToMs(m_inputPts, av_q2d(m_timebase)) - m_alsa.FramesToMs(m_alsa.BytesToFrames(m_pRingbuffer.UsedBytes()));
+
+	// handle a PTS wrap
+	if (ptsMs < 0)
+		ptsMs += m_alsa.PtsToMs(PTS_WRAP, av_q2d(m_timebase));
+
+	return ptsMs;
 }
 
 /**
@@ -804,7 +815,13 @@ int64_t cSoftHdAudio::GetHardwareOutputPtsMs(void)
 	// subtract baseline to ignore pause bursts already in the buffer
 	delayFrames -= m_hwBaseline;
 
-	return GetOutputPtsMsInternal() - m_alsa.FramesToMs(delayFrames);
+	int64_t ptsMs = GetOutputPtsMsInternal() - m_alsa.FramesToMs(delayFrames);
+
+	// handle a PTS wrap
+	if (ptsMs < 0)
+		ptsMs += m_alsa.PtsToMs(PTS_WRAP, av_q2d(m_timebase));
+
+	return ptsMs;
 }
 
 /**
