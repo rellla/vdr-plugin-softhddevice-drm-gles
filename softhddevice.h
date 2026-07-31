@@ -169,7 +169,9 @@ public:
 	virtual void StillPicture(const uchar *, int);
 	virtual bool Poll(cPoller &, int = 0);
 	virtual bool Flush(int = 0);
-
+#if APIVERSNUM >= 30014
+	virtual bool Drain(void);
+#endif
 	// Image Grab facilities
 	virtual uchar *GrabImage(int &, bool, int, int, int);
 
@@ -246,6 +248,7 @@ public:
 	void ResetOsdProvider(void) { m_pOsdProvider = nullptr; }
 	bool IsOsdProviderSet(void) const { return m_pOsdProvider != nullptr; }
 	void SetStartDetached(void) { m_forceDetached = true; };
+	bool IsDraining(void) { return m_draining; };
 
 	bool IsBufferingThresholdReached(void);
 	bool IsVideoOnlyPlayback(void) { return m_playbackMode == VIDEO_ONLY; };
@@ -274,6 +277,7 @@ private:
 	static constexpr int MIN_BUFFER_FILL_LEVEL_THRESHOLD_MS = 450; ///< min buffering threshold in ms
 
 	bool m_initialized = false;                     ///< true, if the plugin had a successful Initialize()
+	std::atomic<bool> m_draining = false;           ///< true, if the device is in draining mode (waiting for empty buffers)
 	std::atomic<State> m_state = DETACHED;          ///< current plugin state, normal plugin start sets detached state
 	std::mutex m_eventMutex;                        ///< mutex to protect event queue
 	bool m_needsMakePrimary = false;                ///< true, if device should be made a primary device after attach

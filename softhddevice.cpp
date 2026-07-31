@@ -649,6 +649,8 @@ bool cSoftHdDevice::SetPlayMode(ePlayMode play_mode)
 		m_externalPlayerActive = false;
 	}
 
+	m_draining = false;
+
 	switch (play_mode) {
 	case pmNone:
 		OnEventReceived(StopEvent{});
@@ -810,6 +812,8 @@ void cSoftHdDevice::Clear(void)
 	m_pAudio->ResetHwDelayBaseline();
 	FlushAudio();
 
+	m_draining = false;
+
 	SetState(BUFFERING);
 
 	m_pRender->Resume();
@@ -888,7 +892,7 @@ void cSoftHdDevice::HandleStillPicture(const uchar *data, int size)
 
 	m_pVideoStream->PushAvPacket(m_videoReassemblyBuffer.PopAvPacket());
 	m_pVideoStream->ResetInputPts(); // stillpicture shouldn't trigger having video data
-	m_pVideoStream->Flush();
+	m_pVideoStream->Drain();
 }
 
 /**
@@ -918,25 +922,75 @@ bool cSoftHdDevice::Poll(__attribute__ ((unused)) cPoller & poller, int timeoutM
 }
 
 /**
- * Flush the device output buffers.
+ * Return true, if the output buffers are empty, false otherwise.
+ * Wait max. up to timeoutMs in case the buffers are not empty.
+ *
+ * This function does not initiate a decoder drain like Drain()
+ * so some data may stay unprocessed in the decoder, while the other
+ * buffers are already emtpy. Therefore, players should use the
+ * new Drain() function instead.
  *
  * @param timeoutMs        timeout in ms to become ready
+ *
+ * @return true, if the buffers are empty, false otherwise
+ *
+ * @note Flush() is marked DEPRECATED since APIVERSION 14
  */
 bool cSoftHdDevice::Flush(int timeoutMs)
 {
 	if (IsDetached())
 		return true;
 
-	LOGDEBUG("device: %s: timeout %d ms", __FUNCTION__, timeoutMs);
-	if (m_pVideoStream->GetAvPacketsFilled()) {
-		if (timeoutMs) {			// let display thread work
-			usleep(timeoutMs * 1000);
-		}
-		return !m_pVideoStream->GetAvPacketsFilled();
+	LOGDEBUG("device: %s: timeout % ms", __FUNCTION__, timeoutMs);
+
+	const auto buffersEmpty = [&]() {
+		return m_playbackMode == AUDIO_ONLY
+			? m_pAudio->IsBufferEmpty()
+			: m_pVideoStream->BuffersEmpty();
+	};
+
+	const cTimeMs timeout(timeoutMs);
+	while (!buffersEmpty() && !timeout.TimedOut())
+		cCondWait::SleepMs(std::min(5, timeoutMs));
+
+	return buffersEmpty();
+}
+
+#if APIVERSNUM >= 30014
+/**
+ * Force a decoder drain and return true, if all buffers have been played out
+ *
+ * @return true, if the buffers are empty, false otherwise
+ */
+bool cSoftHdDevice::Drain(void)
+{
+	if (IsDetached())
+		return true;
+
+	// enter drain mode once
+	if (!m_draining) {
+		LOGDEBUG("device: %s: start draining", __FUNCTION__);
+		m_draining = true;
+		if (!m_videoReassemblyBuffer.IsEmpty())
+			m_pVideoStream->PushAvPacket(m_videoReassemblyBuffer.PopAvPacket());
+		m_pVideoStream->Drain();
 	}
+
+	const auto buffersEmpty = [&]() {
+		return m_playbackMode == AUDIO_ONLY
+			? m_pAudio->IsBufferEmpty()
+			: m_pVideoStream->BuffersEmpty();
+	};
+
+	if (!buffersEmpty())
+		return false;
+
+	LOGDEBUG("device: %s: drained, buffers are empty", __FUNCTION__);
+	m_draining = false;
 
 	return true;
 }
+#endif
 
 /**
  * Sets the video display format

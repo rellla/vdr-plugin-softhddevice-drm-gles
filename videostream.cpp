@@ -73,12 +73,12 @@ cVideoStream::~cVideoStream(void)
 }
 
 /**
- * Flushes the video stream by finalizing any pending data.
+ * Drains the video stream by finalizing any pending data.
  *
  * This function completes processing of any remaining PES fragments in the fragmentation
  * buffer, then pushes a nullptr packet to the queue to signal a flush operation to the decoder.
  */
-void cVideoStream::Flush(void)
+void cVideoStream::Drain(void)
 {
 	m_packets.Push(nullptr);
 }
@@ -97,6 +97,8 @@ bool cVideoStream::PushAvPacket(AVPacket *avpkt)
 {
 	if (avpkt->pts != AV_NOPTS_VALUE)
 		m_inputPts = avpkt->pts;
+
+	LOGDEBUG2(L_PACKET, "videostream: %s: push PTS %s", __FUNCTION__, Timestamp2String(avpkt->pts, 90));
 
 	return m_packets.Push(avpkt);
 }
@@ -409,14 +411,18 @@ void cVideoStream::DecodeInput(void)
 	// send packet to decoder
 	} else if (!PacketDropNeeded(avpkt)) {
 		ret = m_pDecoder->SendPacket(avpkt);
+		m_isResend = false;
 
 		if (ret != AVERROR(EAGAIN) && ret != AVERROR_EOF) {
 			avpkt = m_packets.Pop();
 			if (avpkt && avpkt->pts != AV_NOPTS_VALUE)
 				m_lastDecodedPts = avpkt->pts;
 			av_packet_free(&avpkt);
-			m_isResend = false;
+		// a repeated decoder drain was requested, drop the nullptr-packet from the queue
+		} else if (ret == AVERROR_EOF && !avpkt) {
+			m_packets.Pop();
 		} else {
+			// PacketDropNeeded() is skipped next time, because this packet needs to be resent to the decoder
 			m_isResend = true;
 		}
 
@@ -649,4 +655,12 @@ void cVideoStream::RenderFrame(AVFrame * frame)
 		if (!m_videoFilter.GetNumFramesToFilter())
 			m_frameOutput(frame);
 	}
+}
+
+/**
+ * Return true, if the input AVPacket, videofilter and drm output buffer queues are empty.
+ */
+bool cVideoStream::BuffersEmpty(void)
+{
+	return m_packets.IsEmpty() && !m_pRender->PresentationPending() && m_videoFilter.IsInputBufferEmpty();
 }

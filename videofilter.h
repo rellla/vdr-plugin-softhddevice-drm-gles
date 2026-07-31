@@ -45,6 +45,7 @@ public:
 	void Stop(void);
 	void PushFrame(AVFrame *);
 	bool IsInputBufferFull(void) { return m_frames.IsFull(); };
+	bool IsInputBufferEmpty(void) { return m_frames.IsEmpty(); };
 	int GetNumFramesToFilter(void) { return m_numFramesToFilter; };
 
 private:

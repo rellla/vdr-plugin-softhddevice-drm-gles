@@ -242,6 +242,8 @@ public:
 	void ClearPipDecoderToDisplayQueue(void);
 	void SetPipSize(bool);
 
+	bool PresentationPending(void) { return m_framePresentationCounter != 0 || !m_drmBufferQueue.IsEmpty(); };
+
 protected:
 	virtual void Action(void);
 
