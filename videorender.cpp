@@ -725,13 +725,14 @@ bool cVideoRender::DisplayFrame(void)
 	                               m_pDevice->IsVideoOnlyPlayback() ||
 	                               IsTrickSpeed() ||
 	                               IsStillpicture() ||
+	                               m_pDevice->IsDraining() ||
 	                               m_schedulePlaybackStartAtPtsMs != AV_NOPTS_VALUE;
 	if (m_pDevice->VideoStream()->GetAvPacketsFilled() == 0 && !skipBufferUnderrunCheck)
 		m_eventQueue.push_back(BufferUnderrunEvent{VIDEO});
 
 	cDrmBuffer *drmBuffer = nullptr;
 	if ((!m_videoPlaybackPaused || m_schedulePlaybackStartAtPtsMs != AV_NOPTS_VALUE) && m_framePresentationCounter == 0 && frameTick)
-		drmBuffer = m_drmBufferQueue.Pop();
+		drmBuffer = m_drmBufferQueue.Peek();
 
 	cDrmBuffer *pipBuffer = m_pipDrmBufferQueue.Pop();
 
@@ -749,6 +750,7 @@ bool cVideoRender::DisplayFrame(void)
 			// check if playback shall start
 			if (PtsToMs(drmBuffer->frame->pts) < m_schedulePlaybackStartAtPtsMs) {
 				drmBuffer->PresentationFinished();
+				m_drmBufferQueue.Pop();
 				return true;
 			} else {
 				m_schedulePlaybackStartAtPtsMs = AV_NOPTS_VALUE;
@@ -763,6 +765,7 @@ bool cVideoRender::DisplayFrame(void)
 				drmBuffer->PresentationFinished();
 				if (pipBuffer)
 					pipBuffer->PresentationFinished();
+				m_drmBufferQueue.Pop();
 				return true;
 			}
 
@@ -790,7 +793,9 @@ bool cVideoRender::DisplayFrame(void)
 
 		m_lastFrameWasDropped = false;
 		m_pCurrentlyDisplayed = drmBuffer;
-	} else if (m_pCurrentlyDisplayed && !m_drmBufferQueue.IsEmpty() && !m_videoPlaybackPaused) {
+
+		m_drmBufferQueue.Pop();
+	} else if (m_pCurrentlyDisplayed && !m_videoPlaybackPaused) {
 		// display the current frame again in trick speed mode or for A/V syncing
 		pageFlipDone = PageFlip(m_pCurrentlyDisplayed, pipBuffer);
 	} else if ((m_pBufOsd && m_pBufOsd->IsDirty()) || pipBuffer) {

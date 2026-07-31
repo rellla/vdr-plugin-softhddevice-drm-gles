@@ -60,6 +60,7 @@ public:
 	void Filter(AVFrame *, AVCodecContext *);
 	void EnqueueSpdif(const uint16_t *, int, int64_t pts);
 	bool IsBufferFull(void) { return m_pRingbuffer.FreeBytes() <= AUDIO_MIN_BUFFER_FREE; };
+	bool IsBufferEmpty(void) { return m_pRingbuffer.UsedBytes() == 0 && m_alsa.GetHwDelayFrames() == 0; };
 
 	void FlushBuffers(void);
 	int GetUsedRingbufferBytes(void);

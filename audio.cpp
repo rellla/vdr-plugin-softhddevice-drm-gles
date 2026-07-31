@@ -1057,7 +1057,8 @@ bool cSoftHdAudio::CyclicCall(void)
 	if (err < 0) {
 		if (m_alsa.HandleError(err)) {
 			std::lock_guard<std::mutex> lock(m_queueMutex);
-			m_eventQueue.push_back(BufferUnderrunEvent{AUDIO});
+			if (!m_pDevice->IsDraining())
+				m_eventQueue.push_back(BufferUnderrunEvent{AUDIO});
 		}
 		return false;
 	} else if (err == 0) {

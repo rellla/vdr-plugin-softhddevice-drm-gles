@@ -57,7 +57,7 @@ public:
 	void FlushDecoder(void);
 	void CloseDecoder(void);
 	bool PushAvPacket(AVPacket *avpkt);
-	void Flush(void);
+	void Drain(void);
 
 	// decoding thread
 	void Stop(void);
@@ -69,6 +69,7 @@ public:
 	void StartDecoder();
 	size_t GetAvPacketsFilled(void) { return m_packets.Size(); };
 	bool IsInputBufferFull(void) { return m_packets.Size() >= VIDEO_PACKET_MAX; };
+	bool BuffersEmpty(void);
 	enum AVCodecID GetCodecId(void) { return m_codecId; };
 	void ResetTrickSpeedFramesSentCounter(void) { m_sentTrickPkts = 0; };
 	bool HasInputPts(void) { return m_inputPts != AV_NOPTS_VALUE; }
