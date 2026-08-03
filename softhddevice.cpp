@@ -807,6 +807,7 @@ void cSoftHdDevice::Clear(void)
 	m_pRender->Reset();
 
 	m_pAudio->SetPaused(true);
+	m_pAudio->ResetHwDelayBaseline();
 	FlushAudio();
 
 	SetState(BUFFERING);
