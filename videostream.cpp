@@ -390,8 +390,16 @@ void cVideoStream::DecodeInput(void)
 	// caution: avpkt can be a nullptr from cVideoStream::Flush(), we may not dereference it later without nullptr-check!
 	AVPacket *avpkt = m_packets.Peek();
 
-	// force a decoder drain if the new pts is more than AV_SYNC_BORDER_MS greater than the last
-	if (avpkt && avpkt->pts != AV_NOPTS_VALUE && m_lastDecodedPts != AV_NOPTS_VALUE && (PtsToMs(avpkt->pts) - PtsToMs(m_lastDecodedPts)) > AV_SYNC_BORDER_MS) {
+	// Force a decoder drain if the new pts is more than AV_SYNC_BORDER_MS
+	// greater than the last one.
+	// VDR may deliver packets out of pts order around the 33-bit PTS wrap.
+	// In that case a numerically larger PTS may actually belong to an older
+	// frame. Ignore differences greater than half the PTS range so they are
+	// not mistaken for discontinuities.
+	if (avpkt && avpkt->pts != AV_NOPTS_VALUE && m_lastDecodedPts != AV_NOPTS_VALUE &&
+	    PtsToMs(avpkt->pts) - PtsToMs(m_lastDecodedPts) > AV_SYNC_BORDER_MS &&
+	    std::abs(PtsToMs(avpkt->pts) - PtsToMs(m_lastDecodedPts)) < PtsToMs(1LL << 32)) {
+
 		LOGDEBUG2(L_CODEC, "videostream: %s: discontinuity detected in video PTS %s -> %s, force decoder flush", __FUNCTION__,
 			Timestamp2String(m_lastDecodedPts, 90), Timestamp2String(avpkt->pts, 90));
 
