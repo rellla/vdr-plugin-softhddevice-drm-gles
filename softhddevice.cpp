@@ -479,6 +479,60 @@ void cSoftHdDevice::OnEventReceived(const Event& event)
 }
 
 /**
+ * Actions to be performed when leaving a state
+ *
+ * These are only executed when the state actually changes.
+ * E.g. a state transition PLAY -> PLAY does not trigger this.
+ *
+ * @param state         state being left
+ */
+void cSoftHdDevice::OnLeavingState(State state) {
+	switch (state) {
+		case PLAY:
+			m_pRender->SchedulePlaybackStartAtPtsMs(AV_NOPTS_VALUE);
+			m_pRender->SetPlaybackPaused(true);
+			m_pAudio->SetPaused(true);
+			m_pAudio->ResetHwDelayBaseline();
+			break;
+		case BUFFERING:
+			m_pAudio->SetHwDelayBaseline();
+			m_pRender->SetDisplayOneFrameThenPause(false);
+			break;
+		case TRICK_SPEED:
+			// The filter thread needs to be restarted for interlaced streams to be rendered with deinterlacer again. It is started lazily.
+			m_pVideoStream->CancelFilterThread();
+			m_pRender->SetTrickSpeed(0, false, false);
+			m_pRender->ResetFrameCounter();
+			m_pVideoStream->ResetFilterThreadNeededCheck();
+			m_pVideoStream->SetDeinterlacerDeactivated(false);
+			m_pRender->SetPlaybackPaused(true);
+			m_pRender->ResetBufferReuseStrategy();
+			m_pVideoStream->ResetTrickSpeedFramesSentCounter();
+			break;
+		case STOP:
+			m_receivedAudio = false;
+			m_receivedVideo = false;
+			m_receivedValidAudio = false;
+			m_receivedValidVideo = false;
+			break;
+		case DETACHED:
+			m_pAudio = new cSoftHdAudio(this);
+			m_pRender = new cVideoRender(this);
+			m_pGrab = new cSoftHdGrab(m_pRender);
+			m_pVideoStream = new cMainVideoStream(m_pRender, m_pHardwareDevice->GetQuirks(), m_pRender->GetMainOutputBuffer(), m_pConfig, std::bind(&cVideoRender::PushMainFrame, m_pRender, std::placeholders::_1));
+			m_pAudioDecoder = new cAudioDecoder(m_pAudio);
+			m_pRender->Init(); // starts display thread
+			m_pVideoStream->StartDecoder(); // starts decoding thread
+			m_pPipStream = new cPipVideoStream(m_pRender, m_pHardwareDevice->GetQuirks(), m_pRender->GetPipOutputBuffer(), m_pConfig, std::bind(&cVideoRender::PushPipFrame, m_pRender, std::placeholders::_1));
+			m_pPipStream->StartDecoder(); // starts decoding thread
+			m_pPipHandler = new cPipHandler(this);
+			// Audio is init lazily (includes starting thread)
+
+			break;
+	}
+}
+
+/**
  * Actions to be performed when entering a state
  *
  * These are only executed when the state actually changes.
@@ -558,60 +612,6 @@ void cSoftHdDevice::OnEnteringState(State state) {
 			delete m_pGrab;
 			delete m_pRender;
 			delete m_pAudio;
-
-			break;
-	}
-}
-
-/**
- * Actions to be performed when leaving a state
- *
- * These are only executed when the state actually changes.
- * E.g. a state transition PLAY -> PLAY does not trigger this.
- *
- * @param state         state being left
- */
-void cSoftHdDevice::OnLeavingState(State state) {
-	switch (state) {
-		case PLAY:
-			m_pRender->SchedulePlaybackStartAtPtsMs(AV_NOPTS_VALUE);
-			m_pRender->SetPlaybackPaused(true);
-			m_pAudio->SetPaused(true);
-			m_pAudio->ResetHwDelayBaseline();
-			break;
-		case BUFFERING:
-			m_pAudio->SetHwDelayBaseline();
-			m_pRender->SetDisplayOneFrameThenPause(false);
-			break;
-		case TRICK_SPEED:
-			// The filter thread needs to be restarted for interlaced streams to be rendered with deinterlacer again. It is started lazily.
-			m_pVideoStream->CancelFilterThread();
-			m_pRender->SetTrickSpeed(0, false, false);
-			m_pRender->ResetFrameCounter();
-			m_pVideoStream->ResetFilterThreadNeededCheck();
-			m_pVideoStream->SetDeinterlacerDeactivated(false);
-			m_pRender->SetPlaybackPaused(true);
-			m_pRender->ResetBufferReuseStrategy();
-			m_pVideoStream->ResetTrickSpeedFramesSentCounter();
-			break;
-		case STOP:
-			m_receivedAudio = false;
-			m_receivedVideo = false;
-			m_receivedValidAudio = false;
-			m_receivedValidVideo = false;
-			break;
-		case DETACHED:
-			m_pAudio = new cSoftHdAudio(this);
-			m_pRender = new cVideoRender(this);
-			m_pGrab = new cSoftHdGrab(m_pRender);
-			m_pVideoStream = new cMainVideoStream(m_pRender, m_pHardwareDevice->GetQuirks(), m_pRender->GetMainOutputBuffer(), m_pConfig, std::bind(&cVideoRender::PushMainFrame, m_pRender, std::placeholders::_1));
-			m_pAudioDecoder = new cAudioDecoder(m_pAudio);
-			m_pRender->Init(); // starts display thread
-			m_pVideoStream->StartDecoder(); // starts decoding thread
-			m_pPipStream = new cPipVideoStream(m_pRender, m_pHardwareDevice->GetQuirks(), m_pRender->GetPipOutputBuffer(), m_pConfig, std::bind(&cVideoRender::PushPipFrame, m_pRender, std::placeholders::_1));
-			m_pPipStream->StartDecoder(); // starts decoding thread
-			m_pPipHandler = new cPipHandler(this);
-			// Audio is init lazily (includes starting thread)
 
 			break;
 	}
