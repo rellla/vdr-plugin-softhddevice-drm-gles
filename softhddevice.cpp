@@ -212,7 +212,7 @@ bool cSoftHdDevice::CanReplay(void) const
 void cSoftHdDevice::OnEventReceived(const Event& event)
 {
 	uint64_t startStateChange = cTimeMs::Now();
-	LOGDEBUG("device: STATE MACHINE received %s", EventToString(event));
+	LOGDEBUG("STATE MACHINE: received %s", EventToString(event));
 	bool needsResume = false;
 
 #ifdef USE_GLES
@@ -236,7 +236,7 @@ void cSoftHdDevice::OnEventReceived(const Event& event)
 	}
 
 	auto invalid = [this, &event]() {
-		LOGWARNING("device: Invalid event '%s' in state '%s' received", EventToString(event), StateToString(m_state));
+		LOGWARNING("STATE MACHINE: Invalid event '%s' in state '%s' received", EventToString(event), StateToString(m_state));
 	};
 
 	switch (m_state) {
@@ -379,7 +379,7 @@ void cSoftHdDevice::OnEventReceived(const Event& event)
 							m_pRender->SetPlaybackPaused(false);
 							break;
 						case NONE:
-							LOGFATAL("device: play event in PLAY state with NONE playback mode. This is a bug.");
+							LOGFATAL("STATE MACHINE: play event in PLAY state with NONE playback mode. This is a bug.");
 							break;
 					}
 				},
@@ -475,7 +475,7 @@ void cSoftHdDevice::OnEventReceived(const Event& event)
 #endif
 
 	uint64_t stopStateChange = cTimeMs::Now();
-	LOGDEBUG("device: STATE MACHINE state change done in %d ms", (int)(stopStateChange - startStateChange));
+	LOGDEBUG("STATE MACHINE: state change done in %d ms", (int)(stopStateChange - startStateChange));
 }
 
 /**
@@ -625,12 +625,12 @@ void cSoftHdDevice::OnLeavingState(State state) {
 void cSoftHdDevice::SetState(State newState)
 {
 	if (m_state != newState) {
-		LOGDEBUG("device: Preparing to leave state %s", StateToString(m_state));
+		LOGDEBUG("STATE MACHING: Preparing to leave state %s", StateToString(m_state));
 		OnLeavingState(m_state);
-		LOGDEBUG("device: Changing state %s -> %s", StateToString(m_state), StateToString(newState));
+		LOGDEBUG("STATE MACHING: Changing state %s -> %s", StateToString(m_state), StateToString(newState));
 		m_state = newState;
 		OnEnteringState(m_state);
-		LOGDEBUG("device: State changed to %s", StateToString(m_state));
+		LOGDEBUG("STATE MACHING: State changed to %s", StateToString(m_state));
 	}
 }
 
