@@ -778,6 +778,9 @@ int cDrmDevice::FindMode(void)
 				drmmode->hdisplay, drmmode->vdisplay, GetRefreshRateHz(drmmode));
 	}
 
+	if (drmmode)
+		memcpy(&m_drmModeInfo, drmmode, sizeof(drmModeModeInfo));
+
 	drmModeFreeConnector(connector);
 
 	if (!drmmode) {
@@ -786,16 +789,14 @@ int cDrmDevice::FindMode(void)
 	}
 
 	m_pConfig->CurrentDrmMode = {
-		drmmode->hdisplay,
-		drmmode->vdisplay,
-		GetRefreshRateHz(drmmode),
-		InterlacedMode(drmmode->flags)
+		m_drmModeInfo.hdisplay,
+		m_drmModeInfo.vdisplay,
+		GetRefreshRateHz(&m_drmModeInfo),
+		InterlacedMode(m_drmModeInfo.flags)
 	};
 
 	if (!m_pConfig->AutoDetectedDrmMode.width)
 		m_pConfig->AutoDetectedDrmMode = m_pConfig->CurrentDrmMode;
-
-	memcpy(&m_drmModeInfo, drmmode, sizeof(drmModeModeInfo));
 
 	m_pRender->SetScreenSize(m_drmModeInfo.hdisplay, m_drmModeInfo.vdisplay, GetRefreshRateHz(&m_drmModeInfo), InterlacedMode(drmmode->flags));
 
