@@ -38,13 +38,13 @@ extern "C" {
 #include "audioprocessor.h"
 #include "codec_audio.h"
 #include "config.h"
-#include "event.h"
 #include "filllevel.h"
 #include "logger.h"
 #include "misc.h"
 #include "pidcontroller.h"
 #include "ringbuffer.h"
 #include "softhddevice.h"
+#include "statemachine.h"
 
 /**
  * Create a new audio context
@@ -54,7 +54,6 @@ cSoftHdAudio::cSoftHdAudio(cSoftHdDevice *device)
 	  m_pDevice(device),
 	  m_pConfig(m_pDevice->Config()),
 	  m_alsa(m_pConfig),
-	  m_pEventReceiver(device),
 	  m_softVolume(m_pConfig->ConfigAudioSoftvol),
 	  m_audioProcessor(BYTES_PER_SAMPLE),
 	  m_pMixerChannel(m_pConfig->ConfigAudioMixerChannel)
@@ -1180,7 +1179,7 @@ void cSoftHdAudio::ProcessEvents(void)
 {
 	std::lock_guard<std::mutex> lock(m_queueMutex);
 	for (Event event : m_eventQueue)
-		m_pEventReceiver->OnEventReceived(event);
+		m_pDevice->TriggerEvent(event);
 
 	m_eventQueue.clear();
 }

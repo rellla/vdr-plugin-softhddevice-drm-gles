@@ -150,6 +150,7 @@ OBJS = $(PLUGIN).o \
 	softhdsetupmenu.o \
 	softhdosd.o \
 	softhdosdprovider.o \
+	statemachine.o \
 	videofilter.o \
 	videorender.o \
 	videostream.o

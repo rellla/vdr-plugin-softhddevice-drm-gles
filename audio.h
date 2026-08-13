@@ -35,10 +35,10 @@ extern "C" {
 
 #include "alsadevice.h"
 #include "audioprocessor.h"
-#include "event.h"
 #include "filllevel.h"
 #include "pidcontroller.h"
 #include "ringbuffer.h"
+#include "statemachine.h"
 
 class cSoftHdConfig;
 class cSoftHdDevice;
@@ -104,7 +104,6 @@ private:
 	cSoftHdDevice *m_pDevice;               ///< pointer to device
 	cSoftHdConfig *m_pConfig;               ///< pointer to config
 	cAlsaDevice m_alsa;                     ///< alsa device
-	IEventReceiver *m_pEventReceiver;       ///< pointer to event receiver
 	cBufferFillLevelLowPassFilter m_fillLevel;                  ///< low pass filter for the buffer fill level
 	cPidController m_pidController{3, 0.005, 0, 1000};          ///< PID controller for clock drift compensation with tuning values coming from educated guesses
 	std::chrono::steady_clock::time_point m_lastPidInvocation;  ///< last time the PID controller was invoked

@@ -40,10 +40,10 @@ extern "C" {
 #include "drmdevice.h"
 #endif
 #include "drmhdr.h"
-#include "event.h"
 #include "grab.h"
 #include "misc.h"
 #include "queue.h"
+#include "statemachine.h"
 
 #ifndef USE_GLES
 class cDrmDevice;
@@ -314,7 +314,6 @@ private:
 	std::atomic<int64_t> m_schedulePlaybackStartAtPtsMs = AV_NOPTS_VALUE; ///< if set, frames with PTS older than this will be dropped
 	std::atomic<int64_t> m_scheduleResyncAtPtsMs = AV_NOPTS_VALUE;        ///< if set, a resync (enter state BUFFERING) will be forced at the given pts
 
-	IEventReceiver *m_pEventReceiver;                                     ///< pointer to event receiver
 	cDrmBufferPool m_drmBufferPool;                                       ///< pool of drm buffers
 	cDrmBufferPool m_pipDrmBufferPool;                                    ///< PIP pool of drm buffers
 	std::atomic<cBufferStrategy *> m_bufferReuseStrategy = nullptr;       ///< strategy to select drm buffers

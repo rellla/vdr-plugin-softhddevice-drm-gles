@@ -13,10 +13,6 @@
 #ifndef __SOFTHDDEVICE_H
 #define __SOFTHDDEVICE_H
 
-#if __cplusplus < 201703L
-#error "C++17 or higher is required"
-#endif
-
 #include <atomic>
 #include <mutex>
 
@@ -31,10 +27,10 @@ extern "C"
 #include <vdr/thread.h>
 
 #include "config.h"
-#include "event.h"
 #include "hardwaredevice.h"
 #include "jittertracker.h"
 #include "pes.h"
+#include "statemachine.h"
 
 class cAudioDecoder;
 class cDvbSpuDecoder;
@@ -45,6 +41,7 @@ class cSoftHdAudio;
 class cSoftHdDevice;
 class cSoftHdGrab;
 class cSoftOsdProvider;
+class cStateMachine;
 class cVideoRender;
 class cVideoStream;
 
@@ -58,49 +55,6 @@ class cVideoStream;
  * @{
  */
 
-// State machine definitions
-// Implementing C++17 visitor pattern
-
-template<class... Ts>
-struct overload : Ts... { using Ts::operator()...; };
-template<class... Ts> overload(Ts...) -> overload<Ts...>;
-
-enum State {
-	STOP,
-	BUFFERING,
-	PLAY,
-	TRICK_SPEED,
-	DETACHED
-};
-
-inline const char* EventToString(const Event& e) {
-	return std::visit(overload{
-		[](const PlayEvent&) -> const char* { return "PlayEvent"; },
-		[](const PauseEvent&) -> const char* { return "PauseEvent"; },
-		[](const StopEvent&) -> const char* { return "StopEvent"; },
-		[](const TrickSpeedEvent&) -> const char* { return "TrickSpeedEvent"; },
-		[](const StillPictureEvent&) -> const char* { return "StillPictureEvent"; },
-		[](const DetachEvent&) -> const char* { return "DetachEvent"; },
-		[](const AttachEvent&) -> const char* { return "AttachEvent"; },
-		[](const BufferUnderrunEvent& e) -> const char* { return e.type == AUDIO ? "BufferUnderrunEvent: Audio" : "BufferUnderrunEvent: Video"; },
-		[](const BufferingThresholdReachedEvent&) -> const char* { return "BufferingThresholdReachedEvent"; },
-		[](const ScheduleResyncAtPtsMsEvent&) -> const char* { return "ScheduleResyncAtPtsMsEvent"; },
-		[](const ResyncEvent&) -> const char* { return "ResyncEvent"; },
-		[](const DisplayChangeEvent&) -> const char* { return "DisplayChangeEvent"; },
-	}, e);
-}
-
-inline const char* StateToString(State s) {
-	switch(s) {
-		case State::STOP: return "STOP";
-		case State::BUFFERING: return "BUFFERING";
-		case State::PLAY: return "PLAY";
-		case State::TRICK_SPEED: return "TRICK_SPEED";
-		case State::DETACHED: return "DETACHED";
-	}
-	return "Unknown";
-}
-
 enum PlaybackMode {
 	NONE,
 	AUDIO_AND_VIDEO,
@@ -111,31 +65,11 @@ enum PlaybackMode {
 /** @} */
 
 /**
- * Event handler thread
- *
- * Queues events and sends them to cSoftHdDevice as the final event receiver
- */
-class cEventHandler : public cThread {
-public:
-	cEventHandler(cSoftHdDevice *);
-	virtual ~cEventHandler(void);
-
-	void AddEvent(Event);
-protected:
-	virtual void Action(void) override;
-private:
-	cSoftHdDevice *m_pDevice;         ///< pointer to device
-	std::mutex m_mutex;               ///< queue mutex
-	std::vector<Event> m_eventQueue;  ///< event fifo queue
-	IEventReceiver *m_pEventReceiver; ///< pointer to event receiver
-};
-
-/**
  * Output Device Implementation
  *
  * @ingroup device
  */
-class cSoftHdDevice : public cDevice, public IEventReceiver, public cStatus {
+class cSoftHdDevice : public cDevice, public cStatus {
 public:
 	cSoftHdDevice(cSoftHdConfig *);
 	virtual ~cSoftHdDevice(void);
@@ -274,12 +208,36 @@ public:
 	void SetRenderPipSize(void);
 	void SetRenderPipActive(bool);
 
+	// state transitioning functions
+	void TriggerEvent(const Event&);
+
+	void LeaveState(State);
+	void EnterState(State);
+	void HandleStillPicture(const uchar *data, int size);
+	void HandleDisplayModeChange(const sDrmMode &);
+	void HaltVideoThreads(void);
+	void ResumeVideoThreads(void);
+#ifdef USE_GLES
+	bool HaltOpenGlThread(void);
+	void ResumeOpenGlThread(void);
+#endif
+	bool IsDetachForced(void);
+	void InitAudio(bool);
+	void ResetVideoFilter(void);
+	void SetTrickSpeed(double, bool, bool);
+	bool SchedulePlaybackStart(void);
+	void ScheduleResyncAtPtsMs(int64_t);
+	void ResumeFromPause(void);
+	void PausePlayback(bool);
+	void ResumePlayback(void);
+
 private:
 	static constexpr int MIN_BUFFER_FILL_LEVEL_THRESHOLD_MS = 450; ///< min buffering threshold in ms
 
+	std::unique_ptr<cStateMachine> m_pStateMachine;
+
 	bool m_initialized = false;                     ///< true, if the plugin had a successful Initialize()
 	std::atomic<bool> m_draining = false;           ///< true, if the device is in draining mode (waiting for empty buffers)
-	std::atomic<State> m_state = DETACHED;          ///< current plugin state, normal plugin start sets detached state
 	std::mutex m_eventMutex;                        ///< mutex to protect event queue
 	bool m_needsMakePrimary = false;                ///< true, if device should be made a primary device after attach
 	cDvbSpuDecoder *m_pSpuDecoder;                  ///< pointer to spu decoder
@@ -326,17 +284,9 @@ private:
 
 	int PlayVideoInternal(cVideoStream *, cReassemblyBufferVideo *, const uchar *, int, bool, bool);
 	void FlushAudio(void);
-	void HandleStillPicture(const uchar *data, int size);
-	void HandleDisplayModeChange(const sDrmMode &);
 	int64_t GetFirstAudioPtsMsToPlay();
 	int64_t GetFirstVideoPtsMsToPlay();
 	int GetBufferFillLevelThresholdMs();
-
-	// State machine
-	void OnEventReceived(const Event&);
-	void SetState(State);
-	void OnEnteringState(State);
-	void OnLeavingState(State);
 };
 
 #endif
