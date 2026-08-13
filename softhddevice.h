@@ -141,12 +141,17 @@ public:
 	virtual ~cSoftHdDevice(void);
 
 	//
-	// virtual cDevice
+	// VDR cPlugin interface (wrapped by cPluginSoftHdDevice)
+	//
+	bool Initialize(void);
+	int Start(void);
+	void Stop(void);
+
+	//
+	// VDR cDevice interface
 	//
 protected:
 	virtual void MakePrimaryDevice(bool);
-	virtual void ChannelSwitch(const cDevice *, int, bool);
-
 public:
 	virtual cString DeviceName(void) const { return "softhddevice-drm-gles"; }
 	virtual bool HasDecoder(void) const;
@@ -154,11 +159,25 @@ public:
 	// SPU facilities
 	virtual cSpuDecoder * GetSpuDecoder(void);
 
-	// player facilities
+	// Image grab facilities
+	virtual uchar *GrabImage(int &, bool, int, int, int);
+
+	// Video format facilities
+	virtual void SetVideoDisplayFormat(eVideoDisplayFormat);
+	virtual void SetVideoFormat(bool);
+	virtual void GetVideoSize(int &, int &, double &);
+	virtual void GetOsdSize(int &, int &, double &);
+
+	// Audio facilities
+protected:
+	virtual void SetVolumeDevice(int);
+
+	// Player facilities
 	virtual bool CanReplay(void) const;
 	virtual bool SetPlayMode(ePlayMode);
 	virtual int PlayVideo(const uchar *, int);
 	virtual int PlayAudio(const uchar *, int, uchar);
+public:
 	virtual int64_t GetSTC(void);
 	virtual cRect CanScaleVideo(const cRect &, int taCenter);
 	virtual void ScaleVideo(const cRect & = cRect::Null);
@@ -172,47 +191,33 @@ public:
 #if APIVERSNUM >= 30014
 	virtual bool Drain(void);
 #endif
-	// Image Grab facilities
-	virtual uchar *GrabImage(int &, bool, int, int, int);
-
-	// video format facilities
-	virtual void SetVideoDisplayFormat(eVideoDisplayFormat);
-	virtual void SetVideoFormat(bool);
-	virtual void GetVideoSize(int &, int &, double &);
-	virtual void GetOsdSize(int &, int &, double &);
-
-	// track facilities
-	virtual void SetAudioTrackDevice(eTrackType);
-
-	// audio facilities
-	virtual int GetAudioChannelDevice(void);
-	virtual void SetAudioChannelDevice(int);
-	virtual void SetVolumeDevice(int);
-	virtual void SetDigitalAudioDevice(bool);
 
 	//
-	// wrapped by cPluginSoftHdDevice
+	// VDR cStatus interface
 	//
-	bool Initialize(void);
-	int Start(void);
-	void Stop(void);
+protected:
+	virtual void ChannelSwitch(const cDevice *, int, bool);
 
 	//
-	// cSoftHdDevice public methods
+	// cSoftHdDevice public API
 	//
+public:
 	cSoftHdConfig *Config(void) { return m_pConfig; };
 	cVideoStream *VideoStream(void) { return m_pVideoStream; };
 	cVideoRender *Render(void) { return m_pRender; };
 	cSoftHdAudio *Audio(void) { return m_pAudio; };
 
+	// Playback, display and decoder
 	void SetDisableDeint(void);
 	void SetDecoderNeedsIFrame(void);
 	void SetParseH264Dimensions(void);
 	void SetDecoderFallbackToSw(bool);
 	void SetEnableHdr(bool);
 	void SetDisplayMode(int);
+	bool IsBufferingThresholdReached(void);
+	bool IsVideoOnlyPlayback(void) { return m_playbackMode == VIDEO_ONLY; };
 
-	// osd
+	// Osd
 #ifdef USE_GLES
 	int MaxSizeGPUImageCache(void);
 	int OglOsdIsDisabled(void);
@@ -224,7 +229,7 @@ public:
 	void SetOsdSize(int, int);
 	void SetScreenSize(int, int);
 
-	// audio
+	// Audio
 	int GetVideoAudioDelayMs(void) { return m_pConfig->ConfigVideoAudioDelayMs; };
 	int GetMinBufferFillLevelThresholdMs(void) { return MIN_BUFFER_FILL_LEVEL_THRESHOLD_MS; };
 	void SetPassthroughMask(int);
@@ -241,7 +246,7 @@ public:
 	int PlayAudioPkts(AVPacket *);
 	int PlayVideoPkts(AVPacket *);
 
-	// detach/ attach
+	// Detach/ attach
 	void Detach(void);
 	void Attach(void);
 	bool IsDetached(void) const;
@@ -250,10 +255,13 @@ public:
 	void SetStartDetached(void) { m_forceDetached = true; };
 	bool IsDraining(void) { return m_draining; };
 
-	bool IsBufferingThresholdReached(void);
-	bool IsVideoOnlyPlayback(void) { return m_playbackMode == VIDEO_ONLY; };
-
-	// pip wrapper functions
+	// Pip
+	int PlayPipVideo(const uchar *, int);
+	void SetDrmCanDisplayPip(bool canDisplay) { m_drmCanDisplayPip = canDisplay; };
+	bool UsePip(void) { return m_drmCanDisplayPip && !m_disablePip && m_pPipHandler; };
+	void ResetPipStream(void);
+	void ToggleRenderPipPosition(void) { m_pipUseAlt = !m_pipUseAlt; };
+	// wrapper functions
 	void SetDisablePip(void) { m_disablePip = true; };
 	bool PipIsEnabled(void);
 	void PipEnable(void);
@@ -265,13 +273,6 @@ public:
 	void PipSetSize(void);
 	void SetRenderPipSize(void);
 	void SetRenderPipActive(bool);
-
-	// pip functions
-	int PlayPipVideo(const uchar *, int);
-	void SetDrmCanDisplayPip(bool canDisplay) { m_drmCanDisplayPip = canDisplay; };
-	bool UsePip(void) { return m_drmCanDisplayPip && !m_disablePip && m_pPipHandler; };
-	void ResetPipStream(void);
-	void ToggleRenderPipPosition(void) { m_pipUseAlt = !m_pipUseAlt; };
 
 private:
 	static constexpr int MIN_BUFFER_FILL_LEVEL_THRESHOLD_MS = 450; ///< min buffering threshold in ms
@@ -325,15 +326,14 @@ private:
 
 	int PlayVideoInternal(cVideoStream *, cReassemblyBufferVideo *, const uchar *, int, bool, bool);
 	void FlushAudio(void);
-	void OnEventReceived(const Event&);
 	void HandleStillPicture(const uchar *data, int size);
 	void HandleDisplayModeChange(const sDrmMode &);
 	int64_t GetFirstAudioPtsMsToPlay();
 	int64_t GetFirstVideoPtsMsToPlay();
-
 	int GetBufferFillLevelThresholdMs();
 
 	// State machine
+	void OnEventReceived(const Event&);
 	void SetState(State);
 	void OnEnteringState(State);
 	void OnLeavingState(State);
