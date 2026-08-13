@@ -41,12 +41,12 @@ extern "C" {
 #include "config.h"
 #include "drmdevice.h"
 #include "drmhdr.h"
-#include "event.h"
 #include "grab.h"
 #include "logger.h"
 #include "misc.h"
 #include "queue.h"
 #include "softhddevice.h"
+#include "statemachine.h"
 #include "videorender.h"
 #include "videostream.h"
 
@@ -64,7 +64,6 @@ cVideoRender::cVideoRender(cSoftHdDevice *device)
 	  m_grabVideo("VIDEO"),
 	  m_grabPip("PIP"),
 	  m_pDrmDevice(new cDrmDevice(this, m_pConfig)),
-	  m_pEventReceiver(device),
 	  m_pHdrMetadata(this),
 	  m_enableHdr(m_pConfig->ConfigVideoEnableHDR)
 {
@@ -1512,7 +1511,7 @@ void cVideoRender::SetVideoOutputPosition(const cRect &rect)
 void cVideoRender::ProcessEvents(void)
 {
 	for (Event event : m_eventQueue)
-		m_pEventReceiver->OnEventReceived(event);
+		m_pDevice->TriggerEvent(event);
 
 	m_eventQueue.clear();
 }
