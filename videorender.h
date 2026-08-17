@@ -162,7 +162,7 @@ public:
 	cVideoRender(cSoftHdDevice *);
 	~cVideoRender(void);
 
-	void Init(void);
+	int Init(void);
 	void ReInitDisplayMode(void);
 	void Exit(void);
 	void Stop(void);
