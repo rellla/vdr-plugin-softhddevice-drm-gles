@@ -87,8 +87,11 @@ public:
 
 	int Init(void);
 	int ReInit(void);
+#ifdef USE_GLES
 	int InitGbm(void);
+	void ExitGbm(void);
 	int InitEGL(void);
+#endif
 	int Fd(void) { return m_fdDrm; };
 	void Close(void);
 

@@ -650,7 +650,7 @@ void cSoftHdDevice::Clear(void)
 	m_pAudio->ResetHwDelayBaseline();
 	FlushAudio();
 
-	m_pStateMachine->SetState(BUFFERING);
+	m_pStateMachine->ChangeState(BUFFERING);
 
 	m_pRender->Resume();
 	m_pVideoStream->Resume();
@@ -1148,7 +1148,8 @@ void cSoftHdDevice::SetVideoCodec(enum AVCodecID codecId, AVCodecParameters * pa
  */
 int cSoftHdDevice::PlayAudioPkts(AVPacket * pkt)
 {
-	m_pAudio->LazyInit();
+	if (m_pAudio->LazyInit())
+		LOGFATAL("%s: audio init failed, abort!", __FUNCTION__);
 
 	if (m_pAudio->IsBufferFull())
 		return 0;
@@ -1167,7 +1168,8 @@ int cSoftHdDevice::PlayAudioPkts(AVPacket * pkt)
  */
 int cSoftHdDevice::PlayVideoPkts(AVPacket * pkt)
 {
-	m_pAudio->LazyInit();
+	if (m_pAudio->LazyInit())
+		LOGFATAL("%s: audio init failed, abort!", __FUNCTION__);
 
 	if (m_pVideoStream->GetAvPacketsFilled() >= (size_t)m_pVideoStream->GetVideoPacketMax() - 10)
 		return 0;
@@ -1597,7 +1599,17 @@ void cSoftHdDevice::LeaveState(State state)
 			m_pGrab = new cSoftHdGrab(m_pRender);
 			m_pVideoStream = new cMainVideoStream(m_pRender, m_pHardwareDevice->GetQuirks(), m_pRender->GetMainOutputBuffer(), m_pConfig, std::bind(&cVideoRender::PushMainFrame, m_pRender, std::placeholders::_1));
 			m_pAudioDecoder = new cAudioDecoder(m_pAudio);
-			m_pRender->Init(); // starts display thread
+			int err = m_pRender->Init(); // starts display thread
+			if (err < 0) { // drm init failed -> force detached mode
+				delete m_pAudioDecoder;
+				delete m_pVideoStream;
+				delete m_pGrab;
+				delete m_pRender;
+				delete m_pAudio;
+				LOGERROR("device: display init failed -> start in detached mode");
+				m_forceDetached = true;
+				break;
+			}
 			m_pVideoStream->StartDecoder(); // starts decoding thread
 			m_pPipStream = new cPipVideoStream(m_pRender, m_pHardwareDevice->GetQuirks(), m_pRender->GetPipOutputBuffer(), m_pConfig, std::bind(&cVideoRender::PushPipFrame, m_pRender, std::placeholders::_1));
 			m_pPipStream->StartDecoder(); // starts decoding thread
@@ -1634,13 +1646,20 @@ void cSoftHdDevice::EnterState(State state)
 			}
 			break;
 		case TRICK_SPEED:
-			// The filter thread needs to be restarted for interlaced streams to be rendered without deinterlacer in trick speed mode. It is started lazily.
+			// The filter thread needs to be restarted for interlaced streams
+			// to be rendered without deinterlacer in trick speed mode.
+			// It is started lazily.
 			m_pVideoStream->CancelFilterThread();
 			m_pRender->SetPlaybackPaused(false);
 			m_pVideoStream->SetDeinterlacerDeactivated(true);
 			m_pRender->ResetBufferReuseStrategy();
 			break;
 		case STOP:
+			if (m_forceDetached) {
+				m_pStateMachine->SetState(DETACHED);
+				break;
+			}
+
 			FlushAudio();
 
 			m_pVideoStream->CancelFilterThread();
@@ -1743,12 +1762,19 @@ bool cSoftHdDevice::IsDetachForced(void)
  * Init the audio lazily.
  *
  * @param setVolume           if true, reset the current volume
+ *
+ * @retval 0 if audio init succeeded
+ * @retval -1 on error
  */
-void cSoftHdDevice::InitAudio(bool setVolume)
+int cSoftHdDevice::InitAudio(bool setVolume)
 {
-	m_pAudio->LazyInit();
+	if (m_pAudio->LazyInit())
+		return -1;
+
 	if (setVolume)
 		m_pAudio->SetVolume((m_volume * 1000) / 255);
+
+	return 0;
 }
 
 /**

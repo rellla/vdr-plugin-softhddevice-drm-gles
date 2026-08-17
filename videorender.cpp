@@ -1038,7 +1038,7 @@ void cVideoRender::PushFrame(
 	// Store the PTS of the first frame to be presented. The first frame might not have a valid PTS, if gone through a HW deinterlacer.
 	//
 	// @note: This is the only place outside of the display thread, where the video pts is set
-	// (except setting it to AV_NOPTS_VALUE in cSofthdDevice::Clear() and SetState(STOP))
+	// (except setting it to AV_NOPTS_VALUE in cSofthdDevice::Clear() and ChangeState(STOP))
 	// We only store here, if the stream recently started and the clock wasn't set already in the display thread
 
 	if (mainFrame && GetVideoClock() == AV_NOPTS_VALUE && frame->pts != AV_NOPTS_VALUE)
@@ -1339,19 +1339,22 @@ void cVideoRender::ReInitDisplayMode(void)
 
 /**
  * Initialize the renderer
+ *
+ * @retval 0 on success
+ * @retval -1 on error
  */
-void cVideoRender::Init(void)
+int cVideoRender::Init(void)
 {
-	if (m_pDrmDevice->Init())
-		LOGFATAL("videorender: %s: Init drm device failed", __FUNCTION__);
+	if (m_pDrmDevice->Init()) {
+		LOGERROR("videorender: %s: Init drm device failed", __FUNCTION__);
+		return -1;
+	}
 
 #ifdef USE_GLES
-	if (!m_disableOglOsd) {
-		if (m_pDrmDevice->InitGbm())
-			LOGFATAL("videorender: %s: Init gbm failed", __FUNCTION__);
-
-		if (m_pDrmDevice->InitEGL())
-			LOGFATAL("videorender: %s: Init EGL failed", __FUNCTION__);
+	if (!m_disableOglOsd && (m_pDrmDevice->InitGbm() || m_pDrmDevice->InitEGL())) {
+		LOGERROR("videorender: %s: Init failed", __FUNCTION__);
+		Exit();
+		return -1;
 	}
 #endif
 
@@ -1434,6 +1437,8 @@ void cVideoRender::Init(void)
 	m_pDrmDevice->InitEvent();
 
 	Start();
+
+	return 0;
 }
 
 /**
@@ -1484,6 +1489,11 @@ void cVideoRender::Exit(void)
 	m_pDrmDevice->OsdPlane()->FreeProperties();
 
 	DeleteBuffers();
+
+#ifdef USE_GLES
+	if (!m_disableOglOsd)
+		m_pDrmDevice->ExitGbm();
+#endif
 
 	m_pDrmDevice->Close();
 }

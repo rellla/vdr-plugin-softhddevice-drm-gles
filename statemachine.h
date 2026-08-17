@@ -144,7 +144,8 @@ public:
 	void OnEventReceived(const Event&);
 
 	State GetState(void) const { return m_state; };
-	void SetState(State);
+	void SetState(State state) { m_state = state; };
+	void ChangeState(State);
 
 private:
 	cSoftHdDevice *m_pDevice;                ///< pointer to the device

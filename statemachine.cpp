@@ -40,7 +40,7 @@ cStateMachine::cStateMachine(cSoftHdDevice *device)
  *
  * @param newState       target state
  */
-void cStateMachine::SetState(State newState)
+void cStateMachine::ChangeState(State newState)
 {
 	if (m_state == newState)
 		return;
@@ -103,7 +103,7 @@ void cStateMachine::OnEventReceived(const Event& event)
 				[](const DetachEvent&) { /* ignore */ },
 				[this](const AttachEvent&) {
 					if (!m_pDevice->IsDetachForced())
-						SetState(STOP);
+						ChangeState(STOP);
 				},
 				[&invalid](const BufferUnderrunEvent&) { invalid(); },
 				[&invalid](const BufferingThresholdReachedEvent&) { invalid(); },
@@ -115,10 +115,16 @@ void cStateMachine::OnEventReceived(const Event& event)
 			break;
 		case State::STOP:
 			std::visit(overload{
-				[this](const PlayEvent&) {
-					m_pDevice->InitAudio(true);
-					SetState(BUFFERING);
-					m_pDevice->ResetVideoFilter();
+				[this, &needsResume](const PlayEvent&) {
+					if (m_pDevice->InitAudio(true)) {
+						LOGERROR("device: audio init failed, change to detached mode");
+						m_pDevice->SetDetachForced();
+						ChangeState(DETACHED);
+						needsResume = false;
+					} else {
+						ChangeState(BUFFERING);
+						m_pDevice->ResetVideoFilter();
+					}
 				},
 				[&invalid](const PauseEvent&) { invalid(); },
 				[&invalid](const StopEvent&) { invalid(); },
@@ -127,7 +133,7 @@ void cStateMachine::OnEventReceived(const Event& event)
 					m_pDevice->HandleStillPicture(s.data, s.size);
 				},
 				[this, &needsResume](const DetachEvent&) {
-					SetState(DETACHED);
+					ChangeState(DETACHED);
 					needsResume = false;
 				},
 				[&invalid](const AttachEvent&) { invalid(); },
@@ -145,29 +151,29 @@ void cStateMachine::OnEventReceived(const Event& event)
 				[this](const PlayEvent&) { /* ignore */ },
 				[this](const PauseEvent&) { /* ignore */ },
 				[this](const StopEvent&) {
-					SetState(STOP);
+					ChangeState(STOP);
 				},
 				[this](const TrickSpeedEvent& t) {
 					// abort buffering and proceed with trick speed immediately, because trick speed shall be as fast and as demanded as possible
-					SetState(PLAY);
+					ChangeState(PLAY);
 					m_pDevice->SetTrickSpeed(t.speed, t.active, t.forward);
-					SetState(TRICK_SPEED);
+					ChangeState(TRICK_SPEED);
 				},
 				[this](const StillPictureEvent& s) {
 					m_pDevice->HandleStillPicture(s.data, s.size);
 				},
 				[this, &needsResume](const DetachEvent&) {
-					SetState(DETACHED);
+					ChangeState(DETACHED);
 					needsResume = false;
 				},
 				[&invalid](const AttachEvent&) { invalid(); },
 				[&invalid](const BufferUnderrunEvent&) { invalid(); },
 				[this](const BufferingThresholdReachedEvent&) {
 					if (m_pDevice->SchedulePlaybackStart())
-						SetState(PLAY);
+						ChangeState(PLAY);
 				},
 				[this](const ScheduleResyncAtPtsMsEvent& s) {
-					SetState(PLAY);
+					ChangeState(PLAY);
 					m_pDevice->ScheduleResyncAtPtsMs(s.pts);
 				},
 				[&invalid](const ResyncEvent&) { invalid(); },
@@ -185,29 +191,29 @@ void cStateMachine::OnEventReceived(const Event& event)
 					m_pDevice->PausePlayback(true);
 				},
 				[this](const StopEvent&) {
-					SetState(STOP);
+					ChangeState(STOP);
 				},
 				[this](const TrickSpeedEvent& t) {
 					m_pDevice->SetTrickSpeed(t.speed, t.active, t.forward);
-					SetState(TRICK_SPEED);
+					ChangeState(TRICK_SPEED);
 				},
 				[this](const StillPictureEvent& s) {
 					m_pDevice->HandleStillPicture(s.data, s.size);
 				},
 				[this, &needsResume](const DetachEvent&) {
-					SetState(DETACHED);
+					ChangeState(DETACHED);
 					needsResume = false;
 				},
 				[&invalid](const AttachEvent&) { invalid(); },
 				[this](const BufferUnderrunEvent&) {
-					SetState(BUFFERING);
+					ChangeState(BUFFERING);
 				},
 				[&invalid](const BufferingThresholdReachedEvent&) { /* ignore */ },
 				[this](const ScheduleResyncAtPtsMsEvent& s) {
 					m_pDevice->ScheduleResyncAtPtsMs(s.pts);
 				},
 				[this](const ResyncEvent&) {
-					SetState(BUFFERING);
+					ChangeState(BUFFERING);
 				},
 				[this](const DisplayChangeEvent& d) {
 					m_pDevice->HandleDisplayModeChange(d.mode);
@@ -217,13 +223,13 @@ void cStateMachine::OnEventReceived(const Event& event)
 		case State::TRICK_SPEED:
 			std::visit(overload{
 				[this](const PlayEvent&) {
-					SetState(PLAY);
+					ChangeState(PLAY);
 				},
 				[this](const PauseEvent&) {
 					m_pDevice->PausePlayback(false);
 				},
 				[this](const StopEvent&) {
-					SetState(STOP);
+					ChangeState(STOP);
 				},
 				[this](const TrickSpeedEvent& t) {
 					// resume from pause, or change trick speed direction/speed
@@ -234,7 +240,7 @@ void cStateMachine::OnEventReceived(const Event& event)
 					m_pDevice->HandleStillPicture(s.data, s.size);
 				},
 				[this, &needsResume](const DetachEvent&) {
-					SetState(DETACHED);
+					ChangeState(DETACHED);
 					needsResume = false;
 				},
 				[&invalid](const AttachEvent&) { invalid(); },

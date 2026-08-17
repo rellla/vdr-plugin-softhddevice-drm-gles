@@ -857,11 +857,28 @@ int cDrmDevice::InitGbm(void)
 
 	m_pGbmSurface = gbm_surface_create(m_pGbmDevice, w, h, format, modifier);
 	if (!m_pGbmSurface) {
+		gbm_device_destroy(m_pGbmDevice);
 		LOGERROR("drmdevice: %s: failed to create %d x %d surface bo", __FUNCTION__, w, h);
 		return -1;
 	}
 
 	return 0;
+}
+
+/**
+ * Free gbm device and surface
+ */
+void cDrmDevice::ExitGbm(void)
+{
+	if (m_pGbmSurface) {
+		gbm_surface_destroy(m_pGbmSurface);
+		m_pGbmSurface = nullptr;
+	}
+
+	if (m_pGbmDevice) {
+		gbm_device_destroy(m_pGbmDevice);
+		m_pGbmDevice = nullptr;
+	}
 }
 
 PFNEGLGETPLATFORMDISPLAYEXTPROC get_platform_display = NULL;

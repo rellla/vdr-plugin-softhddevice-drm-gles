@@ -222,7 +222,8 @@ public:
 	void ResumeOpenGlThread(void);
 #endif
 	bool IsDetachForced(void);
-	void InitAudio(bool);
+	void SetDetachForced(void) { m_forceDetached = true; };
+	int InitAudio(bool);
 	void ResetVideoFilter(void);
 	void SetTrickSpeed(double, bool, bool);
 	bool SchedulePlaybackStart(void);
