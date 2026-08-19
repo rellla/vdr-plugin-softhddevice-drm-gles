@@ -1028,6 +1028,60 @@ bool cOglCmdCopyBufferToOutputFb::Execute(void)
 	return true;
 }
 
+//------------------ cOglCmdRenderFbToFb ------------------------
+bool cOglCmdRenderFbToFb::Execute(void) {
+	if (!m_pFramebuffer || !m_pSrcFb || m_srcRect.IsEmpty() || m_pFramebuffer == m_pSrcFb)
+		return false;
+
+	GLfloat x1 = m_dstPoint.X();
+	GLfloat y1 = m_dstPoint.Y();
+	GLfloat x2 = x1 + m_srcRect.Width();
+	GLfloat y2 = y1 + m_srcRect.Height();
+
+	GLfloat texX1 = (GLfloat) m_srcRect.X()                                                / (GLfloat)m_pSrcFb->Width();
+	GLfloat texX2 = (GLfloat)(m_srcRect.X() + m_srcRect.Width())                           / (GLfloat)m_pSrcFb->Width();
+	GLfloat texY1 = (GLfloat)(m_pSrcFb->Height() - m_srcRect.Y() - 1)                      / (GLfloat)m_pSrcFb->Height();
+	GLfloat texY2 = (GLfloat)(m_pSrcFb->Height() - m_srcRect.Y() - m_srcRect.Height() - 1) / (GLfloat)m_pSrcFb->Height();
+
+	GLfloat quadVertices[] = {
+		// Position    Texture
+		x1, y1, texX1, texY2,
+		x1, y2, texX1, texY1,
+		x2, y2, texX2, texY1,
+
+		x1, y1, texX1, texY2,
+		x2, y2, texX2, texY1,
+		x2, y1, texX2, texY2
+	};
+
+	VertexBuffers[vbTexture]->ActivateShader();
+	VertexBuffers[vbTexture]->SetShaderAlpha(m_alpha);
+	VertexBuffers[vbTexture]->SetShaderProjectionMatrix(m_pFramebuffer->Width(), m_pFramebuffer->Height());
+	VertexBuffers[vbTexture]->SetShaderBorderColor(clrTransparent);
+
+	m_pFramebuffer->Bind();
+
+	if (!m_pSrcFb->BindTexture()) {
+		m_pFramebuffer->Unbind();
+		return false;
+	}
+
+	if (m_alpha == ALPHA_OPAQUE)
+		VertexBuffers[vbTexture]->DisableBlending();
+
+	VertexBuffers[vbTexture]->Bind();
+	VertexBuffers[vbTexture]->SetVertexSubData(quadVertices);
+	VertexBuffers[vbTexture]->DrawArrays();
+	VertexBuffers[vbTexture]->Unbind();
+
+	if (m_alpha == ALPHA_OPAQUE)
+		VertexBuffers[vbTexture]->EnableBlending();
+
+	m_pFramebuffer->Unbind();
+
+	return true;
+}
+
 //------------------ cOglCmdFill ----------------------------
 bool cOglCmdFill::Execute(void)
 {
@@ -2297,12 +2351,58 @@ void cOglPixmap::DrawSlope(const cRect &rect, tColor color, int type)
 
 void cOglPixmap::Render(const cPixmap *pixmap, const cRect &source, const cPoint &dest)
 {
-	LOGWARNING("openglosd: %s: %d %d %d not implemented in OpenGl OSD", __FUNCTION__, pixmap->ViewPort().X(), source.X(), dest.X());
+	RenderPixmapInternal(pixmap, source, dest, true);
 }
 
 void cOglPixmap::Copy(const cPixmap *pixmap, const cRect &source, const cPoint &dest)
 {
-	LOGWARNING("openglosd: %s: %d %d %d not implemented in OpenGl OSD", __FUNCTION__, pixmap->ViewPort().X(), source.X(), dest.X());
+	// render without respect to alpha values
+	RenderPixmapInternal(pixmap, source, dest, false);
+}
+
+void cOglPixmap::RenderPixmapInternal(const cPixmap *pixmap, const cRect &source, const cPoint &dest, bool useAlpha)
+{
+	LOGDEBUG2(L_OPENGL, "openglosd: %s: %s", __FUNCTION__, useAlpha ? "Render()" : "Copy()");
+
+	if (!m_pOglThread->Active() || !pixmap || source.IsEmpty())
+		return;
+
+	LOCK_PIXMAPS;
+
+	const cOglPixmap *sourceOgl = dynamic_cast<const cOglPixmap *>(pixmap);
+
+	// Self-rendering is not allowed according to VDR API
+	if (sourceOgl && sourceOgl != this) {
+		cRect sourceRect = source.Intersected(cRect(0, 0, sourceOgl->DrawPort().Width(), sourceOgl->DrawPort().Height()));
+		sourceRect.SetX(sourceRect.X() + sourceOgl->DrawPort().X());
+		sourceRect.SetY(sourceRect.Y() + sourceOgl->DrawPort().Y());
+
+		cRect destRect(dest, sourceRect.Size());
+		cRect clippedDest = destRect.Intersected(cRect(0, 0, m_pFramebuffer->Width(), m_pFramebuffer->Height()));
+		if (clippedDest.IsEmpty())
+			return;
+
+		sourceRect.SetX(sourceRect.X() + clippedDest.X() - destRect.X());
+		sourceRect.SetY(sourceRect.Y() + clippedDest.Y() - destRect.Y());
+		sourceRect.SetWidth(clippedDest.Width());
+		sourceRect.SetHeight(clippedDest.Height());
+		if (sourceRect.IsEmpty())
+			return;
+
+		m_pOglThread->DoCmd(new cOglCmdRenderFbToFb(m_pFramebuffer,
+		                                            sourceOgl->Framebuffer(),
+		                                            sourceRect,
+		                                            clippedDest.Point(),
+		                                            useAlpha ? sourceOgl->Alpha() : ALPHA_OPAQUE));
+
+		SetDirty();
+		MarkDrawPortDirty(cRect(clippedDest.X(), clippedDest.Y(), sourceRect.Width(), sourceRect.Height()));
+
+		return;
+	}
+
+	if (!sourceOgl)
+		LOGWARNING("openglosd: %s: %s is not implemented in OpenGl OSD for your VDR version", __FUNCTION__, useAlpha ? "Render()" : "Copy()");
 }
 
 void cOglPixmap::Scroll(const cPoint &dest, const cRect &source)

@@ -461,6 +461,29 @@ private:
 };
 
 /**
+ * OpenGL command: Render a framebuffer into another one
+ *
+ * @ingroup osd
+ */
+class cOglCmdRenderFbToFb : public cOglCmd {
+public:
+	cOglCmdRenderFbToFb(cOglFb *dstFb, cOglFb *srcFb, const cRect &src, const cPoint &dst, int alpha)
+		: cOglCmd(dstFb),
+		  m_pSrcFb(srcFb),
+		  m_srcRect(src),
+		  m_dstPoint(dst),
+		  m_alpha(alpha) {};
+	virtual ~cOglCmdRenderFbToFb(void) {};
+	virtual const char* Description(void) { return "Render framebuffer"; }
+	virtual bool Execute(void);
+private:
+	cOglFb *m_pSrcFb;
+	cRect m_srcRect;
+	cPoint m_dstPoint;
+	int m_alpha;
+};
+
+/**
  * OpenGL command: Fill a polygon
  *
  * @ingroup osd
@@ -760,7 +783,7 @@ public:
 	cOglPixmap(std::shared_ptr<cOglThread>, int, const cRect &, const cRect &DrawPort = cRect::Null);
 	virtual ~cOglPixmap(void);
 
-	cOglFb *Framebuffer(void) { return m_pFramebuffer; };
+	cOglFb *Framebuffer(void) const { return m_pFramebuffer; };
 	int X(void) { return ViewPort().X(); };
 	int Y(void) { return ViewPort().Y(); };
 	virtual bool IsDirty(void) { return m_dirty; }
@@ -799,6 +822,7 @@ private:
 	void DrawGridText(const cPoint &, const char *, tColor, tColor, const cFont *, int Width = 0, int Height = 0, int Alignment = taDefault);
 #endif
 	void DrawTextInternal(const cPoint &, const char *, tColor, tColor, const cFont *, int Width = 0, int Height = 0, int Alignment = taDefault, bool isGridText = false);
+	void RenderPixmapInternal(const cPixmap *, const cRect &, const cPoint &, bool);
 };
 
 /**
