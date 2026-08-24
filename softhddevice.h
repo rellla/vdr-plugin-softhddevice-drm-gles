@@ -147,8 +147,10 @@ public:
 	void SetParseH264Dimensions(void);
 	void SetDecoderFallbackToSw(bool);
 	void SetEnableHdr(bool);
+	void SetChannelSwitchMode(ChannelSwitchMode mode) { m_channelSwitchMode = mode; };
 	void SetDisplayMode(int);
 	bool IsBufferingThresholdReached(void);
+	bool IsAudioBufferingThresholdReached(void);
 	bool IsVideoOnlyPlayback(void) { return m_playbackMode == VIDEO_ONLY; };
 
 	// Osd
@@ -256,6 +258,7 @@ private:
 	cJitterTracker m_videoJitterTracker{"video"};   ///< video jitter tracker
 	std::chrono::steady_clock::time_point m_channelSwitchStartTime; ///< timestamp, when VDR triggered a channel switch
 	std::chrono::steady_clock::time_point m_dataReceivedTime;       ///< timestamp, when the first audio or video data after a channel switch arrives in Play*()
+	std::atomic<ChannelSwitchMode> m_channelSwitchMode = CHANNEL_SWITCH_AVSYNC; ///< current channel switch mode
 
 	std::atomic<PlaybackMode> m_playbackMode = NONE; ///< current playback mode
 	int m_audioChannelID = -1;       ///< current audio channel ID

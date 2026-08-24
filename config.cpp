@@ -40,6 +40,7 @@ bool cSoftHdConfig::SetupParse(const char *name, const char *value)
 	// Video
 	} else if (!strcasecmp(name, "VideoEnableHDR"))        { ConfigVideoEnableHDR = atoi(value);
 	} else if (!strcasecmp(name, "VideoDisplayMode"))      { ConfigVideoDisplayMode = std::min(atoi(value), static_cast<int>(CONFIG_DISPLAY_MODE_FOLLOW_VIDEO_INTERLACED));
+	} else if (!strcasecmp(name, "VideoChannelSwitchMode")){ ConfigVideoChannelSwitchMode = atoi(value);
 
 	// Audio
 	} else if (!strcasecmp(name, "AudioSoftvol"))          { ConfigAudioSoftvol = atoi(value);
