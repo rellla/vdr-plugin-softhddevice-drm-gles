@@ -203,6 +203,11 @@ Setup: /etc/vdr/setup.conf
 		2  = display mode follows video resolution respecting interlaced modes (width, height, refresh rate, interlaced flag)
 		     Same as above, but now the display also chooses an interlaced mode for interlaced input (except for 576i) if available
 
+	softhddevice-drm-gles.VideoChannelSwitchMode = 0
+		0 = fast channel switch is disabled
+		1 = enable fast channel switch: video is presented immediately as a still-picture
+		2 = enable fast channel switch: video is presented immediately as a still-picture and audio starts as soon as possible (slower than 1)
+
 	softhddevice-drm-gles.MaxSizeGPUImageCache = 128
 		how many GPU memory should be used for image caching
 

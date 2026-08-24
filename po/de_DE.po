@@ -79,6 +79,9 @@ msgstr " Aktiviere HDR"
 msgid " Display mode"
 msgstr " Anzeigemodus"
 
+msgid " Enable fast channel switch"
+msgstr " Aktiviere schnelles Umschalten"
+
 msgid "Audio"
 msgstr "Audio"
 
@@ -358,6 +361,12 @@ msgstr "an Video angepasst (interlaced) %dx%d@%.2f%s"
 
 msgid "match video (interlaced)"
 msgstr "an Video anpassen (interlaced)"
+
+msgid "video"
+msgstr "Video"
+
+msgid "video and audio"
+msgstr "Video und Audio"
 
 #, c-format
 msgid "channel switch done in %ldms (%ldms)"

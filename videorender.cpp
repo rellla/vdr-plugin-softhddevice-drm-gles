@@ -720,6 +720,7 @@ bool cVideoRender::DisplayFrame(void)
 		m_eventQueue.push_back(BufferingThresholdReachedEvent{});
 
 	bool skipBufferUnderrunCheck = m_videoPlaybackPaused ||
+	                               m_displayOneFrameThenPause ||
 	                               m_videoPlaybackPauseScheduledAt != AV_NOPTS_VALUE ||
 	                               m_pDevice->IsVideoOnlyPlayback() ||
 	                               IsTrickSpeed() ||
@@ -772,19 +773,26 @@ bool cVideoRender::DisplayFrame(void)
 				m_pAudio->DropSamplesOlderThanPtsMs(drmBuffer->frame->pts * 1000 * av_q2d(m_timebase));
 		}
 
-		if (m_displayOneFrameThenPause) {
-			m_videoPlaybackPaused = true;
-			m_displayOneFrameThenPause = false;
-		}
-
 		pageFlipDone = PageFlip(drmBuffer, pipBuffer);
-		if (m_startCounter == 1 && m_pDevice->Transferring()) {
+
+		// log channel switch duration
+		if (m_pDevice->Transferring() && ((m_startCounter == 0 && m_displayOneFrameThenPause) || m_startCounter == 1)) {
 			auto now = std::chrono::steady_clock::now();
 			auto channelSwitchDurationMs = std::chrono::duration_cast<std::chrono::milliseconds>(now - m_pDevice->GetChannelSwitchStartTime()).count();
 			auto durationSinceFirstPacketMs = std::chrono::duration_cast<std::chrono::milliseconds>(now - m_pDevice->GetChannelSwitchFirstPacketTime()).count();
-			if (m_pConfig->ConfigShowChannelSwitchDurationMessage)
-				Skins.Message(mtInfo, cString::sprintf(tr("channel switch done in %ldms (%ldms)"), channelSwitchDurationMs, durationSinceFirstPacketMs));
-			LOGDEBUG("channel switch done in %dms, %dms after first packet was received", channelSwitchDurationMs, durationSinceFirstPacketMs);
+
+			if (m_startCounter == 0) {
+				LOGDEBUG("first frame displayed %dms after channel switch, %dms after first packet was received", channelSwitchDurationMs, durationSinceFirstPacketMs);
+			} else {
+				if (m_pConfig->ConfigShowChannelSwitchDurationMessage)
+					Skins.Message(mtInfo, cString::sprintf(tr("channel switch done in %ldms (%ldms)"), channelSwitchDurationMs, durationSinceFirstPacketMs));
+				LOGDEBUG("playback start fired %dms after channel switch, %dms after first packet was received", channelSwitchDurationMs, durationSinceFirstPacketMs);
+			}
+		}
+
+		if (m_displayOneFrameThenPause) {
+			m_videoPlaybackPaused = true;
+			m_displayOneFrameThenPause = false;
 		}
 
 		if (m_pCurrentlyDisplayed)

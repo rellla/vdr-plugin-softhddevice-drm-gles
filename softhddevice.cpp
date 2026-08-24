@@ -94,6 +94,7 @@ bool cSoftHdDevice::Initialize(void)
 	m_dataReceivedTime = m_channelSwitchStartTime;
 
 	m_pipUseAlt = m_pConfig->ConfigPipUseAlt;
+	m_channelSwitchMode = static_cast<ChannelSwitchMode>(m_pConfig->ConfigVideoChannelSwitchMode);
 
 	m_initialized = true;
 
@@ -417,6 +418,11 @@ int cSoftHdDevice::PlayAudio(const uchar *data, int size, uchar id)
 
 	if (IsBufferingThresholdReached())
 		TriggerEvent(BufferingThresholdReachedEvent{});
+
+	// unpause audio, if the fast channel switch mode wants it to be started,
+	// the audio buffer reached the threshold and we are in live tv mode
+	if (m_channelSwitchMode == CHANNEL_SWITCH_FAST_AUDIO && Transferring() && m_pAudio->IsPaused() && IsAudioBufferingThresholdReached())
+		m_pAudio->SetPaused(false);
 
 	AVPacket *avpkt;
 	do {
@@ -951,12 +957,18 @@ bool cSoftHdDevice::IsBufferingThresholdReached()
 	int64_t syncedAudioBufferFillLevelMs = m_pAudio->GetInputPtsMs() - GetFirstAudioPtsMsToPlay();
 	int64_t syncedVideoBufferFillLevelMs = m_pVideoStream->GetInputPtsMs() - GetFirstVideoPtsMsToPlay();
 
-	bool reached = m_pRender->IsOutputBufferFull() && // video decoder output buffer (audio hardware output buffer is negligible)
-		syncedVideoBufferFillLevelMs > GetBufferFillLevelThresholdMs() && // video decoder input buffer
-		syncedAudioBufferFillLevelMs > GetBufferFillLevelThresholdMs(); // audio decoder output buffer
+	int audioBehindVideo = m_pRender->GetOutputPtsMs() - m_pAudio->GetOutputPtsMs() - GetVideoAudioDelayMs();
+
+	// if channel switch mode is CHANNEL_SWITCH_FAST_AUDIO, wait for audio to come up with video before firing a BufferingThresholdReached
+	bool readyToStartVideoPlayback = m_channelSwitchMode == CHANNEL_SWITCH_FAST_AUDIO ? (audioBehindVideo <= 0) : true;
+
+	bool reached = m_pRender->IsOutputBufferFull() &&                                // video decoder output buffer (audio hardware output buffer is negligible)
+	               syncedVideoBufferFillLevelMs > GetBufferFillLevelThresholdMs() && // video decoder input buffer
+	               syncedAudioBufferFillLevelMs > GetBufferFillLevelThresholdMs() && // audio decoder output buffer
+	               readyToStartVideoPlayback;
 
 	if (reached) {
-		LOGDEBUG2(L_AV_SYNC, "First received PTS: %s (audio), %s (video) buffer fill levels: %ldms (audio) %ldms (video)",
+		LOGDEBUG2(L_AV_SYNC, "buffering threshold reached - PTS: %s (audio), %s (video) - buffer fill levels: %ldms (audio) %ldms (video)",
 			Timestamp2String(m_pAudio->GetOutputPtsMs(), 1),
 			Timestamp2String(m_pRender->GetOutputPtsMs(), 1),
 			syncedAudioBufferFillLevelMs,
@@ -964,6 +976,40 @@ bool cSoftHdDevice::IsBufferingThresholdReached()
 	}
 
 	return reached;
+}
+
+/**
+ * Returns true, if audio buffer is filled enough to start audio playback
+ *
+ * @retval true    if audio playback should start
+ * @retval false   if audio playback should not start
+ *
+ * @note Used for fast channel switch
+ */
+bool cSoftHdDevice::IsAudioBufferingThresholdReached()
+{
+	if (m_pStateMachine->GetState() != BUFFERING)
+		return false;
+
+	bool audioHasInputPts = m_pAudio->HasInputPts();
+	bool videoHasInputPts = m_pVideoStream->HasInputPts();
+	bool videoHasOutputPts = m_pRender->GetOutputPtsMs() != AV_NOPTS_VALUE;
+
+	// only start audio playback, if video is already there
+	if (!audioHasInputPts || !videoHasInputPts || !videoHasOutputPts)
+		return false;
+
+	int64_t audioBufferFillLevelMs = m_pAudio->GetInputPtsMs() - m_pAudio->GetOutputPtsMs();
+	if (audioBufferFillLevelMs > GetBufferFillLevelThresholdMs()) {
+		LOGDEBUG2(L_AV_SYNC, "audio buffer reached threshold %dms - PTS: %s (audio), %s (video) - buffer fill levels: %ldms (audio)",
+			GetBufferFillLevelThresholdMs(),
+			Timestamp2String(m_pAudio->GetOutputPtsMs(), 1),
+			Timestamp2String(m_pRender->GetOutputPtsMs(), 1),
+			audioBufferFillLevelMs);
+		return true;
+	}
+
+	return false;
 }
 
 /*********************************************************************
@@ -1633,7 +1679,10 @@ void cSoftHdDevice::EnterState(State state)
 	switch (state) {
 		case BUFFERING:
 			m_pAudio->ResetHwDelayBaseline();
-			// nothing
+			if (m_channelSwitchMode != CHANNEL_SWITCH_AVSYNC) {
+				m_pRender->SetPlaybackPaused(false);
+				m_pRender->SetDisplayOneFrameThenPause(true);
+			}
 			break;
 		case PLAY:
 			if (m_playbackMode != VIDEO_ONLY)
@@ -1814,11 +1863,14 @@ bool cSoftHdDevice::SchedulePlaybackStart(void)
 
 	if (receivedAudio && receivedVideo) {
 		m_playbackMode = AUDIO_AND_VIDEO;
+		// store the first PTSes beforehand, because dropping samples/frames will change the output of GetFirst*PtsMsToPlay()
 		int64_t firstAudioPtsMs = GetFirstAudioPtsMsToPlay();
 		int64_t firstVideoPtsMs = GetFirstVideoPtsMsToPlay();
 
-		// store the first PTSes beforehand, because dropping samples/frames will change the output of GetFirst*PtsMsToPlay()
-		m_pAudio->DropSamplesOlderThanPtsMs(firstAudioPtsMs);
+		// don't drop old audio, if we want to wait for it in fast channel switch mode including audio playback
+		if (m_channelSwitchMode != CHANNEL_SWITCH_FAST_AUDIO || !Transferring())
+			m_pAudio->DropSamplesOlderThanPtsMs(firstAudioPtsMs);
+
 		m_pRender->SchedulePlaybackStartAtPtsMs(firstVideoPtsMs);
 	} else if (receivedAudio) {
 		LOGDEBUG("device: audio only detected");

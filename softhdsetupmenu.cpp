@@ -77,6 +77,7 @@ void cMenuSetupSoft::Create(void)
 	if (m_cVideoMenu) {
 		Add(new cMenuEditBoolItem(tr(" Enable HDR"), &m_cVideoEnableHDR, trVDR("no"), trVDR("yes")));
 		Add(new cMenuEditStraItem(tr(" Display mode"), &m_cVideoDisplayMode, m_displayModePtrs.size(), m_displayModePtrs.data()));
+		Add(new cMenuEditStraItem(tr(" Enable fast channel switch"), &m_cVideoChannelSwitchMode, m_channelSwitchModePtrs.size(), m_channelSwitchModePtrs.data()));
 	}
 
 	//
@@ -300,10 +301,12 @@ cMenuSetupSoft::cMenuSetupSoft(cSoftHdDevice *device)
 	// Video
 	//
 	BuildDisplayModeList();
+	BuildChannelSwitchModeList();
 
 	m_cVideoMenu = 0;
 	m_cVideoEnableHDR          = m_pConfig->ConfigVideoEnableHDR;
 	m_cVideoDisplayMode        = m_pConfig->ConfigVideoDisplayMode;
+	m_cVideoChannelSwitchMode  = m_pConfig->ConfigVideoChannelSwitchMode;
 
 	//
 	// Audio
@@ -435,6 +438,18 @@ void cMenuSetupSoft::BuildDisplayModeList(void)
 		m_displayModePtrs.push_back(s.c_str());
 }
 
+void cMenuSetupSoft::BuildChannelSwitchModeList(void)
+{
+	m_channelSwitchMode.clear();
+
+	m_channelSwitchMode.push_back(trVDR("off"));
+	m_channelSwitchMode.push_back(tr("video"));
+	m_channelSwitchMode.push_back(tr("video and audio"));
+
+	for (auto &s : m_channelSwitchMode)
+		m_channelSwitchModePtrs.push_back(s.c_str());
+}
+
 /**
  * Store settings
  */
@@ -455,6 +470,8 @@ void cMenuSetupSoft::Store(void)
 	// only save default and auto adjusted modes
 	if (m_pConfig->ConfigVideoDisplayMode < CONFIG_DISPLAY_MODE_MANUAL)
 		SetupStore("VideoDisplayMode", m_cVideoDisplayMode);
+	SetupStore("VideoChannelSwitchMode", m_pConfig->ConfigVideoChannelSwitchMode = m_cVideoChannelSwitchMode);
+	m_pDevice->SetChannelSwitchMode(static_cast<ChannelSwitchMode>(m_pConfig->ConfigVideoChannelSwitchMode));
 
 	//
 	// Audio

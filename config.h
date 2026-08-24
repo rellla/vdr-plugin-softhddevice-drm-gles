@@ -34,11 +34,27 @@ struct sDrmMode {
 	bool interlaced = false;     ///< is this an interlaced mode?
 };
 
+/**
+ * Display modes
+ *
+ * @ingroup drm
+ */
 enum ConfigDisplayModes {
 	CONFIG_DISPLAY_MODE_DEFAULT                 = 0,
 	CONFIG_DISPLAY_MODE_FOLLOW_VIDEO            = 1,
 	CONFIG_DISPLAY_MODE_FOLLOW_VIDEO_INTERLACED = 2,
 	CONFIG_DISPLAY_MODE_MANUAL                  = 3,
+};
+
+/**
+ * Channel switch modes
+ *
+ * @ingroup device
+ */
+enum ChannelSwitchMode {
+	CHANNEL_SWITCH_AVSYNC,
+	CHANNEL_SWITCH_FAST_VIDEO,
+	CHANNEL_SWITCH_FAST_AUDIO
 };
 
 /**
@@ -57,7 +73,8 @@ public:
 
 	// Video
 	int ConfigVideoEnableHDR = 0;               ///< enable HDR
-	int ConfigVideoDisplayMode = CONFIG_DISPLAY_MODE_DEFAULT; ///< display mode (enum ConfigDisplayMode)
+	int ConfigVideoDisplayMode = CONFIG_DISPLAY_MODE_DEFAULT; ///< display mode (enum ConfigDisplayModes)
+	int ConfigVideoChannelSwitchMode = CHANNEL_SWITCH_AVSYNC; ///< channel switch mode (enum ChannelSwitchMode)
 
 	// Audio
 	bool ConfigAudioSoftvol = false;            ///< config use software volume

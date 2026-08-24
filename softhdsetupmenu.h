@@ -41,6 +41,7 @@ protected:
 	int m_cVideoMenu;
 	int m_cVideoEnableHDR;
 	int m_cVideoDisplayMode;
+	int m_cVideoChannelSwitchMode;
 
 	// Audio
 	int m_cAudioMenu;
@@ -117,10 +118,13 @@ private:
 
 	std::vector<std::string> m_displayMode;
 	std::vector<const char *> m_displayModePtrs;
+	std::vector<std::string> m_channelSwitchMode;
+	std::vector<const char *> m_channelSwitchModePtrs;
 
 	inline cOsdItem * CollapsedItem(const char *, int &, const char * = NULL);
 	void Create(void);
 	void BuildDisplayModeList(void);
+	void BuildChannelSwitchModeList(void);
 
 protected:
 	virtual void Store(void);
