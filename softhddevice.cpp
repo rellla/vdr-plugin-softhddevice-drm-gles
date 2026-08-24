@@ -743,7 +743,7 @@ bool cSoftHdDevice::Flush(int timeoutMs)
 	if (IsDetached())
 		return true;
 
-	LOGDEBUG("device: %s: timeout % ms", __FUNCTION__, timeoutMs);
+//	LOGDEBUG("device: %s: timeout %d ms", __FUNCTION__, timeoutMs);
 
 	const auto buffersEmpty = [&]() {
 		return m_playbackMode == AUDIO_ONLY
