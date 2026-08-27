@@ -13,6 +13,7 @@
 #define __LOGGER_H
 
 #include <atomic>
+#include <chrono>
 #include <cstdarg>
 #include <memory>
 
@@ -45,6 +46,9 @@
 #define LOGDEBUG cSoftHdLogger::GetLogger()->LogDebug
 /** log to LOG_DEBUG and add a prefix */
 #define LOGDEBUG2 cSoftHdLogger::GetLogger()->LogDebug2
+
+/** shortcut to the logger */
+#define LOGGER cSoftHdLogger::GetLogger()
 
 /**
  * Logger Flags
@@ -94,12 +98,20 @@ public:
 	void SetLogLevel(int level) { m_logLevel = level; };
 	int GetLogLevel(void) { return m_logLevel; };
 
+	void SetChannelSwitchStartTime(std::chrono::steady_clock::time_point time) { m_channelSwitchStartTime = time; };
+	void SetChannelSwitchDataReceivedTime(std::chrono::steady_clock::time_point time) { m_dataReceivedTime = time; };
+	std::chrono::steady_clock::time_point GetChannelSwitchStartTime(void) { return m_channelSwitchStartTime; };
+	std::chrono::steady_clock::time_point GetChannelSwitchDataReceivedTime(void) { return m_dataReceivedTime; };
+
 private:
 	cSoftHdLogger(void) = default;
 	cSoftHdLogger(const cSoftHdLogger &) = delete;
 	cSoftHdLogger& operator=(const cSoftHdLogger &) = delete;
 
 	static constexpr int MAX_LOGMESSAGE_SIZE = 512; ///< max size of the log message
+
+	std::chrono::steady_clock::time_point m_channelSwitchStartTime; ///< timestamp, when VDR triggered a channel switch
+	std::chrono::steady_clock::time_point m_dataReceivedTime;       ///< timestamp, when the first audio or video data after a channel switch arrives in Play*()
 
 	std::atomic<int> m_logLevel = 0; ///< loglevel mask (see enum LogFlags)
 };

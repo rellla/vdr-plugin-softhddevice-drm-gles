@@ -90,8 +90,9 @@ bool cSoftHdDevice::Initialize(void)
 	m_pHardwareDevice = new cHardwareDevice();
 	m_pEventHandler = new cEventHandler(m_pStateMachine.get());
 
-	m_channelSwitchStartTime = std::chrono::steady_clock::now();
-	m_dataReceivedTime = m_channelSwitchStartTime;
+	auto channelSwitchStartTime = std::chrono::steady_clock::now();
+	LOGGER->SetChannelSwitchStartTime(channelSwitchStartTime);
+	LOGGER->SetChannelSwitchDataReceivedTime(channelSwitchStartTime);
 
 	m_pipUseAlt = m_pConfig->ConfigPipUseAlt;
 	m_channelSwitchMode = static_cast<ChannelSwitchMode>(m_pConfig->ConfigVideoChannelSwitchMode);
@@ -331,6 +332,9 @@ bool cSoftHdDevice::SetPlayMode(ePlayMode play_mode)
 		m_externalPlayerActive = false;
 	}
 
+	auto now = std::chrono::steady_clock::now();
+	auto durationSinceChannelSwitchMs = std::chrono::duration_cast<std::chrono::milliseconds>(now - LOGGER->GetChannelSwitchStartTime()).count();
+
 	switch (play_mode) {
 	case pmNone:
 		TriggerEvent(StopEvent{});
@@ -339,6 +343,8 @@ bool cSoftHdDevice::SetPlayMode(ePlayMode play_mode)
 	case pmAudioOnly:
 	case pmAudioOnlyBlack:
 	case pmVideoOnly:
+		m_logPlaybackStart = true;
+		LOGDEBUG2(L_AV_SYNC, "TRACE: +%5dms SetPlayMode()", durationSinceChannelSwitchMs);
 		TriggerEvent(PlayEvent{});
 		break;
 	case pmExtern_THIS_SHOULD_BE_AVOIDED:
@@ -392,11 +398,11 @@ int cSoftHdDevice::PlayAudio(const uchar *data, int size, uchar id)
 
 	if (!m_receivedValidAudio && Transferring()) {
 		auto now = std::chrono::steady_clock::now();
-		auto timeUntilFirstPacketReceived = std::chrono::duration_cast<std::chrono::milliseconds>(now - m_channelSwitchStartTime).count();
-		LOGDEBUG("device: first valid audio packet arrives %dms after channel switch was triggered", timeUntilFirstPacketReceived);
+		auto durationSinceChannelSwitchMs = std::chrono::duration_cast<std::chrono::milliseconds>(now - LOGGER->GetChannelSwitchStartTime()).count();
+		LOGDEBUG2(L_AV_SYNC, "TRACE: +%5dms PlayAudio() first valid audio data", durationSinceChannelSwitchMs);
 
 		if (!m_receivedValidVideo)
-			m_dataReceivedTime = now;
+			LOGGER->SetChannelSwitchDataReceivedTime(now);
 	}
 	m_receivedValidAudio = true;
 
@@ -819,8 +825,11 @@ void cSoftHdDevice::ChannelSwitch(const cDevice *device, int channelNum, bool li
 	if (!liveView)
 		return;
 
-	if (channelNum == 0)
-		m_channelSwitchStartTime = std::chrono::steady_clock::now();
+	if (channelNum == 0) {
+		auto now = std::chrono::steady_clock::now();
+		LOGGER->SetChannelSwitchStartTime(now);
+		LOGDEBUG2(L_AV_SYNC, "TRACE: channel switch");
+	}
 }
 
 /*********************************************************************
@@ -973,6 +982,11 @@ bool cSoftHdDevice::CheckPlaybackStartConditions()
 	const bool videoIsReady = renderBufferIsFilled && videoBufferReachedThreshold;
 	const bool audioIsReady = audioBufferReachedThreshold || !m_pAudio->IsPaused();
 
+	// used for diagnostics:
+	// both audio and video have reached their buffering thresholds, but playback may
+	// still be waiting for audio/video sync
+	const bool allBuffersReachedThreshold = videoIsReady && audioBufferReachedThreshold;
+
 	// in CHANNEL_SWITCH_FAST_AUDIO mode audio was started already,
 	// do not start video until audio has caught up with the video pts
 	const int64_t audioBehindVideo = m_pRender->GetOutputPtsMs() - m_pAudio->GetOutputPtsMs() - GetVideoAudioDelayMs();
@@ -980,12 +994,28 @@ bool cSoftHdDevice::CheckPlaybackStartConditions()
 	                             audioBehindVideo <= 0;
 
 	if (videoIsReady && audioIsReady && videoPlaybackMayStart) {
-		LOGDEBUG2(L_AV_SYNC, "buffering threshold reached - PTS: %s (audio), %s (video) - buffer fill levels: %ldms (audio) %ldms (video)",
+		auto now = std::chrono::steady_clock::now();
+		auto durationSinceChannelSwitchMs = std::chrono::duration_cast<std::chrono::milliseconds>(now - LOGGER->GetChannelSwitchStartTime()).count();
+		LOGDEBUG2(L_AV_SYNC, "TRACE: +%5dms firing BufferingThresholdReached - PTS: %s (audio), %s (video) - buffer fill levels: %ldms (audio) %ldms (video)",
+			durationSinceChannelSwitchMs,
 			Timestamp2String(m_pAudio->GetOutputPtsMs(), 1),
 			Timestamp2String(m_pRender->GetOutputPtsMs(), 1),
 			syncedAudioBufferFillLevelMs,
 			syncedVideoBufferFillLevelMs);
+
 		return true;
+	}
+
+	if (allBuffersReachedThreshold && m_logPlaybackStart) {
+		auto now = std::chrono::steady_clock::now();
+		auto durationSinceChannelSwitchMs = std::chrono::duration_cast<std::chrono::milliseconds>(now - LOGGER->GetChannelSwitchStartTime()).count();
+		LOGDEBUG2(L_AV_SYNC, "TRACE: +%5dms BufferingThresholdReached, but video waits for audio - PTS: %s (audio), %s (video) - buffer fill levels: %ldms (audio) %ldms (video)",
+			durationSinceChannelSwitchMs,
+			Timestamp2String(m_pAudio->GetOutputPtsMs(), 1),
+			Timestamp2String(m_pRender->GetOutputPtsMs(), 1),
+			syncedAudioBufferFillLevelMs,
+			syncedVideoBufferFillLevelMs);
+		m_logPlaybackStart = false;
 	}
 
 	return false;
@@ -1028,6 +1058,15 @@ bool cSoftHdDevice::CheckAudioPlaybackStartConditions()
 	// the needed audio threshold fill level wasn't reached yet
 	if (audioBufferFillLevelMs < GetBufferFillLevelThresholdMs())
 		return false;
+
+	auto now = std::chrono::steady_clock::now();
+	auto durationSinceChannelSwitchMs = std::chrono::duration_cast<std::chrono::milliseconds>(now - LOGGER->GetChannelSwitchStartTime()).count();
+	LOGDEBUG2(L_AV_SYNC, "TRACE: +%5dms firing AudioBufferingThresholdReached, threshold %dms - PTS: %s (audio), %s (video) - buffer fill levels: %ldms (audio)",
+		durationSinceChannelSwitchMs,
+		GetBufferFillLevelThresholdMs(),
+		Timestamp2String(m_pAudio->GetOutputPtsMs(), 1),
+		Timestamp2String(m_pRender->GetOutputPtsMs(), 1),
+		audioBufferFillLevelMs);
 
 	return true;
 }
@@ -1457,12 +1496,11 @@ int cSoftHdDevice::PlayVideoInternal(cVideoStream *stream, cReassemblyBufferVide
 	if (mainStream) {
 		if (!m_receivedValidVideo && Transferring()) {
 			auto now = std::chrono::steady_clock::now();
-			auto timeUntilFirstPacketReceived = std::chrono::duration_cast<std::chrono::milliseconds>(now - m_channelSwitchStartTime).count();
-			LOGDEBUG("device: first valid video packet arrives %dms after channel switch was triggered", timeUntilFirstPacketReceived);
+			auto durationSinceChannelSwitchMs = std::chrono::duration_cast<std::chrono::milliseconds>(now - LOGGER->GetChannelSwitchStartTime()).count();
+			LOGDEBUG2(L_AV_SYNC, "TRACE: +%5dms PlayVideo() first valid video data", durationSinceChannelSwitchMs);
 
 			if (!m_receivedValidAudio)
-				m_dataReceivedTime = now;
-
+				LOGGER->SetChannelSwitchDataReceivedTime(now);
 		}
 		m_receivedValidVideo = true;
 	}
@@ -1479,6 +1517,10 @@ int cSoftHdDevice::PlayVideoInternal(cVideoStream *stream, cReassemblyBufferVide
 			// received the middle of fragmented data, wait for the next PES packets with the start of a new frame
 			return size;
 		}
+
+		auto now = std::chrono::steady_clock::now();
+		auto durationSinceChannelSwitchMs = std::chrono::duration_cast<std::chrono::milliseconds>(now - LOGGER->GetChannelSwitchStartTime()).count();
+		LOGDEBUG2(L_AV_SYNC, "TRACE: +%5dms PlayVideo() first decodeable video packet", durationSinceChannelSwitchMs);
 
 		PrintStreamData(data);
 		buffer->Push(pesPacket.GetPayload(), pesPacket.GetPayloadSize(), pesPacket.GetPts());
