@@ -716,7 +716,7 @@ bool cVideoRender::DisplayFrame(void)
 {
 	bool frameTick = m_flipCounter % m_framesPerFlipCycle == 0;
 
-	if (m_pDevice->IsBufferingThresholdReached())
+	if (m_pDevice->CheckPlaybackStartConditions())
 		m_eventQueue.push_back(BufferingThresholdReachedEvent{});
 
 	bool skipBufferUnderrunCheck = m_videoPlaybackPaused ||

@@ -149,8 +149,8 @@ public:
 	void SetEnableHdr(bool);
 	void SetChannelSwitchMode(ChannelSwitchMode mode) { m_channelSwitchMode = mode; };
 	void SetDisplayMode(int);
-	bool IsBufferingThresholdReached(void);
-	bool IsAudioBufferingThresholdReached(void);
+	bool CheckPlaybackStartConditions(void);
+	bool CheckAudioPlaybackStartConditions(void);
 	bool IsVideoOnlyPlayback(void) { return m_playbackMode == VIDEO_ONLY; };
 
 	// Osd

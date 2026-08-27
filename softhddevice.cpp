@@ -416,12 +416,13 @@ int cSoftHdDevice::PlayAudio(const uchar *data, int size, uchar id)
 
 	m_audioReassemblyBuffer.Push(pesPacket.GetPayload(), pesPacket.GetPayloadSize(), pesPacket.GetPts());
 
-	if (IsBufferingThresholdReached())
+	// fire playback start, if all buffers reached the threshold fill levels
+	if (CheckPlaybackStartConditions())
 		TriggerEvent(BufferingThresholdReachedEvent{});
 
 	// unpause audio, if the fast channel switch mode wants it to be started,
 	// the audio buffer reached the threshold and we are in live tv mode
-	if (m_channelSwitchMode == CHANNEL_SWITCH_FAST_AUDIO && Transferring() && m_pAudio->IsPaused() && IsAudioBufferingThresholdReached())
+	if (CheckAudioPlaybackStartConditions())
 		m_pAudio->SetPaused(false);
 
 	AVPacket *avpkt;
@@ -906,7 +907,7 @@ void cSoftHdDevice::SetDisplayMode(int idx)
 }
 
 /**
- * Check if the buffering threshold has been reached
+ * Check, if all conditions are met to start the playback
  *
  * During the BUFFERING state, this method determines when sufficient audio/video data
  * has been buffered to start playback.
@@ -925,13 +926,14 @@ void cSoftHdDevice::SetDisplayMode(int idx)
  *      -> video input has a valid pts
  *      -> video and audio has enough data buffered (calculated from the first output pts to play)
  *      -> the render output buffer queue is completely filled once (which implies "a video frame reached the renderer")
+ *   4) if CHANNEL_SWITCH_FAST_AUDIO mode is selected:
+ *      -> if audio playback has already started, the audio pts must have reached the video pts
  *
- * @retval true    if playback should start (audio or video only or buffering threshold reached)
- * @retval false   if playback should not start
+ * @return true, if all conditions for a playback start are met, false otherwise
  *
  * @note In order to signal ThresholdReached, both (audio and video) need to have a valid pts in audio + video mode!
  */
-bool cSoftHdDevice::IsBufferingThresholdReached()
+bool cSoftHdDevice::CheckPlaybackStartConditions()
 {
 	if (m_pStateMachine->GetState() != BUFFERING)
 		return false;
@@ -945,71 +947,89 @@ bool cSoftHdDevice::IsBufferingThresholdReached()
 	bool audioOnly = audioHasInputPts && !videoHasInputPts && m_receivedAudio && !m_receivedVideo;
 	bool videoOnly = !audioHasInputPts && videoHasInputPts && !m_receivedAudio && m_receivedVideo;
 
-	if        (audioOnly &&                      m_pAudio->GetInputPtsMs() - m_pAudio->GetOutputPtsMs() > GetBufferFillLevelThresholdMs()) {
+	const int64_t bufferFillLevelThresholdMs = GetBufferFillLevelThresholdMs();
+
+	if (audioOnly && m_pAudio->GetInputPtsMs() - m_pAudio->GetOutputPtsMs() > bufferFillLevelThresholdMs) {
 		LOGDEBUG("device: %s: Detected audio only", __FUNCTION__);
 		return true;
-	} else if (videoOnly && videoHasOutputPts && m_pVideoStream->GetInputPtsMs() - m_pRender->GetOutputPtsMs() > GetBufferFillLevelThresholdMs()) {
+	}
+
+	if (videoOnly && videoHasOutputPts && m_pVideoStream->GetInputPtsMs() - m_pRender->GetOutputPtsMs() > bufferFillLevelThresholdMs) {
 		LOGDEBUG("device: %s: Detected video only", __FUNCTION__);
 		return true;
-	} else if (!audioHasInputPts || !videoHasInputPts || !videoHasOutputPts)
-		return false; // Either no video or no audio received, yet. Or, video didn't make it to the output buffer, yet.
+	}
 
-	int64_t syncedAudioBufferFillLevelMs = m_pAudio->GetInputPtsMs() - GetFirstAudioPtsMsToPlay();
-	int64_t syncedVideoBufferFillLevelMs = m_pVideoStream->GetInputPtsMs() - GetFirstVideoPtsMsToPlay();
+	// In audio/video mode we need valid PTS values for both streams and a video frame must have reached the output buffer.
+	if (!audioHasInputPts || !videoHasInputPts || !videoHasOutputPts)
+		return false;
 
-	int audioBehindVideo = m_pRender->GetOutputPtsMs() - m_pAudio->GetOutputPtsMs() - GetVideoAudioDelayMs();
+	const int64_t syncedAudioBufferFillLevelMs = m_pAudio->GetInputPtsMs() - GetFirstAudioPtsMsToPlay();
+	const int64_t syncedVideoBufferFillLevelMs = m_pVideoStream->GetInputPtsMs() - GetFirstVideoPtsMsToPlay();
+	const bool renderBufferIsFilled = m_pRender->IsOutputBufferFull();
 
-	// if channel switch mode is CHANNEL_SWITCH_FAST_AUDIO, wait for audio to come up with video before firing a BufferingThresholdReached
-	bool readyToStartVideoPlayback = m_channelSwitchMode == CHANNEL_SWITCH_FAST_AUDIO ? (audioBehindVideo <= 0) : true;
+	bool videoBufferReachedThreshold = syncedVideoBufferFillLevelMs > bufferFillLevelThresholdMs;
+	bool audioBufferReachedThreshold = syncedAudioBufferFillLevelMs > bufferFillLevelThresholdMs;
 
-	bool reached = m_pRender->IsOutputBufferFull() &&                                // video decoder output buffer (audio hardware output buffer is negligible)
-	               syncedVideoBufferFillLevelMs > GetBufferFillLevelThresholdMs() && // video decoder input buffer
-	               syncedAudioBufferFillLevelMs > GetBufferFillLevelThresholdMs() && // audio decoder output buffer
-	               readyToStartVideoPlayback;
+	const bool videoIsReady = renderBufferIsFilled && videoBufferReachedThreshold;
+	const bool audioIsReady = audioBufferReachedThreshold || !m_pAudio->IsPaused();
 
-	if (reached) {
+	// in CHANNEL_SWITCH_FAST_AUDIO mode audio was started already,
+	// do not start video until audio has caught up with the video pts
+	const int64_t audioBehindVideo = m_pRender->GetOutputPtsMs() - m_pAudio->GetOutputPtsMs() - GetVideoAudioDelayMs();
+	bool videoPlaybackMayStart = m_channelSwitchMode != CHANNEL_SWITCH_FAST_AUDIO ||
+	                             audioBehindVideo <= 0;
+
+	if (videoIsReady && audioIsReady && videoPlaybackMayStart) {
 		LOGDEBUG2(L_AV_SYNC, "buffering threshold reached - PTS: %s (audio), %s (video) - buffer fill levels: %ldms (audio) %ldms (video)",
 			Timestamp2String(m_pAudio->GetOutputPtsMs(), 1),
 			Timestamp2String(m_pRender->GetOutputPtsMs(), 1),
 			syncedAudioBufferFillLevelMs,
 			syncedVideoBufferFillLevelMs);
-	}
-
-	return reached;
-}
-
-/**
- * Returns true, if audio buffer is filled enough to start audio playback
- *
- * @retval true    if audio playback should start
- * @retval false   if audio playback should not start
- *
- * @note Used for fast channel switch
- */
-bool cSoftHdDevice::IsAudioBufferingThresholdReached()
-{
-	if (m_pStateMachine->GetState() != BUFFERING)
-		return false;
-
-	bool audioHasInputPts = m_pAudio->HasInputPts();
-	bool videoHasInputPts = m_pVideoStream->HasInputPts();
-	bool videoHasOutputPts = m_pRender->GetOutputPtsMs() != AV_NOPTS_VALUE;
-
-	// only start audio playback, if video is already there
-	if (!audioHasInputPts || !videoHasInputPts || !videoHasOutputPts)
-		return false;
-
-	int64_t audioBufferFillLevelMs = m_pAudio->GetInputPtsMs() - m_pAudio->GetOutputPtsMs();
-	if (audioBufferFillLevelMs > GetBufferFillLevelThresholdMs()) {
-		LOGDEBUG2(L_AV_SYNC, "audio buffer reached threshold %dms - PTS: %s (audio), %s (video) - buffer fill levels: %ldms (audio)",
-			GetBufferFillLevelThresholdMs(),
-			Timestamp2String(m_pAudio->GetOutputPtsMs(), 1),
-			Timestamp2String(m_pRender->GetOutputPtsMs(), 1),
-			audioBufferFillLevelMs);
 		return true;
 	}
 
 	return false;
+}
+
+/**
+ * Returns true, if audio playback should start without respect to a/v-sync
+ *
+ * This is true
+ * - if we are in live tv mode
+ * - if channel switch mode is CHANNEL_SWITCH_FAST_AUDIO
+ * - if audio wasn't started already
+ * - audio buffer is filled enough to start audio playback
+ * - if the device already received video data
+ *
+ * @return true, if all conditions are met to start audio playback
+ *
+ * @note Used for fast channel switch
+ */
+bool cSoftHdDevice::CheckAudioPlaybackStartConditions()
+{
+	if (m_pStateMachine->GetState() != BUFFERING)
+		return false;
+
+	if (m_channelSwitchMode != CHANNEL_SWITCH_FAST_AUDIO || !Transferring())
+		return false;
+
+	if (!m_pAudio->IsPaused())
+		return false;
+
+	bool audioHasInputPts = m_pAudio->HasInputPts();
+	bool videoHasInputPts = m_pVideoStream->HasInputPts();
+
+	// only start audio playback if the device also received video already
+	if (!audioHasInputPts || !videoHasInputPts)
+		return false;
+
+	int64_t audioBufferFillLevelMs = m_pAudio->GetInputPtsMs() - m_pAudio->GetOutputPtsMs();
+
+	// the needed audio threshold fill level wasn't reached yet
+	if (audioBufferFillLevelMs < GetBufferFillLevelThresholdMs())
+		return false;
+
+	return true;
 }
 
 /*********************************************************************
