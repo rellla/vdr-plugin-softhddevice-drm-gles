@@ -778,15 +778,17 @@ bool cVideoRender::DisplayFrame(void)
 		// log channel switch duration
 		if (m_pDevice->Transferring() && ((m_startCounter == 0 && m_displayOneFrameThenPause) || m_startCounter == 1)) {
 			auto now = std::chrono::steady_clock::now();
-			auto channelSwitchDurationMs = std::chrono::duration_cast<std::chrono::milliseconds>(now - m_pDevice->GetChannelSwitchStartTime()).count();
-			auto durationSinceFirstPacketMs = std::chrono::duration_cast<std::chrono::milliseconds>(now - m_pDevice->GetChannelSwitchFirstPacketTime()).count();
+			auto channelSwitchDurationMs = std::chrono::duration_cast<std::chrono::milliseconds>
+				(now - LOGGER->GetChannelSwitchStartTime()).count();
+			auto durationSinceFirstPacketMs = std::chrono::duration_cast<std::chrono::milliseconds>
+				(now - LOGGER->GetChannelSwitchDataReceivedTime()).count();
 
 			if (m_startCounter == 0) {
-				LOGDEBUG("first frame displayed %dms after channel switch, %dms after first packet was received", channelSwitchDurationMs, durationSinceFirstPacketMs);
+				LOGDEBUG2(L_AV_SYNC, "TRACE: +%5dms first frame displayed (+%5dms after first data was received)", channelSwitchDurationMs, durationSinceFirstPacketMs);
 			} else {
 				if (m_pConfig->ConfigShowChannelSwitchDurationMessage)
 					Skins.Message(mtInfo, cString::sprintf(tr("channel switch done in %ldms (%ldms)"), channelSwitchDurationMs, durationSinceFirstPacketMs));
-				LOGDEBUG("playback start fired %dms after channel switch, %dms after first packet was received", channelSwitchDurationMs, durationSinceFirstPacketMs);
+				LOGDEBUG2(L_AV_SYNC, "TRACE: +%5dms playback start fired (+%5dms after first data was received)", channelSwitchDurationMs, durationSinceFirstPacketMs);
 			}
 		}
 

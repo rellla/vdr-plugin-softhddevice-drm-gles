@@ -488,7 +488,8 @@ void cVideoStream::GetVideoSize(int *width, int *height, double *aspect_ratio)
  * @param par           video codec parameters
  * @param timebase      timebase
  */
-void cVideoStream::Open(AVCodecID codecId, AVCodecParameters *par, AVRational timebase) {
+void cVideoStream::Open(AVCodecID codecId, AVCodecParameters *par, AVRational timebase)
+{
 	m_newStream = true;
 	m_trickpkts = codecId == AV_CODEC_ID_MPEG2VIDEO ? 1 : 2;
 	m_timebase = timebase;

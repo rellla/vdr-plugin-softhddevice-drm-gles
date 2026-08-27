@@ -173,8 +173,6 @@ public:
 
 	// Logging, statistics
 	void GetStats(int *, int *, int *);
-	std::chrono::steady_clock::time_point GetChannelSwitchStartTime(void) { return m_channelSwitchStartTime; };
-	std::chrono::steady_clock::time_point GetChannelSwitchFirstPacketTime(void) { return m_dataReceivedTime; };
 
 	// Mediaplayer
 	void SetAudioCodec(enum AVCodecID, AVCodecParameters *, AVRational);
@@ -256,9 +254,8 @@ private:
 	cReassemblyBufferAudio m_audioReassemblyBuffer; ///< audio pes reassembly buffer
 	cJitterTracker m_audioJitterTracker{"audio"};   ///< audio jitter tracker
 	cJitterTracker m_videoJitterTracker{"video"};   ///< video jitter tracker
-	std::chrono::steady_clock::time_point m_channelSwitchStartTime; ///< timestamp, when VDR triggered a channel switch
-	std::chrono::steady_clock::time_point m_dataReceivedTime;       ///< timestamp, when the first audio or video data after a channel switch arrives in Play*()
 	std::atomic<ChannelSwitchMode> m_channelSwitchMode = CHANNEL_SWITCH_AVSYNC; ///< current channel switch mode
+	bool m_logPlaybackStart = true;
 
 	std::atomic<PlaybackMode> m_playbackMode = NONE; ///< current playback mode
 	int m_audioChannelID = -1;       ///< current audio channel ID
