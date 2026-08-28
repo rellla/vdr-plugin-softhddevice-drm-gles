@@ -131,6 +131,7 @@ public:
 	//
 protected:
 	virtual void ChannelSwitch(const cDevice *, int, bool);
+	virtual void Replaying(const cControl *, const char *, const char *, bool);
 
 	//
 	// cSoftHdDevice public API

@@ -396,7 +396,7 @@ int cSoftHdDevice::PlayAudio(const uchar *data, int size, uchar id)
 		return size;
 	}
 
-	if (!m_receivedValidAudio && Transferring()) {
+	if (!m_receivedValidAudio) {
 		auto now = std::chrono::steady_clock::now();
 		auto durationSinceChannelSwitchMs = std::chrono::duration_cast<std::chrono::milliseconds>(now - LOGGER->GetChannelSwitchStartTime()).count();
 		LOGDEBUG2(L_AV_SYNC, "TRACE: +%5dms PlayAudio() first valid audio data", durationSinceChannelSwitchMs);
@@ -819,17 +819,30 @@ bool cSoftHdDevice::Drain(void)
  */
 void cSoftHdDevice::ChannelSwitch(const cDevice *device, int channelNum, bool liveView)
 {
-	if (device != cDevice::PrimaryDevice())
+	if (device != cDevice::PrimaryDevice() || !liveView || channelNum != 0)
 		return;
 
-	if (!liveView)
+	auto now = std::chrono::steady_clock::now();
+	LOGGER->SetChannelSwitchStartTime(now);
+	LOGDEBUG2(L_AV_SYNC, "TRACE: channel switch");
+}
+
+/**
+ * Monitor a replay start or end
+ *
+ * Save the timestamp when a replay is started for later time measurement.
+ */
+void cSoftHdDevice::Replaying([[maybe_unused]]const cControl *control,
+                              [[maybe_unused]]const char *name,
+                              [[maybe_unused]]const char *filenameDevice,
+                              bool on)
+{
+	if (!on)
 		return;
 
-	if (channelNum == 0) {
-		auto now = std::chrono::steady_clock::now();
-		LOGGER->SetChannelSwitchStartTime(now);
-		LOGDEBUG2(L_AV_SYNC, "TRACE: channel switch");
-	}
+	auto now = std::chrono::steady_clock::now();
+	LOGGER->SetChannelSwitchStartTime(now);
+	LOGDEBUG2(L_AV_SYNC, "TRACE: replay start");
 }
 
 /*********************************************************************
@@ -989,9 +1002,10 @@ bool cSoftHdDevice::CheckPlaybackStartConditions()
 
 	// in CHANNEL_SWITCH_FAST_AUDIO mode audio was started already,
 	// do not start video until audio has caught up with the video pts
-	const int64_t audioBehindVideo = m_pRender->GetOutputPtsMs() - m_pAudio->GetOutputPtsMs() - GetVideoAudioDelayMs();
+	const int64_t audioBehindVideoMs = m_pRender->GetOutputPtsMs() - m_pAudio->GetOutputPtsMs() - GetVideoAudioDelayMs();
 	bool videoPlaybackMayStart = m_channelSwitchMode != CHANNEL_SWITCH_FAST_AUDIO ||
-	                             audioBehindVideo <= 0;
+	                             !Transferring() ||
+	                             audioBehindVideoMs <= m_pRender->GetAudioBehindVideoThresholdMs();
 
 	if (videoIsReady && audioIsReady && videoPlaybackMayStart) {
 		auto now = std::chrono::steady_clock::now();
@@ -1009,8 +1023,9 @@ bool cSoftHdDevice::CheckPlaybackStartConditions()
 	if (allBuffersReachedThreshold && m_logPlaybackStart) {
 		auto now = std::chrono::steady_clock::now();
 		auto durationSinceChannelSwitchMs = std::chrono::duration_cast<std::chrono::milliseconds>(now - LOGGER->GetChannelSwitchStartTime()).count();
-		LOGDEBUG2(L_AV_SYNC, "TRACE: +%5dms BufferingThresholdReached, but video waits for audio - PTS: %s (audio), %s (video) - buffer fill levels: %ldms (audio) %ldms (video)",
+		LOGDEBUG2(L_AV_SYNC, "TRACE: +%5dms BufferingThresholdReached, but video waits for audio (-%dms) - PTS: %s (audio), %s (video) - buffer fill levels: %ldms (audio) %ldms (video)",
 			durationSinceChannelSwitchMs,
+			audioBehindVideoMs,
 			Timestamp2String(m_pAudio->GetOutputPtsMs(), 1),
 			Timestamp2String(m_pRender->GetOutputPtsMs(), 1),
 			syncedAudioBufferFillLevelMs,
@@ -1503,7 +1518,7 @@ int cSoftHdDevice::PlayVideoInternal(cVideoStream *stream, cReassemblyBufferVide
 	}
 
 	if (mainStream) {
-		if (!m_receivedValidVideo && Transferring()) {
+		if (!m_receivedValidVideo) {
 			auto now = std::chrono::steady_clock::now();
 			auto durationSinceChannelSwitchMs = std::chrono::duration_cast<std::chrono::milliseconds>(now - LOGGER->GetChannelSwitchStartTime()).count();
 			LOGDEBUG2(L_AV_SYNC, "TRACE: +%5dms PlayVideo() first valid video data", durationSinceChannelSwitchMs);
