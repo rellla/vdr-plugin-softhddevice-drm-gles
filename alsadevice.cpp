@@ -530,15 +530,19 @@ int cAlsaDevice::GetHwDelayFrames(void)
  */
 bool cAlsaDevice::HandleError(int error)
 {
-	bool underrunHappened = false;
+	bool underrunHappened = snd_pcm_state(m_pPCMHandle) == SND_PCM_STATE_XRUN && !m_passthroughActive;
 
-	if (snd_pcm_state(m_pPCMHandle) == SND_PCM_STATE_XRUN && !m_passthroughActive)
-		underrunHappened = true;
+	int err = snd_pcm_recover(m_pPCMHandle, error, 0);
 
-	if (snd_pcm_recover(m_pPCMHandle, error, 0) < 0)
-		LOGERROR("audio: %s: Cannot recover: %s", __FUNCTION__, snd_strerror(error));
+	if (err < 0) {
+		LOGERROR("audio: %s: Cannot recover from %d (%s), state=%s",
+			__FUNCTION__, error, snd_strerror(error), snd_pcm_state_name(snd_pcm_state(m_pPCMHandle)));
 
-	snd_pcm_prepare(m_pPCMHandle);
+		return underrunHappened;
+	}
+
+	LOGDEBUG2(L_SOUND, "audio: %s: recovered %d (%s), state=%s",
+			__FUNCTION__, error, snd_strerror(error), snd_pcm_state_name(snd_pcm_state(m_pPCMHandle)));
 
 	return underrunHappened;
 }
@@ -553,13 +557,19 @@ bool cAlsaDevice::HandleError(int error)
  */
 int cAlsaDevice::GetAvailableBufferFrames(bool sync)
 {
-	// query available space in alsa buffer
-	int availableFrames = 0;
+	snd_pcm_state_t state = snd_pcm_state(m_pPCMHandle);
+	if (state != SND_PCM_STATE_RUNNING &&
+	    state != SND_PCM_STATE_PREPARED &&
+	    state != SND_PCM_STATE_PAUSED) {
+		LOGWARNING("audio: %s: invalid PCM state %s", __FUNCTION__, snd_pcm_state_name(state));
 
-	if (sync)
-		availableFrames = snd_pcm_avail(m_pPCMHandle);
-	else
-		availableFrames = snd_pcm_avail_update(m_pPCMHandle);
+		return -EBADFD;
+	}
+
+	// query available space in alsa buffer
+	int availableFrames = sync
+		? snd_pcm_avail(m_pPCMHandle)
+		: snd_pcm_avail_update(m_pPCMHandle);
 
 	if (availableFrames == -EAGAIN)
 		LOGDEBUG2(L_SOUND, "audio: %s: -EAGAIN", __FUNCTION__);

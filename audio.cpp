@@ -1204,7 +1204,7 @@ void cSoftHdAudio::ProcessEvents(void)
  */
 void cSoftHdAudio::ClockDriftCompensation(void)
 {
-	if (m_alsa.IsPassthroughActive())
+	if (!Running() || m_alsa.IsPassthroughActive())
 		return;
 
 	double bufferFillLevelMs = m_alsa.FramesToMsDouble(m_fillLevel.GetBufferFillLevelFramesAvg());
