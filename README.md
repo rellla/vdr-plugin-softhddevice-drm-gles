@@ -137,7 +137,7 @@ Requirements
 	Advanced Linux Sound Architecture Library
 	http://www.alsa-project.org
 
-- For OpenGL/ES support:
+- OpenGL/ES support (optional):
 
 	- gles2 (Mesa)
 	- egl (Mesa)
@@ -206,21 +206,15 @@ Setup: /etc/vdr/setup.conf
 	softhddevice-drm-gles.VideoChannelSwitchMode = 0
 		0 = fast channel switch is disabled
 		1 = enable fast channel switch: video is presented immediately as a still-picture
-		2 = enable fast channel switch: video is presented immediately as a still-picture and audio starts as soon as possible (slower than 1)
+		2 = enable fast channel switch: video is presented immediately as a still-picture and audio starts as soon as possible
 
-	softhddevice-drm-gles.MaxSizeGPUImageCache = 128
-		how many GPU memory should be used for image caching
+	softhddevice-drm-gles.AudioSoftvol = 0
+		0 = off, use hardware volume control
+		1 = on, use software volume control
 
-	softhddevice-drm-gles.ShowChannelSwitchDurationMessage = 0
-		1 = the skin shows an info message of the channel switch duration
-
-	softhddevice-drm-gles.AdditionalBufferLengthMs = 0
-		0 = default (min 450ms fixed)
-		1 - 1000 = length of additional buffering duration in ms
-
-	softhddevice-drm-gles.AudioDelay = 0
-		+n or -n ms
-		delay audio or delay video
+	softhddevice-drm-gles.AudioDownmix = 0
+		0 = none, 1 = downmix
+		Use FFmpeg downmix of AC-3/EAC-3 audio to stereo.
 
 	softhddevice-drm-gles.AudioPassthrough = 0
 		0 = none, 4 = AC-3, 8 = EAC-3, 16 = DTS
@@ -231,13 +225,13 @@ Setup: /etc/vdr/setup.conf
 		negating the value disables passthrough but remembers the setting
 		(note: TrueHD... isn't supported yet)
 
-	softhddevice-drm-gles.AudioDownmix = 0
-		0 = none, 1 = downmix
-		Use FFmpeg downmix of AC-3/EAC-3 audio to stereo.
+	softhddevice-drm-gles.AudioAutoAES = 0
+		0 = disabled
+		1 = auto append AES string to the audio device
 
-	softhddevice-drm-gles.AudioSoftvol = 0
-		0 = off, use hardware volume control
-		1 = on, use software volume control
+	softhddevice-drm-gles.AudioDelay = 0
+		+n or -n ms
+		delay audio or delay video
 
 	softhddevice-drm-gles.AudioNormalize = 0
 		0 = off, 1 = enable audio normalize
@@ -254,16 +248,38 @@ Setup: /etc/vdr/setup.conf
 	softhddevice-drm-gles.AudioStereoDescent = 0
 		reduce volume level (/1000) for stereo sources
 
-	softhddevice-drm-gles.AudioAutoAES = 0
-		0 = disabled
-		1 = auto append AES string to the audio device
-
 	softhddevice-drm-gles.AudioEq = 0
 		0 = Equalizer disabled
 		1 = Equalizer enabled
 
 	softhddevice-drm-gles.AudioEqBand[01b..18b] = 0
 		-15 to 1 = equalizer band gain (see Setup menu)
+
+	softhddevice-drm-gles.PipScalePercent = 25
+		10 - 100 = scale factor for pip (%)
+
+	softhddevice-drm-gles.PipLeftPercent = 100
+		0 - 100 = video left (%)
+		0 = left aligned, 100 = right aligned
+
+	softhddevice-drm-gles.PipTopPercent = 0
+		0 - 100 = video top (%)
+		0 = top aligned, 100 = bottom aligned
+
+	softhddevice-drm-gles.PipUseAlt = 0
+		0 = use standard (Pip*) position
+		0 = use alternative (PipAlt*) position
+
+	softhddevice-drm-gles.PipAltScalePercent = 25
+		10 - 100 = scale factor for alternative pip (%)
+
+	softhddevice-drm-gles.PipAltLeftPercent = 0
+		0 - 100 = video left for alternative pip (%)
+		0 = left aligned, 100 = right aligned
+
+	softhddevice-drm-gles.PipAltTopPercent = 0
+		0 - 100 = video top for alternative pip (%)
+		0 = top aligned, 100 = bottom aligned
 
 	softhddevice-drm-gles.LogLevel = 0
 		0 = default (no debug logs)
@@ -283,6 +299,10 @@ Setup: /etc/vdr/setup.conf
 			4096  Packet tracking logs (decoder + display)
 			8192  Grabbing debug logs
 			16384 FFmpeg debug logs
+
+	softhddevice-drm-gles.AdditionalBufferLengthMs = 0
+		0 = default (min 450ms fixed)
+		1 - 1000 = length of additional buffering duration in ms
 
 	softhddevice-drm-gles.DisableDeint = 0
 		0 = deinterlacer active if available
@@ -311,27 +331,11 @@ Setup: /etc/vdr/setup.conf
 	softhddevice-drm-gles.DropInvalidH264PFrames = 0
 		1 = drop H.264 P-Frames with an invalid backwards reference
 
-	softhddevice-drm-gles.PipScalePercent = 25
-		10 - 100 = scale factor for pip (%)
+	softhddevice-drm-gles.MaxSizeGPUImageCache = 128
+		how many GPU memory should be used for image caching
 
-	softhddevice-drm-gles.PipLeftPercent = 100
-		0 - 100 = video left (%)
-		0 = left aligned, 100 = right aligned
-
-	softhddevice-drm-gles.PipTopPercent = 0
-		0 - 100 = video top (%)
-		0 = top aligned, 100 = bottom aligned
-
-	softhddevice-drm-gles.PipAltScalePercent = 25
-		10 - 100 = scale factor for alternative pip (%)
-
-	softhddevice-drm-gles.PipAltLeftPercent = 0
-		0 - 100 = video left for alternative pip (%)
-		0 = left aligned, 100 = right aligned
-
-	softhddevice-drm-gles.PipAltTopPercent = 0
-		0 - 100 = video top for alternative pip (%)
-		0 = top aligned, 100 = bottom aligned
+	softhddevice-drm-gles.ShowChannelSwitchDurationMessage = 0
+		1 = the skin shows an info message of the channel switch duration
 
 
 SVDRP Commands
@@ -393,6 +397,8 @@ OpenGL/ES
 ---------
 OpenGL/ES support is based on the work of Stefan Braun
 (https://github.com/louisbraun/softhddevice-openglosd)
+
+Using OpenGL/ES is optional but recommended.
 
 This enables GPU accelerated OSD rendering.
 OpenGL/ES support is enabled, if gles2, egl and gbm are found on the system
@@ -471,8 +477,6 @@ PiP can be controlled via SVDRP, menu or via remote control keys, which are defi
 the keymacros.conf.
 If your VDR has enough devices assigned, you can watch channels on different transponders. On one-tuner
 systems, pip should only show the channels like if you are doing a concurrent recording.
-
-Note: Be aware, that the pip feature works in general but is still a little bit experimental.
 
 
 Mediaplayer
