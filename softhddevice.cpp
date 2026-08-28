@@ -1059,6 +1059,15 @@ bool cSoftHdDevice::CheckAudioPlaybackStartConditions()
 	if (audioBufferFillLevelMs < GetBufferFillLevelThresholdMs())
 		return false;
 
+	// drop audio data here, if the buffer fill level exceeds the threshold
+	// - otherwise a later playback start is unneccessarily delayed when all buffers
+	// reached their threshold but the rest of the audio data has still to be played out ...
+	int64_t bufferSurplus = audioBufferFillLevelMs - GetBufferFillLevelThresholdMs();
+	m_pAudio->DropSamplesOlderThanPtsMs(m_pAudio->GetOutputPtsMs() + bufferSurplus);
+
+	// get new buffer filllevel for correct log message, because frames have been dropped
+	audioBufferFillLevelMs = m_pAudio->GetInputPtsMs() - m_pAudio->GetOutputPtsMs();
+
 	auto now = std::chrono::steady_clock::now();
 	auto durationSinceChannelSwitchMs = std::chrono::duration_cast<std::chrono::milliseconds>(now - LOGGER->GetChannelSwitchStartTime()).count();
 	LOGDEBUG2(L_AV_SYNC, "TRACE: +%5dms firing AudioBufferingThresholdReached, threshold %dms - PTS: %s (audio), %s (video) - buffer fill levels: %ldms (audio)",

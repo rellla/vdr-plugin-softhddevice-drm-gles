@@ -719,6 +719,9 @@ bool cVideoRender::DisplayFrame(void)
 	if (m_pDevice->CheckPlaybackStartConditions())
 		m_eventQueue.push_back(BufferingThresholdReachedEvent{});
 
+	if (m_pDevice->CheckAudioPlaybackStartConditions())
+		m_pAudio->SetPaused(false);
+
 	bool skipBufferUnderrunCheck = m_videoPlaybackPaused ||
 	                               m_displayOneFrameThenPause ||
 	                               m_videoPlaybackPauseScheduledAt != AV_NOPTS_VALUE ||
