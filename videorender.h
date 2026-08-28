@@ -244,6 +244,8 @@ public:
 
 	bool PresentationPending(void) { return m_framePresentationCounter != 0 || !m_drmBufferQueue.IsEmpty(); };
 
+	static constexpr int GetAudioBehindVideoThresholdMs(void) { return AV_SYNC_THRESHOLD_AUDIO_BEHIND_VIDEO_MS; };
+
 protected:
 	virtual void Action(void);
 

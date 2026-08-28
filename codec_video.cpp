@@ -283,7 +283,7 @@ int cVideoDecoder::Open(enum AVCodecID codecId, AVCodecParameters * par,
 		return Open(codecId, par, timebase, true, 0, 0);
 	}
 
-	LOGINFO("videocodec: %s: %s (%s) for codec \"%s\" opened%s, using %s decoding with %d threads%s",
+	LOGDEBUG("videocodec: %s: %s (%s) for codec \"%s\" opened%s, using %s decoding with %d threads%s",
 		m_identifier,
 		codec->long_name ? codec->long_name : codec->name,
 		codec->name,

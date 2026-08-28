@@ -490,11 +490,13 @@ void cVideoStream::GetVideoSize(int *width, int *height, double *aspect_ratio)
  */
 void cVideoStream::Open(AVCodecID codecId, AVCodecParameters *par, AVRational timebase)
 {
+	m_mutex.lock();
 	m_newStream = true;
 	m_trickpkts = codecId == AV_CODEC_ID_MPEG2VIDEO ? 1 : 2;
 	m_timebase = timebase;
 	m_codecId = codecId;
 	m_pPar = par;
+	m_mutex.unlock();
 }
 
 /*****************************************************************************
