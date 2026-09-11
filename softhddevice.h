@@ -154,6 +154,7 @@ public:
 	bool CheckPlaybackStartConditions(void);
 	bool CheckAudioPlaybackStartConditions(void);
 	bool IsVideoOnlyPlayback(void) { return m_playbackMode == VIDEO_ONLY; };
+	bool IsAudioOnlyPlayback(void) { return m_playbackMode == AUDIO_ONLY; };
 
 	// Osd
 #ifdef USE_GLES

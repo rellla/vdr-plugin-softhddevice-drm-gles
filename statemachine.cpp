@@ -226,6 +226,7 @@ void cStateMachine::OnEventReceived(const Event& event)
 					ChangeState(PLAY);
 				},
 				[this](const PauseEvent&) {
+					m_pDevice->SetTrickSpeed(0, false, false);
 					m_pDevice->PausePlayback(false);
 				},
 				[this](const StopEvent&) {

@@ -385,6 +385,18 @@ int cSoftHdDevice::PlayAudio(const uchar *data, int size, uchar id)
 
 	m_receivedAudio = true;
 
+	// Special audio-only trickspeed handling:
+	// Advance the pts and block the thread depending on the pts difference and trickspeed factor.
+	// Don't forward any data to the hardware, because audio is muted anyway.
+	bool slowForward = m_pAudio->IsForwardTrickSpeed() && m_pAudio->IsSlowTrickSpeed();
+	if (m_playbackMode == AUDIO_ONLY && m_pStateMachine->GetState() == State::TRICK_SPEED && !slowForward) {
+		cPesAudio pesPacket((const uint8_t*)data, size);
+		if (pesPacket.IsValid() && pesPacket.GetPts() != AV_NOPTS_VALUE)
+			m_pAudio->AdvanceTrickSpeedPts(pesPacket.GetPts());
+
+		return size;
+	}
+
 	if (m_pAudio->IsBufferFull())
 		return 0;
 
@@ -403,8 +415,9 @@ int cSoftHdDevice::PlayAudio(const uchar *data, int size, uchar id)
 
 		if (!m_receivedValidVideo)
 			LOGGER->SetChannelSwitchDataReceivedTime(now);
+
+		m_receivedValidAudio = true;
 	}
-	m_receivedValidAudio = true;
 
 	if (Transferring()) { // compensation is only necessary with live streams
 		m_pAudio->ClockDriftCompensation();
@@ -491,6 +504,10 @@ int64_t cSoftHdDevice::GetSTC(void)
 		case VIDEO_ONLY:
 			return m_pRender->GetVideoClock();
 		case AUDIO_ONLY:
+			bool slowForward = m_pAudio->IsForwardTrickSpeed() && m_pAudio->IsSlowTrickSpeed();
+			if (m_pStateMachine->GetState() == State::TRICK_SPEED && !slowForward)
+				return m_pAudio->GetTrickSpeedPtsTimebaseUnits();
+
 			return m_pAudio->GetHardwareOutputPtsTimebaseUnits();
 	}
 
@@ -676,6 +693,7 @@ void cSoftHdDevice::Clear(void)
  */
 void cSoftHdDevice::Play(void)
 {
+	LOGDEBUG("device: %s:", __FUNCTION__);
 	cDevice::Play();
 
 	TriggerEvent(PlayEvent{});
@@ -1715,6 +1733,7 @@ void cSoftHdDevice::LeaveState(State state)
 			// The filter thread needs to be restarted for interlaced streams to be rendered with deinterlacer again. It is started lazily.
 			m_pVideoStream->CancelFilterThread();
 			m_pRender->SetTrickSpeed(0, false, false);
+			m_pAudio->SetTrickSpeed(0, false, false);
 			m_pRender->ResetFrameCounter();
 			m_pVideoStream->ResetFilterThreadNeededCheck();
 			m_pVideoStream->SetDeinterlacerDeactivated(false);
@@ -1797,6 +1816,7 @@ void cSoftHdDevice::EnterState(State state)
 			m_pRender->SetPlaybackPaused(false);
 			m_pVideoStream->SetDeinterlacerDeactivated(true);
 			m_pRender->ResetBufferReuseStrategy();
+			m_pAudio->ResetTrickSpeedPts();
 			break;
 		case STOP:
 			if (m_forceDetached) {
@@ -1940,6 +1960,7 @@ void cSoftHdDevice::ResetVideoFilter(void)
 void cSoftHdDevice::SetTrickSpeed(double speed, bool active, bool forward)
 {
 	m_pRender->SetTrickSpeed(speed, active, forward);
+	m_pAudio->SetTrickSpeed(speed, active, forward);
 }
 
 /**

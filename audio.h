@@ -73,6 +73,13 @@ public:
 	int64_t GetOutputPtsMs(void);
 	int GetAvResyncBorderMs(void) { return AV_SYNC_BORDER_MS; };
 
+	void SetTrickSpeed(double, bool, bool);
+	void AdvanceTrickSpeedPts(int64_t);
+	int64_t GetTrickSpeedPtsTimebaseUnits(void) { return m_trickSpeedPts; };
+	void ResetTrickSpeedPts(void) { m_trickSpeedPts = AV_NOPTS_VALUE; };
+	bool IsForwardTrickSpeed(void) { return m_forwardTrickspeed; };
+	bool IsSlowTrickSpeed(void) { return m_trickspeedFactor <= 1.0 ; };
+
 	void SetVolume(int);
 	void SetSoftvol(bool softVolume) { m_softVolume = softVolume; };
 
@@ -100,6 +107,7 @@ private:
 	constexpr static int AV_SYNC_BORDER_MS = 5000;             ///< absolute max a/v difference in ms which should trigger a resync
 	constexpr static int BYTES_PER_SAMPLE = 2;                 ///< number of bytes per sample
 	constexpr static int64_t PTS_WRAP = 1LL << 33;             ///< wraparound mod for a 33-bit PTS
+	constexpr static double MAX_TRICKSPEED_STEP_DELAY_MS = 3000; ///< upper bound for a single AdvanceTrickSpeedPts(), in case of large/ erratic pts jumps
 
 	cSoftHdDevice *m_pDevice;               ///< pointer to device
 	cSoftHdConfig *m_pConfig;               ///< pointer to config
@@ -124,6 +132,10 @@ private:
 
 	int64_t m_inputPts = AV_NOPTS_VALUE;    ///< pts clock (last pts in ringbuffer)
 	std::atomic<bool> m_paused = true;      ///< audio is paused
+	std::atomic<int64_t> m_trickSpeedPts = AV_NOPTS_VALUE; ///< pts of the last received (undecoded) packet during audio-only trickspeed
+	std::atomic<double> m_trickspeedFactor = 0;   ///< current trickspeed factor for AdvanceTrickSpeedPts()
+	std::atomic<bool> m_trickspeed = false;       ///< true, if trickspeed is active
+	std::atomic<bool> m_forwardTrickspeed = true; ///< current trickspeed direction
 
 	bool m_softVolume;                      ///< flag to use soft volume
 	int m_spdifBurstSize = 0;               ///< size of the current spdif burst
