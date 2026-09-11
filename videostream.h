@@ -121,7 +121,7 @@ private:
 	std::atomic<struct AVRational> m_timebase;      ///< current codec timebase
 	int m_trickpkts;                                ///< how many avpkt does the decoder need in trickspeed mode?
 	int m_sentTrickPkts = 0;                        ///< how many avpkt have been sent to the decoder in trickspeed mode?
-	volatile bool m_newStream = false;              ///< flag for new stream
+	std::atomic<bool> m_newStream = false;          ///< flag for new stream
 	bool m_interlaced;                              ///< flag for interlaced stream
 	double m_framerate = 0.0;                       ///< current stream framerate
 
