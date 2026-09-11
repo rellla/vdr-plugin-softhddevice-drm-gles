@@ -146,10 +146,11 @@ public:
 	State GetState(void) const { return m_state; };
 	void SetState(State state) { m_state = state; };
 	void ChangeState(State);
+	std::unique_lock<std::mutex> Lock(void) const { return std::unique_lock<std::mutex>(m_mutex); };
 
 private:
 	cSoftHdDevice *m_pDevice;                ///< pointer to the device
-	std::mutex m_mutex;                      ///< state machine mutex
+	mutable std::mutex m_mutex;              ///< state machine mutex
 	std::atomic<State> m_state = DETACHED;   ///< current state
 };
 

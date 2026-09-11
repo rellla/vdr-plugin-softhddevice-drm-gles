@@ -1355,7 +1355,8 @@ void cSoftHdDevice::Attach(void)
  */
 bool cSoftHdDevice::IsDetached(void) const
 {
-	std::lock_guard<std::mutex> lock(m_mutex);
+	auto lock = m_pStateMachine->Lock();
+
 	return m_pStateMachine->GetState() == State::DETACHED;
 }
 
@@ -1392,7 +1393,7 @@ int cSoftHdDevice::PlayPipVideo(const uchar *data, int size)
  */
 void cSoftHdDevice::ResetPipStream(void)
 {
-	std::lock_guard<std::mutex> lock(m_mutex);
+	auto lock = m_pStateMachine->Lock();
 
 	m_pPipStream->Halt();
 
@@ -1416,7 +1417,8 @@ void cSoftHdDevice::ResetPipStream(void)
  */
 bool cSoftHdDevice::PipIsEnabled(void)
 {
-	std::lock_guard<std::mutex> lock(m_mutex);
+	auto lock = m_pStateMachine->Lock();
+
 	return m_pPipHandler->IsEnabled();
 }
 
@@ -1433,7 +1435,8 @@ void cSoftHdDevice::PipSetSize(void) { m_pPipHandler->SetSize(); };
  */
 void cSoftHdDevice::SetRenderPipSize(void)
 {
-	std::lock_guard<std::mutex> lock(m_mutex);
+	auto lock = m_pStateMachine->Lock();
+
 	m_pRender->Halt();
 	m_pRender->SetPipSize(m_pipUseAlt);
 	m_pRender->Resume();
@@ -1441,7 +1444,8 @@ void cSoftHdDevice::SetRenderPipSize(void)
 
 void cSoftHdDevice::SetRenderPipActive(bool active)
 {
-	std::lock_guard<std::mutex> lock(m_mutex);
+	auto lock = m_pStateMachine->Lock();
+
 	m_pRender->Halt();
 	m_pRender->SetPipActive(active);
 	m_pRender->Resume();

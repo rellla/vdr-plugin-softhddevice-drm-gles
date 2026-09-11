@@ -266,7 +266,6 @@ private:
 	cVideoStream *m_pPipStream;      ///< pointer to pip video stream
 	cReassemblyBufferVideo m_pipReassemblyBuffer; ///< pip pes reassembly buffer
 	cPipHandler *m_pPipHandler = nullptr; ///< pointer to pip handler
-	mutable std::mutex m_mutex;      ///< mutex to lock the state machine
 	std::mutex m_sizeMutex;          ///< mutex to lock screen size (which is accessed by different threads)
 	std::atomic<bool> m_receivedAudio = false; ///< flag if audio packets have been received
 	std::atomic<bool> m_receivedVideo = false; ///< flag if video packets have been received
