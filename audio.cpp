@@ -431,7 +431,7 @@ void cSoftHdAudio::DropSamplesOlderThanPtsMs(int64_t ptsMs)
 	dropBytes = std::min(dropBytes, (int)m_pRingbuffer.UsedBytes());
 
 	if (dropBytes > 0) {
-		LOGDEBUG2(L_AV_SYNC, "audio: %s: dropping %dms audio samples to start in sync with the video (output PTS %s -> %s)",
+		LOGDEBUG2(L_AV_SYNC, "audio: %s: dropping %dms audio samples from ringbuffer (output PTS %s -> %s)",
 			__FUNCTION__,
 			dropMs,
 			Timestamp2String(GetOutputPtsMsInternal(), 1),
@@ -779,6 +779,67 @@ int64_t cSoftHdAudio::GetOutputPtsMs(void)
 	return GetOutputPtsMsInternal();
 }
 
+/**
+ * Set the trickspeed
+ *
+ * @param speed           trickspeed factor
+ * @param active          true, if trickspeed is currently active
+ * @param forward         true, if this is forward trickspeed
+ */
+void cSoftHdAudio::SetTrickSpeed(double speed, bool active, bool forward)
+{
+	m_trickspeedFactor = speed;
+	m_trickspeed = active;
+	m_forwardTrickspeed = forward;
+};
+
+/**
+ * Advance the pts in trickspeed mode and delay "playback"
+ *
+ * In normal playback, we retrieve the current audio pts by a calculation like:
+ *     PTS = InputPTS - bufferered data - hardware delay
+ * This will work, if we deal with contigous data and ascending pts.
+ * In trickspeed (except slow forward), the data which comes from VDR is not
+ * contigous. So we can't use the above logic to calculate the current audio pts.
+ *
+ * As a consequence we need to do some tricks here:
+ * The current pts will immediately be set as soon as the packet arrives (and has
+ * a valid pts of course).
+ *
+ * We also have to handle the duration, a frame has to be displayed in the device.
+ * In case of playback containing video data, the render thread does this for us.
+ * In audio-only playback we do the following now:
+ * Calculate the difference in ms between the last two audio packets and use the
+ * trickspeed factor to calculate the delay.
+ * This will cause PlayAudio() to sleep exactly as long as needed.
+ * Because we have nothing to sync and don't hear anything anyway, it's enough
+ * to keep the pts moving for a correct trickspeed handling process bar display.
+ *
+ * @param pts          next audio input pts from
+ */
+void cSoftHdAudio::AdvanceTrickSpeedPts(int64_t pts)
+{
+	int64_t previousPts = m_trickSpeedPts;
+
+	if (previousPts != AV_NOPTS_VALUE && pts != AV_NOPTS_VALUE) {
+		double factor = m_trickspeedFactor;
+		if (factor <= 0)
+			factor = 1;
+
+		double contentDeltaMs = std::fabs((double)m_alsa.PtsToMs(pts, av_q2d(m_timebase)) - (double)m_alsa.PtsToMs(previousPts, av_q2d(m_timebase)));
+		double trickspeedDelayMs = std::min(contentDeltaMs / factor, MAX_TRICKSPEED_STEP_DELAY_MS);
+
+		LOGDEBUG2(L_TRICK, "audio: %s: %.2fms (%.2fms) %s %s",
+			__FUNCTION__, trickspeedDelayMs, contentDeltaMs,
+			IsSlowTrickSpeed() ? "slow" : "fast", IsForwardTrickSpeed() ? "forward" : "backward");
+
+		if (trickspeedDelayMs > 0)
+			cCondWait::SleepMs(trickspeedDelayMs);
+	}
+
+	m_trickSpeedPts = pts;
+}
+
 int64_t cSoftHdAudio::GetOutputPtsMsInternal(void)
 {
 	if (m_inputPts == AV_NOPTS_VALUE)
@@ -1056,6 +1117,14 @@ void cSoftHdAudio::Stop(void)
 bool cSoftHdAudio::CyclicCall(void)
 {
 	std::lock_guard<std::mutex> lock1(m_pauseMutex);
+
+	// fake audio only slow forward trickspeed playback
+	if (m_pDevice->IsAudioOnlyPlayback() && m_trickspeed && IsForwardTrickSpeed() && IsSlowTrickSpeed()) {
+		const int64_t FRAME_MS = 20;
+		LOGDEBUG2(L_TRICK, "audio: audio only slow forward trickspeed - drop %dms, sleep %.2fms", FRAME_MS, FRAME_MS / m_trickspeedFactor);
+		cCondWait::SleepMs(FRAME_MS / m_trickspeedFactor);
+		DropSamplesOlderThanPtsMs(GetOutputPtsMs() + FRAME_MS);
+	}
 
 	// do nothing in paused PCM mode
 	if (m_paused && !m_alsa.IsPassthroughActive())
