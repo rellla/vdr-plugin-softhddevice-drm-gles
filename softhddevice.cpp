@@ -1527,8 +1527,9 @@ int cSoftHdDevice::PlayVideoInternal(cVideoStream *stream, cReassemblyBufferVide
 
 			if (!m_receivedValidAudio)
 				LOGGER->SetChannelSwitchDataReceivedTime(now);
+
+			m_receivedValidVideo = true;
 		}
-		m_receivedValidVideo = true;
 	}
 
 	if (trackJitter) {
@@ -1773,6 +1774,12 @@ void cSoftHdDevice::EnterState(State state)
 			}
 			break;
 		case PLAY:
+			// revert the video playback start release which was done in BUFFERING if we are audio-only
+			if (m_playbackMode == AUDIO_ONLY && FastChannelSwitchAudioInTransferMode()) {
+				m_pRender->SetPlaybackPaused(true);
+				m_pRender->SetDisplayOneFrameThenPause(false);
+			}
+
 			if (m_playbackMode != VIDEO_ONLY)
 				m_pAudio->SetPaused(false);
 
