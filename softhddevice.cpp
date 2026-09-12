@@ -1763,7 +1763,7 @@ void cSoftHdDevice::EnterState(State state)
 	switch (state) {
 		case BUFFERING:
 			m_pAudio->ResetHwDelayBaseline();
-			if (m_channelSwitchMode != CHANNEL_SWITCH_AVSYNC) {
+			if (FastChannelSwitchAudioInTransferMode()) {
 				m_pRender->SetPlaybackPaused(false);
 				m_pRender->SetDisplayOneFrameThenPause(true);
 			}
