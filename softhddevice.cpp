@@ -1003,9 +1003,7 @@ bool cSoftHdDevice::CheckPlaybackStartConditions()
 	// in CHANNEL_SWITCH_FAST_AUDIO mode audio was started already,
 	// do not start video until audio has caught up with the video pts
 	const int64_t audioBehindVideoMs = m_pRender->GetOutputPtsMs() - m_pAudio->GetOutputPtsMs() - GetVideoAudioDelayMs();
-	bool videoPlaybackMayStart = m_channelSwitchMode != CHANNEL_SWITCH_FAST_AUDIO ||
-	                             !Transferring() ||
-	                             audioBehindVideoMs <= m_pRender->GetAudioBehindVideoThresholdMs();
+	bool videoPlaybackMayStart = !FastChannelSwitchAudioInTransferMode() || audioBehindVideoMs <= m_pRender->GetAudioBehindVideoThresholdMs();
 
 	if (videoIsReady && audioIsReady && videoPlaybackMayStart) {
 		auto now = std::chrono::steady_clock::now();
@@ -1055,7 +1053,7 @@ bool cSoftHdDevice::CheckAudioPlaybackStartConditions()
 	if (m_pStateMachine->GetState() != BUFFERING)
 		return false;
 
-	if (m_channelSwitchMode != CHANNEL_SWITCH_FAST_AUDIO || !Transferring())
+	if (!FastChannelSwitchAudioInTransferMode())
 		return false;
 
 	if (!m_pAudio->IsPaused())
@@ -1954,7 +1952,7 @@ bool cSoftHdDevice::SchedulePlaybackStart(void)
 		int64_t firstVideoPtsMs = GetFirstVideoPtsMsToPlay();
 
 		// don't drop old audio, if we want to wait for it in fast channel switch mode including audio playback
-		if (m_channelSwitchMode != CHANNEL_SWITCH_FAST_AUDIO || !Transferring())
+		if (!FastChannelSwitchAudioInTransferMode())
 			m_pAudio->DropSamplesOlderThanPtsMs(firstAudioPtsMs);
 
 		m_pRender->SchedulePlaybackStartAtPtsMs(firstVideoPtsMs);
