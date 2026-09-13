@@ -1302,19 +1302,19 @@ void cVideoRender::InitBuffers(void)
 	if (!m_pBufOsd)
 		m_pBufOsd = new cDrmBuffer();
 
-	m_pBufOsd->Setup(m_pDrmDevice->Fd(), m_pDrmDevice->OsdWidth(), m_pDrmDevice->OsdHeight(), DRM_FORMAT_ARGB8888, NULL, false);
+	m_pBufOsd->Setup(m_pDrmDevice->Fd(), m_pDrmDevice->OsdWidth(), m_pDrmDevice->OsdHeight(), DRM_FORMAT_ARGB8888, nullptr, false);
 #else
 	if (m_disableOglOsd) {
 		if (!m_pBufOsd)
 			m_pBufOsd = new cDrmBuffer();
 
-		m_pBufOsd->Setup(m_pDrmDevice->Fd(), m_pDrmDevice->OsdWidth(), m_pDrmDevice->OsdHeight(), DRM_FORMAT_ARGB8888, NULL, false);
+		m_pBufOsd->Setup(m_pDrmDevice->Fd(), m_pDrmDevice->OsdWidth(), m_pDrmDevice->OsdHeight(), DRM_FORMAT_ARGB8888, nullptr, false);
 	}
 #endif
 
 	// black fb
 	LOGDEBUG2(L_DRM, "videorender: %s: Try to create a black FB", __FUNCTION__);
-	m_bufBlack.Setup(m_pDrmDevice->Fd(), m_pDrmDevice->DisplayWidth(), m_pDrmDevice->DisplayHeight(), DRM_FORMAT_NV12, NULL, false);
+	m_bufBlack.Setup(m_pDrmDevice->Fd(), m_pDrmDevice->DisplayWidth(), m_pDrmDevice->DisplayHeight(), DRM_FORMAT_NV12, nullptr, false, true);
 	m_bufBlack.FillBlack();
 }
 
@@ -1599,7 +1599,7 @@ cDrmBuffer *cBufferStrategyReuseSoftware::GetBuffer(cDrmBufferPool *pool, AVDRMF
 AVFrame *cDecodingStrategySoftware::PrepareDrmBuffer(cDrmBuffer *buf, int drmDeviceFd, AVFrame *inframe)
 {
 	if (!buf->IsDirty()) {
-		buf->Setup(drmDeviceFd, inframe->width, inframe->height, DRM_FORMAT_NV12, nullptr, true);
+		buf->Setup(drmDeviceFd, inframe->width, inframe->height, DRM_FORMAT_NV12, nullptr, true, true);
 
 		int dmaBufHandle;
 		if (drmPrimeHandleToFD(drmDeviceFd, buf->PrimeHandle(0), DRM_CLOEXEC | DRM_RDWR, &dmaBufHandle))
@@ -1639,7 +1639,7 @@ AVFrame *cDecodingStrategyHardware::PrepareDrmBuffer(cDrmBuffer *buf, int drmDev
 {
 	if (!buf->IsDirty()) {
 		AVDRMFrameDescriptor *primedata = (AVDRMFrameDescriptor *)frame->data[0];
-		buf->Setup(drmDeviceFd, frame->width, frame->height, 0, primedata, false);
+		buf->Setup(drmDeviceFd, frame->width, frame->height, DRM_FORMAT_INVALID, primedata, false);
 	}
 
 	return frame;
