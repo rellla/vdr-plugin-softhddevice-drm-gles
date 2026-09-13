@@ -93,7 +93,7 @@ void cDrmBuffer::Destroy(void)
 	LOGDEBUG2(L_DRM, "drmbuffer: %s: destroy FB %d DMA-BUF handle %d", __FUNCTION__, m_fbId, m_dmaBufHandle[0]);
 
 	for (int i = 0; i < m_numPlanes; i++) {
-		if (m_pPlane[i]) {
+		if (m_pPlane[i] && m_size[i]) {
 			if (munmap(m_pPlane[i], m_size[i]))
 				LOGERROR("drmbuffer: %s: failed unmap FB (%d): %m", __FUNCTION__, errno);
 		}
@@ -108,7 +108,7 @@ void cDrmBuffer::Destroy(void)
 	}
 
 	for (int i = 0; i < m_numPlanes; i++) {
-		if (m_pPlane[i]) {
+		if (m_pPlane[i] && m_size[i]) {
 			memset(&dreq, 0, sizeof(dreq));
 			dreq.handle = m_planePrimeHandle[i];
 
@@ -140,48 +140,6 @@ void cDrmBuffer::Destroy(void)
 }
 
 /**
- * Holds the infos of a pixel format
- *
- * Each entry describes a format in the following matter:
- * {
- * 	uint32_t format,
- * 	const char *fourcc,
- * 	uint8_t num_planes,
- * 	struct format_plane_info planes[4]
- * }
- *
- * The format_plane_info is:
- * {
- * 	uint8_t bitspp,
- * 	uint8_t xsub,
- * 	uint8_t ysub,
- * }
- */
-static const struct format_info format_info_array[] = {
-	{ DRM_FORMAT_NV12, "NV12", 2, { { 8, 1, 1 }, { 16, 2, 2 } }, },
-	{ DRM_FORMAT_YUV420, "YU12", 3, { { 8, 1, 1 }, { 8, 2, 2 }, {8, 2, 2 } }, },
-	{ DRM_FORMAT_ARGB8888, "AR24", 1, { { 32, 1, 1 } }, },
-};
-
-#define ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]))
-
-/**
- * Find infos for the given pixel format
- *
- * @param format      pixel format
- *
- * @return           the infos of the format as a struct
- */
-const struct format_info *FindFormat(uint32_t format)
-{
-	for (int i = 0; i < (int)ARRAY_SIZE(format_info_array); i++) {
-		if (format == format_info_array[i].format)
-			return &format_info_array[i];
-	}
-	return NULL;
-}
-
-/**
  * Setup the buffer
  *
  * @param drmDeviceFd    drm device file descriptor
@@ -189,6 +147,10 @@ const struct format_info *FindFormat(uint32_t format)
  * @param height         buffer height
  * @param pixFmt         buffer pixel format
  * @param primedata      AVDRMFrameDescriptor or NULL (if this is a software buffer)
+ *
+ * @note If this is a software buffer (primedata == nullptr), pixFmt has to be either
+ * DRM_FORMAT_NV12 or DRM_FORMAT_ARGB8888. A NV12 buffer is created with one single
+ * buffer object for two planes with offsets.
  */
 void cDrmBuffer::Setup(int drmDeviceFd, uint32_t width, uint32_t height, uint32_t pixFmt, AVDRMFrameDescriptor *primedata, bool closeHandleOnDestroy)
 {
@@ -216,8 +178,8 @@ void cDrmBuffer::Setup(int drmDeviceFd, uint32_t width, uint32_t height, uint32_
 		m_numPlanes = layer->nb_planes;
 		m_numObjects = primedata->nb_objects;
 
-//		LOGDEBUG2(L_DRM, "drmbuffer: %s: PRIMEDATA %d x %d, pix_fmt %4.4s nb_planes %d nb_objects %d", __FUNCTION__,
-//			m_width, m_height, (char *)&m_pixFmt, m_numPlanes, m_numObjects);
+		//LOGDEBUG2(L_DRM, "drmbuffer: %s: PRIMEDATA %d x %d, pix_fmt %4.4s nb_planes %d nb_objects %d", __FUNCTION__,
+		//	m_width, m_height, (char *)&m_pixFmt, m_numPlanes, m_numObjects);
 
 		// create handles for PrimeFDs
 		for (int object = 0; object < primedata->nb_objects; object++) {
@@ -229,9 +191,9 @@ void cDrmBuffer::Setup(int drmDeviceFd, uint32_t width, uint32_t height, uint32_
 
 			m_dmaBufHandle[object] = primedata->objects[object].fd;
 			m_size[object] = primedata->objects[object].size;
-//			LOGDEBUG2(L_DRM, "drmbuffer: %s: PRIMEDATA create handle for PrimeFD (%d|%i): PrimeFD %i ToHandle %i size %zu modifier %" PRIx64 "",
-//				__FUNCTION__, object, primedata->nb_objects, primedata->objects[object].fd, m_primehandle[object],
-//				primedata->objects[object].size, primedata->objects[object].format_modifier);
+			//LOGDEBUG2(L_DRM, "drmbuffer: %s: PRIMEDATA create handle for PrimeFD (%d|%i): PrimeFD %i ToHandle %i size %zu modifier %" PRIx64 "",
+			//	__FUNCTION__, object, primedata->nb_objects, primedata->objects[object].fd, m_primehandle[object],
+			//	primedata->objects[object].size, primedata->objects[object].format_modifier);
 		}
 
 		// fill the planes
@@ -255,52 +217,63 @@ void cDrmBuffer::Setup(int drmDeviceFd, uint32_t width, uint32_t height, uint32_
 
 		m_modifier = modifier[0];
 	} else {
-		const struct format_info *format_info = FindFormat(m_pixFmt);
-		if (!format_info)
-			LOGFATAL("drmbuffer: %s: No suitable format found!", __FUNCTION__);
+		if (m_pixFmt != DRM_FORMAT_NV12 && m_pixFmt != DRM_FORMAT_ARGB8888)
+			LOGFATAL("drmbuffer: %s: pixFmt is neither NV12 nor ARGB8888!", __FUNCTION__);
 
-		m_numPlanes = format_info->num_planes;
+		//LOGDEBUG2(L_DRM, "drmbuffer: %s: %d x %d, pix_fmt %4.4s", __FUNCTION__, m_width, m_height, (char *)&m_pixFmt);
 
-		// LOGDEBUG2(L_DRM, "drmbuffer: %s:  %d x %d, pix_fmt %4.4s nb_planes %d", __FUNCTION__,
-		// 	m_width, m_height, (char *)&m_pixFmt, m_numPlanes);
-
-		for (int plane = 0; plane < format_info->num_planes; plane++) {
-			const struct format_plane_info *plane_info = &format_info->planes[plane];
-
-			struct drm_mode_create_dumb creq;
-			creq.height = m_height / plane_info->ysub;
-			creq.width = m_width / plane_info->xsub;
-			creq.bpp = plane_info->bitspp;
-			creq.flags = 0;
-			creq.handle = 0;
-			creq.pitch = 0;
-			creq.size = 0;
-
-			if (drmIoctl(drmDeviceFd, DRM_IOCTL_MODE_CREATE_DUMB, &creq) < 0)
-				LOGFATAL("drmbuffer: %s: cannot create dumb buffer %dx%d@%d (%d): %m", __FUNCTION__,
-					creq.width, creq.height, creq.bpp, errno);
-
-			m_planePrimeHandle[plane] = creq.handle;
-			m_pitch[plane] = creq.pitch;
-			m_size[plane] = creq.size;
-
-			struct drm_mode_map_dumb mreq;
-			memset(&mreq, 0, sizeof(struct drm_mode_map_dumb));
-			mreq.handle = m_planePrimeHandle[plane];
-
-			if (drmIoctl(drmDeviceFd, DRM_IOCTL_MODE_MAP_DUMB, &mreq))
-				LOGFATAL("drmbuffer: %s: cannot prepare dumb buffer for mapping (%d): %m", __FUNCTION__, errno);
-
-			m_pPlane[plane] = (uint8_t *)mmap(0, creq.size, PROT_READ | PROT_WRITE, MAP_SHARED, drmDeviceFd, mreq.offset);
-
-			if (m_pPlane[plane] == MAP_FAILED)
-				LOGFATAL("drmbuffer: %s: cannot map dumb buffer (%d): %m", __FUNCTION__, errno);
-
-			memset(m_pPlane[plane], 0, m_size[plane]);
-
-			// LOGDEBUG2(L_DRM, "drmbuffer: %s: fill plane %d: prime handle %d pitch %d offset %d size %d address %p", __FUNCTION__,
-			// 	plane, m_planePrimeHandle[plane], m_pitch[plane], m_offset[plane], m_size[plane], m_pPlane[plane]);
+		struct drm_mode_create_dumb creq;
+		if (m_pixFmt == DRM_FORMAT_NV12) {
+			creq.height = m_height * 3 / 2;
+			creq.bpp = 8;
+		} else { // DRM_FORMAT_ARGB8888
+			creq.height = m_height;
+			creq.bpp = 32;
 		}
+
+		creq.width = m_width;
+		creq.flags = 0;
+		creq.handle = 0;
+		creq.pitch = 0;
+		creq.size = 0;
+
+		if (drmIoctl(drmDeviceFd, DRM_IOCTL_MODE_CREATE_DUMB, &creq) < 0)
+			LOGFATAL("drmbuffer: %s: cannot create dumb buffer %dx%d@%d (%d): %m", __FUNCTION__, creq.width, creq.height, creq.bpp, errno);
+
+		struct drm_mode_map_dumb mreq;
+		memset(&mreq, 0, sizeof(struct drm_mode_map_dumb));
+		mreq.handle = creq.handle;
+
+		if (drmIoctl(drmDeviceFd, DRM_IOCTL_MODE_MAP_DUMB, &mreq))
+			LOGFATAL("drmbuffer: %s: cannot prepare dumb buffer for mapping (%d): %m", __FUNCTION__, errno);
+
+		uint8_t *map = (uint8_t *)mmap(0, creq.size, PROT_READ | PROT_WRITE, MAP_SHARED, drmDeviceFd, mreq.offset);
+		if (map == MAP_FAILED)
+			LOGFATAL("drmbuffer: %s: cannot map dumb buffer (%d): %m", __FUNCTION__, errno);
+
+		m_planePrimeHandle[0] = creq.handle;
+		m_pitch[0] = creq.pitch;
+		m_offset[0] = 0;
+		m_size[0] = creq.size;
+		m_pPlane[0] = map;
+		m_numPlanes = 1;
+
+		//LOGDEBUG2(L_DRM, "drmbuffer: %s: fill plane 0: prime handle %d pitch %d offset %d size %d address %p", __FUNCTION__,
+		//	m_planePrimeHandle[0], m_pitch[0], m_offset[0], m_size[0], m_pPlane[0]);
+
+		// DRM_FORMAT_NV12 is always using a single buffer object for both planes
+		if (m_pixFmt == DRM_FORMAT_NV12) {
+			m_planePrimeHandle[1] = creq.handle;
+			m_pitch[1] = creq.pitch;
+			m_offset[1] = creq.pitch * m_height;
+			m_size[1] = 0;   // shares the buffer object of plane 0
+			m_pPlane[1] = map + m_offset[1];
+			m_numPlanes++;
+			//LOGDEBUG2(L_DRM, "drmbuffer: %s: fill plane 1: prime handle %d pitch %d offset %d size %d address %p", __FUNCTION__,
+			//	m_planePrimeHandle[1], m_pitch[1], m_offset[1], m_size[1], m_pPlane[1]);
+		}
+
+		memset(m_pPlane[0], 0, m_size[0]);
 	}
 
 	int ret = -1;

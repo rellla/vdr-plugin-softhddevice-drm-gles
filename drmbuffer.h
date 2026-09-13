@@ -25,21 +25,6 @@ extern "C" {
 
 #include "pool.h"
 
-/** @ingroup drm */
-struct format_plane_info {
-	uint8_t bitspp;
-	uint8_t xsub;
-	uint8_t ysub;
-};
-
-/** @ingroup drm */
-struct format_info {
-	uint32_t format;
-	const char *fourcc;
-	uint8_t num_planes;
-	struct format_plane_info planes[4];
-};
-
 /**
  * DRM Buffer
  *
