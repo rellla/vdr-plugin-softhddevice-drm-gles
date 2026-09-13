@@ -1735,6 +1735,7 @@ void cSoftHdDevice::LeaveState(State state)
 			m_pRender->SetTrickSpeed(0, false, false);
 			m_pAudio->SetTrickSpeed(0, false, false);
 			m_pRender->ResetFrameCounter();
+			m_pRender->ClearDecoderToDisplayQueue();
 			m_pVideoStream->ResetFilterThreadNeededCheck();
 			m_pVideoStream->SetDeinterlacerDeactivated(false);
 			m_pRender->SetPlaybackPaused(true);

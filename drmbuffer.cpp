@@ -102,7 +102,7 @@ void cDrmBuffer::Destroy(void)
 	if (drmModeRmFB(m_drmDeviceFd, m_fbId) < 0)
 		LOGERROR("drmbuffer: %s: cannot rm FB (%d): %m", __FUNCTION__, errno);
 
-	if (m_closeHandleOnDestroy &&m_dmaBufHandle[0] && fcntl(m_dmaBufHandle[0], F_GETFD) != -1) { // the handle can be invalid in reverse trickspeed, because the decoder is rapidly reopened
+	if (m_closeHandleOnDestroy && m_dmaBufHandle[0] && fcntl(m_dmaBufHandle[0], F_GETFD) != -1) { // the handle can be invalid in reverse trickspeed, because the decoder is rapidly reopened
 		if (close(m_dmaBufHandle[0]))
 			LOGERROR("drmbuffer: %s: error closing DMA-BUF handle %d (%d): %m", __FUNCTION__, m_dmaBufHandle[0], errno);
 	}
@@ -317,8 +317,8 @@ void cDrmBuffer::Setup(int drmDeviceFd, uint32_t width, uint32_t height, uint32_
 	if (ret)
 		LOGFATAL("drmbuffer: %s: cannot create framebuffer (%d): %m", __FUNCTION__, errno);
 
-	LOGDEBUG2(L_DRM, "drmbuffer: %s: Added %sFB fb_id %d width %d height %d pix_fmt %4.4s", __FUNCTION__,
-		primedata ? "primedata " : "", m_fbId, m_width, m_height, (char *)&m_pixFmt);
+	LOGDEBUG2(L_DRM, "drmbuffer: %s: Added %sFB fb_id %d width %d height %d pix_fmt %4.4s DMA-BUF handle %d", __FUNCTION__,
+		primedata ? "primedata " : "", m_fbId, m_width, m_height, (char *)&m_pixFmt, m_dmaBufHandle[0]);
 
 	m_dirty = true;
 }
