@@ -36,7 +36,7 @@ Current development happens on a **Raspberry PI 4** and a **Radxa Rock 4B Plus (
 |                   | 576i MPEG2 | 720p H.264 | 1080i H.264 | 1080p HEVC |
 | ----------------- | ---------- | ---------- | ----------- | ---------- |
 | Allwinner         | Not tested | Not tested | Not tested  | Not tested |
-| Amlogic           | Not tested | Not tested | Not tested  | Not tested |
+| Amlogic           | ✅         | ✅         | ✅          | ✅         |
 | Raspberry Pi 2    | ❌         | SW         | SW          | SW         |
 | Raspberry Pi 3    | Not tested | Not tested | Not tested  | Not tested |
 | Raspberry Pi 4    | SW         | ✅         | ✅          | ✅         |
@@ -103,7 +103,6 @@ and is updated on every commit automatically.
 
 Known Bugs/ TODO
 ----------------
-- amlogic trickspeed is broken
 - rpi avcodec_flush_buffers is broken in [rpi-ffmpeg](https://github.com/jc-kynesim/rpi-ffmpeg) (used in LibreELEC), use a workaround for now
 - see https://github.com/rellla/vdr-plugin-softhddevice-drm-gles/issues
 
@@ -427,7 +426,7 @@ specific patches.
 
 The following instructions may help you to setup FFmpeg (may be outdated):
 
-- Raspberry Pi, Amlogic:
+- Raspberry Pi
 	- [rpi-ffmpeg](https://github.com/jc-kynesim/rpi-ffmpeg) is the very recent version for RPI4/RPI5 and Amlogic (For Raspberry Pi LibreELEC normally patches the upstream FFmpeg version to get the version from jc-kynesim)
 	- check out a recent branch (note: the master branch is not the one you want to have)
 	- most likely this branch has everything you need and you don't need any further patches (in doubt, check [how it is handled in LibreELEC](https://github.com/LibreELEC/LibreELEC.tv/tree/master/packages/multimedia/ffmpeg))
@@ -435,11 +434,8 @@ The following instructions may help you to setup FFmpeg (may be outdated):
 	- For Raspberry Pi building with the following configure options should enable hardware acceleration:
 
 			--disable-static --enable-shared --enable-pic --enable-bsfs --enable-filters --enable-v4l2_m2m --enable-libdrm --enable-libudev --enable-v4l2-request --enable-sand --enable-hwaccels --enable-neon --disable-vdpau --disable-vaapi --disable-mmal
-	- For Amlogic building with the following configure options should enable hardware acceleration:
 
-			--disable-static --enable-shared --enable-pic --enable-bsfs --enable-filters --enable-v4l2_m2m --enable-libdrm --enable-hwaccels --enable-neon --disable-vdpau --disable-vaapi --disable-libudev --disable-v4l2-request
-
-- Rockchip, Allwinner:
+- Rockchip, Allwinner, Amlogic:
 	- use mainline FFmpeg with version mentioned in [LibreELEC package file](https://github.com/LibreELEC/LibreELEC.tv/blob/master/packages/multimedia/ffmpeg/package.mk)
 	- patch the mainline version with the [patchsets](https://github.com/LibreELEC/LibreELEC.tv/tree/master/packages/multimedia/ffmpeg/patches) which where mentioned for your platform in the package.mk
 	- build FFmpeg as usual with the "configure - make - make install" logic
