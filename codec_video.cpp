@@ -503,22 +503,6 @@ int cVideoDecoder::ReceiveFrame(AVFrame **frame)
 	if (pFrame->flags == AV_FRAME_FLAG_CORRUPT)
 		LOGDEBUG2(L_CODEC, "videocodec: %s: %s: AV_FRAME_FLAG_CORRUPT", m_identifier, __FUNCTION__);
 
-	// Codec artifacts workaround for amlogic H264:
-	// Skip m_skipKeyFramesNum Key-Frames at stream start.
-	// m_skipKeyFramesNum can be set with SetSkipKeyFramesNum()
-	if (m_pVideoCtx->codec_id == AV_CODEC_ID_H264 && m_skipKeyFramesNum && m_cntStartKeyFrames) {
-		if (IsKeyFrame(pFrame)) {
-			LOGDEBUG2(L_CODEC, "videocodec: %s: %s: artifact workaround - skip %s Keyframe nr %d", m_identifier, __FUNCTION__,
-				isInterlacedFrame(pFrame) ? "interlaced" : "progressive", m_cntStartKeyFrames);
-
-			if (m_cntStartKeyFrames++ > m_skipKeyFramesNum - 1)
-				m_cntStartKeyFrames = 0;
-		}
-
-		av_frame_free(&pFrame);
-		return AVERROR(EAGAIN);
-	}
-
 	*frame = pFrame;
 
 	if (!m_cntFramesReceived) {
