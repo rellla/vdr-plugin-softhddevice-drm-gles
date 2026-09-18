@@ -33,15 +33,17 @@ This is true for most of the devices, that are supported by LibreELEC.
 
 Current development happens on a **Raspberry PI 4** and a **Radxa Rock 4B Plus (RK3399)**.
 
-|                 | 576i MPEG2 | 720p H.264 | 1080i H.264 | 1080p HEVC |
-| --------------- | ---------- | ---------- | ----------- | ---------- |
-| Allwinner       | Not tested | Not tested | Not tested  | Not tested |
-| Amlogic         | Not tested | Not tested | Not tested  | Not tested |
-| Raspberry Pi 2  | ❌          | SW         | SW          | SW         |
-| Raspberry Pi 3  | Not tested | Not tested | Not tested  | Not tested |
-| Raspberry Pi 4  | SW         | ✅          | ✅           | ✅          |
-| Raspberry Pi 5  | SW         | SW         | SW          | ✅          |
-| Rockchip RK3399 | ✅          | ✅          | ✅           | ✅          |
+|                   | 576i MPEG2 | 720p H.264 | 1080i H.264 | 1080p HEVC |
+| ----------------- | ---------- | ---------- | ----------- | ---------- |
+| Allwinner         | Not tested | Not tested | Not tested  | Not tested |
+| Amlogic           | Not tested | Not tested | Not tested  | Not tested |
+| Raspberry Pi 2    | ❌         | SW         | SW          | SW         |
+| Raspberry Pi 3    | Not tested | Not tested | Not tested  | Not tested |
+| Raspberry Pi 4    | SW         | ✅         | ✅          | ✅         |
+| Raspberry Pi 5    | SW         | SW         | SW          | ✅         |
+| Rockchip RK3399   | ✅         | ✅         | ✅          | ✅         |
+| Rockchip RK3399T  | ✅         | ✅         | ✅          | ✅         |
+| Rockchip RK3568B2 | ✅         | ✅         | ✅          | ✅         |
 
 ✅= Hardware decoding  
 SW = Device does not support hardware decoding. Software decoding is used.  
