@@ -252,7 +252,9 @@ void cVideoStream::OpenDecoder(void)
 		}
 	}
 
-	if (m_pDecoder->Open(m_codecId, m_pPar, m_timebase, false, width, height))
+	bool swDecoder = (m_hardwareQuirks & QUIRK_CODEC_FORCE_MPEG2_SW_DECODER) && m_codecId == AV_CODEC_ID_MPEG2VIDEO;
+
+	if (m_pDecoder->Open(m_codecId, m_pPar, m_timebase, swDecoder, width, height))
 		LOGFATAL("videostream %s: %s: Could not open the decoder!", m_identifier, __FUNCTION__);
 
 	m_pConfig->CurrentDecoderType = m_pDecoder->IsHardwareDecoder() ? "hardware" : "software";
