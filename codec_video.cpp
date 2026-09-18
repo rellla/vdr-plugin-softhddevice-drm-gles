@@ -295,7 +295,6 @@ int cVideoDecoder::Open(enum AVCodecID codecId, AVCodecParameters * par,
 
 	m_pCodecString = codec->long_name ? codec->long_name : codec->name;
 	m_cntPacketsSent = m_cntFramesReceived = 0;
-	m_cntStartKeyFrames = 1;
 
 	if (!m_cntPacketsSent) {
 		auto now = std::chrono::steady_clock::now();
@@ -503,22 +502,6 @@ int cVideoDecoder::ReceiveFrame(AVFrame **frame)
 	if (pFrame->flags == AV_FRAME_FLAG_CORRUPT)
 		LOGDEBUG2(L_CODEC, "videocodec: %s: %s: AV_FRAME_FLAG_CORRUPT", m_identifier, __FUNCTION__);
 
-	// Codec artifacts workaround for amlogic H264:
-	// Skip m_skipKeyFramesNum Key-Frames at stream start.
-	// m_skipKeyFramesNum can be set with SetSkipKeyFramesNum()
-	if (m_pVideoCtx->codec_id == AV_CODEC_ID_H264 && m_skipKeyFramesNum && m_cntStartKeyFrames) {
-		if (IsKeyFrame(pFrame)) {
-			LOGDEBUG2(L_CODEC, "videocodec: %s: %s: artifact workaround - skip %s Keyframe nr %d", m_identifier, __FUNCTION__,
-				isInterlacedFrame(pFrame) ? "interlaced" : "progressive", m_cntStartKeyFrames);
-
-			if (m_cntStartKeyFrames++ > m_skipKeyFramesNum - 1)
-				m_cntStartKeyFrames = 0;
-		}
-
-		av_frame_free(&pFrame);
-		return AVERROR(EAGAIN);
-	}
-
 	*frame = pFrame;
 
 	if (!m_cntFramesReceived) {
@@ -562,7 +545,6 @@ int cVideoDecoder::ReopenCodec(enum AVCodecID codecId, AVCodecParameters *par,
 	Close();
 	if (Open(codecId, par, timebase, forceSoftwareDecoding, m_lastCodedWidth, m_lastCodedHeight))
 		return -1;
-	m_cntStartKeyFrames = 0; // currently unused, because we have no hardware which needs both quirks
 	m_cntPacketsSent = m_cntFramesReceived = 0;
 
 	return 0;
@@ -583,20 +565,4 @@ void cVideoDecoder::FlushBuffers(void)
 		avcodec_flush_buffers(m_pVideoCtx);
 
 	m_cntPacketsSent = m_cntFramesReceived = 0;
-}
-
-/**
- * Check, if this is a key frame
- *
- * @param frame    AVFrame
- *
- * @return         true, if this frame is a key frame
- */
-bool cVideoDecoder::IsKeyFrame(AVFrame *frame)
-{
-#if LIBAVUTIL_VERSION_INT < AV_VERSION_INT(58,7,100)
-	return frame->key_frame;
-#else
-	return frame->flags & AV_FRAME_FLAG_KEY;
-#endif
 }

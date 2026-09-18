@@ -144,8 +144,6 @@ void cVideoStream::StartDecoder()
 	LOGDEBUG2(L_CODEC, "videostream %s: %s", m_identifier, __FUNCTION__);
 
 	m_pDecoder = new cVideoDecoder(m_identifier);
-	if (m_hardwareQuirks & QUIRK_CODEC_SKIP_FIRST_FRAMES)
-		m_pDecoder->SetSkipKeyFramesNum(QUIRK_CODEC_SKIP_NUM_FRAMES);
 
 	Start();
 }
@@ -221,9 +219,7 @@ void cVideoStream::OpenDecoder(void)
 	int width = 0;
 	int height = 0;
 
-	bool needsParsing = m_startDecodingWithIFrame ||
-	                    m_parseH264Dimensions ||
-	                   (m_hardwareQuirks & QUIRK_CODEC_NEEDS_DIMENSION_PARSE);
+	bool needsParsing = m_startDecodingWithIFrame || m_parseH264Dimensions;
 
 	if (needsParsing && m_codecId == AV_CODEC_ID_H264) {
 		cH264Parser h264Packet(m_packets.Peek(),
@@ -244,8 +240,7 @@ void cVideoStream::OpenDecoder(void)
 			return;
 		}
 
-		// amlogic h264 decoder needs width an height for correct decoder open
-		if ((m_hardwareQuirks & QUIRK_CODEC_NEEDS_DIMENSION_PARSE) || m_parseH264Dimensions) {
+		if (m_parseH264Dimensions) {
 			width = h264Packet.GetWidth();
 			height = h264Packet.GetHeight();
 			LOGDEBUG2(L_CODEC, "videostream %s: %s: Parsed width %d height %d", m_identifier, __FUNCTION__, width, height);
@@ -621,7 +616,7 @@ void cVideoStream::RenderFrame(AVFrame * frame)
 		// - AV_PIX_FMT_YUV420P, progressive -> scale filter to get NV12 frames
 		// - AV_PIX_FMT_DRM_PRIME, interlaced, hw deinterlacer available -> hw deinterlacer
 		if (frame->format == AV_PIX_FMT_YUV420P ||
-		   (frame->format == AV_PIX_FMT_DRM_PRIME && m_useDeinterlacer && (!(m_hardwareQuirks & QUIRK_NO_HW_DEINT))))
+		   (frame->format == AV_PIX_FMT_DRM_PRIME && m_useDeinterlacer))
 			m_videoFilter.InitAndStart(m_pDecoder->GetContext(), frame, m_useDeinterlacer);
 
 		m_checkFilterThreadNeeded = false;

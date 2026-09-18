@@ -25,11 +25,7 @@
  * @ingroup misc
  */
 enum HardwareQuirks {
-	QUIRK_NO_HW_DEINT                 = 1 << 0,     ///< set, if no hw deinterlacer available
-	QUIRK_CODEC_FLUSH_WORKAROUND      = 1 << 1,     ///< set, if we have to close and reopen the codec instead of avcodec_flush_buffers (rpi)
-	QUIRK_CODEC_NEEDS_DIMENSION_PARSE = 1 << 2,     ///< set, if codec needs some infos for init (coded_width and coded_height)
-	QUIRK_CODEC_SKIP_FIRST_FRAMES     = 1 << 3,     ///< set, if codec should skip first I-Frames
-	QUIRK_CODEC_SKIP_NUM_FRAMES       = 2     ,     ///< skip QUIRK_CODEC_SKIP_NUM_FRAMES, in case QUIRK_CODEC_SKIP_FIRST_FRAMES is set
+	QUIRK_CODEC_FLUSH_WORKAROUND       = 1 << 0,     ///< set, if we have to close and reopen the codec instead of avcodec_flush_buffers (rpi)
 };
 
 /**
@@ -120,13 +116,6 @@ public:
 				m_quirks |= QUIRK_CODEC_FLUSH_WORKAROUND;
 				break;
 			}
-			if (strstr(read_ptr, "amlogic")) {
-				m_deviceName = "amlogic";
-				m_quirks |= QUIRK_CODEC_NEEDS_DIMENSION_PARSE
-				         |  QUIRK_CODEC_SKIP_FIRST_FRAMES
-				         |  QUIRK_NO_HW_DEINT;
-				break;
-			}
 
 			read_size -= strlen(read_ptr) + 1;
 			read_ptr = (char *)&read_ptr[(strlen(read_ptr) + 1)];
@@ -134,10 +123,7 @@ public:
 
 		if (m_deviceName)
 			LOGDEBUG("%s found%s%s%s%s", m_deviceName,
-			    m_quirks & QUIRK_NO_HW_DEINT ?                 ", hw deinterlacer disabled" : "",
-			    m_quirks & QUIRK_CODEC_FLUSH_WORKAROUND ?      ", flush workaround" : "",
-			    m_quirks & QUIRK_CODEC_NEEDS_DIMENSION_PARSE ? ", parse H.264 dimensions" : "",
-			    m_quirks & QUIRK_CODEC_SKIP_FIRST_FRAMES ?     ", skip first I-Frames" : "");
+			    m_quirks & QUIRK_CODEC_FLUSH_WORKAROUND ?       ", flush workaround" : "");
 		else
 			LOGDEBUG("%s found, no quirks set", txt_buf);
 
