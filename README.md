@@ -481,6 +481,29 @@ If your VDR has enough devices assigned, you can watch channels on different tra
 systems, pip should only show the channels like if you are doing a concurrent recording.
 
 
+Fast channel switch modes
+-------------------------
+The plugin offers three different modes for handling the audio and video playback at a channel switch:
+
+- off:
+
+	Audio and video start as soon as all buffers are filled enough and audio and video is in sync.
+
+- video:
+
+	Same as above, with the difference, that the very first video frame is presented immediately
+	as a stillpicture as soon the decoder releases it.
+
+- video and audio:
+
+	Same as above, with the difference, that audio starts as soon as the audio buffer is filled enough,
+	but not before a video frame was presented on the screen.
+	Video exits stillpicture and starts running as soon as audio and video is in sync.
+
+The fast channel switch mode can be set with softhddevice-drm-gles.VideoChannelSwitchMode.
+The buffering mechanism and A/V-Sync is documented in the [developer readme](DEVELOPER/README.md#buffering---av-sync).
+
+
 Mediaplayer
 -----------
 The plugin has an integrated mediaplayer reduced to the most important player functions.
