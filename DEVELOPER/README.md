@@ -292,22 +292,124 @@ The latter can happen for example on bad reception when garbage is received.
 
 ## Buffering - A/V-Sync
 
-The audio and video data is buffered when VDR calls `SetPlayMode(pmAudioVideo)`, `Clear()` or when the buffer underruns during playback.
+The audio and video data is buffered when VDR calls `Play()`, `SetPlayMode(pmAudioVideo)`, `SetPlayMode(pmAudioOnly)`, `SetPlayMode(pmAudioOnlyBlack)`, `SetPlayMode(pmVideoOnly)`,`Clear()` or when the buffer underruns during playback.
 
-The first audio PTS value and the first video PTS value which VDR sends (and which are received in `PlayVideo()`/`PlayAudio()`) differ in most cases (up to 3.5s were observed).
+The plugin offers three different modes for handling the audio and video playback when the stream starts. These different modes play no role if a recording is played back, because all buffers are filled immediately.
+If you switch a channel, you have the ability to choose between three different channel switch modes, which can be enabled by the setup menu option "Enable fast channel switch".
+
+
+### Fast channel switch: off
+
+This is the default option. The first audio PTS value and the first video PTS value which VDR sends (and which are received in `PlayVideo()`/`PlayAudio()`) differ in most cases (up to 3.5s were observed).
 The subset having only video or only audio is dropped, so that playback starts at the first frame where video *and* audio are present.
 However, the first received video frame is not dropped but displayed immediately after `Clear()` is called.
-This comes into handy when using `SkipSeconds`, having a responsive experience when seeking in a recording.
+This comes into handy when using `SkipSeconds()`, having a responsive experience when seeking in a recording.
 
 To calculate if the buffer fill levels are sufficient to start playback, the following algorithm is implemented:
 
 - Start decoding audio and video as soon as packets arrive, but do not start playback, yet.
-- On each `Play*()` invocation, find the oldest PTS in each buffer (audio and video).
+- On each `PlayAudio()` invocation and on each iteration of the rendering thread, find the oldest PTS in each buffer (audio and video).
 - Use the buffer with the newer of both values to calculate its fill level (this will be the buffer having audio *and* video the whole buffer).
 - When the fill threshold of that buffer is reached, truncate the above mentioned subset of the other buffer.
 - Wait until the display output queue is completely filled.
 - Start playback.
 
+```mermaid
+timeline
+title Channel switch lifetime (with CHANNEL_SWITCH_AV_SYNC, audio buffer 300ms) (ZDF HD -> DasErste HD H.264 720p)
+
+section VDR (422ms)
++ 0ms: channel switch invoked
++ 134ms: SetPlayMode() called
+section softhddevice-drm-gles
++ 422ms: PlayVideo() gets first valid data
++ 839ms: PlayAudio() gets first valid data: audio input buffers are filling
++ 961ms: PlayVideo() gets first decodeable I-frame: video input buffers are filling: decoder opening is triggered
+section decoder
++ 971ms: decoder opened
++ 974ms: decoder gets first AVPacket
++ 1348ms: decoder delivers first decoded Frame
+section Displayed
++ 2133ms: video and audio buffers reached threshold: drop 1028ms of audio data
++ 2193ms: A/V sync: play audio and videos
+```
+
+### Fast channel switch: video
+
+Same as above, but immediately present the very first video frame as a stillpicture as soon as the decoder releases it without respect to buffer filllevels.
+Start audio and video as soon as they are in sync and enough audio and video is buffered. This mode also drops all audio data which is older than the video PTS, which is waiting for the audio to come up.
+
+```mermaid
+timeline
+title Channel switch lifetime (with CHANNEL_SWITCH_FAST_VIDEO, audio buffer 300ms) (ZDF HD -> DasErste HD H.264 720p)
+
+section VDR (424ms)
++ 0ms: channel switch invoked
++ 134ms: SetPlayMode() called
+section softhddevice-drm-gles
++ 424ms: PlayVideo() gets first valid data
++ 631ms: PlayVideo() gets first decodeable I-frame: video input buffers are filling: decoder opening is triggered
+section decoder
++ 747ms: decoder opened
++ 750ms: decoder gets first AVPacket
++ 847ms: PlayAudio() gets first valid data: audio input buffers are filling
++ 1104ms: decoder delivers first decoded Frame
+section Displayed
++ 1115ms: renderer displays frame
++ 2134ms: video and audio buffers reached threshold: drop 1036ms of audio samples
++ 2173ms: A/V sync - play audio and video
+```
+
+### Fast channel switch: video + audio
+
+Same as the above mode with the difference, that (older) audio is also started immediately as soon as the audio buffer filllevel threshold is reached without respect to an a/v-sync. Audio data typically comes in with 160ms or 192ms packets,
+so we may not hit the target buffer threshold value exactly. Therefore, we shrink the audio buffer as soon it's threshold is reached back to the threshold. This mode drops the superflous audio data BEFORE the audio playback starts.
+Otherwise we may have to wait for all audio data to be played out later, although all buffers reached the filllevel thresholds already and audio and video could start in sync.
+
+```mermaid
+timeline
+title Channel switch lifetime (with CHANNEL_SWITCH_FAST_AUDIO, audio buffer 300ms) (ZDF HD -> DasErste HD H.264 720p)
+
+section VDR (527ms)
++ 0ms: channel switch invoked
++ 138ms: SetPlayMode() called
+section softhddevice-drm-gles
++ 527ms: PlayVideo() gets first valid data
++ 734ms: PlayVideo() gets first decodeable I-frame: video input buffers are filling: decoder opening is triggered
+section decoder
++ 744ms: decoder opened
++ 747ms: decoder gets first AVPacket
++ 837ms: PlayAudio() gets first valid data: audio input buffers are filling
++ 1003ms: decoder delivers first decoded Frame
+section audio
++ 1004ms: audio buffers are filled: drop 52ms of audio data (shrink to 300ms again): start audio playback
+section Displayed
++ 1027ms: renderer displays frame and pauses
++ 2127ms: video and audio buffers reached threshold: wait for audio to come up with video pts
++ 2187ms: A/V sync: play audio and video
+```
+
+
+### Audio PTS calculation in normal playback and slow forward trickspeed
+
+```mermaid
+gantt
+    title Audio PTS calculation
+    dateFormat x
+    axisFormat %L
+    tickInterval 20millisecond
+section Audio
+    Buffered audio             :             0, 400
+    m_pAudio->GetUsedRingBufferMs() :             100, 400
+    m_pAudio->GetHardwareOutputDelayMs(): crit, 0, 100
+    m_pAudio->GetHardwareOutputPtsMs(): milestone,  0,
+    m_pAudio->GetOutputPtsMs(): milestone,  100,
+    m_pAudio->GetInputPts() : milestone, 400,
+    m_pAudio->GetBufferFillLevelThresholdMs() :   crit, 100, 400
+```
+
+
+### Relationship between buffer filllevels and threshold (fast channel switch off)
 
 ```mermaid
 ---
