@@ -151,6 +151,7 @@ public:
 	void SetChannelSwitchMode(ChannelSwitchMode mode) { m_channelSwitchMode = mode; };
 	void SetDisplayMode(int);
 	bool FastChannelSwitchAudioInTransferMode(void) { return m_channelSwitchMode == CHANNEL_SWITCH_FAST_AUDIO && Transferring(); };
+	bool FastChannelSwitchInTransferMode(void) { return m_channelSwitchMode != CHANNEL_SWITCH_AVSYNC && Transferring(); };
 	bool CheckPlaybackStartConditions(void);
 	bool CheckAudioPlaybackStartConditions(void);
 	bool IsVideoOnlyPlayback(void) { return m_playbackMode == VIDEO_ONLY; };

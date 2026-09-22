@@ -1079,9 +1079,11 @@ bool cSoftHdDevice::CheckAudioPlaybackStartConditions()
 
 	bool audioHasInputPts = m_pAudio->HasInputPts();
 	bool videoHasInputPts = m_pVideoStream->HasInputPts();
+	bool videoHasOutputPts = m_pRender->GetVideoClock() != AV_NOPTS_VALUE;
 
-	// only start audio playback if the device also received video already
-	if (!audioHasInputPts || !videoHasInputPts)
+	// only start audio playback if the device also received and presented video already
+	// -> video is always first
+	if (!audioHasInputPts || !videoHasInputPts || !videoHasOutputPts)
 		return false;
 
 	int64_t audioBufferFillLevelMs = m_pAudio->GetInputPtsMs() - m_pAudio->GetOutputPtsMs();
@@ -1788,14 +1790,14 @@ void cSoftHdDevice::EnterState(State state)
 	switch (state) {
 		case BUFFERING:
 			m_pAudio->ResetHwDelayBaseline();
-			if (FastChannelSwitchAudioInTransferMode()) {
+			if (FastChannelSwitchInTransferMode()) {
 				m_pRender->SetPlaybackPaused(false);
 				m_pRender->SetDisplayOneFrameThenPause(true);
 			}
 			break;
 		case PLAY:
 			// revert the video playback start release which was done in BUFFERING if we are audio-only
-			if (m_playbackMode == AUDIO_ONLY && FastChannelSwitchAudioInTransferMode()) {
+			if (m_playbackMode == AUDIO_ONLY && FastChannelSwitchInTransferMode()) {
 				m_pRender->SetPlaybackPaused(true);
 				m_pRender->SetDisplayOneFrameThenPause(false);
 			}
