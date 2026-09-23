@@ -606,13 +606,12 @@ void cVideoStream::RenderFrame(AVFrame * frame)
 		                  m_pDecoder->GetContext()->coded_height,
 		                  !followInterlacedDisplayMode ? m_framerate * 2 : m_framerate,
 		                  !followInterlacedDisplayMode ? false : m_interlaced };
-		bool displayCanHandleMode = m_pRender->CanHandleMode(&mode);
 
 		m_useDeinterlacer =
 			m_interlaced &&
 			!m_userDisabledDeinterlacer &&
 			!m_deinterlacerDeactivated &&
-			(!displayCanHandleMode || !followInterlacedDisplayMode);
+			(!followInterlacedDisplayMode || !m_pRender->CanHandleMode(&mode));
 
 		if (m_userDisabledDeinterlacer)
 			LOGDEBUG("videostream: %s: %s: deinterlacer disabled by user configuration", m_identifier, __FUNCTION__);
