@@ -123,6 +123,7 @@ public:
 				m_deviceName = "amlogic";
 				m_quirks |= QUIRK_CODEC_NEEDS_DIMENSION_PARSE
 				         |  QUIRK_CODEC_FORCE_MPEG2_SW_DECODER
+				         |  QUIRK_CODEC_FLUSH_WORKAROUND
 				         |  QUIRK_NO_HW_DEINT;
 				break;
 			}
