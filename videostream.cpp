@@ -612,7 +612,6 @@ void cVideoStream::RenderFrame(AVFrame * frame)
 			m_interlaced &&
 			!m_userDisabledDeinterlacer &&
 			!m_deinterlacerDeactivated &&
-			!(m_hardwareQuirks & QUIRK_NO_HW_DEINT) &&
 			(!displayCanHandleMode || !followInterlacedDisplayMode);
 
 		if (m_userDisabledDeinterlacer)
@@ -622,7 +621,8 @@ void cVideoStream::RenderFrame(AVFrame * frame)
 		// - AV_PIX_FMT_YUV420P, interlaced -> software deinterlacer (bwdif filter)
 		// - AV_PIX_FMT_YUV420P, progressive -> scale filter to get NV12 frames
 		// - AV_PIX_FMT_DRM_PRIME, interlaced, hw deinterlacer available -> hw deinterlacer
-		if (frame->format == AV_PIX_FMT_YUV420P || (frame->format == AV_PIX_FMT_DRM_PRIME && m_useDeinterlacer))
+		if (frame->format == AV_PIX_FMT_YUV420P ||
+		   (frame->format == AV_PIX_FMT_DRM_PRIME && m_useDeinterlacer && (m_hardwareQuirks & !(m_hardwareQuirks & QUIRK_NO_HW_DEINT))))
 			m_videoFilter.InitAndStart(m_pDecoder->GetContext(), frame, m_useDeinterlacer);
 
 		m_checkFilterThreadNeeded = false;
