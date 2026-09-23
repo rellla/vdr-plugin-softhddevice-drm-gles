@@ -975,6 +975,11 @@ void cSoftHdDevice::SetDisplayMode(int idx)
  */
 bool cSoftHdDevice::CheckPlaybackStartConditions()
 {
+	if (m_pStateMachine->GetState() == PLAY && m_playbackMode == AUDIO_ONLY && m_receivedVideo) {
+		TriggerEvent(ResyncEvent{});
+		return false;
+	}
+
 	if (m_pStateMachine->GetState() != BUFFERING)
 		return false;
 
