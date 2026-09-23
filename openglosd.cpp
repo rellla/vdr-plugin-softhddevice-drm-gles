@@ -2479,7 +2479,10 @@ cOglOsd::~cOglOsd()
 		return;
 
 	LOGDEBUG2(L_OSD, "openglosd: %s: Delete Osd %p", __FUNCTION__, this);
+
+	// clear both framebuffers
 	m_pOglThread->DoCmd(new cOglCmdFill(m_pBufferFramebuffer, clrTransparent));
+	m_pOglThread->DoCmd(new cOglCmdBufferFill(OutputFramebuffer, clrTransparent));
 
 	SetActive(false); // OsdClose() is done in cOglCmdCopyBufferToOutputFb()
 	m_pOglThread->DoCmd(new cOglCmdCopyBufferToOutputFb(m_pBufferFramebuffer, OutputFramebuffer, Left(), Top(), 0, m_pDevice));
