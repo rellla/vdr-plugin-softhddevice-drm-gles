@@ -123,7 +123,7 @@ public:
 	virtual bool Poll(cPoller &, int = 0);
 	virtual bool Flush(int = 0);
 #if APIVERSNUM >= 30014
-	virtual bool Drain(void);
+	virtual bool DrainDevice(void);
 #endif
 
 	//

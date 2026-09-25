@@ -758,10 +758,10 @@ bool cSoftHdDevice::Poll(__attribute__ ((unused)) cPoller & poller, int timeoutM
  * Return true, if the output buffers are empty, false otherwise.
  * Wait max. up to timeoutMs in case the buffers are not empty.
  *
- * This function does not initiate a decoder drain like Drain()
+ * This function does not initiate a decoder drain like DrainDevice()
  * so some data may stay unprocessed in the decoder, while the other
  * buffers are already emtpy. Therefore, players should use the
- * new Drain() function instead.
+ * DrainDevice() function instead.
  *
  * @param timeoutMs        timeout in ms to become ready
  *
@@ -795,7 +795,7 @@ bool cSoftHdDevice::Flush(int timeoutMs)
  *
  * @return true, if the buffers are empty, false otherwise
  */
-bool cSoftHdDevice::Drain(void)
+bool cSoftHdDevice::DrainDevice(void)
 {
 	if (IsDetached())
 		return true;
