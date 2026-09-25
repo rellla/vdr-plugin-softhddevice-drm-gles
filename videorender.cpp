@@ -876,49 +876,84 @@ bool cVideoRender::CanHandleHdr(void)
  ****************************************************************************/
 
 /**
+ * Internal function to clear the software OSD
+ *
+ * @param buf        drm buffer which holds the OSD
+ */
+static void ClearSoftOsd(cDrmBuffer *buf)
+{
+	memset((void *)buf->Plane(0), 0, (size_t)(buf->Pitch(0) * buf->Height()));
+}
+
+/**
+ * Internal function to draw an OSD ARGB image in software
+ */
+static void DrawSoftOsd(cDrmBuffer *buf, int xi, int yi,
+                        int width, int height, int pitch,
+                        const uint8_t * argb, int x, int y)
+{
+	LOGDEBUG2(L_OSD, "videorender: %s: width %d height %d pitch %d argb %p x %d y %d pitch buf %d xi %d yi %d", __FUNCTION__,
+		width, height, pitch, argb, x, y, buf->Pitch(0), xi, yi);
+
+	for (int i = 0; i < height; ++i) {
+		memcpy(buf->Plane(0) + x * 4 + (i + y) * buf->Pitch(0),
+		       argb + i * pitch, std::min((uint32_t)pitch, buf->Pitch(0)));
+	}
+}
+
+#ifdef USE_GLES
+/**
+ * Swap the double buffered EGL buffers
+ *
+ * @return      0 on sucess, -1 on error
+ */
+int cVideoRender::EGLSwapBuffers(void)
+{
+	cDrmBuffer *buf;
+
+	EGL_CHECK(eglSwapBuffers(m_pDrmDevice->EglDisplay(), m_pDrmDevice->EglSurface()));
+	m_pNextBo = gbm_surface_lock_front_buffer(m_pDrmDevice->GbmSurface());
+	assert(m_pNextBo);
+
+	buf = m_pDrmDevice->GetBufFromBo(m_pNextBo);
+	if (!buf) {
+		LOGERROR("videorender: %s: Failed to get GL buffer", __FUNCTION__);
+		return -1;
+	}
+
+	m_pBufOsd = buf;
+
+	// release old buffer for writing again
+	if (m_bo)
+		gbm_surface_release_buffer(m_pDrmDevice->GbmSurface(), m_bo);
+
+	// rotate bos and create and keep bo as m_pOldBo to make it free'able
+	m_pOldBo = m_bo;
+	m_bo = m_pNextBo;
+
+	LOGDEBUG2(L_OPENGL, "videorender: %s: eglSwapBuffers eglDisplay %p eglSurface %p (%i x %i, %i)", __FUNCTION__, m_pDrmDevice->EglDisplay(), m_pDrmDevice->EglSurface(), buf->Width(), buf->Height(), buf->Pitch(0));
+
+	return 0;
+}
+#endif
+
+/**
  * Clear the OSD (draw an empty/ transparent OSD)
  */
 void cVideoRender::OsdClear(void)
 {
 #ifdef USE_GLES
-	if (m_disableOglOsd) {
-		memset((void *)m_pBufOsd->Plane(0), 0,
-			(size_t)(m_pBufOsd->Pitch(0) * m_pBufOsd->Height()));
-	} else {
-		cDrmBuffer *buf;
-
-		EGL_CHECK(eglSwapBuffers(m_pDrmDevice->EglDisplay(), m_pDrmDevice->EglSurface()));
-		m_pNextBo = gbm_surface_lock_front_buffer(m_pDrmDevice->GbmSurface());
-		assert(m_pNextBo);
-
-		buf = m_pDrmDevice->GetBufFromBo(m_pNextBo);
-		if (!buf) {
-			LOGERROR("videorender: %s: Failed to get GL buffer", __FUNCTION__);
-			return;
-		}
-
-		m_pBufOsd = buf;
-
-		// release old buffer for writing again
-		if (m_bo)
-			gbm_surface_release_buffer(m_pDrmDevice->GbmSurface(), m_bo);
-
-		// rotate bos and create and keep bo as m_pOldBo to make it free'able
-		m_pOldBo = m_bo;
-		m_bo = m_pNextBo;
-
-		LOGDEBUG2(L_OPENGL, "videorender: %s: eglSwapBuffers m_eglDisplay %p eglSurface %p (%i x %i, %i)", __FUNCTION__, m_pDrmDevice->EglDisplay(), m_pDrmDevice->EglSurface(), buf->Width(), buf->Height(), buf->Pitch(0));
-	}
+	if (m_disableOglOsd)
+		ClearSoftOsd(m_pBufOsd);
+	else if (EGLSwapBuffers())
+		return;
 #else
-	memset((void *)m_pBufOsd->Plane(0), 0,
-		(size_t)(m_pBufOsd->Pitch(0) * m_pBufOsd->Height()));
+	ClearSoftOsd(m_pBufOsd);
 #endif
 
 	m_pBufOsd->MarkDirty();
 	m_osdShown = false;
 }
-
-#define MIN(a, b) ((a) < (b) ? (a) : (b))
 
 /**
  * Draw an OSD ARGB image.
@@ -932,53 +967,17 @@ void cVideoRender::OsdClear(void)
  * @param x          x-coordinate on screen of argb image
  * @param y          y-coordinate on screen of argb image
  */
-void cVideoRender::OsdDrawARGB(int xi, int yi,
-                               int width, int height, int pitch,
-                               const uint8_t * argb, int x, int y)
+void cVideoRender::OsdDraw(int xi, int yi,
+                           int width, int height, int pitch,
+                           const uint8_t * argb, int x, int y)
 {
 #ifdef USE_GLES
-	if (m_disableOglOsd) {
-		LOGDEBUG2(L_OSD, "videorender: %s: width %d height %d pitch %d argb %p x %d y %d pitch buf %d xi %d yi %d", __FUNCTION__,
-			width, height, pitch, argb, x, y, m_pBufOsd->Pitch(0), xi, yi);
-		for (int i = 0; i < height; ++i) {
-			memcpy(m_pBufOsd->Plane(0) + x * 4 + (i + y) * m_pBufOsd->Pitch(0),
-				argb + i * pitch, MIN((size_t)pitch, m_pBufOsd->Pitch(0)));
-		}
-	} else {
-		cDrmBuffer *buf;
-
-		EGL_CHECK(eglSwapBuffers(m_pDrmDevice->EglDisplay(), m_pDrmDevice->EglSurface()));
-		m_pNextBo = gbm_surface_lock_front_buffer(m_pDrmDevice->GbmSurface());
-		assert(m_pNextBo);
-
-		buf = m_pDrmDevice->GetBufFromBo(m_pNextBo);
-		if (!buf) {
-			LOGERROR("videorender: %s: Failed to get GL buffer", __FUNCTION__);
-			return;
-		}
-
-		m_pBufOsd = buf;
-
-		// release old buffer for writing again
-		if (m_bo)
-			gbm_surface_release_buffer(m_pDrmDevice->GbmSurface(), m_bo);
-
-		// rotate bos and create and keep bo as m_pOldBo to make it free'able
-		m_pOldBo = m_bo;
-		m_bo = m_pNextBo;
-
-		LOGDEBUG2(L_OPENGL, "videorender: %s: eglSwapBuffers eglDisplay %p eglSurface %p (%i x %i, %i)", __FUNCTION__, m_pDrmDevice->EglDisplay(), m_pDrmDevice->EglSurface(), buf->Width(), buf->Height(), buf->Pitch(0));
-	}
+	if (m_disableOglOsd)
+		DrawSoftOsd(m_pBufOsd, xi, yi, width, height, pitch, argb, x, y);
+	else if (EGLSwapBuffers())
+		return;
 #else
-	// suppress unused variable warnings ...
-	(void) xi;
-	(void) yi;
-	(void) width;
-
-	for (int i = 0; i < height; ++i) {
-		memcpy(m_pBufOsd->Plane(0) + x * 4 + (i + y) * m_pBufOsd->Pitch(0),
-			argb + i * pitch, (size_t)pitch);
-	}
+	DrawSoftOsd(m_pBufOsd, xi, yi, width, height, pitch, argb, x, y);
 #endif
 	m_pBufOsd->MarkDirty();
 	m_osdShown = true;

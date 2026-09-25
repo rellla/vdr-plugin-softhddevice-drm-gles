@@ -190,7 +190,7 @@ public:
 
 	// OSD
 	void OsdClear(void);
-	void OsdDrawARGB(int, int, int, int, int, const uint8_t *, int, int);
+	void OsdDraw(int, int, int, int, int, const uint8_t *, int, int);
 
 	// TrickSpeed/ Stillpicture
 	void SetTrickSpeed(double, bool, bool);
@@ -361,6 +361,9 @@ private:
 	void SetHdrBlob(struct hdr_output_metadata);
 	void SetColorSpace(drmColorRange);
 	void RestoreColorSpace(void);
+#ifdef USE_GLES
+	int EGLSwapBuffers(void);
+#endif
 };
 
 #endif
