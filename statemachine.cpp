@@ -71,9 +71,9 @@ void cStateMachine::OnEventReceived(const Event& event)
 
 #ifdef USE_GLES
 	// Lock the GL thread before the state machine lock, because cmdCopyBufferToOutputFb() calls
-	// cSoftHdDevice::OsdDrawARGB(), which itself locks the state machine mutex and we can end
+	// cSoftHdDevice::OsdDraw(), which itself locks the state machine mutex and we can end
 	// up in a deadlock then.
-	// We can safely unlock the thread again after the state change, because cSoftHdDevice::OsdDrawARGB()
+	// We can safely unlock the thread again after the state change, because cSoftHdDevice::OsdDraw()
 	// always tests if we are in detached mode and this new state is probably set then.
 	bool needsOglResume = false;
 	if (m_state != DETACHED)
