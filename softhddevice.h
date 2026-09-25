@@ -165,7 +165,7 @@ public:
 	void SetEnableOglOsd(void);
 #endif
 	void OsdClose(void);
-	void OsdDrawARGB(int, int, int, int, int, const uint8_t *, int, int);
+	void OsdDraw(int, int, int, int, int, const uint8_t *, int, int);
 	void SetOsdSize(int, int);
 	void SetScreenSize(int, int);
 
