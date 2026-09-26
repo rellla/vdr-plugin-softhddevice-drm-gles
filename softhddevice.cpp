@@ -1157,6 +1157,9 @@ void cSoftHdDevice::SetEnableOglOsd(void)
 
 /**
  * Close the OSD
+ *
+ * @note Don't rename this function to OsdClear(), because this
+ * would be the implementation of cStatus::OsdClear()!
  */
 void cSoftHdDevice::OsdClose(void)
 {
@@ -1178,13 +1181,13 @@ void cSoftHdDevice::OsdClose(void)
  * @param x          x-coordinate on screen of argb image
  * @param y          y-coordinate on screen of argb image
  */
-void cSoftHdDevice::OsdDrawARGB(int xi, int yi, int height, int width, int pitch,
+void cSoftHdDevice::OsdDraw(int xi, int yi, int height, int width, int pitch,
 	const uint8_t * argb, int x, int y)
 {
 	if (IsDetached())
 		return;
 
-	m_pRender->OsdDrawARGB(xi, yi, height, width, pitch, argb, x, y);
+	m_pRender->OsdDraw(xi, yi, height, width, pitch, argb, x, y);
 }
 
 /**

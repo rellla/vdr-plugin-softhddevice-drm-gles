@@ -202,7 +202,7 @@ void cSoftOsd::Flush(void)
 				}
 			}
 			LOGDEBUG2(L_OSD, "osd: %s: draw %dx%d%+d%+d bm", __FUNCTION__, w, h, xs + x1, ys + y1);
-			m_pDevice->OsdDrawARGB(0, 0, w, h, w * sizeof(uint32_t), argb, xs + x1, ys + y1);
+			m_pDevice->OsdDraw(0, 0, w, h, w * sizeof(uint32_t), argb, xs + x1, ys + y1);
 
 			bitmap->Clean();
 
@@ -275,7 +275,7 @@ void cSoftOsd::Flush(void)
 			h = height - y;
 
 		LOGDEBUG2(L_OSD, "osd: %s: draw %dx%d%+d%+d*%d -> %+d%+d %p", __FUNCTION__, w, h, xp, yp, stride, x, y, pm->Data());
-		m_pDevice->OsdDrawARGB(xp, yp, w, h, stride, pm->Data(), x, y);
+		m_pDevice->OsdDraw(xp, yp, w, h, stride, pm->Data(), x, y);
 
 		DestroyPixmap(pm);
 	}

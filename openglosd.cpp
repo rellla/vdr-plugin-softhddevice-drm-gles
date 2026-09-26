@@ -1017,9 +1017,9 @@ bool cOglCmdCopyBufferToOutputFb::Execute(void)
 	VertexBuffers[vbTexture]->Unbind();
 
 	GL_CHECK(glFinish());
-	// eglSwapBuffers and gbm_surface_lock_front_buffer in OsdDrawARGB()
+	// eglSwapBuffers and gbm_surface_lock_front_buffer in OsdDraw()
 	if (m_active)
-		m_pDevice->OsdDrawARGB(0, 0, m_pOutputFramebuffer->Width(), m_pOutputFramebuffer->Height(), 0, 0, 0, 0);
+		m_pDevice->OsdDraw(0, 0, m_pOutputFramebuffer->Width(), m_pOutputFramebuffer->Height(), 0, 0, 0, 0);
 	else
 		m_pDevice->OsdClose();
 
