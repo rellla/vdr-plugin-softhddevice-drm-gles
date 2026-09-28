@@ -20,6 +20,8 @@ extern "C" {
 #include <libavutil/frame.h>
 }
 
+#include <vdr/remux.h>
+
 #ifdef USE_GLES
 #include <EGL/egl.h>
 #include <GLES2/gl2.h>
@@ -142,6 +144,11 @@ static inline const char *Timestamp2String(int64_t ts, uint8_t divisor)
 
 	return buf[idx];
 }
+
+/** Input PTS is in PTSTICKS */
+static inline const char *Timestamp2StringPts(int64_t ts) { return Timestamp2String(ts, PTSTICKS / 1000); }
+/** Input PTS is in ms */
+static inline const char *Timestamp2StringMs(int64_t ts) { return Timestamp2String(ts, 1); }
 
 /**
  * Return _count_ amount of bytes from _data_

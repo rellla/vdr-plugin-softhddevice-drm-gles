@@ -23,6 +23,7 @@ extern "C" {
 #include <libavcodec/avcodec.h>
 }
 
+#include <vdr/remux.h>
 #include <vdr/thread.h>
 
 #include "queue.h"
@@ -51,7 +52,7 @@ public:
 	void DecodeInput(void);
 	bool IsInterlaced(void) { return false; };
 
-	void Open(AVCodecID, AVCodecParameters * = nullptr, AVRational = { .num = 1, .den = 90000 });
+	void Open(AVCodecID, AVCodecParameters * = nullptr, AVRational = { .num = 1, .den = PTSTICKS });
 	void Exit(void);
 	void ClearVdrCoreToDecoderQueue(void);
 	void FlushDecoder(void);

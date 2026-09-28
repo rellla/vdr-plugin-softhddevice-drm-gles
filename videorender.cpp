@@ -34,6 +34,7 @@ extern "C" {
 
 #include <drm_fourcc.h>
 #include <vdr/osd.h>
+#include <vdr/remux.h>
 #include <vdr/thread.h>
 #include <xf86drmMode.h>
 
@@ -73,7 +74,7 @@ cVideoRender::cVideoRender(cSoftHdDevice *device)
 	m_pNextBo = nullptr;
 	m_pOldBo = nullptr;
 #endif
-	m_timebase = av_make_q(1, 90000);
+	m_timebase = av_make_q(1, PTSTICKS);
 	SetPipSize(m_pConfig->ConfigPipUseAlt);
 }
 
@@ -524,9 +525,9 @@ void cVideoRender::LogDroppedDuped(int64_t audioPtsMs, int64_t videoPtsMs, int a
 		m_drmBufferQueue.Size(),
 		m_pAudio->GetUsedRingbufferBytes(),
 		m_pAudio->GetUsedRingbufferMs(),
-		Timestamp2String(m_pAudio->GetInputPtsMs(), 1),
-		Timestamp2String(audioPtsMs, 1),
-		Timestamp2String(videoPtsMs, 1),
+		Timestamp2StringMs(m_pAudio->GetInputPtsMs()),
+		Timestamp2StringMs(audioPtsMs),
+		Timestamp2StringMs(videoPtsMs),
 		m_pDevice->GetVideoAudioDelayMs(),
 		m_pAudio->GetHardwareOutputDelayMs(),
 		audioBehindVideoByMs);
@@ -596,7 +597,7 @@ bool cVideoRender::PageFlip(cDrmBuffer *buf, cDrmBuffer *pipBuf)
 			if (buf->frame->pts != AV_NOPTS_VALUE)
 				SetVideoClock(buf->frame->pts);
 
-			LOGDEBUG2(L_PACKET, "videorender: %s: ID %d:                 PTS %s", __FUNCTION__, buf->Id(), Timestamp2String(buf->frame->pts, 90));
+			LOGDEBUG2(L_PACKET, "videorender: %s: ID %d:                 PTS %s", __FUNCTION__, buf->Id(), Timestamp2StringPts(buf->frame->pts));
 		}
 
 		return true;
@@ -662,7 +663,7 @@ bool cVideoRender::FrameDropNecessary(int64_t audioPtsMs, int64_t videoPtsMs)
 	if (m_scheduleResyncAtPtsMs != AV_NOPTS_VALUE && m_scheduleResyncAtPtsMs <= videoPtsMs) {
 		if (std::abs(PtsToMs(m_scheduleResyncAtPtsMs) - PtsToMs(videoPtsMs)) <= m_pAudio->GetAvResyncBorderMs()) {
 			LOGDEBUG2(L_AV_SYNC, "videorender: resync schedule arrived at %s, current audio pts %s video pts %s",
-				Timestamp2String(m_scheduleResyncAtPtsMs, 1), Timestamp2String(audioPtsMs, 1), Timestamp2String(videoPtsMs, 1));
+				Timestamp2StringMs(m_scheduleResyncAtPtsMs), Timestamp2StringMs(audioPtsMs), Timestamp2StringMs(videoPtsMs));
 			m_eventQueue.push_back(ResyncEvent{});
 		}
 		m_scheduleResyncAtPtsMs = AV_NOPTS_VALUE;
@@ -670,12 +671,12 @@ bool cVideoRender::FrameDropNecessary(int64_t audioPtsMs, int64_t videoPtsMs)
 
 	// Pause was scheduled and we reached this pts now
 	if (m_videoPlaybackPauseScheduledAt != AV_NOPTS_VALUE && m_videoPlaybackPauseScheduledAt < videoPtsMs) {
-		LOGDEBUG2(L_AV_SYNC, "videorender: %s: pause was scheduled at %s)!", __FUNCTION__, Timestamp2String(videoPtsMs, 1));
+		LOGDEBUG2(L_AV_SYNC, "videorender: %s: pause was scheduled at %s)!", __FUNCTION__, Timestamp2StringMs(videoPtsMs));
 		m_videoPlaybackPauseScheduledAt = AV_NOPTS_VALUE;
 		m_displayOneFrameThenPause = true;
 	// Resuming audio from pause was scheduled audio needs to catch up video
 	} else if (m_resumeAudioScheduled && audioBehindVideoByMs >= 0 && !skipSync) {
-		LOGDEBUG2(L_AV_SYNC, "videorender: resuming audio playback: video %s, audio %s", Timestamp2String(videoPtsMs, 1), Timestamp2String(audioPtsMs, 1));
+		LOGDEBUG2(L_AV_SYNC, "videorender: resuming audio playback: video %s, audio %s", Timestamp2StringMs(videoPtsMs), Timestamp2StringMs(audioPtsMs));
 		m_pAudio->SetPaused(false);
 		m_resumeAudioScheduled = false;
 	// Duplicate frame
@@ -699,7 +700,7 @@ bool cVideoRender::FrameDropNecessary(int64_t audioPtsMs, int64_t videoPtsMs)
 //	if (m_startCounter < 10 || m_startCounter % 500 == 0)
 //		LOGDEBUG2(L_AV_SYNC, "drop %d, dup %d, total %d audio %s video %s Delay %dms kernel buffer delay %dms diff %dms",
 //		m_framesDropped, m_framesDuped, m_startCounter,
-//		Timestamp2String(audioPtsMs, 1), Timestamp2String(videoPtsMs, 1),
+//		Timestamp2StringMs(audioPtsMs), Timestamp2StringMs(videoPtsMs),
 //		m_pDevice->GetVideoAudioDelayMs(), m_pAudio->GetHardwareOutputDelayMs(), audioBehindVideoByMs);
 
 	m_startCounter++;

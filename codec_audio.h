@@ -23,6 +23,8 @@ extern "C" {
 #include <libavformat/avformat.h>
 }
 
+#include <vdr/remux.h>
+
 class cSoftHdAudio;
 
 /**
@@ -60,7 +62,7 @@ class cAudioDecoder {
 public:
 	cAudioDecoder(cSoftHdAudio *);
 	~cAudioDecoder(void);
-	void Open(AVCodecID, AVCodecParameters * = nullptr, AVRational = { .num = 1, .den = 90000 });
+	void Open(AVCodecID, AVCodecParameters * = nullptr, AVRational = { .num = 1, .den = PTSTICKS });
 	void Close(void);
 	void Decode(const AVPacket *);
 	void FlushBuffers(void);
