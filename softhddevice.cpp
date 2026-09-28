@@ -1033,8 +1033,8 @@ bool cSoftHdDevice::CheckPlaybackStartConditions()
 		auto durationSinceChannelSwitchMs = std::chrono::duration_cast<std::chrono::milliseconds>(now - LOGGER->GetChannelSwitchStartTime()).count();
 		LOGDEBUG2(L_AV_SYNC, "TRACE: +%5dms firing BufferingThresholdReached - PTS: %s (audio), %s (video) - buffer fill levels: %ldms (audio) %ldms (video)",
 			durationSinceChannelSwitchMs,
-			Timestamp2String(m_pAudio->GetOutputPtsMs(), 1),
-			Timestamp2String(m_pRender->GetOutputPtsMs(), 1),
+			Timestamp2StringMs(m_pAudio->GetOutputPtsMs()),
+			Timestamp2StringMs(m_pRender->GetOutputPtsMs()),
 			syncedAudioBufferFillLevelMs,
 			syncedVideoBufferFillLevelMs);
 
@@ -1047,8 +1047,8 @@ bool cSoftHdDevice::CheckPlaybackStartConditions()
 		LOGDEBUG2(L_AV_SYNC, "TRACE: +%5dms BufferingThresholdReached, but video waits for audio (-%dms) - PTS: %s (audio), %s (video) - buffer fill levels: %ldms (audio) %ldms (video)",
 			durationSinceChannelSwitchMs,
 			audioBehindVideoMs,
-			Timestamp2String(m_pAudio->GetOutputPtsMs(), 1),
-			Timestamp2String(m_pRender->GetOutputPtsMs(), 1),
+			Timestamp2StringMs(m_pAudio->GetOutputPtsMs()),
+			Timestamp2StringMs(m_pRender->GetOutputPtsMs()),
 			syncedAudioBufferFillLevelMs,
 			syncedVideoBufferFillLevelMs);
 		m_logPlaybackStart = false;
@@ -1111,8 +1111,8 @@ bool cSoftHdDevice::CheckAudioPlaybackStartConditions()
 	LOGDEBUG2(L_AV_SYNC, "TRACE: +%5dms firing AudioBufferingThresholdReached, threshold %dms - PTS: %s (audio), %s (video) - buffer fill levels: %ldms (audio)",
 		durationSinceChannelSwitchMs,
 		GetBufferFillLevelThresholdMs(),
-		Timestamp2String(m_pAudio->GetOutputPtsMs(), 1),
-		Timestamp2String(m_pRender->GetOutputPtsMs(), 1),
+		Timestamp2StringMs(m_pAudio->GetOutputPtsMs()),
+		Timestamp2StringMs(m_pRender->GetOutputPtsMs()),
 		audioBufferFillLevelMs);
 
 	return true;
