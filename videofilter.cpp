@@ -18,6 +18,7 @@ extern "C" {
 #include <libavutil/opt.h>
 }
 
+#include <vdr/remux.h>
 #include <vdr/thread.h>
 
 #include "logger.h"
@@ -80,7 +81,6 @@ void cVideoFilter::InitAndStart(const AVCodecContext *videoCtx, AVFrame *frame, 
 		LOGFATAL("video filter: %s: Cannot alloc filter graph", __FUNCTION__);
 
 	m_numFramesToFilter = 0;
-	m_filterBug = false;
 
 	const AVFilter *buffersrc  = avfilter_get_by_name("buffer");
 	const AVFilter *buffersink = avfilter_get_by_name("buffersink");
@@ -98,7 +98,6 @@ void cVideoFilter::InitAndStart(const AVCodecContext *videoCtx, AVFrame *frame, 
 			filterDescr = "deinterlace_v4l2m2m";
 		} else if (frame->format == AV_PIX_FMT_YUV420P) {
 			filterDescr = "bwdif=1:-1:0";
-			m_filterBug = true;
 		}
 	} else if (frame->format == AV_PIX_FMT_YUV420P) {
 		filterDescr = "scale";
@@ -246,8 +245,18 @@ void cVideoFilter::Action(void)
 				usleep(1000);
 
 			if (Running()) {
-				if (filtFrame->format == AV_PIX_FMT_NV12 && m_filterBug) // scale filter or sw deinterlacer, no prime data, always returns NV12
-					filtFrame->pts /= 2; // ffmpeg bug
+				// The sink's timebase may differ from the source's one.
+				// For example it's 1/180000 in case of bwdif deinterlacer.
+				// Rescale the pts and duration and set the original timebase again.
+				constexpr AVRational timebase { .num = 1, .den = PTSTICKS };
+				const AVRational sinkTimebase = av_buffersink_get_time_base(m_pBuffersinkCtx);
+
+				if (filtFrame->pts != AV_NOPTS_VALUE)
+					filtFrame->pts = av_rescale_q(filtFrame->pts, sinkTimebase, timebase);
+				if (filtFrame->duration > 0)
+					filtFrame->duration = av_rescale_q(filtFrame->duration, sinkTimebase, timebase);
+
+				filtFrame->time_base = timebase;
 
 				m_frameOutput(filtFrame);
 			} else
@@ -275,7 +284,6 @@ void cVideoFilter::Stop(void)
 
 	LOGDEBUG("video filter: stopping thread");
 	Cancel(2);
-	m_filterBug = false;
 	m_numFramesToFilter = 0;
 
 	while (!m_frames.IsEmpty()) {
