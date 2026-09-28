@@ -98,7 +98,7 @@ bool cVideoStream::PushAvPacket(AVPacket *avpkt)
 	if (avpkt->pts != AV_NOPTS_VALUE)
 		m_inputPts = avpkt->pts;
 
-	LOGDEBUG2(L_PACKET, "videostream: %s: push PTS %s", __FUNCTION__, Timestamp2String(avpkt->pts, 90));
+	LOGDEBUG2(L_PACKET, "videostream: %s: push PTS %s", __FUNCTION__, Timestamp2StringPts(avpkt->pts));
 
 	return m_packets.Push(avpkt);
 }
@@ -403,7 +403,7 @@ void cVideoStream::DecodeInput(void)
 	    std::abs(PtsToMs(avpkt->pts) - PtsToMs(m_lastDecodedPts)) < PtsToMs(1LL << 32)) {
 
 		LOGDEBUG2(L_CODEC, "videostream: %s: discontinuity detected in video PTS %s -> %s, force decoder flush", __FUNCTION__,
-			Timestamp2String(m_lastDecodedPts, 90), Timestamp2String(avpkt->pts, 90));
+			Timestamp2StringPts(m_lastDecodedPts), Timestamp2StringPts(avpkt->pts));
 
 		m_pDecoder->SendPacket(NULL);
 		m_lastDecodedPts = avpkt->pts;

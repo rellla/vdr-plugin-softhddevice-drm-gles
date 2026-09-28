@@ -434,8 +434,8 @@ void cSoftHdAudio::DropSamplesOlderThanPtsMs(int64_t ptsMs)
 		LOGDEBUG2(L_AV_SYNC, "audio: %s: dropping %dms audio samples from ringbuffer (output PTS %s -> %s)",
 			__FUNCTION__,
 			dropMs,
-			Timestamp2String(GetOutputPtsMsInternal(), 1),
-			Timestamp2String(ptsMs, 1));
+			Timestamp2StringMs(GetOutputPtsMsInternal()),
+			Timestamp2StringMs(ptsMs));
 
 		m_pidController.Reset();
 		m_fillLevel.Reset();
@@ -555,7 +555,7 @@ void cSoftHdAudio::Enqueue(const uint16_t *buffer, int count, int64_t pts)
 		// - not sure, if a forward SkipSeconds() could trigger this, but then the resync is skipped in the video thread
 		if (m_inputPts != AV_NOPTS_VALUE && (m_alsa.PtsToMs(pts, av_q2d(m_timebase)) - m_alsa.PtsToMs(m_inputPts, av_q2d(m_timebase))) > AV_SYNC_BORDER_MS) {
 			LOGDEBUG2(L_AV_SYNC, "audio: %s: discontinuity detected in audio PTS %s -> %s", __FUNCTION__,
-				Timestamp2String(m_alsa.PtsToMs(m_inputPts, av_q2d(m_timebase)), 1), Timestamp2String(m_alsa.PtsToMs(pts, av_q2d(m_timebase)), 1));
+				Timestamp2StringMs(m_alsa.PtsToMs(m_inputPts, av_q2d(m_timebase))), Timestamp2StringMs(m_alsa.PtsToMs(pts, av_q2d(m_timebase))));
 			std::lock_guard<std::mutex> lock(m_queueMutex);
 			m_eventQueue.push_back(ScheduleResyncAtPtsMsEvent{m_alsa.PtsToMs(pts, av_q2d(m_timebase))});
 		}

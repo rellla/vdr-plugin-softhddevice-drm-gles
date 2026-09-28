@@ -23,6 +23,8 @@ extern "C" {
 #include <libavutil/pixdesc.h>
 }
 
+#include <vdr/remux.h>
+
 #include "codec_video.h"
 #include "logger.h"
 #include "misc.h"
@@ -230,7 +232,7 @@ int cVideoDecoder::Open(enum AVCodecID codecId, AVCodecParameters * par,
 	m_pVideoCtx->get_format = GetFormat;
 	m_pVideoCtx->opaque = this;
 	m_pVideoCtx->pkt_timebase.num = 1;
-	m_pVideoCtx->pkt_timebase.den = 90000;
+	m_pVideoCtx->pkt_timebase.den = PTSTICKS;
 
 	if (av_q2d(timebase) > 0)
 		m_pVideoCtx->pkt_timebase = timebase;
@@ -459,7 +461,7 @@ int cVideoDecoder::SendPacket(const AVPacket *avpkt)
 
 	m_cntPacketsSent++;
 
-	LOGDEBUG2(L_PACKET, "videocodec: %s: %s:   %6d PTS %s <<---", m_identifier, __FUNCTION__, m_cntPacketsSent, Timestamp2String(avpkt->pts, 90));
+	LOGDEBUG2(L_PACKET, "videocodec: %s: %s:   %6d PTS %s <<---", m_identifier, __FUNCTION__, m_cntPacketsSent, Timestamp2StringPts(avpkt->pts));
 
 	return 0;
 }
@@ -530,7 +532,7 @@ int cVideoDecoder::ReceiveFrame(AVFrame **frame)
 
 	m_cntFramesReceived++;
 	LOGDEBUG2(L_PACKET, "videocodec: %s: %s: %6d PTS %s --->> (%2d)%s", m_identifier, __FUNCTION__,
-		m_cntFramesReceived, Timestamp2String(pFrame->pts, 90), m_cntPacketsSent - m_cntFramesReceived,
+		m_cntFramesReceived, Timestamp2StringPts(pFrame->pts), m_cntPacketsSent - m_cntFramesReceived,
 		isInterlacedFrame(pFrame) ? " I" : "");
 
 	return 0;
