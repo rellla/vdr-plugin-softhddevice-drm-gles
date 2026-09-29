@@ -77,6 +77,7 @@ public:
 	void ResetInputPts(void) { m_inputPts = AV_NOPTS_VALUE; };
 	void GetVideoSize(int *, int *, double *);
 	int GetVideoPacketMax(void) { return VIDEO_PACKET_MAX; };
+	bool IsFlushed(void) { return m_flushed; }; /// the decoder was flushed and has empty buffers
 
 	// Filter
 	void CancelFilterThread(void);
@@ -128,6 +129,7 @@ private:
 	int64_t m_inputPts = AV_NOPTS_VALUE;            ///< PTS of the first packet in the input buffer
 	int64_t m_ptsForFramerateDetection = AV_NOPTS_VALUE; ///< helper PTS to calculate a framerate at stream start
 	int64_t m_lastDecodedPts = AV_NOPTS_VALUE;      ///< PTS of the latest packet, which was sent to the decoder in order to detect stream discontinuity
+	std::atomic<bool> m_flushed = false;
 
 	// h264 parsing
 	std::vector<std::string> m_naluTypesAtStart;    ///< array of strings to log the H.264 frames at stream start

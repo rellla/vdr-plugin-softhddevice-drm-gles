@@ -186,6 +186,8 @@ void cVideoStream::FlushDecoder(void)
 	} else {
 		m_pDecoder->FlushBuffers();
 	}
+
+	m_flushed = true;
 }
 
 /**
@@ -426,6 +428,9 @@ void cVideoStream::DecodeInput(void)
 			m_isResend = true;
 		}
 
+		if (ret != AVERROR_EOF)
+			m_flushed = false;
+
 		if (!ret && m_pRender->IsTrickSpeed())
 			CheckForcingFrameDecode();
 
@@ -444,6 +449,9 @@ void cVideoStream::DecodeInput(void)
 		FlushDecoder();
 		m_sentTrickPkts = 0;
 	}
+
+	if (ret != AVERROR_EOF)
+		m_flushed = false;
 
 	if (m_pDecoder->IsHardwareDecoder() && !m_pDecoder->GetFramesReceived()) {
 		// log maximum number of packets needed for the hw decoder to deliver a frame
@@ -662,5 +670,8 @@ void cVideoStream::RenderFrame(AVFrame * frame)
  */
 bool cVideoStream::BuffersEmpty(void)
 {
-	return m_packets.IsEmpty() && !m_pRender->PresentationPending() && m_videoFilter.IsInputBufferEmpty();
+	return m_packets.IsEmpty() &&
+	       IsFlushed() &&
+	       !m_pRender->PresentationPending() &&
+	       m_videoFilter.IsInputBufferEmpty();
 }
