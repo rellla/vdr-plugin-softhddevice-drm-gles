@@ -371,21 +371,15 @@ bool cVideoStream::PacketDropNeeded(AVPacket *avpkt)
 }
 
 /**
- * Decodes a reassembled codec packet
+ * Send a packet to the decoder
+ *
+ * @param avpkt         AVPacket to be decoded (can be a nullptr from cVideoStream::Flush())
+ *
+ * @note                We may not dereference avpkt without nullptr-check!
  */
-void cVideoStream::DecodeInput(void)
+void cVideoStream::SendPacket(AVPacket *avpkt)
 {
-	AVFrame *frame = nullptr;
 	int ret = 0;
-
-	if (m_codecId == AV_CODEC_ID_NONE || m_packets.IsEmpty() || m_pDrmBufferQueue->IsFull() || m_videoFilter.IsInputBufferFull())
-		return;
-
-	if (m_newStream)
-		OpenDecoder();
-
-	// caution: avpkt can be a nullptr from cVideoStream::Flush(), we may not dereference it later without nullptr-check!
-	AVPacket *avpkt = m_packets.Peek();
 
 	// Force a decoder drain if the new pts is more than AV_SYNC_BORDER_MS
 	// greater than the last one.
@@ -430,16 +424,54 @@ void cVideoStream::DecodeInput(void)
 		av_packet_free(&avpkt);
 		m_isResend = false;
 	}
+}
+
+/**
+ * Receive a decoded frame from the decoder
+ *
+ * @param[out] frame    Decoded AVFrame
+ *
+ * @return              0 if frame was decoded, an AVERROR otherwise
+ */
+int cVideoStream::ReceiveFrame(AVFrame **frame)
+{
+	int ret = 0;
 
 	// receive frame from decoder
-	ret = m_pDecoder->ReceiveFrame(&frame);
-	if (ret == 0) {
-		RenderFrame(frame);
-	} else if (ret == AVERROR_EOF) {
+	ret = m_pDecoder->ReceiveFrame(frame);
+
+	if (ret == AVERROR_EOF) {
 		FlushDecoder();
 		m_sentTrickPkts = 0;
 	}
 
+	return ret;
+}
+
+/**
+ * Decodes a reassembled codec packet
+ */
+void cVideoStream::DecodeInput(void)
+{
+	if (m_codecId == AV_CODEC_ID_NONE || m_pDrmBufferQueue->IsFull() || m_videoFilter.IsInputBufferFull())
+		return;
+
+	// open decoder on new stream
+	if (m_newStream)
+		OpenDecoder();
+
+	// send packet to decoder
+	if (!m_packets.IsEmpty()) {
+		AVPacket *avpkt = m_packets.Peek();
+		SendPacket(avpkt);
+	}
+
+	// receive frame from decoder and send it to the render queue
+	AVFrame *frame = nullptr;
+	if (!ReceiveFrame(&frame))
+		RenderFrame(frame);
+
+	// software decoder fallback check
 	if (m_pDecoder->IsHardwareDecoder() && !m_pDecoder->GetFramesReceived()) {
 		// log maximum number of packets needed for the hw decoder to deliver a frame
 		if (m_pConfig->GetDecoderNeedsMaxPackets() < m_pDecoder->GetPacketsSent())

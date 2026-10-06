@@ -142,6 +142,8 @@ private:
 	bool m_isResend = false;                        ///< track, if we already tried to send the AVPacket to the decoder
 	                                                ///< if so, skip the parsing
 
+	void SendPacket(AVPacket *);
+	int ReceiveFrame(AVFrame **);
 	void RenderFrame(AVFrame *);
 	void CheckForcingFrameDecode(void);
 	void OpenDecoder(void);
