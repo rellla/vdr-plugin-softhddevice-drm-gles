@@ -78,9 +78,9 @@ cVideoStream::~cVideoStream(void)
  * This function completes processing of any remaining PES fragments in the fragmentation
  * buffer, then pushes a nullptr packet to the queue to signal a flush operation to the decoder.
  */
-void cVideoStream::Drain(void)
+bool cVideoStream::Drain(void)
 {
-	m_packets.Push(nullptr);
+	return m_packets.Push(nullptr);
 }
 
 /**

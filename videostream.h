@@ -58,7 +58,7 @@ public:
 	void FlushDecoder(void);
 	void CloseDecoder(void);
 	bool PushAvPacket(AVPacket *avpkt);
-	void Drain(void);
+	bool Drain(void);
 
 	// decoding thread
 	void Stop(void);
