@@ -335,7 +335,7 @@ bool cSoftHdDevice::SetPlayMode(ePlayMode play_mode)
 	auto now = std::chrono::steady_clock::now();
 	auto durationSinceChannelSwitchMs = std::chrono::duration_cast<std::chrono::milliseconds>(now - LOGGER->GetChannelSwitchStartTime()).count();
 
-	m_draining = false;
+	SetDrain(false);
 
 	switch (play_mode) {
 	case pmNone:
@@ -666,7 +666,7 @@ void cSoftHdDevice::Clear(void)
 	m_pRender->Halt();
 	m_pVideoStream->Halt();
 
-	m_draining = false;
+	SetDrain(false);
 
 	m_pRender->SetDisplayOneFrameThenPause(true);
 	m_pVideoStream->CancelFilterThread();
@@ -812,8 +812,7 @@ bool cSoftHdDevice::DrainDevice(void)
 		if (!m_pVideoStream->Drain())
 			return false;
 
-		LOGDEBUG("device: %s: start draining", __FUNCTION__);
-		m_draining = true;
+		SetDrain(true);
 	}
 
 	const auto buffersEmpty = [&]() {
@@ -826,7 +825,7 @@ bool cSoftHdDevice::DrainDevice(void)
 		return false;
 
 	LOGDEBUG("device: %s: drained, buffers are empty", __FUNCTION__);
-	m_draining = false;
+	SetDrain(false);
 
 	return true;
 }
@@ -1708,6 +1707,18 @@ int64_t cSoftHdDevice::GetFirstVideoPtsMsToPlay()
  */
 int cSoftHdDevice::GetBufferFillLevelThresholdMs() {
 	return MIN_BUFFER_FILL_LEVEL_THRESHOLD_MS + m_pConfig->ConfigAdditionalBufferLengthMs;
+}
+
+/**
+ * Set and log the drain state changes
+ *
+ * @param on     true, if draining should be started
+ *               false, if draining should be stopped
+ */
+void cSoftHdDevice::SetDrain(bool on)
+{
+	LOGDEBUG("device: %s: %s draining", __FUNCTION__, on ? "start" : "stop");
+	m_draining = on;
 }
 
 /*********************************************************************
