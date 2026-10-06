@@ -291,6 +291,7 @@ private:
 	int64_t GetFirstAudioPtsMsToPlay();
 	int64_t GetFirstVideoPtsMsToPlay();
 	int GetBufferFillLevelThresholdMs();
+	void SetDrain(bool);
 };
 
 #endif
