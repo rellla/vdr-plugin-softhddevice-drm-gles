@@ -122,8 +122,8 @@ public:
 		}
 
 		if (m_deviceName)
-			LOGDEBUG("%s found%s%s%s%s", m_deviceName,
-			    m_quirks & QUIRK_CODEC_FLUSH_WORKAROUND ?       ", flush workaround" : "");
+			LOGDEBUG("%s found%s", m_deviceName,
+			    m_quirks & QUIRK_CODEC_FLUSH_WORKAROUND ? ", flush workaround" : "");
 		else
 			LOGDEBUG("%s found, no quirks set", txt_buf);
 
