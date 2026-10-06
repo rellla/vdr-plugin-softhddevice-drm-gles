@@ -479,6 +479,11 @@ void cGrabBuffer::Set(cDrmBuffer *src)
 		}
 	} else {
 		for (int plane = 0; plane < src->NumPlanes(); plane++) {
+			if (!src->Size(plane)) {
+				m_pPlane[plane] = m_pPlane[0];
+				continue;
+			}
+
 			dst_buffer = malloc(src->Size(plane));
 			if (!dst_buffer) {
 				LOGERROR("%s: %s: cannot allocate destination buffer (%d): %m", m_identifier, __FUNCTION__, errno);
