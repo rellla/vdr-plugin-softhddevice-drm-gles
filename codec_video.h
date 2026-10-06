@@ -61,6 +61,7 @@ private:
 	bool m_isHardwareDecoder = false;       ///< true, if this is a hardware decoder
 
 	int GetExtraData(const AVPacket *);
+	void ResetPacketCounter(void) { m_cntPacketsSent = m_cntFramesReceived = 0; };
 };
 
 #endif
