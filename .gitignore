@@ -19,3 +19,4 @@ tests/coverage.info
 tests/coverage-html/
 
 git-version.h
+.apiversion

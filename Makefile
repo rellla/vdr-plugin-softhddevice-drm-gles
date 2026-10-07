@@ -111,7 +111,9 @@ endif
 
 ### Includes and Defines (add further entries here):
 
-INCLUDES +=
+ifneq ($(VDRDIR),)
+INCLUDES += -isystem $(VDRDIR)/include
+endif
 
 DEFINES += -DPLUGIN_NAME_I18N='"$(PLUGIN)"' -D_GNU_SOURCE $(CONFIG)
 
@@ -121,6 +123,12 @@ override CXXFLAGS += $(_CFLAGS) $(DEFINES) $(INCLUDES) \
     -g -ggdb3 -W -Wall -Wextra -Winit-self -Werror=overloaded-virtual
 override CFLAGS	  += $(_CFLAGS) $(DEFINES) $(INCLUDES) \
     -g -ggdb3 -W -Wall -Wextra -Winit-self
+
+### Implicit rules
+
+%.o: %.cpp
+	@echo CXX $@
+	$(Q)$(CXX) $(CXXFLAGS) -c $< -o $@
 
 ### The object files (add further files here):
 
@@ -220,8 +228,15 @@ $(GIT_VERSION_FILE): force
 
 $(PLUGIN).o: $(GIT_VERSION_FILE)
 
+APIVERSION_FILE := .apiversion
+$(APIVERSION_FILE): force
+	@echo '$(APIVERSION)' | cmp -s $@ || echo '$(APIVERSION)' > $@
+
+$(OBJS): $(APIVERSION_FILE)
+
 $(SOFILE): $(OBJS)
-	$(CXX) $(CXXFLAGS) $(LDFLAGS) -shared $(OBJS) $(LIBS) -o $@
+	@echo LD $@
+	$(Q)$(CXX) $(CXXFLAGS) $(LDFLAGS) -shared $(OBJS) $(LIBS) -o $@
 
 install-lib: $(SOFILE)
 	install -D $^ $(DESTDIR)$(LIBDIR)/$^.$(APIVERSION)
@@ -241,6 +256,7 @@ clean:
 	@-rm -f $(DEPFILE) *.o *.so *.tgz core* *~
 	@-rm -rf srcdoc
 	@-rm -f $(GIT_VERSION_FILE)
+	@-rm -f $(APIVERSION_FILE)
 	@$(MAKE) -C tests clean 2>/dev/null || true
 
 # Unit tests:
