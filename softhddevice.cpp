@@ -28,6 +28,7 @@ extern "C" {
 #include <vdr/skins.h>
 #include <vdr/status.h>
 #include <vdr/thread.h>
+#include <vdr/transfer.h>
 
 #include "audio.h"
 #include "codec_audio.h"
@@ -843,12 +844,24 @@ bool cSoftHdDevice::DrainDevice(void)
  */
 void cSoftHdDevice::ChannelSwitch(const cDevice *device, int channelNum, bool liveView)
 {
-	if (device != cDevice::PrimaryDevice() || !liveView || channelNum != 0)
+	if (device != cDevice::PrimaryDevice() || !liveView)
 		return;
 
-	auto now = std::chrono::steady_clock::now();
-	LOGGER->SetChannelSwitchStartTime(now);
-	LOGDEBUG2(L_AV_SYNC, "TRACE: channel switch");
+	if (channelNum == 0) { // before the channel is beeing switched
+		auto now = std::chrono::steady_clock::now();
+		LOGGER->SetChannelSwitchStartTime(now);
+		LOGDEBUG2(L_AV_SYNC, "TRACE: channel switch");
+	} else { // after the channel has been switched
+		cMutexLock controlLock;
+		if (!dynamic_cast<cTransferControl *>(cControl::Control(controlLock, true)))
+			return;
+
+		auto now = std::chrono::steady_clock::now();
+		auto durationSinceChannelSwitchMs = std::chrono::duration_cast<std::chrono::milliseconds>(now - LOGGER->GetChannelSwitchStartTime()).count();
+		LOGDEBUG2(L_AV_SYNC, "TRACE: +%5dms Switched to channel nr %d - attach the transfer player (%s thread)",
+			durationSinceChannelSwitchMs, channelNum, cThread::IsMainThread() != 0 ? "main" : "switching");
+		cControl::Attach();
+	}
 }
 
 /**
