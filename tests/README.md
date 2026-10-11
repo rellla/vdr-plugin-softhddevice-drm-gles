@@ -1,6 +1,6 @@
-# Unit Tests for softhddevice-drm-gles
+# Unit Tests for drmdevice
 
-This directory contains unit tests for the softhddevice-drm-gles VDR plugin using the Catch2 testing framework.
+This directory contains unit tests for the drmdevice VDR plugin using the Catch2 testing framework.
 
 ## Prerequisites
 

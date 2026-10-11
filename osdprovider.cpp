@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 /**
- * @file softhdosdprovider.cpp
+ * @file osdprovider.cpp
  * OSD Provider
  *
  * This file provides cSoftOsd which is the software accelerated
  * version of this plugin (in contrast to the hardware accelerater cOglOsd).
- * It also decribes cSoftOsdProvider.
+ * It also decribes cDeviceOsdProvider.
  *
  * @copyright 2011, 2015 by Johns.  All Rights Reserved.
  * @copyright 2018 zille.  All Rights Reserved.
@@ -20,9 +20,9 @@
 #ifdef USE_GLES
 #include "openglosd.h"
 #endif
-#include "softhddevice.h"
-#include "softhdosd.h"
-#include "softhdosdprovider.h"
+#include "device.h"
+#include "softosd.h"
+#include "osdprovider.h"
 
 /*****************************************************************************
  * OSD provider
@@ -31,7 +31,7 @@
 /**
  * Create a new OSD provider
  */
-cSoftOsdProvider::cSoftOsdProvider(cSoftHdDevice *device)
+cDeviceOsdProvider::cDeviceOsdProvider(cOutputDevice *device)
 	: cOsdProvider(),
 	  m_pDevice(device)
 {
@@ -41,7 +41,7 @@ cSoftOsdProvider::cSoftOsdProvider(cSoftHdDevice *device)
 /**
  * Delete the OSD provider and stop the OpenGL thread if running
  */
-cSoftOsdProvider::~cSoftOsdProvider()
+cDeviceOsdProvider::~cDeviceOsdProvider()
 {
 	LOGDEBUG2(L_OSD, "osdprovider %s:", __FUNCTION__);
 
@@ -63,7 +63,7 @@ cSoftOsdProvider::~cSoftOsdProvider()
  * @param top    y-coordinate of OSD
  * @param level  layer level of OSD
  */
-cOsd *cSoftOsdProvider::CreateOsd(int left, int top, uint level)
+cOsd *cDeviceOsdProvider::CreateOsd(int left, int top, uint level)
 {
 #ifdef USE_GLES
 	if (m_pDevice->IsDetached()) {
@@ -99,17 +99,17 @@ cOsd *cSoftOsdProvider::CreateOsd(int left, int top, uint level)
 /**
  * Stop the OpenGL thread, if the osd size changed and update the size
  */
-void cSoftOsdProvider::OsdSizeChanged(void) {
+void cDeviceOsdProvider::OsdSizeChanged(void) {
 	// cleanup OpenGL context
 	if (!m_pDevice->OglOsdIsDisabled())
-		cSoftOsdProvider::StopOpenGlThread();
-	cSoftOsdProvider::UpdateOsdSize();
+		cDeviceOsdProvider::StopOpenGlThread();
+	cDeviceOsdProvider::UpdateOsdSize();
 }
 
 /**
  * Start the OpenGL thread
  */
-bool cSoftOsdProvider::StartOpenGlThread(void) {
+bool cDeviceOsdProvider::StartOpenGlThread(void) {
 	if (m_pDevice->OglOsdIsDisabled()) {
 		LOGDEBUG2(L_OPENGL, "osdprovider: %s: OpenGL OSD disabled, OpenGL worker thread NOT started", __FUNCTION__);
 		return false;
@@ -138,7 +138,7 @@ bool cSoftOsdProvider::StartOpenGlThread(void) {
 /**
  * Initiate a stop of the OpenGL thread without waiting
  */
-void cSoftOsdProvider::RequestStopOpenGlThread(void) {
+void cDeviceOsdProvider::RequestStopOpenGlThread(void) {
 	if (m_pOglThread) {
 		LOGDEBUG2(L_OPENGL, "osdprovider: %s: request stopping OpenGL worker thread", __FUNCTION__);
 		m_pOglThread->RequestStop();
@@ -148,7 +148,7 @@ void cSoftOsdProvider::RequestStopOpenGlThread(void) {
 /**
  * Stop the OpenGL thread and cancel it if necessary
  */
-void cSoftOsdProvider::StopOpenGlThread(void) {
+void cDeviceOsdProvider::StopOpenGlThread(void) {
 	if (m_pOglThread) {
 		LOGDEBUG2(L_OPENGL, "osdprovider: %s: stop OpenGL worker thread", __FUNCTION__);
 		m_pOglThread->Stop();
@@ -159,7 +159,7 @@ void cSoftOsdProvider::StopOpenGlThread(void) {
 /**
  * Lock the OpenGL thread
  */
-bool cSoftOsdProvider::LockOpenGlThread(void) {
+bool cDeviceOsdProvider::LockOpenGlThread(void) {
 	if (m_pOglThread) {
 		LOGDEBUG2(L_OPENGL, "osdprovider: %s: lock OpenGL worker thread", __FUNCTION__);
 		m_pOglThread->LockOutputFb();
@@ -172,7 +172,7 @@ bool cSoftOsdProvider::LockOpenGlThread(void) {
 /**
  * Unlock the OpenGL thread
  */
-void cSoftOsdProvider::UnlockOpenGlThread(void) {
+void cDeviceOsdProvider::UnlockOpenGlThread(void) {
 	if (m_pOglThread) {
 		LOGDEBUG2(L_OPENGL, "osdprovider: %s: unlock OpenGL worker thread", __FUNCTION__);
 		m_pOglThread->UnlockOutputFb();
@@ -182,7 +182,7 @@ void cSoftOsdProvider::UnlockOpenGlThread(void) {
 /**
  * Store image data
  */
-int cSoftOsdProvider::StoreImageData(const cImage &Image)
+int cDeviceOsdProvider::StoreImageData(const cImage &Image)
 {
 	if (StartOpenGlThread()) {
 		int imgHandle = m_pOglThread->StoreImage(Image);
@@ -194,14 +194,14 @@ int cSoftOsdProvider::StoreImageData(const cImage &Image)
 /**
  * Get stored image data
  */
-const cImage *cSoftOsdProvider::GetImageData(int ImageHandle) {
+const cImage *cDeviceOsdProvider::GetImageData(int ImageHandle) {
 	return cOsdProvider::GetImageData(ImageHandle);
 }
 
 /**
  * Drop stored image data
  */
-void cSoftOsdProvider::DropImageData(int imgHandle)
+void cDeviceOsdProvider::DropImageData(int imgHandle)
 {
 	if (StartOpenGlThread())
 		m_pOglThread->DropImageData(imgHandle);

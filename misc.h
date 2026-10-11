@@ -10,8 +10,8 @@
  * @license{AGPL-3.0-or-later}
  */
 
-#ifndef __MISC_H
-#define __MISC_H
+#ifndef __DRMDEVICE_MISC_H
+#define __DRMDEVICE_MISC_H
 
 #include <cstdio>
 #include <cstdint>

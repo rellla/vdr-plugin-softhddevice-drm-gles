@@ -4,7 +4,7 @@
  * @file logger.cpp
  * Logger
  *
- * This file defines cSoftHdLogger, which is a class to log things
+ * This file defines cLogger, which is a class to log things
  * into syslog. You can use one of the LOG* macros, which are
  * defined in the header file logger.h.
  *
@@ -32,7 +32,7 @@ extern "C" {
 #include "logger.h"
 
 /*****************************************************************************
- * cSoftHdLogger class
+ * cLogger class
  ****************************************************************************/
 
 /**
@@ -40,16 +40,16 @@ extern "C" {
  *
  * @return    pointer to the logger instance
  */
-std::shared_ptr<cSoftHdLogger> cSoftHdLogger::GetLogger()
+std::shared_ptr<cLogger> cLogger::GetLogger()
 {
-	static std::shared_ptr<cSoftHdLogger> instance(new cSoftHdLogger());
+	static std::shared_ptr<cLogger> instance(new cLogger());
 	return instance;
 }
 
 /**
  * Log to syslog LOG_ERR and abort
  */
-void cSoftHdLogger::LogFatal(const char *format, ...)
+void cLogger::LogFatal(const char *format, ...)
 {
 	if (SysLogLevel <= 0)
 		abort();
@@ -58,7 +58,7 @@ void cSoftHdLogger::LogFatal(const char *format, ...)
 	char fmt[MAX_LOGMESSAGE_SIZE];
 
 	pid_t threadId = syscall(__NR_gettid);
-	snprintf(fmt, sizeof(fmt), "[%d] [softhddevice] %s", threadId, format);
+	snprintf(fmt, sizeof(fmt), "[%d] [drmdevice] %s", threadId, format);
 
 	va_start(ap, format);
 	vsyslog(LOG_ERR, fmt, ap);
@@ -70,7 +70,7 @@ void cSoftHdLogger::LogFatal(const char *format, ...)
 /**
  * Log to syslog LOG_ERR
  */
-void cSoftHdLogger::LogError(const char *format, ...)
+void cLogger::LogError(const char *format, ...)
 {
 	if (SysLogLevel <= 0)
 		return;
@@ -79,7 +79,7 @@ void cSoftHdLogger::LogError(const char *format, ...)
 	char fmt[MAX_LOGMESSAGE_SIZE];
 
 	pid_t threadId = syscall(__NR_gettid);
-	snprintf(fmt, sizeof(fmt), "[%d] [softhddevice] %s", threadId, format);
+	snprintf(fmt, sizeof(fmt), "[%d] [drmdevice] %s", threadId, format);
 
 	va_start(ap, format);
 	vsyslog(LOG_ERR, fmt, ap);
@@ -89,7 +89,7 @@ void cSoftHdLogger::LogError(const char *format, ...)
 /**
  * Log to syslog LOG_WARNING
  */
-void cSoftHdLogger::LogWarning(const char *format, ...)
+void cLogger::LogWarning(const char *format, ...)
 {
 	if (SysLogLevel <= 1)
 		return;
@@ -98,7 +98,7 @@ void cSoftHdLogger::LogWarning(const char *format, ...)
 	char fmt[MAX_LOGMESSAGE_SIZE];
 
 	pid_t threadId = syscall(__NR_gettid);
-	snprintf(fmt, sizeof(fmt), "[%d] [softhddevice] %s", threadId, format);
+	snprintf(fmt, sizeof(fmt), "[%d] [drmdevice] %s", threadId, format);
 
 	va_start(ap, format);
 	vsyslog(LOG_WARNING, fmt, ap);
@@ -108,7 +108,7 @@ void cSoftHdLogger::LogWarning(const char *format, ...)
 /**
  * Log to syslog LOG_INFO
  */
-void cSoftHdLogger::LogInfo(const char *format, ...)
+void cLogger::LogInfo(const char *format, ...)
 {
 	if (SysLogLevel <= 2)
 		return;
@@ -117,7 +117,7 @@ void cSoftHdLogger::LogInfo(const char *format, ...)
 	char fmt[MAX_LOGMESSAGE_SIZE];
 
 	pid_t threadId = syscall(__NR_gettid);
-	snprintf(fmt, sizeof(fmt), "[%d] [softhddevice] %s", threadId, format);
+	snprintf(fmt, sizeof(fmt), "[%d] [drmdevice] %s", threadId, format);
 
 	va_start(ap, format);
 	vsyslog(LOG_INFO, fmt, ap);
@@ -127,7 +127,7 @@ void cSoftHdLogger::LogInfo(const char *format, ...)
 /**
  * Log to syslog LOG_DEBUG
  */
-void cSoftHdLogger::LogDebug(const char *format, ...)
+void cLogger::LogDebug(const char *format, ...)
 {
 	if (!m_logLevel)
 		return;
@@ -136,7 +136,7 @@ void cSoftHdLogger::LogDebug(const char *format, ...)
 	char fmt[MAX_LOGMESSAGE_SIZE];
 
 	pid_t threadId = syscall(__NR_gettid);
-	snprintf(fmt, sizeof(fmt), "[%d] [softhddevice] %s", threadId, format);
+	snprintf(fmt, sizeof(fmt), "[%d] [drmdevice] %s", threadId, format);
 
 	va_start(ap, format);
 	vsyslog(LOG_DEBUG, fmt, ap);
@@ -146,7 +146,7 @@ void cSoftHdLogger::LogDebug(const char *format, ...)
 /**
  * Log to syslog LOG_DEBUG and add logging category to output
  */
-void cSoftHdLogger::LogDebug2(const int cat, const char *format, ...)
+void cLogger::LogDebug2(const int cat, const char *format, ...)
 {
 	if (!format)
 		return;
@@ -196,7 +196,7 @@ void cSoftHdLogger::LogDebug2(const int cat, const char *format, ...)
 		return;
 	}
 	pid_t threadId = syscall(__NR_gettid);
-	snprintf(fmt, sizeof(fmt), "[%d] [softhddevice]%s %s", threadId, prefix, format);
+	snprintf(fmt, sizeof(fmt), "[%d] [drmdevice]%s %s", threadId, prefix, format);
 
 	va_start(ap, format);
 	vsyslog(LOG_DEBUG, fmt, ap);
@@ -206,7 +206,7 @@ void cSoftHdLogger::LogDebug2(const int cat, const char *format, ...)
 /**
  * Log to syslog LOG_DEBUG and add prefix [FFMpeg] to output
  */
-void cSoftHdLogger::LogFFmpeg(const char *fmt, va_list vl)
+void cLogger::LogFFmpeg(const char *fmt, va_list vl)
 {
 	if (!(m_logLevel & L_FFMPEG))
 		return;
@@ -218,7 +218,7 @@ void cSoftHdLogger::LogFFmpeg(const char *fmt, va_list vl)
 	pid_t threadId = syscall(__NR_gettid);
 
 	strcpy(prefix, "[FFMpeg]");
-	snprintf(format, sizeof(format), "[%d] [softhddevice]%s %s", threadId, prefix, fmt);
+	snprintf(format, sizeof(format), "[%d] [drmdevice]%s %s", threadId, prefix, fmt);
 
 	vsyslog(LOG_DEBUG, format, vl);
 }
@@ -228,7 +228,7 @@ void cSoftHdLogger::LogFFmpeg(const char *fmt, va_list vl)
  *
  * Log to LOG_DEBUG and add prefix to output
  */
-void cSoftHdLogger::LogFFmpegCallback([[maybe_unused]] void *ptr, [[maybe_unused]] int level, const char *fmt, va_list vl)
+void cLogger::LogFFmpegCallback([[maybe_unused]] void *ptr, [[maybe_unused]] int level, const char *fmt, va_list vl)
 {
 	if (auto logger = GetLogger())
 		logger->LogFFmpeg(fmt, vl);

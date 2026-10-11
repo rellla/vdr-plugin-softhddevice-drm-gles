@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 /**
- * @file softhddevice-drm-gles.h
+ * @file plugindrmdevice.h
  * Main Plugin Interface Header File
  *
  * @copyright 2011, 2014 by Johns.  All Rights Reserved.
@@ -11,8 +11,8 @@
  * @license{AGPL-3.0-or-later}
  */
 
-#ifndef __SOFTHDDEVICE_DRM_GLES_H
-#define __SOFTHDDEVICE_DRM_GLES_H
+#ifndef __DRMDEVICE_PLUGIN_DRM_DEVICE_H
+#define __DRMDEVICE_PLUGIN_DRM_DEVICE_H
 
 #include <vdr/plugin.h>
 
@@ -22,8 +22,8 @@
 #define GIT_DESCRIBE "-unknown"
 #endif
 
-class cSoftHdDevice;
-class cSoftHdConfig;
+class cOutputDevice;
+class cDeviceConfig;
 
 /**
  * Main Plugin Interface
@@ -35,10 +35,10 @@ class cSoftHdConfig;
  *
  * @ingroup plugin
  */
-class cPluginSoftHdDevice : public cPlugin {
+class cPluginDrmDevice : public cPlugin {
 public:
-	cPluginSoftHdDevice(void);
-	virtual ~cPluginSoftHdDevice(void);
+	cPluginDrmDevice(void);
+	virtual ~cPluginDrmDevice(void);
 	virtual const char *Version(void);
 	virtual const char *Description(void);
 	virtual const char *CommandLineHelp(void);
@@ -54,8 +54,8 @@ public:
 	virtual const char **SVDRPHelpPages(void);
 	virtual cString SVDRPCommand(const char *, const char *, int &);
 private:
-	cSoftHdDevice *m_pDevice;          ///< pointer to cSoftHdDevice object
-	cSoftHdConfig *m_pConfig;          ///< pointer to cSoftHdConfig object
+	cOutputDevice *m_pDevice;          ///< pointer to cOutputDevice object
+	cDeviceConfig *m_pConfig;          ///< pointer to cDeviceConfig object
 };
 
 #endif

@@ -9,8 +9,8 @@
  * @license{AGPL-3.0-or-later}
  */
 
-#ifndef __STATEMACHINE_H
-#define __STATEMACHINE_H
+#ifndef __DRMDEVICE_STATEMACHINE_H
+#define __DRMDEVICE_STATEMACHINE_H
 
 #if __cplusplus < 201703L
 #error "C++17 or higher is required"
@@ -122,7 +122,7 @@ inline const char* StateToString(State s) {
 
 /** @} */
 
-class cSoftHdDevice;
+class cOutputDevice;
 
 /**
  * State Machine Implementation
@@ -140,7 +140,7 @@ class cSoftHdDevice;
  */
 class cStateMachine {
 public:
-	cStateMachine(cSoftHdDevice *);
+	cStateMachine(cOutputDevice *);
 	void OnEventReceived(const Event&);
 
 	State GetState(void) const { return m_state; };
@@ -149,7 +149,7 @@ public:
 	std::unique_lock<std::mutex> Lock(void) const { return std::unique_lock<std::mutex>(m_mutex); };
 
 private:
-	cSoftHdDevice *m_pDevice;                ///< pointer to the device
+	cOutputDevice *m_pDevice;                ///< pointer to the device
 	mutable std::mutex m_mutex;              ///< state machine mutex
 	std::atomic<State> m_state = DETACHED;   ///< current state
 };

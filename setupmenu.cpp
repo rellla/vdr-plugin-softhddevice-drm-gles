@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 /**
- * @file softhdsetupmenu.cpp
+ * @file setupmenu.cpp
  * Plugin Setup Menu
  *
- * This file defines cMenuSetupSoft which describes the
+ * This file defines cDeviceSetupMenu which describes the
  * setup menu and sets the config paramaters.
  *
  * @copyright 2011, 2015 by Johns.  All Rights Reserved.
@@ -19,9 +19,9 @@
 #include "audio.h"
 #include "codec_audio.h"
 #include "config.h"
+#include "device.h"
 #include "logger.h"
-#include "softhddevice.h"
-#include "softhdsetupmenu.h"
+#include "setupmenu.h"
 
 /**
  * Create a seperator named item
@@ -42,7 +42,7 @@ static inline cOsdItem *SeparatorName(const char *label)
  * @param flag      flag handling collapsed or opened
  * @param msg       open message
  */
-inline cOsdItem *cMenuSetupSoft::CollapsedItem(const char *label, int &flag, const char *msg)
+inline cOsdItem *cDeviceSetupMenu::CollapsedItem(const char *label, int &flag, const char *msg)
 {
 	cOsdItem *item;
 
@@ -55,7 +55,7 @@ inline cOsdItem *cMenuSetupSoft::CollapsedItem(const char *label, int &flag, con
 /**
  * Build setup menu
  */
-void cMenuSetupSoft::Create(void)
+void cDeviceSetupMenu::Create(void)
 {
 	int current;
 
@@ -235,7 +235,7 @@ void cMenuSetupSoft::Create(void)
  *
  * @param key          pressed key
  */
-eOSState cMenuSetupSoft::ProcessKey(eKeys key)
+eOSState cDeviceSetupMenu::ProcessKey(eKeys key)
 {
 	int old_cGeneralMenu = m_cGeneralMenu;
 	int old_cVideoMenu = m_cVideoMenu;
@@ -284,7 +284,7 @@ eOSState cMenuSetupSoft::ProcessKey(eKeys key)
  *
  * Import global config variables into setup
  */
-cMenuSetupSoft::cMenuSetupSoft(cSoftHdDevice *device)
+cDeviceSetupMenu::cDeviceSetupMenu(cOutputDevice *device)
 	: m_pDevice(device),
 	  m_pConfig(m_pDevice->Config()),
 	  m_pAudioDevice(m_pDevice->Audio())
@@ -389,7 +389,7 @@ cMenuSetupSoft::cMenuSetupSoft(cSoftHdDevice *device)
 	Create();
 }
 
-void cMenuSetupSoft::BuildDisplayModeList(void)
+void cDeviceSetupMenu::BuildDisplayModeList(void)
 {
 	m_displayMode.clear();
 
@@ -434,7 +434,7 @@ void cMenuSetupSoft::BuildDisplayModeList(void)
 		m_displayModePtrs.push_back(s.c_str());
 }
 
-void cMenuSetupSoft::BuildChannelSwitchModeList(void)
+void cDeviceSetupMenu::BuildChannelSwitchModeList(void)
 {
 	m_channelSwitchMode.clear();
 
@@ -449,7 +449,7 @@ void cMenuSetupSoft::BuildChannelSwitchModeList(void)
 /**
  * Store settings
  */
-void cMenuSetupSoft::Store(void)
+void cDeviceSetupMenu::Store(void)
 {
 	//
 	// General

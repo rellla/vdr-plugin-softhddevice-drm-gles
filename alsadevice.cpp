@@ -36,7 +36,7 @@ static void AlsaNoopCallback( __attribute__ ((unused))
 {
 }
 
-cAlsaDevice::cAlsaDevice(cSoftHdConfig *m_pConfig)
+cAlsaDevice::cAlsaDevice(cDeviceConfig *m_pConfig)
 	: m_pPCMDevice(m_pConfig->ConfigAudioPCMDevice),
 	  m_pMixerChannel(m_pConfig->ConfigAudioMixerChannel),
 	  m_appendAES(m_pConfig->ConfigAudioAutoAES),

@@ -146,7 +146,7 @@ static const AVCodec *FindSWDecoder(enum AVCodecID codecId)
 cVideoDecoder::cVideoDecoder(const char *identifier)
 	: m_identifier(identifier)
 {
-	av_log_set_callback(cSoftHdLogger::LogFFmpegCallback);
+	av_log_set_callback(cLogger::LogFFmpegCallback);
 
 #if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(58,18,100)
 	avcodec_register_all();		// register all formats and codecs

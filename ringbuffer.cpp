@@ -4,7 +4,7 @@
  * @file ringbuffer.cpp
  * Audio Ringbuffer
  *
- * This file defines cSoftHdRinguffer, which is a ringbuffer
+ * This file defines cRingbuffer, which is a ringbuffer
  * implementation used for the audio data.
  *
  * @copyright 2009, 2011, 2014 by Johns. All Rights Reserved.
@@ -24,13 +24,13 @@
 #include "ringbuffer.h"
 
 /**
- * cSoftHdRingbuffer constructor
+ * cRingbuffer constructor
  *
  * Init a new ring buffer
  *
  * @param size    Size of the ring buffer
  */
-cSoftHdRingbuffer::cSoftHdRingbuffer(size_t size)
+cRingbuffer::cRingbuffer(size_t size)
 	: m_buffer(size),
 	  m_pBuffer(m_buffer.data()),
 	  m_size(size),
@@ -44,7 +44,7 @@ cSoftHdRingbuffer::cSoftHdRingbuffer(size_t size)
 /**
  * Reset ring buffer pointers
  */
-void cSoftHdRingbuffer::Reset(void)
+void cRingbuffer::Reset(void)
 {
 	m_pReadPointer = m_pBuffer;
 	m_pWritePointer = m_pBuffer;
@@ -58,7 +58,7 @@ void cSoftHdRingbuffer::Reset(void)
  *
  * @return           Number of bytes that could be advanced in ring buffer
  */
-size_t cSoftHdRingbuffer::WriteAdvance(size_t cnt)
+size_t cRingbuffer::WriteAdvance(size_t cnt)
 {
 	size_t n;
 
@@ -95,7 +95,7 @@ size_t cSoftHdRingbuffer::WriteAdvance(size_t cnt)
  *
  * @return      The number of bytes that could be placed in the ring buffer
  */
-size_t cSoftHdRingbuffer::Write(const void *buf, size_t cnt)
+size_t cRingbuffer::Write(const void *buf, size_t cnt)
 {
 	size_t n;
 
@@ -136,7 +136,7 @@ size_t cSoftHdRingbuffer::Write(const void *buf, size_t cnt)
  * @return                The number of bytes that could be placed in the ring
  *                        buffer at the write pointer.
  */
-size_t cSoftHdRingbuffer::GetWritePointer(void **wp)
+size_t cRingbuffer::GetWritePointer(void **wp)
 {
 	size_t n;
 	size_t cnt;
@@ -163,7 +163,7 @@ size_t cSoftHdRingbuffer::GetWritePointer(void **wp)
  *
  * @return          Number of bytes that could be advanced in ring buffer
  */
-size_t cSoftHdRingbuffer::ReadAdvance(size_t cnt)
+size_t cRingbuffer::ReadAdvance(size_t cnt)
 {
 	size_t n;
 
@@ -200,7 +200,7 @@ size_t cSoftHdRingbuffer::ReadAdvance(size_t cnt)
  *
  * @return      Number of bytes that could be read from ring buffer
  */
-size_t cSoftHdRingbuffer::Read(void *buf, size_t cnt)
+size_t cRingbuffer::Read(void *buf, size_t cnt)
 {
 	size_t n;
 
@@ -241,7 +241,7 @@ size_t cSoftHdRingbuffer::Read(void *buf, size_t cnt)
  * @return           The number of bytes that could be read from the ring
  *                   buffer at the read pointer
  */
-size_t cSoftHdRingbuffer::GetReadPointer(const void **rp)
+size_t cRingbuffer::GetReadPointer(const void **rp)
 {
 	size_t n;
 	size_t cnt;
@@ -266,7 +266,7 @@ size_t cSoftHdRingbuffer::GetReadPointer(const void **rp)
  *
  * @return         Number of bytes free in buffer
  */
-size_t cSoftHdRingbuffer::FreeBytes(void)
+size_t cRingbuffer::FreeBytes(void)
 {
 	return m_size - m_filled.load(std::memory_order_acquire);
 }
@@ -276,7 +276,7 @@ size_t cSoftHdRingbuffer::FreeBytes(void)
  *
  * @return         Number of bytes used in buffer.
  */
-size_t cSoftHdRingbuffer::UsedBytes(void)
+size_t cRingbuffer::UsedBytes(void)
 {
 	return m_filled.load(std::memory_order_acquire);
 }

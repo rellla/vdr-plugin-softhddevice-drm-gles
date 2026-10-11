@@ -10,8 +10,8 @@
  * @license{AGPL-3.0-or-later}
  */
 
-#ifndef __SOFTHDCONFIG_H
-#define __SOFTHDCONFIG_H
+#ifndef __DRMDEVICE_CONFIG_H
+#define __DRMDEVICE_CONFIG_H
 
 #include <atomic>
 #include <mutex>
@@ -62,7 +62,7 @@ enum ChannelSwitchMode {
  *
  * @ingroup config
  */
-class cSoftHdConfig {
+class cDeviceConfig {
 public:
 	//
 	// setup.conf parameters
@@ -93,7 +93,7 @@ public:
 	int ConfigAudioEq = 0;                      ///< config equalizer filter
 	int ConfigAudioEqBand[18] =
 		{ 0, 0, 0, 0, 0, 0, 0, 0, 0,
-		  0, 0, 0, 0, 0, 0, 0, 0, 0 };      ///< config equalizer filter bands
+		  0, 0, 0, 0, 0, 0, 0, 0, 0 };          ///< config equalizer filter bands
 
 	// PiP
 	// default position at right top, 25% scaled
@@ -151,7 +151,7 @@ public:
 	sDrmMode CurrentVideoDrmMode;                       ///< currently used video drm mode
 	sDrmMode RequestedDrmMode;                          ///< is set to the requested mode which should be changed to
 
-	cSoftHdConfig(void) = default;
+	cDeviceConfig(void) = default;
 	bool SetupParse(const char *, const char *);
 	void PrintLogLevel(int);
 	void SetDecoderNeedsMaxPackets(int);

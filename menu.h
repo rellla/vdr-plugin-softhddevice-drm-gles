@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 /**
- * @file softhdmenu.h
+ * @file menu.h
  * Plugin Main Menu Header File
  *
  * @copyright 2020 zille.  All Rights Reserved.
@@ -10,14 +10,14 @@
  * @license{AGPL-3.0-or-later}
  */
 
-#ifndef __SOFTHDMENU_H
-#define __SOFTHDMENU_H
+#ifndef __DRMDEVICE_MENU_H
+#define __DRMDEVICE_MENU_H
 
 #include <string>
 
 #include <vdr/osdbase.h>
 
-class cSoftHdDevice;
+class cOutputDevice;
 
 /**
  * Plugin Menus
@@ -40,19 +40,19 @@ typedef enum {
  *
  * @ingroup menu
  */
-class cSoftHdMenu : public cOsdMenu {
+class cDeviceMenu : public cOsdMenu {
 public:
-	cSoftHdMenu(const char *, cSoftHdDevice *, int = 0, int = 0, int = 0, int = 0, int = 0);
-	virtual ~cSoftHdMenu();
-	static cSoftHdMenu *pSoftHdMenu;
-	static cSoftHdMenu *Menu() { return pSoftHdMenu; }
+	cDeviceMenu(const char *, cOutputDevice *, int = 0, int = 0, int = 0, int = 0, int = 0);
+	virtual ~cDeviceMenu();
+	static cDeviceMenu *pMenu;
+	static cDeviceMenu *Menu() { return pMenu; }
 
 	// mediaplayer
 	void PlayListMenu(void);
 	virtual eOSState ProcessKey(eKeys);
 
 private:
-	cSoftHdDevice *m_pDevice;
+	cOutputDevice *m_pDevice;
 
 	HotkeyState m_hotkeyState = HotkeyState::Initial;
 	void HandleHotKey(int);

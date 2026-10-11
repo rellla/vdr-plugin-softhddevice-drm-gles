@@ -34,11 +34,11 @@
 
 #include <vdr/osd.h>
 
+#include "device.h"
 #include "logger.h"
 #include "misc.h"
 #include "openglosd.h"
 #include "openglshader.h"
-#include "softhddevice.h"
 #include "videorender.h"
 
 // This maybe useful for skin developing and marks the rects of the single draws
@@ -1703,7 +1703,7 @@ bool cOglCmdDropImage::Execute(void) {
 /******************************************************************************
  * cOglThread
  *****************************************************************************/
-cOglThread::cOglThread(cCondWait *startWait, int maxCacheSize, cSoftHdDevice *device)
+cOglThread::cOglThread(cCondWait *startWait, int maxCacheSize, cOutputDevice *device)
 	: cThread("oglThread"),
 	  m_startWait(startWait),
 	  m_maxCacheSize(maxCacheSize * 1024 * 1024),
@@ -2453,7 +2453,7 @@ void cOglPixmap::DrawGridRect(const cRect &rect, int offset, int size, tColor cl
  *****************************************************************************/
 cOglOutputFb *cOglOsd::OutputFramebuffer = NULL;
 
-cOglOsd::cOglOsd(int left, int top, uint level, std::shared_ptr<cOglThread> oglThread, cSoftHdDevice *device)
+cOglOsd::cOglOsd(int left, int top, uint level, std::shared_ptr<cOglThread> oglThread, cOutputDevice *device)
 	: cOsd(left, top, level),
 	  m_pOglThread(oglThread),
 	  m_isSubtitleOsd(level == 10 ? true : false),

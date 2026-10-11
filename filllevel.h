@@ -7,8 +7,8 @@
  * @license{AGPL-3.0-or-later}
  */
 
-#ifndef FILLLEVEL_H
-#define FILLLEVEL_H
+#ifndef __DRMDEVICE_FILLLEVEL_H
+#define __DRMDEVICE_FILLLEVEL_H
 
 #include <mutex>
 

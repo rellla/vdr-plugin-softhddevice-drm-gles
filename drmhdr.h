@@ -13,8 +13,8 @@
  * @license{AGPL-3.0-or-later}
  */
 
-#ifndef __DRMHDR_H
-#define __DRMHDR_H
+#ifndef __DRMDEVICE_DRMHDR_H
+#define __DRMDEVICE_DRMHDR_H
 
 extern "C" {
 #include <libavutil/frame.h>

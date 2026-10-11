@@ -4,7 +4,7 @@
  * @file audio.cpp
  * Audio Interface
  *
- * cSoftHdAudio handles everything audio related except
+ * cAudioStream handles everything audio related except
  * the decoding itself (see cAudioDecoder) and ALSA output (see cAlsaDevice).
  *
  * @copyright 2009 - 2014 by Johns.  All Rights Reserved.
@@ -43,14 +43,14 @@ extern "C" {
 #include "misc.h"
 #include "pidcontroller.h"
 #include "ringbuffer.h"
-#include "softhddevice.h"
+#include "device.h"
 #include "statemachine.h"
 
 /**
  * Create a new audio context
  */
-cSoftHdAudio::cSoftHdAudio(cSoftHdDevice *device)
-	: cThread("softhd audio"),
+cAudioStream::cAudioStream(cOutputDevice *device)
+	: cThread("drmdev audio"),
 	  m_pDevice(device),
 	  m_pConfig(m_pDevice->Config()),
 	  m_alsa(m_pConfig),
@@ -138,7 +138,7 @@ static bool LayoutIsValid(const std::vector<std::string> &channelLayout)
  *
  * @ingroup audio
  */
-std::string cSoftHdAudio::BuildChannelMapFilter(const AVChannelLayout &layout)
+std::string cAudioStream::BuildChannelMapFilter(const AVChannelLayout &layout)
 {
 	auto ff = GetFFmpegChannelLayoutAsArray(layout);
 	auto alsa = m_alsa.GetChannelLayoutAsArray();
@@ -200,7 +200,7 @@ std::string cSoftHdAudio::BuildChannelMapFilter(const AVChannelLayout &layout)
  * @retval 1    didn't support channels, downmix set -> scrap this frame, test next
  * @retval -1   something gone wrong
  */
-int cSoftHdAudio::InitFilter(AVCodecContext *audioCtx)
+int cAudioStream::InitFilter(AVCodecContext *audioCtx)
 {
 	const AVFilter  *abuffer;
 	AVFilterContext *pFilterCtx[4];
@@ -417,7 +417,7 @@ int cSoftHdAudio::InitFilter(AVCodecContext *audioCtx)
  *
  * @param ptsMs     presentation timestamp in milliseconds - samples older than this will be dropped
  */
-void cSoftHdAudio::DropSamplesOlderThanPtsMs(int64_t ptsMs)
+void cAudioStream::DropSamplesOlderThanPtsMs(int64_t ptsMs)
 {
 	std::lock_guard<std::mutex> lock(m_mutex);
 
@@ -449,7 +449,7 @@ void cSoftHdAudio::DropSamplesOlderThanPtsMs(int64_t ptsMs)
  *
  * @param frame		audio frame
  */
-void cSoftHdAudio::EnqueueFrame(AVFrame *frame)
+void cAudioStream::EnqueueFrame(AVFrame *frame)
 {
 	if (!frame)
 		return;
@@ -475,7 +475,7 @@ void cSoftHdAudio::EnqueueFrame(AVFrame *frame)
  *
  * @param size     spdif burst size in bytes
  */
-void cSoftHdAudio::RebuildPauseBurst(int size)
+void cAudioStream::RebuildPauseBurst(int size)
 {
 	if (size == m_spdifBurstSize)
 		return;
@@ -507,7 +507,7 @@ void cSoftHdAudio::RebuildPauseBurst(int size)
  * @param count      number of bytes in data buffer
  * @param pts        pts of the buffer
  */
-void cSoftHdAudio::EnqueueSpdif(const uint16_t *buffer, int count, int64_t pts)
+void cAudioStream::EnqueueSpdif(const uint16_t *buffer, int count, int64_t pts)
 {
 	std::lock_guard<std::mutex> lock(m_pauseMutex);
 
@@ -523,7 +523,7 @@ void cSoftHdAudio::EnqueueSpdif(const uint16_t *buffer, int count, int64_t pts)
  * @param count      number of bytes in data buffer
  * @param pts        pts to set
  */
-void cSoftHdAudio::Enqueue(const uint16_t *buffer, int count, int64_t pts)
+void cAudioStream::Enqueue(const uint16_t *buffer, int count, int64_t pts)
 {
 	std::lock_guard<std::mutex> lock(m_mutex);
 
@@ -580,7 +580,7 @@ void cSoftHdAudio::Enqueue(const uint16_t *buffer, int count, int64_t pts)
  * @retval -1               something gone wrong in AlsaSetup
  * @retval 1                no parameter change, no setup needed
  */
-int cSoftHdAudio::Setup(AVRational timebase, int samplerate, int channels, bool passthrough)
+int cAudioStream::Setup(AVRational timebase, int samplerate, int channels, bool passthrough)
 {
 	int err = 0;
 
@@ -611,7 +611,7 @@ int cSoftHdAudio::Setup(AVRational timebase, int samplerate, int channels, bool 
  *
  * @return       pointer to AVFrame if success, NULL otherwise
  */
-AVFrame *cSoftHdAudio::FilterGetFrame(void)
+AVFrame *cAudioStream::FilterGetFrame(void)
 {
 	AVFrame *outframe = nullptr;
 	outframe = av_frame_alloc();
@@ -644,7 +644,7 @@ AVFrame *cSoftHdAudio::FilterGetFrame(void)
  * @retval 1        error, init failed
  * @retval 0        filter initiated
  */
-int cSoftHdAudio::CheckForFilterReady(AVCodecContext *ctx)
+int cAudioStream::CheckForFilterReady(AVCodecContext *ctx)
 {
 	if (m_filterReady && m_filterChanged) {
 //		LOGDEBUG2(L_SOUND, "audio: %s: m_filterReady %d sink_links_count %d channels %d nb_filters %d nb_outputs %d channels %d m_filterChanged %d",
@@ -677,7 +677,7 @@ int cSoftHdAudio::CheckForFilterReady(AVCodecContext *ctx)
  * @retval 1        error, send again
  * @retval 0        running
  */
-void cSoftHdAudio::Filter(AVFrame *inframe, AVCodecContext *ctx)
+void cAudioStream::Filter(AVFrame *inframe, AVCodecContext *ctx)
 {
 	AVFrame *outframe = NULL;
 	int err = -1;
@@ -720,7 +720,7 @@ void cSoftHdAudio::Filter(AVFrame *inframe, AVCodecContext *ctx)
  *
  * Flush the alsa buffers and reset audio: pts, ringbuffer, pidController, fillLevel
  */
-void cSoftHdAudio::FlushBuffers(void)
+void cAudioStream::FlushBuffers(void)
 {
 	std::lock_guard<std::mutex> lock(m_mutex);
 
@@ -743,7 +743,7 @@ void cSoftHdAudio::FlushBuffers(void)
 /**
  * Get used bytes in audio ringbuffer
  */
-int cSoftHdAudio::GetUsedRingbufferBytes(void)
+int cAudioStream::GetUsedRingbufferBytes(void)
 {
 	std::lock_guard<std::mutex> lock(m_mutex);
 
@@ -753,7 +753,7 @@ int cSoftHdAudio::GetUsedRingbufferBytes(void)
 /**
  * Get used ms in audio ringbuffer
  */
-int cSoftHdAudio::GetUsedRingbufferMs(void)
+int cAudioStream::GetUsedRingbufferMs(void)
 {
 	std::lock_guard<std::mutex> lock(m_mutex);
 
@@ -772,7 +772,7 @@ int cSoftHdAudio::GetUsedRingbufferMs(void)
  *
  * @return     PTS in milliseconds
  */
-int64_t cSoftHdAudio::GetOutputPtsMs(void)
+int64_t cAudioStream::GetOutputPtsMs(void)
 {
 	std::lock_guard<std::mutex> lock(m_mutex);
 
@@ -786,7 +786,7 @@ int64_t cSoftHdAudio::GetOutputPtsMs(void)
  * @param active          true, if trickspeed is currently active
  * @param forward         true, if this is forward trickspeed
  */
-void cSoftHdAudio::SetTrickSpeed(double speed, bool active, bool forward)
+void cAudioStream::SetTrickSpeed(double speed, bool active, bool forward)
 {
 	m_trickspeedFactor = speed;
 	m_trickspeed = active;
@@ -817,7 +817,7 @@ void cSoftHdAudio::SetTrickSpeed(double speed, bool active, bool forward)
  *
  * @param pts          next audio input pts from
  */
-void cSoftHdAudio::AdvanceTrickSpeedPts(int64_t pts)
+void cAudioStream::AdvanceTrickSpeedPts(int64_t pts)
 {
 	int64_t previousPts = m_trickSpeedPts;
 
@@ -840,7 +840,7 @@ void cSoftHdAudio::AdvanceTrickSpeedPts(int64_t pts)
 	m_trickSpeedPts = pts;
 }
 
-int64_t cSoftHdAudio::GetOutputPtsMsInternal(void)
+int64_t cAudioStream::GetOutputPtsMsInternal(void)
 {
 	if (m_inputPts == AV_NOPTS_VALUE)
 		return AV_NOPTS_VALUE;
@@ -863,7 +863,7 @@ int64_t cSoftHdAudio::GetOutputPtsMsInternal(void)
  *
  * @return     PTS in milliseconds, or AV_NOPTS_VALUE if not available
  */
-int64_t cSoftHdAudio::GetHardwareOutputPtsMs(void)
+int64_t cAudioStream::GetHardwareOutputPtsMs(void)
 {
 	std::lock_guard<std::mutex> lock(m_mutex);
 
@@ -889,7 +889,7 @@ int64_t cSoftHdAudio::GetHardwareOutputPtsMs(void)
  *
  * @return delay in milliseconds, or AV_NOPTS_VALUE if not available
  */
-int64_t cSoftHdAudio::GetHardwareOutputDelayMs(void)
+int64_t cAudioStream::GetHardwareOutputDelayMs(void)
 {
 	std::lock_guard<std::mutex> lock(m_mutex);
 
@@ -906,7 +906,7 @@ int64_t cSoftHdAudio::GetHardwareOutputDelayMs(void)
  *
  * @return      presentation timestamp in timebase units
  */
-int64_t cSoftHdAudio::GetHardwareOutputPtsTimebaseUnits(void)
+int64_t cAudioStream::GetHardwareOutputPtsTimebaseUnits(void)
 {
 	int64_t ptsMs = GetHardwareOutputPtsMs();
 	if (ptsMs == AV_NOPTS_VALUE)
@@ -920,7 +920,7 @@ int64_t cSoftHdAudio::GetHardwareOutputPtsTimebaseUnits(void)
  *
  * @param volume    volume (0 .. 1000)
  */
-void cSoftHdAudio::SetVolume(int volume)
+void cAudioStream::SetVolume(int volume)
 {
 	m_volume = volume;
 	// reduce loudness for stereo output
@@ -942,7 +942,7 @@ void cSoftHdAudio::SetVolume(int volume)
  *
  * @param pause     true to pause, false to resume
  */
-void cSoftHdAudio::SetPaused(bool pause)
+void cAudioStream::SetPaused(bool pause)
 {
 	std::lock_guard<std::mutex> lock(m_pauseMutex);
 	LOGDEBUG2(L_SOUND, "audio: %s: %d", __FUNCTION__, pause);
@@ -956,7 +956,7 @@ void cSoftHdAudio::SetPaused(bool pause)
  * @param enable         true, turn on normalize
  * @param maxfac         max. factor of normalize / 1000
  */
-void cSoftHdAudio::SetNormalize(bool enable, int maxfac)
+void cAudioStream::SetNormalize(bool enable, int maxfac)
 {
 	m_useNormalizer = enable;
 	m_audioProcessor.SetNormalizer(maxfac);
@@ -968,7 +968,7 @@ void cSoftHdAudio::SetNormalize(bool enable, int maxfac)
  * @param enable        true, turn on compression
  * @param maxfac        max. factor of compression / 1000
  */
-void cSoftHdAudio::SetCompression(bool enable, int maxfac)
+void cAudioStream::SetCompression(bool enable, int maxfac)
 {
 	m_useCompressor = enable;
 	m_audioProcessor.SetCompressor(maxfac);
@@ -980,7 +980,7 @@ void cSoftHdAudio::SetCompression(bool enable, int maxfac)
  * @param enable    set using equalizer
  * @param band      setting frequenz bands
  */
-void cSoftHdAudio::SetEqualizer(bool enable, int band[18])
+void cAudioStream::SetEqualizer(bool enable, int band[18])
 {
 	m_filterChanged = 1;
 	m_useEqualizer = enable;
@@ -992,7 +992,7 @@ void cSoftHdAudio::SetEqualizer(bool enable, int band[18])
  *
  * @param delta     value (/1000) to reduce stereo volume
  */
-void cSoftHdAudio::SetStereoDescent(int delta)
+void cAudioStream::SetStereoDescent(int delta)
 {
 	m_stereoDescent = delta;
 	SetVolume(m_volume);	// update channel delta
@@ -1010,7 +1010,7 @@ void cSoftHdAudio::SetStereoDescent(int delta)
  * @retval 0 on success, or if audio is already initialized
  * @retval -1 on error
  */
-int cSoftHdAudio::LazyInit()
+int cAudioStream::LazyInit()
 {
 	if (m_initialized)
 		return 0;
@@ -1032,7 +1032,7 @@ int cSoftHdAudio::LazyInit()
  *
  * @todo Move stopping the thread to AlsaExit()
  */
-void cSoftHdAudio::Exit(void)
+void cAudioStream::Exit(void)
 {
 	LOGDEBUG2(L_SOUND, "audio: %s", __FUNCTION__);
 
@@ -1049,7 +1049,7 @@ void cSoftHdAudio::Exit(void)
 /**
  * Flush alsa buffers
  */
-void cSoftHdAudio::FlushAlsaBuffers(void)
+void cAudioStream::FlushAlsaBuffers(void)
 {
 	m_alsa.FlushBuffers(false);
 
@@ -1060,7 +1060,7 @@ void cSoftHdAudio::FlushAlsaBuffers(void)
 /**
  * Drop alsa buffers
  */
-void cSoftHdAudio::DropAlsaBuffers(void)
+void cAudioStream::DropAlsaBuffers(void)
 {
 	m_alsa.FlushBuffers(true);
 
@@ -1076,7 +1076,7 @@ void cSoftHdAudio::DropAlsaBuffers(void)
  * Audio thread loop, started with Start().
  * Tries to periodically send frames to the hardware and checks for events (underruns)
  */
-void cSoftHdAudio::Action(void)
+void cAudioStream::Action(void)
 {
 	LOGDEBUG("audio: thread started");
 	while (Running()) {
@@ -1094,7 +1094,7 @@ void cSoftHdAudio::Action(void)
 /**
  * Stop the thread
  */
-void cSoftHdAudio::Stop(void)
+void cAudioStream::Stop(void)
 {
 	if (!Active())
 		return;
@@ -1114,7 +1114,7 @@ void cSoftHdAudio::Stop(void)
  *
  * @return      true if data was written or the next write should be scheduled immediately
  */
-bool cSoftHdAudio::CyclicCall(void)
+bool cAudioStream::CyclicCall(void)
 {
 	std::lock_guard<std::mutex> lock1(m_pauseMutex);
 
@@ -1177,7 +1177,7 @@ bool cSoftHdAudio::CyclicCall(void)
  * @retval true      if data was written or the write should be scheduled again immediately
  * @retval false     if no data was written
  */
-bool cSoftHdAudio::SendAudio(int freeAlsaBufferFrames)
+bool cAudioStream::SendAudio(int freeAlsaBufferFrames)
 {
 	int bytesToWrite;
 	int freeAlsaBufferBytes = m_alsa.FramesToBytes(freeAlsaBufferFrames);
@@ -1211,7 +1211,7 @@ bool cSoftHdAudio::SendAudio(int freeAlsaBufferFrames)
  *
  * @return true if a complete burst was written, false otherwise
  */
-bool cSoftHdAudio::SendPause(void)
+bool cAudioStream::SendPause(void)
 {
 	int framesToWrite = m_alsa.BytesToFrames(m_spdifBurstSize);
 	int framesWritten = m_alsa.Write(m_pauseBurst.data(), framesToWrite);
@@ -1223,7 +1223,7 @@ bool cSoftHdAudio::SendPause(void)
 /**
  * Set the hw delay baseline
  */
-void cSoftHdAudio::SetHwDelayBaseline(void)
+void cAudioStream::SetHwDelayBaseline(void)
 {
 	if (!m_firstRealAudioReceived) {
 		m_hwBaseline = 0;
@@ -1241,7 +1241,7 @@ void cSoftHdAudio::SetHwDelayBaseline(void)
 /**
  * Reset the hw delay baseline
  */
-void cSoftHdAudio::ResetHwDelayBaseline(void)
+void cAudioStream::ResetHwDelayBaseline(void)
 {
 	std::lock_guard<std::mutex> lock(m_mutex);
 
@@ -1253,7 +1253,7 @@ void cSoftHdAudio::ResetHwDelayBaseline(void)
 /**
  * Process queued events and forward them to event receiver
  */
-void cSoftHdAudio::ProcessEvents(void)
+void cAudioStream::ProcessEvents(void)
 {
 	std::lock_guard<std::mutex> lock(m_queueMutex);
 	for (Event event : m_eventQueue)
@@ -1271,7 +1271,7 @@ void cSoftHdAudio::ProcessEvents(void)
  *
  * Also updates the low-pass filter for the buffer fill level.
  */
-void cSoftHdAudio::ClockDriftCompensation(void)
+void cAudioStream::ClockDriftCompensation(void)
 {
 	if (!Running() || m_alsa.IsPassthroughActive())
 		return;

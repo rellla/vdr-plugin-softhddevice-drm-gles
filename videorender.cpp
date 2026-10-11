@@ -40,13 +40,13 @@ extern "C" {
 
 #include "audio.h"
 #include "config.h"
+#include "device.h"
 #include "drmdevice.h"
 #include "drmhdr.h"
 #include "grab.h"
 #include "logger.h"
 #include "misc.h"
 #include "queue.h"
-#include "softhddevice.h"
 #include "statemachine.h"
 #include "videorender.h"
 #include "videostream.h"
@@ -54,10 +54,10 @@ extern "C" {
 /**
  * Create the video renderer
  *
- * @param device         pointer to cSoftHdDevice
+ * @param device         pointer to cOutputDevice
  */
-cVideoRender::cVideoRender(cSoftHdDevice *device)
-	: cThread("softhd display"),
+cVideoRender::cVideoRender(cOutputDevice *device)
+	: cThread("drmdev display"),
 	  m_pDevice(device),
 	  m_pAudio(m_pDevice->Audio()),
 	  m_pConfig(m_pDevice->Config()),
@@ -1051,7 +1051,7 @@ void cVideoRender::PushFrame(
 	// Store the PTS of the first frame to be presented. The first frame might not have a valid PTS, if gone through a HW deinterlacer.
 	//
 	// @note: This is the only place outside of the display thread, where the video pts is set
-	// (except setting it to AV_NOPTS_VALUE in cSofthdDevice::Clear() and ChangeState(STOP))
+	// (except setting it to AV_NOPTS_VALUE in cOutputDevice::Clear() and ChangeState(STOP))
 	// We only store here, if the stream recently started and the clock wasn't set already in the display thread
 
 	if (mainFrame && GetVideoClock() == AV_NOPTS_VALUE && frame->pts != AV_NOPTS_VALUE)

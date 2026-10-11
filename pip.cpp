@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 /**
- * @file pipreceiver.cpp
+ * @file pip.cpp
  * PiP (Picture-in-Picture) Interface
  *
  * @copyright 2025 - 2026 by Andreas Baierl. All Rights Reserved.
@@ -12,9 +12,9 @@
 #include <vdr/remux.h>
 #include <vdr/skins.h>
 
+#include "device.h"
 #include "logger.h"
-#include "pipreceiver.h"
-#include "softhddevice.h"
+#include "pip.h"
 
 /*****************************************************************************
  * cPipReceiver class
@@ -26,9 +26,9 @@
  * Only the video pid is handled
  *
  * @param channel    channel to receive
- * @param device     pointer to cSoftHdDevice object
+ * @param device     pointer to cOutputDevice object
  */
-cPipReceiver::cPipReceiver(const cChannel *channel, cSoftHdDevice *device)
+cPipReceiver::cPipReceiver(const cChannel *channel, cOutputDevice *device)
 	: cReceiver(NULL, MINPRIORITY),
 	  m_pDevice(device)
 {
@@ -155,7 +155,7 @@ int cPipReceiver::PlayTs(const uchar *data, int size)
  * cPipHandler class
  ****************************************************************************/
 
-cPipHandler::cPipHandler(cSoftHdDevice *device)
+cPipHandler::cPipHandler(cOutputDevice *device)
 	: m_pDevice(device)
 {
 }
@@ -297,7 +297,7 @@ void cPipHandler::HandleChannelChange(int direction)
 /*****************************************************************************
  * PiP handler public API
  *
- * These (public) functions are wrapped by cSoftHdDevice.
+ * These (public) functions are wrapped by cOutputDevice.
  ****************************************************************************/
 
 /**

@@ -57,7 +57,7 @@ static std::string GetPassthroughMaskString(int mask)
  *
  * @param audio    audio context
  */
-cAudioDecoder::cAudioDecoder(cSoftHdAudio *audio)
+cAudioDecoder::cAudioDecoder(cAudioStream *audio)
 	: m_pAudio(audio),
 	  m_passthroughMask(m_pAudio->GetPassthroughMask() & (CODEC_AC3 | CODEC_EAC3 | CODEC_DTS))
 {
@@ -291,7 +291,7 @@ bool cAudioDecoder::ShouldTryPassthrough(void)
  * Handle audio format changes and setup audio, if format changed
  *
  * @retval 0     if new audio was correctly set up,
- *               otherwise return value of cSoftHdAudio::Setup()
+ *               otherwise return value of cAudioStream::Setup()
  */
 int cAudioDecoder::CheckUpdateFormat(bool passthrough)
 {

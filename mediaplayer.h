@@ -10,16 +10,16 @@
  * @license{AGPL-3.0-or-later}
  */
 
-#ifndef __MEDIAPLAYER_H
-#define __MEDIAPLAYER_H
+#ifndef __DRMDEVICE_MEDIAPLAYER_H
+#define __DRMDEVICE_MEDIAPLAYER_H
 
 #include <atomic>
 #include <string>
 
 #include <vdr/player.h>
 
-class cSoftHdAudio;
-class cSoftHdDevice;
+class cAudioStream;
+class cOutputDevice;
 
 /**
  * Mediaplayer Related Stuff
@@ -54,10 +54,10 @@ private:
  *
  * @ingroup mediaplayer
  */
-class cSoftHdPlayer : public cPlayer, cThread {
+class cDrmDevicePlayer : public cPlayer, cThread {
 public:
-	cSoftHdPlayer(const char *, cSoftHdDevice *);
-	virtual ~cSoftHdPlayer();
+	cDrmDevicePlayer(const char *, cOutputDevice *);
+	virtual ~cDrmDevicePlayer();
 
 	void SetEntry(int);
 	const char *GetSource(void) { return m_pSource; };
@@ -86,8 +86,8 @@ private:
 
 	char *m_pSource;
 	int m_entries;
-	cSoftHdDevice *m_pDevice;
-	cSoftHdAudio *m_pAudio;
+	cOutputDevice *m_pDevice;
+	cAudioStream *m_pAudio;
 	std::atomic<int> m_jumpSec = 0;
 	std::atomic<bool> m_paused = false;
 	std::atomic<bool> m_stopped = false;
@@ -102,24 +102,24 @@ private:
  *
  * @ingroup mediaplayer
  */
-class cSoftHdControl : public cControl {
+class cDrmDeviceControl : public cControl {
 public:
-	cSoftHdControl(const char *, cSoftHdDevice *);
-	virtual ~cSoftHdControl();
+	cDrmDeviceControl(const char *, cOutputDevice *);
+	virtual ~cDrmDeviceControl();
 
 	virtual void Hide(void);
 	virtual eOSState ProcessKey(eKeys);
-	static cSoftHdControl *Control() { return m_pControl; }
-	static cSoftHdPlayer *Player() { return m_pPlayer; }
+	static cDrmDeviceControl *Control() { return m_pControl; }
+	static cDrmDevicePlayer *Player() { return m_pPlayer; }
 	void Close(void) { m_closing = true; };
 
 private:
 	void ShowProgress();
 
-	static cSoftHdControl *m_pControl;
-	static cSoftHdPlayer *m_pPlayer;
+	static cDrmDeviceControl *m_pControl;
+	static cDrmDevicePlayer *m_pPlayer;
 	cSkinDisplayReplay *m_pOsd = nullptr;
-	cSoftHdDevice *m_pDevice;
+	cOutputDevice *m_pDevice;
 	bool m_closing = false;
 };
 

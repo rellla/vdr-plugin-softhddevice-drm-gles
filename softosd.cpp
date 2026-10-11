@@ -1,12 +1,11 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 /**
- * @file softhdosd.cpp
+ * @file softosd.cpp
  * Software OSD
  *
  * This file provides cSoftOsd which is the software accelerated
  * version of this plugin (in contrast to the hardware accelerater cOglOsd).
- * It also decribes cSoftOsdProvider.
  *
  * @copyright 2011, 2015 by Johns.  All Rights Reserved.
  * @copyright 2018 zille.  All Rights Reserved.
@@ -15,9 +14,9 @@
  * @license{AGPL-3.0-or-later}
  */
 
+#include "device.h"
 #include "logger.h"
-#include "softhddevice.h"
-#include "softhdosd.h"
+#include "softosd.h"
 
 /**
  * Initializes a software based OSD with the given coordinates
@@ -25,9 +24,9 @@
  * @param left     x-coordinate of osd on display
  * @param top      y-coordinate of osd on display
  * @param level    level of the osd (smallest is shown)
- * @param device   pointer to cSoftHdDevice object
+ * @param device   pointer to cOutputDevice object
  */
-cSoftOsd::cSoftOsd(int left, int top, uint level, cSoftHdDevice *device)
+cSoftOsd::cSoftOsd(int left, int top, uint level, cOutputDevice *device)
 	: cOsd(left, top, level),
 	  m_pDevice(device),
 	  m_osdLevel(level)

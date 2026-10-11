@@ -7,8 +7,8 @@
  * @license{AGPL-3.0-or-later}
  */
 
-#ifndef __SOFTHDDEVICE_PES_H
-#define __SOFTHDDEVICE_PES_H
+#ifndef __DRMDEVICE_PES_H
+#define __DRMDEVICE_PES_H
 
 #include <cstdint>
 #include <map>

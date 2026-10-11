@@ -10,8 +10,8 @@
  * @license{AGPL-3.0-or-later}
  */
 
-#ifndef __DRMDEVICE_H
-#define __DRMDEVICE_H
+#ifndef __DRMDEVICE_DRMVIDEO_H
+#define __DRMDEVICE_DRMVIDEO_H
 
 #include <array>
 #include <cstdint>
@@ -82,7 +82,7 @@ inline constexpr std::array DrmModeWhitelist = {
  */
 class cDrmDevice {
 public:
-	cDrmDevice(cVideoRender *, cSoftHdConfig *);
+	cDrmDevice(cVideoRender *, cDeviceConfig *);
 	~cDrmDevice(void);
 
 	int Init(void);
@@ -150,7 +150,7 @@ public:
 
 private:
 	cVideoRender *m_pRender;               ///< pointer to cVideoRender object
-	cSoftHdConfig *m_pConfig;              ///< pointer to cSoftHdConfig object
+	cDeviceConfig *m_pConfig;              ///< pointer to cDeviceConfig object
 
 	int m_fdDrm = -1;                      ///< drm file descriptor
 	uint32_t m_connectorId;                ///< connector id

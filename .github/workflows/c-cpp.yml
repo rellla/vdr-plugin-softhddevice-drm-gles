@@ -1,4 +1,4 @@
-name: Build vdr-plugin-softhddevice-drm-gles
+name: Build vdr-plugin-drmdevice
 
 on:
   push:
@@ -45,14 +45,14 @@ jobs:
     - name: Checkout plugin repository
       uses: actions/checkout@v4
       with:
-        path: vdr/PLUGINS/src/softhddevice-drm-gles
+        path: vdr/PLUGINS/src/drmdevice
 
     - name: Build plugin (with OpenGL/ES support)
       run: |
         cd vdr
         make include-dir vdr.pc
-        make -C PLUGINS/src/softhddevice-drm-gles INCLUDES="-isystem `pwd`/include -Werror" GLES=1
-        cd PLUGINS/src/softhddevice-drm-gles
+        make -C PLUGINS/src/drmdevice INCLUDES="-isystem `pwd`/include -Werror" GLES=1
+        cd PLUGINS/src/drmdevice
         if ! git diff --quiet -- po/*.po; then
           echo "ERROR: The translation files need to be updated:"
           git --no-pager diff -- po/*.po
@@ -63,37 +63,37 @@ jobs:
     - name: Upload build artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: vdr-softhddevice-drm-gles
-        path: vdr/PLUGINS/src/softhddevice-drm-gles/libvdr-softhddevice-drm-gles.so
+        name: vdr-drmdevice
+        path: vdr/PLUGINS/src/drmdevice/libvdr-drmdevice.so
         if-no-files-found: error
 
     - name: Run cppcheck
       run: |
-        cd vdr/PLUGINS/src/softhddevice-drm-gles
+        cd vdr/PLUGINS/src/drmdevice
         cppcheck --quiet --error-exitcode=1 .
 
     - name: Run unit tests
       run: |
-        cd vdr/PLUGINS/src/softhddevice-drm-gles/tests
+        cd vdr/PLUGINS/src/drmdevice/tests
         make test
       continue-on-error: false
 
     - name: Publish test results
       uses: EnricoMi/publish-unit-test-result-action@v2
       with:
-        files: vdr/PLUGINS/src/softhddevice-drm-gles/tests/test-results.xml
+        files: vdr/PLUGINS/src/drmdevice/tests/test-results.xml
         check_name: Unit Test Results
 
     - name: Generate coverage report
       run: |
-        cd vdr/PLUGINS/src/softhddevice-drm-gles/tests
+        cd vdr/PLUGINS/src/drmdevice/tests
         make coverage-html
 
     - name: Upload coverage HTML report
       uses: actions/upload-artifact@v4
       with:
         name: coverage-html-report
-        path: vdr/PLUGINS/src/softhddevice-drm-gles/tests/coverage-html/
+        path: vdr/PLUGINS/src/drmdevice/tests/coverage-html/
 
   build-without-gles:
     runs-on: ubuntu-latest
@@ -125,18 +125,18 @@ jobs:
     - name: Checkout plugin repository
       uses: actions/checkout@v4
       with:
-        path: vdr/PLUGINS/src/softhddevice-drm-gles
+        path: vdr/PLUGINS/src/drmdevice
 
     - name: Build plugin (without OpenGL/ES support)
       run: |
         cd vdr
         make include-dir vdr.pc
-        make -C PLUGINS/src/softhddevice-drm-gles INCLUDES="-isystem `pwd`/include -Werror" GLES=0
+        make -C PLUGINS/src/drmdevice INCLUDES="-isystem `pwd`/include -Werror" GLES=0
       continue-on-error: false
 
     - name: Upload build artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: vdr-softhddevice-drm-no-gles
-        path: vdr/PLUGINS/src/softhddevice-drm-gles/libvdr-softhddevice-drm-gles.so
+        name: vdr-drmdevice-no-gles
+        path: vdr/PLUGINS/src/drmdevice/libvdr-drmdevice.so
         if-no-files-found: error

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 /**
- * @file softhdosdprovider.h
+ * @file osdprovider.h
  * OSD Provider Header File
  *
  * @copyright 2011, 2014 by Johns.  All Rights Reserved.
@@ -11,8 +11,8 @@
  * @license{AGPL-3.0-or-later}
  */
 
-#ifndef __SOFTOSDPROVIDER_H
-#define __SOFTOSDPROVIDER_H
+#ifndef __DRMDEVICE_OSDPROVIDER_H
+#define __DRMDEVICE_OSDPROVIDER_H
 
 #ifdef USE_GLES
 #include <memory>
@@ -23,17 +23,17 @@
 #ifdef USE_GLES
 class cOglThread;
 #endif
-class cSoftHdDevice;
+class cOutputDevice;
 
 /**
  * Plugin OSD provider
  *
  * @ingroup osd
  */
-class cSoftOsdProvider:public cOsdProvider {
+class cDeviceOsdProvider:public cOsdProvider {
 public:
-	cSoftOsdProvider(cSoftHdDevice *);
-	virtual ~cSoftOsdProvider();
+	cDeviceOsdProvider(cOutputDevice *);
+	virtual ~cDeviceOsdProvider();
 
 	virtual cOsd * CreateOsd(int, int, uint);
 	virtual bool ProvidesTrueColor(void) { return true; };
@@ -47,8 +47,8 @@ public:
 #endif
 
 private:
-	cOsd *m_pOsd;                              ///< pointer to single OSD (currently not really used in cSoftOsdProvider?)
-	cSoftHdDevice *m_pDevice;                  ///< pointer to the cSoftHdDevice object
+	cOsd *m_pOsd;                              ///< pointer to single OSD (currently not really used in cDeviceOsdProvider?)
+	cOutputDevice *m_pDevice;                  ///< pointer to the cOutputDevice object
 #ifdef USE_GLES
 	std::shared_ptr<cOglThread> m_pOglThread;  ///< OpenGL OSD thread
 	bool StartOpenGlThread(void);
