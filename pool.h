@@ -7,8 +7,8 @@
  * @license{AGPL-3.0-or-later}
  */
 
-#ifndef __SOFTHDPOOL_H
-#define __SOFTHDPOOL_H
+#ifndef __DRMDEVICE_POOL_H
+#define __DRMDEVICE_POOL_H
 
 #include <memory>
 #include <vector>

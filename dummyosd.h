@@ -14,8 +14,8 @@
  *    Petri Hintukainen <phintuka@users.sourceforge.net>
  * and released under the GNU GPLv2
  */
-#ifndef __DUMMYOSD_H
-#define __DUMMYOSD_H
+#ifndef __DRMDEVICE_DUMMYOSD_H
+#define __DRMDEVICE_DUMMYOSD_H
 
 #include <vdr/osd.h>
 

@@ -4,7 +4,7 @@
  * @file config.cpp
  * Plugin Configuration
  *
- * This file defines cSoftHdConfig, which is used to keep all
+ * This file defines cDeviceConfig, which is used to keep all
  * the config settings, which are set via setup.conf, commandline
  * or setup menu.
  *
@@ -30,7 +30,7 @@
  *
  * @return          true if the parameter is supported, false otherwise
  */
-bool cSoftHdConfig::SetupParse(const char *name, const char *value)
+bool cDeviceConfig::SetupParse(const char *name, const char *value)
 {
 	//LOGDEBUG("config: %s: '%s' = '%s'", __FUNCTION__, name, value);
 
@@ -88,8 +88,8 @@ bool cSoftHdConfig::SetupParse(const char *name, const char *value)
 	// Logging
 	} else if (!strcasecmp(name, "LogLevel"))              { ConfigLogLevels = abs(atoi(value));
 	                                                         ConfigLogState = atoi(value) > 0;
-                                                                 PrintLogLevel(ConfigLogState ? ConfigLogLevels : 0);
-	                                                         cSoftHdLogger::GetLogger()->SetLogLevel(ConfigLogState ? ConfigLogLevels : 0);
+	                                                         PrintLogLevel(ConfigLogState ? ConfigLogLevels : 0);
+	                                                         cLogger::GetLogger()->SetLogLevel(ConfigLogState ? ConfigLogLevels : 0);
 
 	// Expert Settings
 	} else if (!strcasecmp(name, "AdditionalBufferLengthMs"))   { ConfigAdditionalBufferLengthMs = atoi(value);
@@ -108,7 +108,7 @@ bool cSoftHdConfig::SetupParse(const char *name, const char *value)
 	return true;
 }
 
-void cSoftHdConfig::PrintLogLevel(int loglevel)
+void cDeviceConfig::PrintLogLevel(int loglevel)
 {
 	if (!loglevel)
 		return;
@@ -146,13 +146,13 @@ void cSoftHdConfig::PrintLogLevel(int loglevel)
 	LOGINFO("%s", prefix);
 }
 
-void cSoftHdConfig::SetDecoderNeedsMaxPackets(int num)
+void cDeviceConfig::SetDecoderNeedsMaxPackets(int num)
 {
 	std::lock_guard<std::mutex> lock(m_mutex);
 	m_decoderNeedsMaxPackets = num;
 }
 
-int cSoftHdConfig::GetDecoderNeedsMaxPackets(void)
+int cDeviceConfig::GetDecoderNeedsMaxPackets(void)
 {
 	std::lock_guard<std::mutex> lock(m_mutex);
 	return m_decoderNeedsMaxPackets;
@@ -161,7 +161,7 @@ int cSoftHdConfig::GetDecoderNeedsMaxPackets(void)
 /**
  * Return true, if the given mode is equal to the current display mode
  */
-bool cSoftHdConfig::CompareCurrentMode(sDrmMode *newMode)
+bool cDeviceConfig::CompareCurrentMode(sDrmMode *newMode)
 {
 	return (newMode->width == CurrentDrmMode.width &&
 	        newMode->height == CurrentDrmMode.height &&

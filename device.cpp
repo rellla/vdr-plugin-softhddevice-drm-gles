@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 /**
- * @file softhddevice.cpp
+ * @file device.cpp
  * Output Device
  *
- * This file defines cSoftHdDevice which is the implementation
+ * This file defines cOutputDevice which is the implementation
  * of cDevice. This is the place where all the device commands
  * which are sent be VDR are placed in (i.e. Play(), TrickSpeed() ...)
  *
@@ -32,14 +32,14 @@ extern "C" {
 #include "audio.h"
 #include "codec_audio.h"
 #include "config.h"
+#include "device.h"
 #include "grab.h"
 #include "hardwaredevice.h"
 #include "jittertracker.h"
 #include "logger.h"
+#include "osdprovider.h"
 #include "pes.h"
-#include "pipreceiver.h"
-#include "softhddevice.h"
-#include "softhdosdprovider.h"
+#include "pip.h"
 #include "statemachine.h"
 #include "videorender.h"
 #include "videostream.h"
@@ -49,9 +49,9 @@ extern "C" {
  *
  * Initializes some member variables
  *
- * @param config       pointer to cSoftHdConfig class
+ * @param config       pointer to cDeviceConfig class
  */
-cSoftHdDevice::cSoftHdDevice(cSoftHdConfig *config)
+cOutputDevice::cOutputDevice(cDeviceConfig *config)
 	: m_pConfig(config)
 {
 	m_pStateMachine = std::make_unique<cStateMachine>(this);
@@ -62,7 +62,7 @@ cSoftHdDevice::cSoftHdDevice(cSoftHdConfig *config)
  *
  * Only delete objects, if they were created in Initialize()
  */
-cSoftHdDevice::~cSoftHdDevice(void)
+cOutputDevice::~cOutputDevice(void)
 {
 	if (!m_initialized)
 		return;
@@ -75,13 +75,13 @@ cSoftHdDevice::~cSoftHdDevice(void)
 }
 
 /*********************************************************************
- * VDR cPlugin interface (wrapped by cPluginSoftHdDevice)
+ * VDR cPlugin interface (wrapped by cPluginDrmDevice)
  ********************************************************************/
 
 /**
  * Initialize the device
  */
-bool cSoftHdDevice::Initialize(void)
+bool cOutputDevice::Initialize(void)
 {
 	LOGDEBUG("device: %s:", __FUNCTION__);
 
@@ -105,7 +105,7 @@ bool cSoftHdDevice::Initialize(void)
 /**
  * Called by VDR when the plugin is started.
  */
-int cSoftHdDevice::Start(void)
+int cOutputDevice::Start(void)
 {
 	LOGDEBUG("device: %s", __FUNCTION__);
 	TriggerEvent(AttachEvent{});
@@ -116,7 +116,7 @@ int cSoftHdDevice::Start(void)
 /**
  * Called by VDR when the plugin is stopped.
  */
-void cSoftHdDevice::Stop(void)
+void cOutputDevice::Stop(void)
 {
 	LOGDEBUG("device: %s", __FUNCTION__);
 	m_pPipHandler->Disable();
@@ -132,12 +132,12 @@ void cSoftHdDevice::Stop(void)
  *
  * @param on	flag if becoming or loosing primary
  */
-void cSoftHdDevice::MakePrimaryDevice(bool on)
+void cOutputDevice::MakePrimaryDevice(bool on)
 {
 	LOGDEBUG("device: %s: %d", __FUNCTION__, on);
 
 	if (on)
-		m_pOsdProvider = new cSoftOsdProvider(this); // no need to delete it, VDR does it
+		m_pOsdProvider = new cDeviceOsdProvider(this); // no need to delete it, VDR does it
 
 	cDevice::MakePrimaryDevice(on);
 }
@@ -145,7 +145,7 @@ void cSoftHdDevice::MakePrimaryDevice(bool on)
 /**
  * Tells whether this device has an MPEG decoder
  */
-bool cSoftHdDevice::HasDecoder(void) const
+bool cOutputDevice::HasDecoder(void) const
 {
 	bool hasDecoder = !IsDetached();
 
@@ -160,7 +160,7 @@ bool cSoftHdDevice::HasDecoder(void) const
  * @return a pointer to the device's SPU decoder
  *         (or NULL, if this device doesn't have an SPU decoder)
  */
-cSpuDecoder *cSoftHdDevice::GetSpuDecoder(void)
+cSpuDecoder *cOutputDevice::GetSpuDecoder(void)
 {
 	LOGDEBUG("device: %s:", __FUNCTION__);
 	if (!IsPrimaryDevice())
@@ -178,7 +178,7 @@ cSpuDecoder *cSoftHdDevice::GetSpuDecoder(void)
  * @param width     number of horizontal pixels in the frame
  * @param height    number of vertical pixels in the frame
  */
-uchar *cSoftHdDevice::GrabImage(int &size, bool jpeg, int quality, int width, int height)
+uchar *cOutputDevice::GrabImage(int &size, bool jpeg, int quality, int width, int height)
 {
 	if (!width || !height) {
 		LOGWARNING("device: %s: width or height is 0 - skip!", __FUNCTION__);
@@ -215,7 +215,7 @@ uchar *cSoftHdDevice::GrabImage(int &size, bool jpeg, int quality, int width, in
  * @param videoDisplayFormat      video display format
  * Set it to the given one (only useful if this device has an MPEG decoder).
  */
-void cSoftHdDevice::SetVideoDisplayFormat(eVideoDisplayFormat videoDisplayFormat)
+void cOutputDevice::SetVideoDisplayFormat(eVideoDisplayFormat videoDisplayFormat)
 {
 	LOGDEBUG("device: %s: %d", __FUNCTION__, videoDisplayFormat);
 
@@ -232,7 +232,7 @@ void cSoftHdDevice::SetVideoDisplayFormat(eVideoDisplayFormat videoDisplayFormat
  *
  * @param videoFormat16_9     flag true 16:9.
  */
-void cSoftHdDevice::SetVideoFormat(bool videoFormat16_9)
+void cOutputDevice::SetVideoFormat(bool videoFormat16_9)
 {
 	LOGDEBUG("device: %s: %d", __FUNCTION__, videoFormat16_9);
 
@@ -252,7 +252,7 @@ void cSoftHdDevice::SetVideoFormat(bool videoFormat16_9)
  *
  * @note the video_aspect is used to scale the subtitle.
  */
-void cSoftHdDevice::GetVideoSize(int &width, int &height, double &aspectRatio)
+void cOutputDevice::GetVideoSize(int &width, int &height, double &aspectRatio)
 {
 //	LOGDEBUG("device: %s: %d x %d @ %f", __FUNCTION__, *width, *height, *aspectRatio);
 
@@ -275,7 +275,7 @@ void cSoftHdDevice::GetVideoSize(int &width, int &height, double &aspectRatio)
  *
  * @todo: Called every second, for nothing (no OSD displayed)?
  */
-void cSoftHdDevice::GetOsdSize(int &width, int &height, double &aspectRatio)
+void cOutputDevice::GetOsdSize(int &width, int &height, double &aspectRatio)
 {
 	if (IsDetached()) { // hardcode to 1920x1080 in detached state
 		width = 1920;
@@ -295,7 +295,7 @@ void cSoftHdDevice::GetOsdSize(int &width, int &height, double &aspectRatio)
  *
  * @param volume        device volume
  */
-void cSoftHdDevice::SetVolumeDevice(int volume)
+void cOutputDevice::SetVolumeDevice(int volume)
 {
 	if (IsDetached())
 		return;
@@ -308,7 +308,7 @@ void cSoftHdDevice::SetVolumeDevice(int volume)
 /**
  * Return true if this device can currently start a replay session
  */
-bool cSoftHdDevice::CanReplay(void) const
+bool cOutputDevice::CanReplay(void) const
 {
 	bool canReplay = !IsDetached();
 
@@ -322,7 +322,7 @@ bool cSoftHdDevice::CanReplay(void) const
  *
  * @param play_mode       new play mode (Audio/Video/External...)
  */
-bool cSoftHdDevice::SetPlayMode(ePlayMode play_mode)
+bool cOutputDevice::SetPlayMode(ePlayMode play_mode)
 {
 	LOGDEBUG("device: %s: %d", __FUNCTION__, play_mode);
 
@@ -379,7 +379,7 @@ bool cSoftHdDevice::SetPlayMode(ePlayMode play_mode)
  * (CanReplay() and HasDecoder() return false in this state and we are not
  * the primary device.)
  */
-int cSoftHdDevice::PlayAudio(const uchar *data, int size, uchar id)
+int cOutputDevice::PlayAudio(const uchar *data, int size, uchar id)
 {
 //	LOGDEBUG("device: %s: %p %p %d %d", __FUNCTION__, this, data, size, id);
 	if (IsDetached())
@@ -479,7 +479,7 @@ int cSoftHdDevice::PlayAudio(const uchar *data, int size, uchar id)
  * (CanReplay() and HasDecoder() return false in this state and we are not
  * the primary device.)
  */
-int cSoftHdDevice::PlayVideo(const uchar *data, int size)
+int cOutputDevice::PlayVideo(const uchar *data, int size)
 {
 //	LOGDEBUG("device: %s: %p %d", __FUNCTION__, data, size);
 	if (IsDetached())
@@ -494,7 +494,7 @@ int cSoftHdDevice::PlayVideo(const uchar *data, int size)
  * Gets the current System Time Counter, which can be used to
  * synchronize audio, video and subtitles.
  */
-int64_t cSoftHdDevice::GetSTC(void)
+int64_t cOutputDevice::GetSTC(void)
 {
 	if (IsDetached())
 		return AV_NOPTS_VALUE;
@@ -523,7 +523,7 @@ int64_t cSoftHdDevice::GetSTC(void)
  *
  * @return          the real rectangle or cRect::NULL if invalid
  */
-cRect cSoftHdDevice::CanScaleVideo(const cRect & rect, __attribute__ ((unused)) int alignment)
+cRect cOutputDevice::CanScaleVideo(const cRect & rect, __attribute__ ((unused)) int alignment)
 {
 	if (m_screenWidth == m_osdWidth && m_screenHeight == m_osdHeight)
 		return rect;
@@ -558,7 +558,7 @@ cRect cSoftHdDevice::CanScaleVideo(const cRect & rect, __attribute__ ((unused)) 
  * @param width     video window width OSD relative
  * @param height    video window height OSD relative
  */
-void cSoftHdDevice::ScaleVideo(const cRect & rect)
+void cOutputDevice::ScaleVideo(const cRect & rect)
 {
 	if (IsDetached())
 		return;
@@ -582,7 +582,7 @@ void cSoftHdDevice::ScaleVideo(const cRect & rect)
  * Slow Forward       8    4    2
  * Slow Reverse      63   48   24
  */
-void cSoftHdDevice::TrickSpeed(int speed, bool forward)
+void cOutputDevice::TrickSpeed(int speed, bool forward)
 {
 	LOGDEBUG("device: %s: %d %s", __FUNCTION__, speed, forward ? "forward" : "backward");
 
@@ -655,7 +655,7 @@ void cSoftHdDevice::TrickSpeed(int speed, bool forward)
  *
  * Empty() does clear all VDR internal packets.
  */
-void cSoftHdDevice::Clear(void)
+void cOutputDevice::Clear(void)
 {
 	LOGDEBUG("device: %s:", __FUNCTION__);
 	cDevice::Clear();
@@ -695,7 +695,7 @@ void cSoftHdDevice::Clear(void)
  *
  * This is called by VDR via DevicePlay() in the Play() and Goto() call
  */
-void cSoftHdDevice::Play(void)
+void cOutputDevice::Play(void)
 {
 	LOGDEBUG("device: %s:", __FUNCTION__);
 	cDevice::Play();
@@ -706,7 +706,7 @@ void cSoftHdDevice::Play(void)
 /**
  * Puts the device into "freeze frame" mode.
  */
-void cSoftHdDevice::Freeze(void)
+void cOutputDevice::Freeze(void)
 {
 	LOGDEBUG("device: %s:", __FUNCTION__);
 	cDevice::Freeze();
@@ -720,7 +720,7 @@ void cSoftHdDevice::Freeze(void)
  * @param data       pes or ts data of a frame
  * @param length     length of data area
  */
-void cSoftHdDevice::StillPicture(const uchar *data, int size)
+void cOutputDevice::StillPicture(const uchar *data, int size)
 {
 	LOGDEBUG("device: %s: %s %p %d", __FUNCTION__, data[0] == 0x47 ? "ts" : "pes", data, size);
 
@@ -744,7 +744,7 @@ void cSoftHdDevice::StillPicture(const uchar *data, int size)
  * @retval true         if ready
  * @retval false        if busy
  */
-bool cSoftHdDevice::Poll(__attribute__ ((unused)) cPoller & poller, int timeoutMs)
+bool cOutputDevice::Poll(__attribute__ ((unused)) cPoller & poller, int timeoutMs)
 {
 //	LOGDEBUG("device: %s: timeout %d", __FUNCTION__, timeout_ms);
 	if (IsDetached())
@@ -773,7 +773,7 @@ bool cSoftHdDevice::Poll(__attribute__ ((unused)) cPoller & poller, int timeoutM
  *
  * @note Flush() is marked DEPRECATED since APIVERSION 14
  */
-bool cSoftHdDevice::Flush(int timeoutMs)
+bool cOutputDevice::Flush(int timeoutMs)
 {
 	if (IsDetached())
 		return true;
@@ -799,7 +799,7 @@ bool cSoftHdDevice::Flush(int timeoutMs)
  *
  * @return true, if the buffers are empty, false otherwise
  */
-bool cSoftHdDevice::DrainDevice(void)
+bool cOutputDevice::DrainDevice(void)
 {
 	if (IsDetached())
 		return true;
@@ -841,7 +841,7 @@ bool cSoftHdDevice::DrainDevice(void)
  * Save the timestamp when a channel switch is initiated (channelNum == 0)
  * for later time measurement.
  */
-void cSoftHdDevice::ChannelSwitch(const cDevice *device, int channelNum, bool liveView)
+void cOutputDevice::ChannelSwitch(const cDevice *device, int channelNum, bool liveView)
 {
 	if (device != cDevice::PrimaryDevice() || !liveView || channelNum != 0)
 		return;
@@ -856,7 +856,7 @@ void cSoftHdDevice::ChannelSwitch(const cDevice *device, int channelNum, bool li
  *
  * Save the timestamp when a replay is started for later time measurement.
  */
-void cSoftHdDevice::Replaying([[maybe_unused]]const cControl *control,
+void cOutputDevice::Replaying([[maybe_unused]]const cControl *control,
                               [[maybe_unused]]const char *name,
                               [[maybe_unused]]const char *filenameDevice,
                               bool on)
@@ -870,13 +870,13 @@ void cSoftHdDevice::Replaying([[maybe_unused]]const cControl *control,
 }
 
 /*********************************************************************
- * cSoftHdDevice public API - playback, display, decoder control
+ * cOutputDevice public API - playback, display, decoder control
  ********************************************************************/
 
 /**
  * Disables deinterlacer (called from setup menu or conf)
  */
-void cSoftHdDevice::SetDisableDeint(void)
+void cOutputDevice::SetDisableDeint(void)
 {
 	if (m_pVideoStream)
 		m_pVideoStream->DisableDeint(m_pConfig->ConfigDisableDeint);
@@ -887,7 +887,7 @@ void cSoftHdDevice::SetDisableDeint(void)
  * Force the decoder to fallback to software if the hardware decoder fails
  * after the configured amount of packets were sent and no frame was received
  */
-void cSoftHdDevice::SetDecoderFallbackToSw(bool enable)
+void cOutputDevice::SetDecoderFallbackToSw(bool enable)
 {
 	if (!m_pVideoStream)
 		return;
@@ -901,7 +901,7 @@ void cSoftHdDevice::SetDecoderFallbackToSw(bool enable)
 /**
  * Enable HDR display mode
 */
-void cSoftHdDevice::SetEnableHdr(bool enable)
+void cOutputDevice::SetEnableHdr(bool enable)
 {
     m_pRender->SetEnableHdr(enable);
 };
@@ -911,7 +911,7 @@ void cSoftHdDevice::SetEnableHdr(bool enable)
  *
  * @param idx     setup menu array index of the mode
  */
-void cSoftHdDevice::SetDisplayMode(int idx)
+void cOutputDevice::SetDisplayMode(int idx)
 {
 	sDrmMode *mode = &m_pConfig->AutoDetectedDrmMode;
 
@@ -962,7 +962,7 @@ void cSoftHdDevice::SetDisplayMode(int idx)
  *
  * @note In order to signal ThresholdReached, both (audio and video) need to have a valid pts in audio + video mode!
  */
-bool cSoftHdDevice::CheckPlaybackStartConditions()
+bool cOutputDevice::CheckPlaybackStartConditions()
 {
 	if (m_pStateMachine->GetState() == PLAY && m_playbackMode == AUDIO_ONLY && m_receivedVideo) {
 		TriggerEvent(ResyncEvent{});
@@ -1060,7 +1060,7 @@ bool cSoftHdDevice::CheckPlaybackStartConditions()
  *
  * @note Used for fast channel switch
  */
-bool cSoftHdDevice::CheckAudioPlaybackStartConditions()
+bool cOutputDevice::CheckAudioPlaybackStartConditions()
 {
 	if (m_pStateMachine->GetState() != BUFFERING)
 		return false;
@@ -1108,14 +1108,14 @@ bool cSoftHdDevice::CheckAudioPlaybackStartConditions()
 }
 
 /*********************************************************************
- * cSoftHdDevice public API - osd control
+ * cOutputDevice public API - osd control
  ********************************************************************/
 
 #ifdef USE_GLES
 /**
  * Get the maximum GPU image cache size
  */
-int cSoftHdDevice::MaxSizeGPUImageCache(void)
+int cOutputDevice::MaxSizeGPUImageCache(void)
 {
 	return m_pConfig->ConfigMaxSizeGPUImageCache;
 };
@@ -1123,7 +1123,7 @@ int cSoftHdDevice::MaxSizeGPUImageCache(void)
 /**
  * Is the OpenGL/ES osd disabled?
  */
-int cSoftHdDevice::OglOsdIsDisabled(void)
+int cOutputDevice::OglOsdIsDisabled(void)
 {
 	return m_pConfig->ConfigDisableOglOsd;
 };
@@ -1131,7 +1131,7 @@ int cSoftHdDevice::OglOsdIsDisabled(void)
 /**
  * Disables OpenGL/ES Osd (called from setup menu or conf)
  */
-void cSoftHdDevice::SetDisableOglOsd(void)
+void cOutputDevice::SetDisableOglOsd(void)
 {
 	m_pConfig->ConfigDisableOglOsd = 1;
 	if (m_pRender)
@@ -1141,7 +1141,7 @@ void cSoftHdDevice::SetDisableOglOsd(void)
 /**
  * Enables OpenGL/ES Osd
  */
-void cSoftHdDevice::SetEnableOglOsd(void)
+void cOutputDevice::SetEnableOglOsd(void)
 {
 	m_pConfig->ConfigDisableOglOsd = 0;
 	if (m_pRender)
@@ -1155,7 +1155,7 @@ void cSoftHdDevice::SetEnableOglOsd(void)
  * @note Don't rename this function to OsdClear(), because this
  * would be the implementation of cStatus::OsdClear()!
  */
-void cSoftHdDevice::OsdClose(void)
+void cOutputDevice::OsdClose(void)
 {
 	if (IsDetached())
 		return;
@@ -1175,7 +1175,7 @@ void cSoftHdDevice::OsdClose(void)
  * @param x          x-coordinate on screen of argb image
  * @param y          y-coordinate on screen of argb image
  */
-void cSoftHdDevice::OsdDraw(int xi, int yi, int height, int width, int pitch,
+void cOutputDevice::OsdDraw(int xi, int yi, int height, int width, int pitch,
 	const uint8_t * argb, int x, int y)
 {
 	if (IsDetached())
@@ -1190,7 +1190,7 @@ void cSoftHdDevice::OsdDraw(int xi, int yi, int height, int width, int pitch,
  * @param width           osd width
  * @param height          osd height
  */
-void cSoftHdDevice::SetOsdSize(int width, int height)
+void cOutputDevice::SetOsdSize(int width, int height)
 {
 	std::lock_guard<std::mutex> lock(m_sizeMutex);
 	m_osdWidth = width;
@@ -1203,7 +1203,7 @@ void cSoftHdDevice::SetOsdSize(int width, int height)
  * @param width           screen width
  * @param height          screen height
  */
-void cSoftHdDevice::SetScreenSize(int width, int height)
+void cOutputDevice::SetScreenSize(int width, int height)
 {
 	std::lock_guard<std::mutex> lock(m_sizeMutex);
 	m_screenWidth = width;
@@ -1211,13 +1211,13 @@ void cSoftHdDevice::SetScreenSize(int width, int height)
 }
 
 /*********************************************************************
- * cSoftHdDevice public API - audio control
+ * cOutputDevice public API - audio control
  ********************************************************************/
 
 /**
  * Set the passthrough mask (called from setup menu or conf)
  */
-void cSoftHdDevice::SetPassthroughMask(int mask)
+void cOutputDevice::SetPassthroughMask(int mask)
 {
 	m_pAudio->SetPassthroughMask(mask);
 	if (m_pAudioDecoder)
@@ -1227,14 +1227,14 @@ void cSoftHdDevice::SetPassthroughMask(int mask)
 /**
  * Reset the channel ID (restarts audio)
  */
-void cSoftHdDevice::ResetChannelId(void)
+void cOutputDevice::ResetChannelId(void)
 {
 	LOGDEBUG("%s:", __FUNCTION__);
 	m_audioChannelID = -1;
 }
 
 /*********************************************************************
- * cSoftHdDevice public API - logging, statistics
+ * cOutputDevice public API - logging, statistics
  ********************************************************************/
 
 /**
@@ -1244,7 +1244,7 @@ void cSoftHdDevice::ResetChannelId(void)
  * @param[out] dropped   dropped frames
  * @param[out] count     number of total rendered frames
  */
-void cSoftHdDevice::GetStats(int *duped, int *dropped, int *counter)
+void cOutputDevice::GetStats(int *duped, int *dropped, int *counter)
 {
 	*duped = 0;
 	*dropped = 0;
@@ -1255,7 +1255,7 @@ void cSoftHdDevice::GetStats(int *duped, int *dropped, int *counter)
 }
 
 /*********************************************************************
- * cSoftHdDevice public API - mediaplayer
+ * cOutputDevice public API - mediaplayer
  ********************************************************************/
 
 /**
@@ -1265,7 +1265,7 @@ void cSoftHdDevice::GetStats(int *duped, int *dropped, int *counter)
  * @param par           audio codec parameters
  * @param timebase      timebase
  */
-void cSoftHdDevice::SetAudioCodec(enum AVCodecID codecId, AVCodecParameters * par, AVRational timebase)
+void cOutputDevice::SetAudioCodec(enum AVCodecID codecId, AVCodecParameters * par, AVRational timebase)
 {
 	m_pAudioDecoder->Open(codecId, par, timebase);
 }
@@ -1277,7 +1277,7 @@ void cSoftHdDevice::SetAudioCodec(enum AVCodecID codecId, AVCodecParameters * pa
  * @param par           video codec parameters
  * @param timebase      timebase
  */
-void cSoftHdDevice::SetVideoCodec(enum AVCodecID codecId, AVCodecParameters * par, AVRational timebase)
+void cOutputDevice::SetVideoCodec(enum AVCodecID codecId, AVCodecParameters * par, AVRational timebase)
 {
 	m_pVideoStream->Open(codecId, par, timebase);
 }
@@ -1290,7 +1290,7 @@ void cSoftHdDevice::SetVideoCodec(enum AVCodecID codecId, AVCodecParameters * pa
  * @retval 0         packet could not be player, free audio buffer too small
  * @retval 1         packet was sent to be decoded
  */
-int cSoftHdDevice::PlayAudioPkts(AVPacket * pkt)
+int cOutputDevice::PlayAudioPkts(AVPacket * pkt)
 {
 	if (m_pAudio->LazyInit())
 		LOGFATAL("%s: audio init failed, abort!", __FUNCTION__);
@@ -1310,7 +1310,7 @@ int cSoftHdDevice::PlayAudioPkts(AVPacket * pkt)
  * @retval 0         packet could not be player, free audio buffer too small
  * @retval 1         packet was sent to be decoded
  */
-int cSoftHdDevice::PlayVideoPkts(AVPacket * pkt)
+int cOutputDevice::PlayVideoPkts(AVPacket * pkt)
 {
 	if (m_pAudio->LazyInit())
 		LOGFATAL("%s: audio init failed, abort!", __FUNCTION__);
@@ -1324,7 +1324,7 @@ int cSoftHdDevice::PlayVideoPkts(AVPacket * pkt)
 }
 
 /*********************************************************************
- * cSoftHdDevice public API - detach/ attach
+ * cOutputDevice public API - detach/ attach
  ********************************************************************/
 
 /**
@@ -1333,7 +1333,7 @@ int cSoftHdDevice::PlayVideoPkts(AVPacket * pkt)
  * Clears audio and video, stops all threads and releases drm/alsa.
  * A detached state can only be exited (restarted) with an AttachEvent.
  */
-void cSoftHdDevice::Detach(void)
+void cOutputDevice::Detach(void)
 {
 	if (cDevice::Replaying()) {
 		LOGDEBUG("device: %s: Device is replaying, stop replay first", __FUNCTION__);
@@ -1355,7 +1355,7 @@ void cSoftHdDevice::Detach(void)
  * Kind of a plugin restart. Inits and starts all necessary resources.
  * Only valid after a detach.
  */
-void cSoftHdDevice::Attach(void)
+void cOutputDevice::Attach(void)
 {
 	m_forceDetached = false;
 
@@ -1370,7 +1370,7 @@ void cSoftHdDevice::Attach(void)
 /**
  * Returns true, if the device is detached
  */
-bool cSoftHdDevice::IsDetached(void) const
+bool cOutputDevice::IsDetached(void) const
 {
 	auto lock = m_pStateMachine->Lock();
 
@@ -1378,7 +1378,7 @@ bool cSoftHdDevice::IsDetached(void) const
 }
 
 /*********************************************************************
- * cSoftHdDevice public API - pip
+ * cOutputDevice public API - pip
  ********************************************************************/
 
 /**
@@ -1391,7 +1391,7 @@ bool cSoftHdDevice::IsDetached(void) const
  * (CanReplay() and HasDecoder() return false in this state and we are not
  * the primary device.)
  */
-int cSoftHdDevice::PlayPipVideo(const uchar *data, int size)
+int cOutputDevice::PlayPipVideo(const uchar *data, int size)
 {
 //	LOGDEBUG("device: %s: %p %d", __FUNCTION__, data, size);
 
@@ -1408,7 +1408,7 @@ int cSoftHdDevice::PlayPipVideo(const uchar *data, int size)
 /**
  * Resets pip stream and render pipeline
  */
-void cSoftHdDevice::ResetPipStream(void)
+void cOutputDevice::ResetPipStream(void)
 {
 	auto lock = m_pStateMachine->Lock();
 
@@ -1432,25 +1432,25 @@ void cSoftHdDevice::ResetPipStream(void)
 /**
  * Returns true, if pip is currently enabled
  */
-bool cSoftHdDevice::PipIsEnabled(void)
+bool cOutputDevice::PipIsEnabled(void)
 {
 	auto lock = m_pStateMachine->Lock();
 
 	return m_pPipHandler->IsEnabled();
 }
 
-void cSoftHdDevice::PipEnable(void) { m_pPipHandler->Enable(); };
-void cSoftHdDevice::PipDisable(void) { m_pPipHandler->Disable(); };
-void cSoftHdDevice::PipToggle(void) { m_pPipHandler->Toggle(); };
-void cSoftHdDevice::PipChannelChange(int dir) { m_pPipHandler->ChannelChange(dir); };
-void cSoftHdDevice::PipChannelSwap(bool closePip) { m_pPipHandler->ChannelSwap(closePip); };
-void cSoftHdDevice::PipSwapPosition(void) { m_pPipHandler->SwapPosition(); };
-void cSoftHdDevice::PipSetSize(void) { m_pPipHandler->SetSize(); };
+void cOutputDevice::PipEnable(void) { m_pPipHandler->Enable(); };
+void cOutputDevice::PipDisable(void) { m_pPipHandler->Disable(); };
+void cOutputDevice::PipToggle(void) { m_pPipHandler->Toggle(); };
+void cOutputDevice::PipChannelChange(int dir) { m_pPipHandler->ChannelChange(dir); };
+void cOutputDevice::PipChannelSwap(bool closePip) { m_pPipHandler->ChannelSwap(closePip); };
+void cOutputDevice::PipSwapPosition(void) { m_pPipHandler->SwapPosition(); };
+void cOutputDevice::PipSetSize(void) { m_pPipHandler->SetSize(); };
 
 /*
  * Wrapper functions for cVideoRender and cPipHandler
  */
-void cSoftHdDevice::SetRenderPipSize(void)
+void cOutputDevice::SetRenderPipSize(void)
 {
 	auto lock = m_pStateMachine->Lock();
 
@@ -1459,7 +1459,7 @@ void cSoftHdDevice::SetRenderPipSize(void)
 	m_pRender->Resume();
 };
 
-void cSoftHdDevice::SetRenderPipActive(bool active)
+void cOutputDevice::SetRenderPipActive(bool active)
 {
 	auto lock = m_pStateMachine->Lock();
 
@@ -1469,7 +1469,7 @@ void cSoftHdDevice::SetRenderPipActive(bool active)
 };
 
 /*********************************************************************
- * cSoftHdDevice private functions
+ * cOutputDevice private functions
  ********************************************************************/
 
 /**
@@ -1521,7 +1521,7 @@ static void PrintStreamData(const uchar *payload)
  * @param trackJitter     whether to track jitter for this packet
  * @param mainStream      this is a packet of the main stream
  */
-int cSoftHdDevice::PlayVideoInternal(cVideoStream *stream, cReassemblyBufferVideo *buffer, const uchar *data, int size, bool trackJitter, bool mainStream)
+int cOutputDevice::PlayVideoInternal(cVideoStream *stream, cReassemblyBufferVideo *buffer, const uchar *data, int size, bool trackJitter, bool mainStream)
 {
 	// LOGDEBUG("device: %s: %p %d %s", __FUNCTION__, data, size, mainStream ? "video" : "pip");
 
@@ -1590,7 +1590,7 @@ int cSoftHdDevice::PlayVideoInternal(cVideoStream *stream, cReassemblyBufferVide
 /**
  * Clear all audio data from the decoder and ringbuffer
  */
-void cSoftHdDevice::FlushAudio(void)
+void cOutputDevice::FlushAudio(void)
 {
 	LOGDEBUG("device: %s:", __FUNCTION__);
 	m_pAudioDecoder->FlushBuffers();
@@ -1605,7 +1605,7 @@ void cSoftHdDevice::FlushAudio(void)
  * @param data       pes data of one or more frames
  * @param size       length of data area
  */
-void cSoftHdDevice::HandleStillPicture(const uchar *data, int size)
+void cOutputDevice::HandleStillPicture(const uchar *data, int size)
 {
 	m_pRender->SetPlaybackPaused(false);
 	m_pVideoStream->SetDeinterlacerDeactivated(true);
@@ -1637,7 +1637,7 @@ void cSoftHdDevice::HandleStillPicture(const uchar *data, int size)
  *
  * @param mode     drm mode
  */
-void cSoftHdDevice::HandleDisplayModeChange(const sDrmMode &mode)
+void cOutputDevice::HandleDisplayModeChange(const sDrmMode &mode)
 {
 	LOGDEBUG("Set display mode: %dx%d@%.2f%s",
 		mode.width,
@@ -1661,7 +1661,7 @@ void cSoftHdDevice::HandleDisplayModeChange(const sDrmMode &mode)
  * @note Positive ConfigVideoAudioDelayMs means audio is intentionally delayed (video ahead)
  * @note Negative ConfigVideoAudioDelayMs means video is intentionally delayed (audio ahead)
  */
-int64_t cSoftHdDevice::GetFirstAudioPtsMsToPlay()
+int64_t cOutputDevice::GetFirstAudioPtsMsToPlay()
 {
 	int64_t ret = std::max(m_pRender->GetOutputPtsMs(), m_pAudio->GetOutputPtsMs());
 
@@ -1672,9 +1672,9 @@ int64_t cSoftHdDevice::GetFirstAudioPtsMsToPlay()
 }
 
 /**
- * @see cSoftHdDevice::GetFirstAudioPtsMsToPlay()
+ * @see cOutputDevice::GetFirstAudioPtsMsToPlay()
  */
-int64_t cSoftHdDevice::GetFirstVideoPtsMsToPlay()
+int64_t cOutputDevice::GetFirstVideoPtsMsToPlay()
 {
 	int64_t ret = std::max(m_pRender->GetOutputPtsMs(), m_pAudio->GetOutputPtsMs());
 
@@ -1688,7 +1688,7 @@ int64_t cSoftHdDevice::GetFirstVideoPtsMsToPlay()
  * Returns the buffer fill level threshold in milliseconds.
  * Combines the minimum threshold with the user-configured additional buffer length.
  */
-int cSoftHdDevice::GetBufferFillLevelThresholdMs() {
+int cOutputDevice::GetBufferFillLevelThresholdMs() {
 	return MIN_BUFFER_FILL_LEVEL_THRESHOLD_MS + m_pConfig->ConfigAdditionalBufferLengthMs;
 }
 
@@ -1698,14 +1698,14 @@ int cSoftHdDevice::GetBufferFillLevelThresholdMs() {
  * @param on     true, if draining should be started
  *               false, if draining should be stopped
  */
-void cSoftHdDevice::SetDrain(bool on)
+void cOutputDevice::SetDrain(bool on)
 {
 	LOGDEBUG("device: %s: %s draining", __FUNCTION__, on ? "start" : "stop");
 	m_draining = on;
 }
 
 /*********************************************************************
- * cSoftHdDevice state transitioning functions
+ * cOutputDevice state transitioning functions
  ********************************************************************/
 
 /**
@@ -1714,7 +1714,7 @@ void cSoftHdDevice::SetDrain(bool on)
  *
  * @param event           event to be executed
  */
-void cSoftHdDevice::TriggerEvent(const Event &event)
+void cOutputDevice::TriggerEvent(const Event &event)
 {
 	m_pStateMachine->OnEventReceived(event);
 }
@@ -1727,7 +1727,7 @@ void cSoftHdDevice::TriggerEvent(const Event &event)
  *
  * @param state         state being left
  */
-void cSoftHdDevice::LeaveState(State state)
+void cOutputDevice::LeaveState(State state)
 {
 	switch (state) {
 		case PLAY:
@@ -1760,9 +1760,9 @@ void cSoftHdDevice::LeaveState(State state)
 			m_receivedValidVideo = false;
 			break;
 		case DETACHED:
-			m_pAudio = new cSoftHdAudio(this);
+			m_pAudio = new cAudioStream(this);
 			m_pRender = new cVideoRender(this);
-			m_pGrab = new cSoftHdGrab(m_pRender);
+			m_pGrab = new cGrabber(m_pRender);
 			m_pVideoStream = new cMainVideoStream(m_pRender, m_pHardwareDevice->GetQuirks(), m_pRender->GetMainOutputBuffer(), m_pConfig, std::bind(&cVideoRender::PushMainFrame, m_pRender, std::placeholders::_1));
 			m_pAudioDecoder = new cAudioDecoder(m_pAudio);
 			int err = m_pRender->Init(); // starts display thread
@@ -1794,7 +1794,7 @@ void cSoftHdDevice::LeaveState(State state)
  *
  * @param state         state being entered
  */
-void cSoftHdDevice::EnterState(State state)
+void cOutputDevice::EnterState(State state)
 {
 	switch (state) {
 		case BUFFERING:
@@ -1892,7 +1892,7 @@ void cSoftHdDevice::EnterState(State state)
 /**
  * Pause the rendering and decoder thread.
  */
-void cSoftHdDevice::HaltVideoThreads(void)
+void cOutputDevice::HaltVideoThreads(void)
 {
 	m_pRender->Halt();
 	m_pVideoStream->Halt();
@@ -1901,7 +1901,7 @@ void cSoftHdDevice::HaltVideoThreads(void)
 /**
  * Resume the rendering and decoder thread.
  */
-void cSoftHdDevice::ResumeVideoThreads(void)
+void cOutputDevice::ResumeVideoThreads(void)
 {
 	m_pVideoStream->Resume();
 	m_pRender->Resume();
@@ -1911,7 +1911,7 @@ void cSoftHdDevice::ResumeVideoThreads(void)
 /**
  * Pause the OpenGL worker thread.
  */
-bool cSoftHdDevice::HaltOpenGlThread(void)
+bool cOutputDevice::HaltOpenGlThread(void)
 {
 	return m_pOsdProvider && m_pOsdProvider->LockOpenGlThread();
 }
@@ -1919,7 +1919,7 @@ bool cSoftHdDevice::HaltOpenGlThread(void)
 /**
  * Resume the OpenGL worker thread.
  */
-void cSoftHdDevice::ResumeOpenGlThread(void)
+void cOutputDevice::ResumeOpenGlThread(void)
 {
 	if (m_pOsdProvider)
 		m_pOsdProvider->UnlockOpenGlThread();
@@ -1929,7 +1929,7 @@ void cSoftHdDevice::ResumeOpenGlThread(void)
 /**
  * Returns true, the a detached plugin start was forced.
  */
-bool cSoftHdDevice::IsDetachForced(void)
+bool cOutputDevice::IsDetachForced(void)
 {
 	return m_forceDetached;
 }
@@ -1942,7 +1942,7 @@ bool cSoftHdDevice::IsDetachForced(void)
  * @retval 0 if audio init succeeded
  * @retval -1 on error
  */
-int cSoftHdDevice::InitAudio(bool setVolume)
+int cOutputDevice::InitAudio(bool setVolume)
 {
 	if (m_pAudio->LazyInit())
 		return -1;
@@ -1956,7 +1956,7 @@ int cSoftHdDevice::InitAudio(bool setVolume)
 /**
  * Reset the video deinterlace filter
  */
-void cSoftHdDevice::ResetVideoFilter(void)
+void cOutputDevice::ResetVideoFilter(void)
 {
 	m_pRender->ResetFrameCounter();
 	m_pVideoStream->ResetFilterThreadNeededCheck();
@@ -1969,7 +1969,7 @@ void cSoftHdDevice::ResetVideoFilter(void)
  * @param active          true, if trickspeed is active
  * @param forward         true, if this is forward trickspeed
  */
-void cSoftHdDevice::SetTrickSpeed(double speed, bool active, bool forward)
+void cOutputDevice::SetTrickSpeed(double speed, bool active, bool forward)
 {
 	m_pRender->SetTrickSpeed(speed, active, forward);
 	m_pAudio->SetTrickSpeed(speed, active, forward);
@@ -1984,7 +1984,7 @@ void cSoftHdDevice::SetTrickSpeed(double speed, bool active, bool forward)
  * @retval true                  playback started
  * @retval false                 playback was not started
  */
-bool cSoftHdDevice::SchedulePlaybackStart(void)
+bool cOutputDevice::SchedulePlaybackStart(void)
 {
 	bool receivedAudio = m_pAudio->HasInputPts();
 	bool receivedVideo = m_pVideoStream->HasInputPts();
@@ -2024,7 +2024,7 @@ bool cSoftHdDevice::SchedulePlaybackStart(void)
  *
  * @param pts            resync, when the rendered video frame reaches this pts
  */
-void cSoftHdDevice::ScheduleResyncAtPtsMs(int64_t pts)
+void cOutputDevice::ScheduleResyncAtPtsMs(int64_t pts)
 {
 	m_pRender->ScheduleResyncAtPtsMs(pts);
 }
@@ -2034,7 +2034,7 @@ void cSoftHdDevice::ScheduleResyncAtPtsMs(int64_t pts)
  *
  * Other than ResumePlayback() this also syncs a/v (by dropping audio)
  */
-void cSoftHdDevice::ResumeFromPause(void)
+void cOutputDevice::ResumeFromPause(void)
 {
 	// resume from pause
 	int audioBehindVideoByMs;
@@ -2070,7 +2070,7 @@ void cSoftHdDevice::ResumeFromPause(void)
  * @param schedulePause               if true, pause at the current audio pts
  *                                    otherwise pause immediately
  */
-void cSoftHdDevice::PausePlayback(bool schedulePause)
+void cOutputDevice::PausePlayback(bool schedulePause)
 {
 	if (schedulePause && m_playbackMode == AUDIO_AND_VIDEO)
 		m_pRender->ScheduleVideoPlaybackPauseAt(m_pAudio->GetOutputPtsMs() - m_pConfig->ConfigVideoAudioDelayMs);
@@ -2084,7 +2084,7 @@ void cSoftHdDevice::PausePlayback(bool schedulePause)
 /**
  * Resume playback again
  */
-void cSoftHdDevice::ResumePlayback(void)
+void cOutputDevice::ResumePlayback(void)
 {
 	m_pRender->SetPlaybackPaused(false);
 }

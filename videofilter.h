@@ -9,8 +9,8 @@
  * @license{AGPL-3.0-or-later}
  */
 
-#ifndef __THREADS_H
-#define __THREADS_H
+#ifndef __DRMDEVICE_VIDEOFILTER_H
+#define __DRMDEVICE_VIDEOFILTER_H
 
 #include <functional>
 

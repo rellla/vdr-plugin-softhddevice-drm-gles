@@ -9,8 +9,8 @@
  * @license{AGPL-3.0-or-later}
  */
 
-#ifndef __H264PARSER_H
-#define __H264PARSER_H
+#ifndef __DRMDEVICE_H264PARSER_H
+#define __DRMDEVICE_H264PARSER_H
 
 #include <set>
 #include <string>

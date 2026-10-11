@@ -7,8 +7,8 @@
  * @license{AGPL-3.0-or-later}
  */
 
-#ifndef __SOFTHDQUEUE_H
-#define __SOFTHDQUEUE_H
+#ifndef __DRMDEVICE_QUEUE_H
+#define __DRMDEVICE_QUEUE_H
 
 #include <cstdint>
 #include <deque>

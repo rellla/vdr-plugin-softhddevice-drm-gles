@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 /**
- * @file pipreceiver.h
+ * @file pip.h
  * PiP (Picture-in-Picture) Interface Header File
  *
  * @copyright 2025 - 2026 by Andreas Baierl. All Rights Reserved.
@@ -9,14 +9,14 @@
  * @license{AGPL-3.0-or-later}
  */
 
-#ifndef __PIPRECEIVER_H
-#define __PIPRECEIVER_H
+#ifndef __DRMDEVICE_PIP_RECEIVER_H
+#define __DRMDEVICE_PIP_RECEIVER_H
 
 #include <atomic>
 
 #include <vdr/receiver.h>
 
-class cSoftHdDevice;
+class cOutputDevice;
 
 /**
  * Picture-in-Picture
@@ -30,7 +30,7 @@ class cSoftHdDevice;
  */
 class cPipReceiver : public cReceiver {
 public:
-	cPipReceiver(const cChannel *, cSoftHdDevice *);
+	cPipReceiver(const cChannel *, cOutputDevice *);
 	virtual ~cPipReceiver(void);
 
 protected:
@@ -38,7 +38,7 @@ protected:
 	virtual void Receive(const uchar *, int);
 
 private:
-	cSoftHdDevice *m_pDevice;        ///< pointer to device
+	cOutputDevice *m_pDevice;        ///< pointer to device
 	cTsToPes m_pTsToPesVideo;        ///< TS to PES converter
 	uint64_t m_lastErrorReport = 0;  ///< tracks time since last error report
 	int m_numLostPackets = 0;        ///< tracks lost packets
@@ -54,7 +54,7 @@ private:
  */
 class cPipHandler {
 public:
-	cPipHandler(cSoftHdDevice *);
+	cPipHandler(cOutputDevice *);
 	virtual ~cPipHandler(void);
 
 	void Enable(void);
@@ -68,7 +68,7 @@ public:
 	bool IsEnabled(void) { return m_active; };
 
 private:
-	cSoftHdDevice *m_pDevice;               ///< pointer to device
+	cOutputDevice *m_pDevice;               ///< pointer to device
 	cPipReceiver *m_pPipReceiver = nullptr; ///< pointer to pip receiver
 	int m_pipChannelNum = 0;                ///< current pip channel number
 	const cChannel *m_pPipChannel;          ///< current pip channel

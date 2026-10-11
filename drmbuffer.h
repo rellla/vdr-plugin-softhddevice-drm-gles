@@ -9,8 +9,8 @@
  * @license{AGPL-3.0-or-later}
  */
 
-#ifndef __DRMBUFFER_H
-#define __DRMBUFFER_H
+#ifndef __DRMDEVICE_DRMBUFFER_H
+#define __DRMDEVICE_DRMBUFFER_H
 
 #include <cstdint>
 

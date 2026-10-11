@@ -1,4 +1,4 @@
-# Developer Documentation - softhddevice-drm-gles
+# Developer Documentation - drmdevice
 
 This document contains technical documentation for developers.
 
@@ -88,7 +88,7 @@ graph TD
 
 ## State Diagram
 
-This is the model of the state machine implemented in softhddevice.cpp.  
+This is the model of the state machine implemented in statemachine.cpp.  
 The diagram doesn't contain the DetachEvent. This event can be triggered in every state and causes a state change to DETACHED.
 
 ```mermaid
@@ -144,7 +144,7 @@ The video pipeline consists of 4 main threads:
 ```mermaid
 graph TD
     %% VDR Thread
-    VDR[VDR Core] --> |PES Packet|PlayVideo["cSoftHdDevice::PlayVideo"]
+    VDR[VDR Core] --> |PES Packet|PlayVideo["cOutputDevice::PlayVideo"]
     PlayVideo --> |PES Packet|PushPes["cVideoStream::PushPesPacket"]
     PushPes --> |Reassambled Codec Packet|CreatePkt["CreateAvPacket"]
     CreatePkt --> |AVPacket|PktQueue["cVideoStream::m_packets<br/>**192**x AVPacket"]
@@ -246,7 +246,7 @@ flowchart TD
 When managing the VDR states (play/pause/trick speed/...), the following paradigms are followed:
 
 - On every call of above VDR methods, we wait at a single and central location, that the display and decoding threads finish their currently processing packet/frame. Then, the threads are locked (halted), and the necessary changes are done in a thread-safe and predictable way, until they resume their normal work.
-- What should happen in which state is also handled in a single and central location. Therefore, VDR's state is tracked in a variable. When one of PlayMode()/Freeze()/Clear()/... are invoked (I call it "events"), they are handled according to in which state VDR is currently in (play/stop/trickspeed). So, you can clearly see in the code, what happens in a particular state, when a specific event is received. The state transitions are handled in cSoftHdDevice::OnEventReceived() and what shall be done when entering or leaving a state is done in cSoftHdDevice::OnEnteringState()/cSoftHdDevice::OnLeavingState().
+- What should happen in which state is also handled in a single and central location. Therefore, VDR's state is tracked in a variable. When one of PlayMode()/Freeze()/Clear()/... are invoked (I call it "events"), they are handled according to in which state VDR is currently in (play/stop/trickspeed). So, you can clearly see in the code, what happens in a particular state, when a specific event is received. The state transitions are handled in cStateMachine::OnEventReceived() and what shall be done when entering or leaving a state is done in cOutputDevice::EnterState()/cOutputDevice::LeaveState().
 
 This was introduced in PR #91.
 
@@ -321,7 +321,7 @@ title Channel switch lifetime (with CHANNEL_SWITCH_AV_SYNC, audio buffer 300ms) 
 section VDR (422ms)
 + 0ms: channel switch invoked
 + 134ms: SetPlayMode() called
-section softhddevice-drm-gles
+section drmdevice
 + 422ms: PlayVideo() gets first valid data
 + 839ms: PlayAudio() gets first valid data: audio input buffers are filling
 + 961ms: PlayVideo() gets first decodeable I-frame: video input buffers are filling: decoder opening is triggered
@@ -346,7 +346,7 @@ title Channel switch lifetime (with CHANNEL_SWITCH_FAST_VIDEO, audio buffer 300m
 section VDR (424ms)
 + 0ms: channel switch invoked
 + 134ms: SetPlayMode() called
-section softhddevice-drm-gles
+section drmdevice
 + 424ms: PlayVideo() gets first valid data
 + 631ms: PlayVideo() gets first decodeable I-frame: video input buffers are filling: decoder opening is triggered
 section decoder
@@ -373,7 +373,7 @@ title Channel switch lifetime (with CHANNEL_SWITCH_FAST_AUDIO, audio buffer 300m
 section VDR (527ms)
 + 0ms: channel switch invoked
 + 138ms: SetPlayMode() called
-section softhddevice-drm-gles
+section drmdevice
 + 527ms: PlayVideo() gets first valid data
 + 734ms: PlayVideo() gets first decodeable I-frame: video input buffers are filling: decoder opening is triggered
 section decoder

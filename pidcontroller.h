@@ -7,8 +7,8 @@
  * @license{AGPL-3.0-or-later}
  */
 
-#ifndef PID_CONTROLLER_H
-#define PID_CONTROLLER_H
+#ifndef __DRMDEVICE_PID_CONTROLLER_H
+#define __DRMDEVICE_PID_CONTROLLER_H
 
 // Comment this in to transmit PID controller data for tuning/visualization. See DEVELOPER/README.md for instructions.
 // #define PID_CONTROLLER_TUNING_AID_ADDRESS "192.168.2.22"

@@ -16,15 +16,6 @@ msgstr ""
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 
-msgid "Channel not available!"
-msgstr "Kanal nicht verfügbar!"
-
-msgid "A software and GPU emulated HD device"
-msgstr "HD Device mit software und GPU Unterstützung"
-
-msgid "Softhddevice"
-msgstr ""
-
 msgid " Toggle"
 msgstr " Ein/Aus"
 
@@ -57,6 +48,15 @@ msgstr "Neue Playliste erstellen"
 
 msgid "Added to Playlist"
 msgstr "Zur Playliste hinzugefügt"
+
+msgid "Channel not available!"
+msgstr "Kanal nicht verfügbar!"
+
+msgid "A DRM/KMS based output device"
+msgstr "Ausgabegerät mit DRM/KMS Unterstützung"
+
+msgid "DRMDevice"
+msgstr ""
 
 msgid "show"
 msgstr "anzeigen"

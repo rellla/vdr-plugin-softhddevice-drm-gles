@@ -12,8 +12,8 @@
  * @license{AGPL-3.0-or-later}
  */
 
-#ifndef __SOFTHDDEVICE_OPENGLOSD_H
-#define __SOFTHDDEVICE_OPENGLOSD_H
+#ifndef __DRMDEVICE_OPENGLOSD_H
+#define __DRMDEVICE_OPENGLOSD_H
 
 #include <cstdio>
 #include <memory>
@@ -41,7 +41,7 @@ const struct {
 
 #include <vdr/osd.h>
 
-class cSoftHdDevice;
+class cOutputDevice;
 class cVideoRender;
 
 /**
@@ -440,7 +440,7 @@ private:
  */
 class cOglCmdCopyBufferToOutputFb : public cOglCmd {
 public:
-	cOglCmdCopyBufferToOutputFb(cOglFb *fb, cOglOutputFb *oFb, GLint x, GLint y, int active, cSoftHdDevice *device)
+	cOglCmdCopyBufferToOutputFb(cOglFb *fb, cOglOutputFb *oFb, GLint x, GLint y, int active, cOutputDevice *device)
 		: cOglCmd(fb),
 		  m_pOutputFramebuffer(oFb),
 		  m_x((GLfloat)x),
@@ -457,7 +457,7 @@ private:
 	GLfloat m_x, m_y;
 	GLint m_borderColor;
 	int m_active;
-	cSoftHdDevice *m_pDevice;
+	cOutputDevice *m_pDevice;
 };
 
 /**
@@ -735,7 +735,7 @@ private:
  */
 class cOglThread : public cThread {
 public:
-	cOglThread(cCondWait *startWait, int maxCacheSize, cSoftHdDevice *device);
+	cOglThread(cCondWait *startWait, int maxCacheSize, cOutputDevice *device);
 	virtual ~cOglThread(void) {};
 
 	void RequestStop(void);
@@ -832,7 +832,7 @@ private:
  */
 class cOglOsd : public cOsd {
 public:
-	cOglOsd(int, int, uint, std::shared_ptr<cOglThread>, cSoftHdDevice *);
+	cOglOsd(int, int, uint, std::shared_ptr<cOglThread>, cOutputDevice *);
 	virtual ~cOglOsd();
 
 	virtual eOsdError SetAreas(const tArea *, int);
@@ -851,7 +851,7 @@ private:
 	bool m_isSubtitleOsd;                          ///< true, if this is a subtitle osd
 	cSize m_maxPixmapSize;                         ///< maximum allowed size of a pixmap (depends on the maximum OpenGL texture size)
 	cRect m_pDirtyViewport;                        ///< the dirty viewport
-	cSoftHdDevice *m_pDevice;                      ///< pointer to cSofthdDevice
+	cOutputDevice *m_pDevice;                      ///< pointer to cOutputDevice
 };
 
 #endif

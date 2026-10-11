@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 /**
- * @file softhdmenu.cpp
+ * @file menu.cpp
  * Plugin Main Menu
  *
  * @copyright 2020 zille.  All Rights Reserved.
@@ -17,33 +17,33 @@
 #include <vdr/plugin.h>
 #include <vdr/videodir.h>
 
+#include "device.h"
 #include "logger.h"
 #include "mediaplayer.h"
-#include "softhddevice.h"
-#include "softhdmenu.h"
+#include "menu.h"
 
 /**
  * Build main or playlist menu
  */
-cSoftHdMenu::cSoftHdMenu(const char *title, cSoftHdDevice *device,
+cDeviceMenu::cDeviceMenu(const char *title, cOutputDevice *device,
                          int c0, int c1, int c2, int c3, int c4)
 	: cOsdMenu(title, c0, c1, c2, c3, c4),
 	  m_pDevice(device)
 {
-	pSoftHdMenu = this;
+	pMenu = this;
 	m_playlist.clear();
 
-	if (cSoftHdControl::Control() && cSoftHdControl::Control()->Player()->GetFirstPlaylistEntry()) {
-		LOGDEBUG2(L_MEDIA, "mediaplayer: %s: pointer to cSoftHdControl exist.", __FUNCTION__);
+	if (cDrmDeviceControl::Control() && cDrmDeviceControl::Control()->Player()->GetFirstPlaylistEntry()) {
+		LOGDEBUG2(L_MEDIA, "mediaplayer: %s: pointer to cDrmDeviceControl exist.", __FUNCTION__);
 		PlayListMenu();		// Test if PL!!!
 	} else {
 		MainMenu();
 	}
 }
 
-cSoftHdMenu::~cSoftHdMenu()
+cDeviceMenu::~cDeviceMenu()
 {
-	pSoftHdMenu = NULL;
+	pMenu = NULL;
 }
 
 /**
@@ -73,7 +73,7 @@ static inline cOsdItem *SeparatorSpace(void)
 /**
  * Create main menu
  */
-void cSoftHdMenu::MainMenu(void)
+void cDeviceMenu::MainMenu(void)
 {
 	int current;
 
@@ -131,7 +131,7 @@ enum Hotkeys {
  *
  * @param code       hotkey code to handle (see enum Hotkeys)
  */
-void cSoftHdMenu::HandleHotKey(int code) {
+void cDeviceMenu::HandleHotKey(int code) {
 	switch (code) {
 		// pip
 		case PIPTOGGLEONOFF:
@@ -169,7 +169,7 @@ void cSoftHdMenu::HandleHotKey(int code) {
  *
  * @param key       key event
  */
-eOSState cSoftHdMenu::ProcessKey(eKeys key)
+eOSState cDeviceMenu::ProcessKey(eKeys key)
 {
 	eOSState state;
 	cOsdItem *item;
@@ -243,7 +243,7 @@ eOSState cSoftHdMenu::ProcessKey(eKeys key)
 			FindFileMenu(m_path, NULL);
 			return osContinue;
 		case osUser9:                   // select play list
-			m_path = cPlugin::ConfigDirectory("softhddevice-drm-gles");
+			m_path = cPlugin::ConfigDirectory("drmdevice");
 			SelectPlaylistMenu();
 			return osContinue;
 		default:
@@ -263,8 +263,8 @@ eOSState cSoftHdMenu::ProcessKey(eKeys key)
 				FindFileMenu(m_path.c_str(), NULL);
 				break;
 			}
-			if (cSoftHdControl::Control() && cSoftHdControl::Control()->Player()->GetCurrentPlaylistEntry()) {
-				cSoftHdControl::Control()->Player()->SetEntry(Current());
+			if (cDrmDeviceControl::Control() && cDrmDeviceControl::Control()->Player()->GetCurrentPlaylistEntry()) {
+				cDrmDeviceControl::Control()->Player()->SetEntry(Current());
 //				PlayListMenu();
 				break;
 			}
@@ -281,8 +281,8 @@ eOSState cSoftHdMenu::ProcessKey(eKeys key)
 			}
 			break;
 		case kRed:
-			if (cSoftHdControl::Control() && cSoftHdControl::Control()->Player()->GetCurrentPlaylistEntry()) {
-				cSoftHdControl::Control()->Player()->ToggleRandomPlay();
+			if (cDrmDeviceControl::Control() && cDrmDeviceControl::Control()->Player()->GetCurrentPlaylistEntry()) {
+				cDrmDeviceControl::Control()->Player()->ToggleRandomPlay();
 				PlayListMenu();
 				break;
 			}
@@ -292,14 +292,14 @@ eOSState cSoftHdMenu::ProcessKey(eKeys key)
 					return osEnd;
 				}
 			} else {
-				m_path = cPlugin::ConfigDirectory("softhddevice-drm-gles");
+				m_path = cPlugin::ConfigDirectory("drmdevice");
 				PlayMedia(m_playlist.c_str());
 				return osEnd;
 			}
 			break;
 		case kGreen:
-			if (cSoftHdControl::Control()) {
-				cSoftHdControl::Control()->Player()->JumpSec(-60);
+			if (cDrmDeviceControl::Control()) {
+				cDrmDeviceControl::Control()->Player()->JumpSec(-60);
 			} else {
 				MakePlayList(item->Text(), "w");
 				Interface->Confirm(tr("New Playlist"), 1, true);
@@ -310,8 +310,8 @@ eOSState cSoftHdMenu::ProcessKey(eKeys key)
 			}
 			break;
 		case kYellow:
-			if (cSoftHdControl::Control()) {
-				cSoftHdControl::Control()->Player()->JumpSec(60);
+			if (cDrmDeviceControl::Control()) {
+				cDrmDeviceControl::Control()->Player()->JumpSec(60);
 			} else {
 				MakePlayList(item->Text(), "a");
 				Interface->Confirm(tr("Added to Playlist"), 1, true);
@@ -327,8 +327,8 @@ eOSState cSoftHdMenu::ProcessKey(eKeys key)
 			}
 			break;
 		case kNext:
-			if (cSoftHdControl::Control())
-				cSoftHdControl::Control()->Player()->Stop();
+			if (cDrmDeviceControl::Control())
+				cDrmDeviceControl::Control()->Player()->Stop();
 			break;
 		default:
 			break;
@@ -344,20 +344,20 @@ eOSState cSoftHdMenu::ProcessKey(eKeys key)
 /**
  * Create mediaplayer playlist menu
  */
-void cSoftHdMenu::PlayListMenu(void)
+void cDeviceMenu::PlayListMenu(void)
 {
-	cPlaylistEntry *entry = cSoftHdControl::Control()->Player()->GetFirstPlaylistEntry();
+	cPlaylistEntry *entry = cDrmDeviceControl::Control()->Player()->GetFirstPlaylistEntry();
 	Clear();
 	while (1) {
 		std::string p_string = entry->OsdItemString();
-		Add(new cOsdItem(p_string.c_str()), (entry == cSoftHdControl::Control()->Player()->GetCurrentPlaylistEntry()));
+		Add(new cOsdItem(p_string.c_str()), (entry == cDrmDeviceControl::Control()->Player()->GetCurrentPlaylistEntry()));
 
 		if (!entry->GetNextEntry())
 			break;
 
 		entry = entry->GetNextEntry();
 	}
-	SetHelp(cSoftHdControl::Control()->Player()->IsRandomPlayActive() ? "Random Play" : " No Random Play",
+	SetHelp(cDrmDeviceControl::Control()->Player()->IsRandomPlayActive() ? "Random Play" : " No Random Play",
 		"Jump -1 min", "Jump +1 min", "End player");
 	Display();
 }
@@ -365,14 +365,14 @@ void cSoftHdMenu::PlayListMenu(void)
 /**
  * Create mediaplayer select playlist menu
  */
-void cSoftHdMenu::SelectPlaylistMenu(void)
+void cDeviceMenu::SelectPlaylistMenu(void)
 {
 	struct dirent **dirList;
 	int n, i;
 
-	if ((n = scandir(cPlugin::ConfigDirectory("softhddevice-drm-gles"), &dirList, NULL, alphasort)) == -1) {
+	if ((n = scandir(cPlugin::ConfigDirectory("drmdevice"), &dirList, NULL, alphasort)) == -1) {
 		LOGERROR("mediaplayer: %s: searching PL in %s failed (%d): %m", __FUNCTION__,
-			cPlugin::ConfigDirectory("softhddevice-drm-gles"), errno);
+			cPlugin::ConfigDirectory("drmdevice"), errno);
 		return;
 	}
 
@@ -392,7 +392,7 @@ void cSoftHdMenu::SelectPlaylistMenu(void)
  * @param searchPath     path to start search mediafile
  * @param playlist       if there is a play list write to play list else make a new menu
  */
-void cSoftHdMenu::FindFileMenu(std::string searchPath, FILE *playlist)
+void cDeviceMenu::FindFileMenu(std::string searchPath, FILE *playlist)
 {
 	struct dirent **dirList;
 	int n, i;
@@ -460,12 +460,12 @@ void cSoftHdMenu::FindFileMenu(std::string searchPath, FILE *playlist)
  * @param target     path to start search mediafiles
  * @param mode       open file mode
 */
-void cSoftHdMenu::MakePlayList(const char * target, const char * mode)
+void cDeviceMenu::MakePlayList(const char * target, const char * mode)
 {
 	if (m_playlist.empty())
 		m_playlist = "/default.m3u";
 
-	std::string plPath = cPlugin::ConfigDirectory("softhddevice-drm-gles");
+	std::string plPath = cPlugin::ConfigDirectory("drmdevice");
 	plPath.append(m_playlist.c_str());
 	FILE *playlist = fopen(plPath.c_str(), mode);
 
@@ -487,11 +487,11 @@ void cSoftHdMenu::MakePlayList(const char * target, const char * mode)
  *
  * @param name        file name
  */
-void cSoftHdMenu::PlayMedia(const char *name)
+void cDeviceMenu::PlayMedia(const char *name)
 {
 	std::string aim = m_path + "/" + name;
-	if (!cSoftHdControl::Control()) {
-		cControl::Launch(new cSoftHdControl(aim.c_str(), m_pDevice));
+	if (!cDrmDeviceControl::Control()) {
+		cControl::Launch(new cDrmDeviceControl(aim.c_str(), m_pDevice));
 	} else {
 		LOGERROR("mediaplayer: %s: can't start %s", __FUNCTION__, aim.c_str());
 	}
@@ -503,7 +503,7 @@ void cSoftHdMenu::PlayMedia(const char *name)
  * @param name        file name
  * @return            true if it's a media file
  */
-bool cSoftHdMenu::IsValidMediaFile(const char *name)
+bool cDeviceMenu::IsValidMediaFile(const char *name)
 {
 	if (strcasestr(name, ".MP3")  ||
 	    strcasestr(name, ".MP4")  ||

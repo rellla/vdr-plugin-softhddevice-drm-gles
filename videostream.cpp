@@ -45,8 +45,8 @@ extern "C" {
 /**
  * Create a video stream
  */
-cVideoStream::cVideoStream(cVideoRender *render, int hardwareQuirks, cQueue<cDrmBuffer> *drmBufferQueue, cSoftHdConfig *config, bool isPipStream, std::function<void(AVFrame *)> frameOutput)
-	: cThread(isPipStream ? "shd PIP decode" : "shd main decode"),
+cVideoStream::cVideoStream(cVideoRender *render, int hardwareQuirks, cQueue<cDrmBuffer> *drmBufferQueue, cDeviceConfig *config, bool isPipStream, std::function<void(AVFrame *)> frameOutput)
+	: cThread(isPipStream ? "drmdev PIP dec" : "drmdev main dec"),
 	  m_pConfig(config),
 	  m_pDecoder(nullptr),
 	  m_pRender(render),

@@ -2,7 +2,7 @@ name: Generate and deploy doxygen documentation
 
 on:
   push:
-    branches: drm-atomic-gles
+    branches: main
   workflow_dispatch:
     inputs:
       folder:
@@ -66,7 +66,7 @@ jobs:
       - name: Configure doxygen
         run: |
           cp "$DOXYGEN_CONFIG" "$DOXYGEN_CONFIG.tmp"
-          BASE_VERSION=$(grep -R 'static const char \*const VERSION *=' softhddevice-drm-gles.cpp \
+          BASE_VERSION=$(grep -R 'static const char \*const VERSION *=' plugindrmdevice.cpp \
             | awk '{ print $7 }' | sed 's/[";]//g' | head -n1)
           PROJECT_VERSION="${BASE_VERSION}${GIT_DESCRIBE_VERSION}"
           echo "PROJECT_NUMBER=$PROJECT_VERSION" >> "$DOXYGEN_CONFIG.tmp"

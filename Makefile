@@ -6,9 +6,12 @@
 # This name will be used in the '-P...' option of VDR to load the plugin.
 # By default the main source file also carries this name.
 
-PLUGIN = softhddevice-drm-gles
+PLUGIN = drmdevice
 
 ### Configuration (edit this for your needs)
+
+# File which holds the cPlugin implementation:
+PLUGINENTRY = plugindrmdevice
 
 # Source documentation:
 DOXYGEN  ?= /usr/bin/doxygen
@@ -32,7 +35,7 @@ endif
 
 ### The version number of this plugin (taken from the main source file):
 
-VERSION = $(shell grep 'static const char \*const VERSION *=' $(PLUGIN).cpp | awk '{ print $$7 }' | sed -e 's/[";]//g')
+VERSION = $(shell grep 'static const char \*const VERSION *=' $(PLUGINENTRY).cpp | awk '{ print $$7 }' | sed -e 's/[";]//g')
 
 ### The Git revision:
 # On a tag with clean tree: empty string
@@ -80,7 +83,7 @@ PACKAGE = vdr-$(ARCHIVE)
 
 SOFILE = libvdr-$(PLUGIN).so
 
-### softhddevice config
+### drmdevice config
 
 _CFLAGS += $(shell pkg-config --cflags alsa libavcodec libavfilter libdrm)
 LIBS += $(shell pkg-config --libs alsa libavcodec libavfilter libdrm)
@@ -132,13 +135,14 @@ override CFLAGS	  += $(_CFLAGS) $(DEFINES) $(INCLUDES) \
 
 ### The object files (add further files here):
 
-OBJS = $(PLUGIN).o \
-	alsadevice.o \
+OBJS = $(PLUGINENTRY).o \
+ 	alsadevice.o \
 	audio.o \
 	audioprocessor.o \
 	codec_audio.o \
 	codec_video.o \
 	config.o \
+	device.o \
 	drmbuffer.o \
 	drmdevice.o \
 	drmhdr.o \
@@ -149,15 +153,14 @@ OBJS = $(PLUGIN).o \
 	jittertracker.o \
 	logger.o \
 	mediaplayer.o \
+	menu.o \
+	osdprovider.o \
 	pes.o \
 	pidcontroller.o \
-	pipreceiver.o \
+	pip.o \
 	ringbuffer.o \
-	softhddevice.o \
-	softhdmenu.o \
-	softhdsetupmenu.o \
-	softhdosd.o \
-	softhdosdprovider.o \
+	setupmenu.o \
+	softosd.o \
 	statemachine.o \
 	videofilter.o \
 	videorender.o \
@@ -167,7 +170,7 @@ ifeq ($(GLES),1)
 OBJS += openglosd.o
 endif
 
-SRCS = $(wildcard $(OBJS:.o=.cpp)) $(PLUGIN).cpp
+SRCS = $(wildcard $(OBJS:.o=.cpp)) $(PLUGINENTRY).cpp
 
 ### The main target:
 
@@ -216,7 +219,7 @@ $(OBJS): Makefile
 
 .PHONY: force
 $(GIT_VERSION_FILE): force
-	@echo "building softhddevice-drm-gles version $(VERSION)$(GIT_DESCRIBE)"; \
+	@echo "building drmdevice version $(VERSION)$(GIT_DESCRIBE)"; \
 	tmp=$@.tmp; \
 	echo "/* auto-generated */" > $$tmp; \
 	echo "#define GIT_DESCRIBE \"$(GIT_DESCRIBE)\"" >> $$tmp; \
@@ -226,7 +229,7 @@ $(GIT_VERSION_FILE): force
 		rm $$tmp; \
 	fi
 
-$(PLUGIN).o: $(GIT_VERSION_FILE)
+$(PLUGINENTRY).o: $(GIT_VERSION_FILE)
 
 APIVERSION_FILE := .apiversion
 $(APIVERSION_FILE): force

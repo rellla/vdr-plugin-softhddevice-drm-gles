@@ -17,8 +17,8 @@
  * Handles the audio stream
  */
 
-#ifndef __AUDIO_H
-#define __AUDIO_H
+#ifndef __DRMDEVICE_AUDIO_H
+#define __DRMDEVICE_AUDIO_H
 
 #include <atomic>
 #include <chrono>
@@ -40,17 +40,17 @@ extern "C" {
 #include "ringbuffer.h"
 #include "statemachine.h"
 
-class cSoftHdConfig;
-class cSoftHdDevice;
+class cDeviceConfig;
+class cOutputDevice;
 
 /**
  * Audio Interface
  *
  * @ingroup audio
  */
-class cSoftHdAudio : public cThread {
+class cAudioStream : public cThread {
 public:
-	cSoftHdAudio(cSoftHdDevice *);
+	cAudioStream(cOutputDevice *);
 
 	int LazyInit(void);
 	void Exit(void);
@@ -103,14 +103,14 @@ protected:
 	virtual void Action(void);
 
 private:
-	constexpr static int AUDIO_MIN_BUFFER_FREE = 3072 * 8 * 8; ///< Minimum free space in audio buffer 8 packets for 8 channels
-	constexpr static int AV_SYNC_BORDER_MS = 5000;             ///< absolute max a/v difference in ms which should trigger a resync
-	constexpr static int BYTES_PER_SAMPLE = 2;                 ///< number of bytes per sample
-	constexpr static int64_t PTS_WRAP = 1LL << 33;             ///< wraparound mod for a 33-bit PTS
+	constexpr static int AUDIO_MIN_BUFFER_FREE = 3072 * 8 * 8;   ///< Minimum free space in audio buffer 8 packets for 8 channels
+	constexpr static int AV_SYNC_BORDER_MS = 5000;               ///< absolute max a/v difference in ms which should trigger a resync
+	constexpr static int BYTES_PER_SAMPLE = 2;                   ///< number of bytes per sample
+	constexpr static int64_t PTS_WRAP = 1LL << 33;               ///< wraparound mod for a 33-bit PTS
 	constexpr static double MAX_TRICKSPEED_STEP_DELAY_MS = 3000; ///< upper bound for a single AdvanceTrickSpeedPts(), in case of large/ erratic pts jumps
 
-	cSoftHdDevice *m_pDevice;               ///< pointer to device
-	cSoftHdConfig *m_pConfig;               ///< pointer to config
+	cOutputDevice *m_pDevice;               ///< pointer to device
+	cDeviceConfig *m_pConfig;               ///< pointer to config
 	cAlsaDevice m_alsa;                     ///< alsa device
 	cBufferFillLevelLowPassFilter m_fillLevel;                  ///< low pass filter for the buffer fill level
 	cPidController m_pidController{3, 0.005, 0, 1000};          ///< PID controller for clock drift compensation with tuning values coming from educated guesses
@@ -177,7 +177,7 @@ private:
 
 	// ring buffer variables
 	static constexpr unsigned RINGBUFFER_SIZE = 3 * 5 * 7 * 8 * 2 * 1000; ///< default ring buffer size ~2s 8ch 16bit (3 * 5 * 7 * 8)
-	cSoftHdRingbuffer m_pRingbuffer{RINGBUFFER_SIZE};                     ///< sample ring buffer
+	cRingbuffer m_pRingbuffer{RINGBUFFER_SIZE};                           ///< sample ring buffer
 
 	int64_t GetOutputPtsMsInternal(void);
 };

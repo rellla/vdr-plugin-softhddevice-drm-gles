@@ -1,8 +1,8 @@
-softhddevice-drm-gles
-=====================
+DRMDevice
+=========
 
-A software and GPU emulated HD output device for VDR  
-(https://github.com/rellla/vdr-plugin-softhddevice-drm-gles)
+An output plugin for VDR using DRM/KMS and hardware accelerated multimedia APIs
+(https://github.com/rellla/vdr-plugin-drmdevice)
 
 
 Features
@@ -50,23 +50,14 @@ SW = Device does not support hardware decoding. Software decoding is used.
 ❌= Device supports hardware decoding, but it is not implemented in this plugin.  
 
 
-Why do we need another softhddevice version?
---------------------------------------------
-This was basically a fork of https://github.com/zillevdr/vdr-plugin-softhddevice-drm.git
-but has received major rewrites across most of the code.
+Why do we need another output device version?
+---------------------------------------------
+This is a continuation of [softhddevice-drm-gles](https://github.com/rellla/vdr-plugin-softhddevice-drm-gles.git). In October 2026 softhddevice-drm-gles was simply renamed to drmdevice and got major renaming in file and class names without any functional changes.
+The original softhddevice-drm-gles was basically a fork of https://github.com/zillevdr/vdr-plugin-softhddevice-drm.git but has received major rewrites over the time.
 
 The target of this version are embedded devices, see supported hardware.
 
-The difference in function to the original fork is, that it adds some additional features
-like resized video, hardware accelerated OSD rendering, support for Rpi4/5 and Amlogic
-devices, detach/attach functionality and many more things. Read the commit history for detailed
-info.
-
-The main difference in design is, that the code base was moved to a class orientated,
-mostly C++-based code. Moving between the different states (Detach, Buffering, Play, Stop, ...)
-is implemented with a state machine. AV-Sync and buffering have been completely rewritten.
-
-As a principle, this softhddevice version is only dealing with mainline versions and standards,
+As a principle, this output device version is only dealing with mainline versions and standards,
 which means you can (and have to) use mainline (or to be mainlined) kernel, FFmpeg and mesa version.
 This code does not work with vendor provided software or even closed source binaries.
 
@@ -95,16 +86,16 @@ with a zero-copy approach. That's the same for OpenGL/ES OSD.
 Audio output is handled by Alsa.
 
 See the [developer page](DEVELOPER/README.md) for helpful descriptions, graphs and diagrams
-of VDR and softhddevice internals to see how things work together.
+of VDR and drmdevice internals to see how things work together.
 
-A doxygen documentation is available [here](https://rellla.github.io/vdr-plugin-softhddevice-drm-gles/)
+A doxygen documentation is available [here](https://rellla.github.io/vdr-plugin-drmdevice/)
 and is updated on every commit automatically.
 
 
 Known Bugs/ TODO
 ----------------
 - rpi avcodec_flush_buffers is broken in [rpi-ffmpeg](https://github.com/jc-kynesim/rpi-ffmpeg) (used in LibreELEC), use a workaround for now
-- see https://github.com/rellla/vdr-plugin-softhddevice-drm-gles/issues
+- see https://github.com/rellla/vdr-plugin-drmdevice/issues
 
 
 Requirements
@@ -150,8 +141,8 @@ Requirements
 Installation
 ------------
 
-	git clone https://github.com/rellla/vdr-plugin-softhddevice-drm-gles.git
-	cd vdr-plugin-softhddevice-drm-gles
+	git clone https://github.com/rellla/vdr-plugin-drmdevice.git
+	cd vdr-plugin-drmdevice
 	make
 	make install
 
@@ -188,13 +179,13 @@ Environment values have a higher priority than command line arguments.
 Setup: /etc/vdr/setup.conf
 --------------------------
 
-	softhddevice-drm-gles.HideMainMenuEntry = 0
-		0 = show softhddevice main menu entry, 1 = hide entry
+	drmdevice.HideMainMenuEntry = 0
+		0 = show drmdevice main menu entry, 1 = hide entry
 
-	softhddevice-drm-gles.VideoEnableHdr = 0
+	drmdevice.VideoEnableHdr = 0
 		0 = disable HDR, 1 = enable HDR
 
-	softhddevice-drm-gles.VideoDisplayMode = 0
+	drmdevice.VideoDisplayMode = 0
 		0  = use the display mode, which was either set by command line or autodetected at plugin start
 		1  = display mode follows video resolution (width, height, refresh rate)
 		     If the output device offers a display mode, that *exactly* matches the video mode
@@ -204,20 +195,20 @@ Setup: /etc/vdr/setup.conf
 		2  = display mode follows video resolution respecting interlaced modes (width, height, refresh rate, interlaced flag)
 		     Same as above, but now the display also chooses an interlaced mode for interlaced input (except for 576i) if available
 
-	softhddevice-drm-gles.VideoChannelSwitchMode = 0
+	drmdevice.VideoChannelSwitchMode = 0
 		0 = fast channel switch is disabled
 		1 = enable fast channel switch: video is presented immediately as a still-picture
 		2 = enable fast channel switch: video is presented immediately as a still-picture and audio starts as soon as possible
 
-	softhddevice-drm-gles.AudioSoftvol = 0
+	drmdevice.AudioSoftvol = 0
 		0 = off, use hardware volume control
 		1 = on, use software volume control
 
-	softhddevice-drm-gles.AudioDownmix = 0
+	drmdevice.AudioDownmix = 0
 		0 = none, 1 = downmix
 		Use FFmpeg downmix of AC-3/EAC-3 audio to stereo.
 
-	softhddevice-drm-gles.AudioPassthrough = 0
+	drmdevice.AudioPassthrough = 0
 		0 = none, 4 = AC-3, 8 = EAC-3, 16 = DTS
 
 		For AC-3/EAC-3/DTS the passthrough device is used and the audio
@@ -226,63 +217,63 @@ Setup: /etc/vdr/setup.conf
 		negating the value disables passthrough but remembers the setting
 		(note: TrueHD... isn't supported yet)
 
-	softhddevice-drm-gles.AudioAutoAES = 0
+	drmdevice.AudioAutoAES = 0
 		0 = disabled
 		1 = auto append AES string to the audio device
 
-	softhddevice-drm-gles.AudioDelay = 0
+	drmdevice.AudioDelay = 0
 		+n or -n ms
 		delay audio or delay video
 
-	softhddevice-drm-gles.AudioNormalize = 0
+	drmdeviceize = 0
 		0 = off, 1 = enable audio normalize
 
-	softhddevice-drm-gles.AudioMaxNormalize = 0
+	drmdevice.AudioMaxNormalize = 0
 		maximal volume factor/1000 of the normalize filter
 
-	softhddevice-drm-gles.AudioCompression = 0
+	drmdevice.AudioCompression = 0
 		0 = off, 1 = enable audio compression
 
-	softhddevice-drm-gles.AudioMaxCompression = 0
+	drmdevice.AudioMaxCompression = 0
 		maximal volume factor/1000 of the compression filter
 
-	softhddevice-drm-gles.AudioStereoDescent = 0
+	drmdevice.AudioStereoDescent = 0
 		reduce volume level (/1000) for stereo sources
 
-	softhddevice-drm-gles.AudioEq = 0
+	drmdevice.AudioEq = 0
 		0 = Equalizer disabled
 		1 = Equalizer enabled
 
-	softhddevice-drm-gles.AudioEqBand[01b..18b] = 0
+	drmdevice.AudioEqBand[01b..18b] = 0
 		-15 to 1 = equalizer band gain (see Setup menu)
 
-	softhddevice-drm-gles.PipScalePercent = 25
+	drmdevice.PipScalePercent = 25
 		10 - 100 = scale factor for pip (%)
 
-	softhddevice-drm-gles.PipLeftPercent = 100
+	drmdevice.PipLeftPercent = 100
 		0 - 100 = video left (%)
 		0 = left aligned, 100 = right aligned
 
-	softhddevice-drm-gles.PipTopPercent = 0
+	drmdevice.PipTopPercent = 0
 		0 - 100 = video top (%)
 		0 = top aligned, 100 = bottom aligned
 
-	softhddevice-drm-gles.PipUseAlt = 0
+	drmdevice.PipUseAlt = 0
 		0 = use standard (Pip*) position
 		0 = use alternative (PipAlt*) position
 
-	softhddevice-drm-gles.PipAltScalePercent = 25
+	drmdevice.PipAltScalePercent = 25
 		10 - 100 = scale factor for alternative pip (%)
 
-	softhddevice-drm-gles.PipAltLeftPercent = 0
+	drmdevice.PipAltLeftPercent = 0
 		0 - 100 = video left for alternative pip (%)
 		0 = left aligned, 100 = right aligned
 
-	softhddevice-drm-gles.PipAltTopPercent = 0
+	drmdevice.PipAltTopPercent = 0
 		0 - 100 = video top for alternative pip (%)
 		0 = top aligned, 100 = bottom aligned
 
-	softhddevice-drm-gles.LogLevel = 0
+	drmdevice.LogLevel = 0
 		0 = default (no debug logs)
 		value is the sum of the following levels
 			1     Standard debug logs
@@ -301,33 +292,33 @@ Setup: /etc/vdr/setup.conf
 			8192  Grabbing debug logs
 			16384 FFmpeg debug logs
 
-	softhddevice-drm-gles.AdditionalBufferLengthMs = 0
+	drmdevice.AdditionalBufferLengthMs = 0
 		0 = default (min 450ms fixed)
 		1 - 1000 = length of additional buffering duration in ms
 
-	softhddevice-drm-gles.DisableDeint = 0
+	drmdevice.DisableDeint = 0
 		0 = deinterlacer active if available
 		1 = deinterlacer is disabled
 
-	softhddevice-drm-gles.DecoderFallbackToSw = 0
+	drmdevice.DecoderFallbackToSw = 0
 		0 = always use hardware decoder if available
 		1 = fallback to software decoder if hardware decoder
 		    fails after num packets (see below)
 
-	softhddevice-drm-gles.DecoderFallbackToSwNumPkts = 22
+	drmdevice.DecoderFallbackToSwNumPkts = 22
 		maximum number of packets sent to the hardware decoder
 		until the software fallback jumps in
 
-	softhddevice-drm-gles.ParseH264StreamStart = 0
+	drmdevice.ParseH264StreamStart = 0
 		0 = disable parsing, 1-20 = parse H.264 stream up to the given number of I-Frames
 
-	softhddevice-drm-gles.DropInvalidH264PFrames = 0
+	drmdevice.DropInvalidH264PFrames = 0
 		1 = drop H.264 P-Frames with an invalid backwards reference
 
-	softhddevice-drm-gles.MaxSizeGPUImageCache = 128
+	drmdevice.MaxSizeGPUImageCache = 128
 		how many GPU memory should be used for image caching
 
-	softhddevice-drm-gles.ShowChannelSwitchDurationMessage = 0
+	drmdevice.ShowChannelSwitchDurationMessage = 0
 		1 = the skin shows an info message of the channel switch duration
 
 
@@ -376,14 +367,14 @@ See keymacros.conf how to setup the macros.
 
 Currently supported:  
 
-	@softhddevice-drm-gles Blue 1      Toggle pip
-	@softhddevice-drm-gles Blue 2      Pip channel +
-	@softhddevice-drm-gles Blue 3      Pip channel -
-	@softhddevice-drm-gles Blue 4      Swap pip and live stream
-	@softhddevice-drm-gles Blue 5      Swap pip position
-	@softhddevice-drm-gles Blue 6      Switch main stream to pip channel and close pip
-	@softhddevice-drm-gles Red 1       Detach device
-	@softhddevice-drm-gles Red 2       Attach device
+	@drmdevice Blue 1      Toggle pip
+	@drmdevice Blue 2      Pip channel +
+	@drmdevice Blue 3      Pip channel -
+	@drmdevice Blue 4      Swap pip and live stream
+	@drmdevice Blue 5      Swap pip position
+	@drmdevice Blue 6      Switch main stream to pip channel and close pip
+	@drmdevice Red 1       Detach device
+	@drmdevice Red 2       Attach device
 
 
 OpenGL/ES
@@ -488,7 +479,7 @@ The plugin offers three different modes for handling the audio and video playbac
 	but not before a video frame was presented on the screen.
 	Video exits stillpicture and starts running as soon as audio and video is in sync.
 
-The fast channel switch mode can be set with softhddevice-drm-gles.VideoChannelSwitchMode.
+The fast channel switch mode can be set with drmdevice.VideoChannelSwitchMode.
 The buffering mechanism and A/V-Sync is documented in the [developer readme](DEVELOPER/README.md#buffering---av-sync).
 
 

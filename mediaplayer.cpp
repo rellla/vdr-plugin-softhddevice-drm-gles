@@ -5,8 +5,8 @@
  * Mediaplayer
  *
  * This file defines all classes used for the integrated mediaplayer
- *    - cSoftHdPlayer (cPlayer)
- *    - cSoftHdControl (cControl)
+ *    - cDrmDevicePlayer (cPlayer)
+ *    - cDrmDeviceControl (cControl)
  *
  * @copyright 2020 zille.  All Rights Reserved.
  * @copyright 2025 - 2026 by Andreas Baierl. All Rights Reserved.
@@ -26,18 +26,18 @@ extern "C" {
 #include <vdr/player.h>
 
 #include "audio.h"
+#include "device.h"
 #include "logger.h"
-#include "misc.h"
 #include "mediaplayer.h"
-#include "softhddevice.h"
-#include "softhdmenu.h"
+#include "menu.h"
+#include "misc.h"
 
 /**
  * @addtogroup mediaplayer
  * @{
  */
-cSoftHdControl *cSoftHdControl::m_pControl = NULL; ///< Control instance
-cSoftHdPlayer *cSoftHdControl::m_pPlayer = NULL; //< Player instance
+cDrmDeviceControl *cDrmDeviceControl::m_pControl = NULL; ///< Control instance
+cDrmDevicePlayer *cDrmDeviceControl::m_pPlayer = NULL; //< Player instance
 /** @} */
 
 /*****************************************************************************
@@ -70,7 +70,7 @@ std::string cPlaylistEntry::OsdItemString(void)
 }
 
 /*****************************************************************************
- * cSoftHdPlayer (cPlayer mediaplayer)
+ * cDrmDevicePlayer (cPlayer mediaplayer)
  ****************************************************************************/
 
 /**
@@ -91,7 +91,7 @@ static bool IsM3UPlaylist(char *source)
  * @param url             file or playlist to be played
  * @param device          pointer to device
  */
-cSoftHdPlayer::cSoftHdPlayer(const char *url, cSoftHdDevice *device)
+cDrmDevicePlayer::cDrmDevicePlayer(const char *url, cOutputDevice *device)
 	: cPlayer(pmAudioVideo),
 	  m_pDevice(device),
 	  m_pAudio(m_pDevice->Audio())
@@ -108,7 +108,7 @@ cSoftHdPlayer::cSoftHdPlayer(const char *url, cSoftHdDevice *device)
 	LOGDEBUG2(L_MEDIA, "mediaplayer: %s: player started", __FUNCTION__);
 }
 
-cSoftHdPlayer::~cSoftHdPlayer()
+cDrmDevicePlayer::~cDrmDevicePlayer()
 {
 	m_stopped = true;
 	free(m_pSource);
@@ -130,7 +130,7 @@ cSoftHdPlayer::~cSoftHdPlayer()
  *
  * @param on         true starts the player, false does nothing
  */
-void cSoftHdPlayer::Activate(bool on)
+void cDrmDevicePlayer::Activate(bool on)
 {
 	LOGDEBUG2(L_MEDIA, "mediaplayer: %s: %s", __FUNCTION__, on ? "On" : "Off");
 	if (on)
@@ -141,7 +141,7 @@ void cSoftHdPlayer::Activate(bool on)
  * Main thread action
  * which invokes replay start
  */
-void cSoftHdPlayer::Action(void)
+void cDrmDevicePlayer::Action(void)
 {
 	LOGDEBUG2(L_MEDIA, "mediaplayer: %s:", __FUNCTION__);
 	m_noModify = false;
@@ -161,8 +161,8 @@ void cSoftHdPlayer::Action(void)
 			}
 			m_noModify = 0;
 
-			if (cSoftHdMenu::Menu())
-				cSoftHdMenu::Menu()->PlayListMenu();
+			if (cDeviceMenu::Menu())
+				cDeviceMenu::Menu()->PlayListMenu();
 		}
 	} else
 		Play(m_pSource);
@@ -170,7 +170,7 @@ void cSoftHdPlayer::Action(void)
 	while(m_pAudio->GetHardwareOutputPtsMs() != AV_NOPTS_VALUE)
 		usleep(5000);
 
-	cSoftHdControl::Control()->Close();
+	cDrmDeviceControl::Control()->Close();
 }
 
 /**
@@ -178,7 +178,7 @@ void cSoftHdPlayer::Action(void)
  *
  * @param playlist       full path to the playlist
  */
-void cSoftHdPlayer::ReadPlaylist(const char *playlist)
+void cDrmDevicePlayer::ReadPlaylist(const char *playlist)
 {
 	std::ifstream inputFile;
 	cPlaylistEntry *lastEntry = nullptr;
@@ -214,7 +214,7 @@ void cSoftHdPlayer::ReadPlaylist(const char *playlist)
  *
  * @param index       list index (in random mode) or menu item index cOsdMenu::Current()
  */
-void cSoftHdPlayer::SetEntry(int index)
+void cDrmDevicePlayer::SetEntry(int index)
 {
 	cPlaylistEntry *entry;
 	entry = m_pFirstEntry;
@@ -233,7 +233,7 @@ void cSoftHdPlayer::SetEntry(int index)
  *
  * @param url       file to play
  */
-void cSoftHdPlayer::Play(const char *url)
+void cDrmDevicePlayer::Play(const char *url)
 {
 #if LIBAVFORMAT_VERSION_INT < AV_VERSION_INT(59,0,100)
 	AVCodec *videoCodec;
@@ -358,7 +358,7 @@ void cSoftHdPlayer::Play(const char *url)
 }
 
 /*****************************************************************************
- * cSoftHdControl (cControl mediaplayer)
+ * cDrmDeviceControl (cControl mediaplayer)
  ****************************************************************************/
 
 /**
@@ -367,14 +367,14 @@ void cSoftHdPlayer::Play(const char *url)
  * @param url             file or playlist to be played
  * @param device          pointer to device
  */
-cSoftHdControl::cSoftHdControl(const char *url, cSoftHdDevice *device)
-	: cControl(m_pPlayer = new cSoftHdPlayer(url, device)),
+cDrmDeviceControl::cDrmDeviceControl(const char *url, cOutputDevice *device)
+	: cControl(m_pPlayer = new cDrmDevicePlayer(url, device)),
 	  m_pDevice(device)
 {
 	m_pControl = this;
 }
 
-cSoftHdControl::~cSoftHdControl()
+cDrmDeviceControl::~cDrmDeviceControl()
 {
 	delete m_pPlayer;
 	m_pPlayer = NULL;
@@ -384,7 +384,7 @@ cSoftHdControl::~cSoftHdControl()
 /**
  * Close the replay OSD
  */
-void cSoftHdControl::Hide(void)
+void cDrmDeviceControl::Hide(void)
 {
 	LOGDEBUG2(L_MEDIA, "mediaplayer: %s:", __FUNCTION__);
 	if (m_pOsd)
@@ -396,7 +396,7 @@ void cSoftHdControl::Hide(void)
 /**
  * Open the replay OSD
  */
-void cSoftHdControl::ShowProgress(void)
+void cDrmDeviceControl::ShowProgress(void)
 {
 	if (!m_pOsd) {
 		LOGDEBUG2(L_MEDIA, "mediaplayer: %s: get OSD", __FUNCTION__);
@@ -416,7 +416,7 @@ void cSoftHdControl::ShowProgress(void)
  *
  * @param key     pressed key
  */
-eOSState cSoftHdControl::ProcessKey(eKeys key)
+eOSState cDrmDeviceControl::ProcessKey(eKeys key)
 {
 	switch (key) {
 		case kNone:

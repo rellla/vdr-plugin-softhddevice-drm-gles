@@ -35,8 +35,8 @@
 #include <xf86drmMode.h>
 
 #include "config.h"
-#include "drmdevice.h"
 #include "drmplane.h"
+#include "drmdevice.h"
 #include "logger.h"
 #include "videorender.h"
 
@@ -46,7 +46,7 @@
  * @param render         pointer to cVideoRender object
  * @param config         pointer to current plugin configuration
  */
-cDrmDevice::cDrmDevice(cVideoRender *render, cSoftHdConfig *config)
+cDrmDevice::cDrmDevice(cVideoRender *render, cDeviceConfig *config)
 	: m_pRender(render),
 	  m_pConfig(config),
 	  m_userDrmDevice(m_pConfig->ConfigDrmDevice),
@@ -244,7 +244,7 @@ drmModeConnector *cDrmDevice::FindDrmConnector(int fd, drmModeRes *resources, co
 	// search for an unconnected connector, but with available modes
 	// this is a workaround for RPI: in case we don't have a monitor connected
 	// we can load an edid file at boot time, where the available modes are listed.
-	// To bring softhddevice up, we also have to go through the not connected connectors
+	// To bring drmdevice up, we also have to go through the not connected connectors
 	for (i = 0; i < resources->count_connectors; i++) {
 		connector = drmModeGetConnector(fd, resources->connectors[i]);
 		if (connector && connector->count_modes > 0)

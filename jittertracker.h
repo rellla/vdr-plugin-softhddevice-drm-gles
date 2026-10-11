@@ -7,8 +7,8 @@
  * @license{AGPL-3.0-or-later}
  */
 
-#ifndef JITTERTRACKER_H
-#define JITTERTRACKER_H
+#ifndef __DRMDEVICE_JITTERTRACKER_H
+#define __DRMDEVICE_JITTERTRACKER_H
 
 #include <atomic>
 #include <chrono>

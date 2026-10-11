@@ -17,8 +17,8 @@
  * Handles the ALSA Output Device
  */
 
-#ifndef __ALSADEVICE_H
-#define __ALSADEVICE_H
+#ifndef __DRMDEVICE_ALSADEVICE_H
+#define __DRMDEVICE_ALSADEVICE_H
 
 #include <atomic>
 #include <string>
@@ -26,7 +26,7 @@
 
 #include <alsa/asoundlib.h>
 
-class cSoftHdConfig;
+class cDeviceConfig;
 
 /**
  * Alsa Interface
@@ -35,7 +35,7 @@ class cSoftHdConfig;
  */
 class cAlsaDevice {
 public:
-	cAlsaDevice(cSoftHdConfig *);
+	cAlsaDevice(cDeviceConfig *);
 
 	bool Init(void);
 	void Exit(void);

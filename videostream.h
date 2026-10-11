@@ -10,8 +10,8 @@
  * @license{AGPL-3.0-or-later}
  */
 
-#ifndef __VIDEOSTREAM_H
-#define __VIDEOSTREAM_H
+#ifndef __DRMDEVICE_VIDEOSTREAM_H
+#define __DRMDEVICE_VIDEOSTREAM_H
 
 #include <atomic>
 #include <functional>
@@ -29,8 +29,8 @@ extern "C" {
 #include "queue.h"
 #include "videofilter.h"
 
+class cDeviceConfig;
 class cDrmBuffer;
-class cSoftHdConfig;
 class cVideoDecoder;
 class cVideoRender;
 
@@ -89,11 +89,11 @@ public:
 	void SetDecoderFallbackToSwNumPkts(int numPackets) { m_decoderFallbackToSwNumPkts = numPackets; };
 
 protected:
-	cVideoStream(cVideoRender *, int, cQueue<cDrmBuffer> *, cSoftHdConfig *, bool, std::function<void(AVFrame *)>);
+	cVideoStream(cVideoRender *, int, cQueue<cDrmBuffer> *, cDeviceConfig *, bool, std::function<void(AVFrame *)>);
 	virtual void Action(void);
 
 private:
-	cSoftHdConfig *m_pConfig;           ///< plugin config
+	cDeviceConfig *m_pConfig;           ///< plugin config
 	cVideoDecoder *m_pDecoder;          ///< video decoder
 	cVideoRender *m_pRender;            ///< video renderer
 	const char *m_identifier;           ///< identifier string for logging
@@ -156,7 +156,7 @@ private:
  */
 class cMainVideoStream : public cVideoStream {
 public:
-	cMainVideoStream(cVideoRender *render, int hardwareQuirks, cQueue<cDrmBuffer> *buf, cSoftHdConfig *config, std::function<void(AVFrame *)> fn)
+	cMainVideoStream(cVideoRender *render, int hardwareQuirks, cQueue<cDrmBuffer> *buf, cDeviceConfig *config, std::function<void(AVFrame *)> fn)
 		: cVideoStream(render, hardwareQuirks, buf, config, false, fn) {};
 };
 
@@ -167,7 +167,7 @@ public:
  */
 class cPipVideoStream : public cVideoStream {
 public:
-	cPipVideoStream(cVideoRender *render, int hardwareQuirks, cQueue<cDrmBuffer> *buf, cSoftHdConfig *config, std::function<void(AVFrame *)> fn)
+	cPipVideoStream(cVideoRender *render, int hardwareQuirks, cQueue<cDrmBuffer> *buf, cDeviceConfig *config, std::function<void(AVFrame *)> fn)
 		: cVideoStream(render, hardwareQuirks, buf, config, true, fn) {};
 	void SetDeinterlacerDeactivated(bool) override {}; // deinterlacing is permanently disabled
 };

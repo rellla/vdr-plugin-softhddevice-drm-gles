@@ -11,8 +11,8 @@
  * @license{AGPL-3.0-or-later}
  */
 
-#ifndef __VIDEORENDER_H
-#define __VIDEORENDER_H
+#ifndef __DRMDEVICE_VIDEORENDER_H
+#define __DRMDEVICE_VIDEORENDER_H
 
 #include <atomic>
 #include <cstdint>
@@ -45,11 +45,11 @@ extern "C" {
 #include "queue.h"
 #include "statemachine.h"
 
+class cAudioStream;
 #ifndef USE_GLES
 class cDrmDevice;
 #endif
-class cSoftHdDevice;
-class cSoftHdAudio;
+class cOutputDevice;
 
 /**
  * Video Renderer
@@ -159,7 +159,7 @@ public:
  */
 class cVideoRender : public cThread {
 public:
-	cVideoRender(cSoftHdDevice *);
+	cVideoRender(cOutputDevice *);
 	~cVideoRender(void);
 
 	int Init(void);
@@ -250,9 +250,9 @@ protected:
 	virtual void Action(void);
 
 private:
-	cSoftHdDevice *m_pDevice;           ///< pointer to cSoftHdDevice
-	cSoftHdAudio *m_pAudio;             ///< pointer to cSoftHdAudio
-	cSoftHdConfig *m_pConfig;           ///< pointer to cSoftHdConfig
+	cOutputDevice *m_pDevice;           ///< pointer to cOutputDevice
+	cAudioStream *m_pAudio;             ///< pointer to cAudioStream
+	cDeviceConfig *m_pConfig;           ///< pointer to cDeviceConfig
 	std::mutex m_mutex;                 ///< mutex for thread control
 	std::vector<Event> m_eventQueue;    ///< event queue for incoming events
 	std::atomic<double> m_refreshRateHz; ///< screen refresh rate in Hz
@@ -264,14 +264,14 @@ private:
 	std::atomic<bool> m_forwardTrickspeed = true;    ///< true, if trickspeed plays forward
 	std::atomic<bool> m_stillpicture = false;        ///< true, if stillpicture is active
 	std::atomic<int> m_framePresentationCounter = 0; ///< number of times the current frame has to be shown (for slow-motion)
-	int m_numWrongProgressive;          ///< counter for progressive frames sent in an interlaced stream
-	                                    ///< (only used for logging)
+	int m_numWrongProgressive;                       ///< counter for progressive frames sent in an interlaced stream
+	                                                 ///< (only used for logging)
 
 	std::atomic<bool> m_startgrab = false; ///< internal flag to trigger grabbing
-	cCondVar m_grabCond;                ///< condition gets signalled, if renederer finished to clone the grabbed buffers
-	cGrabBuffer m_grabOsd;              ///< keeps the current grabbed osd
-	cGrabBuffer m_grabVideo;            ///< keeps the current grabbed video
-	cGrabBuffer m_grabPip;              ///< keeps the current grabbed pip video
+	cCondVar m_grabCond;                   ///< condition gets signalled, if renederer finished to clone the grabbed buffers
+	cGrabBuffer m_grabOsd;                 ///< keeps the current grabbed osd
+	cGrabBuffer m_grabVideo;               ///< keeps the current grabbed video
+	cGrabBuffer m_grabPip;                 ///< keeps the current grabbed pip video
 
 	/**
 	 * Sync Corridor
@@ -309,23 +309,23 @@ private:
 	cDrmBuffer *m_pCurrentlyDisplayed = nullptr;    ///< pointer to currently displayed DRM buffer
 	cDrmBuffer *m_pCurrentlyPipDisplayed = nullptr; ///< pointer to currently displayed DRM buffer
 	bool m_osdShown = false;            ///< set, if osd is shown currently
-	std::atomic<bool> m_videoPlaybackPaused = true;                       ///< set, if playback is frozen (used for pause)
-	std::atomic<bool> m_resumeAudioScheduled = false;                     ///< set, if audio resume is scheduled after a pause
+	std::atomic<bool> m_videoPlaybackPaused = true;                        ///< set, if playback is frozen (used for pause)
+	std::atomic<bool> m_resumeAudioScheduled = false;                      ///< set, if audio resume is scheduled after a pause
 	std::atomic<int64_t> m_videoPlaybackPauseScheduledAt = AV_NOPTS_VALUE; ///< if set, video will be paused at the given pts
-	std::atomic<bool> m_displayOneFrameThenPause = false;                 ///< set, if only one frame shall be displayed and then pause playback
-	std::atomic<int64_t> m_schedulePlaybackStartAtPtsMs = AV_NOPTS_VALUE; ///< if set, frames with PTS older than this will be dropped
-	std::atomic<int64_t> m_scheduleResyncAtPtsMs = AV_NOPTS_VALUE;        ///< if set, a resync (enter state BUFFERING) will be forced at the given pts
+	std::atomic<bool> m_displayOneFrameThenPause = false;                  ///< set, if only one frame shall be displayed and then pause playback
+	std::atomic<int64_t> m_schedulePlaybackStartAtPtsMs = AV_NOPTS_VALUE;  ///< if set, frames with PTS older than this will be dropped
+	std::atomic<int64_t> m_scheduleResyncAtPtsMs = AV_NOPTS_VALUE;         ///< if set, a resync (enter state BUFFERING) will be forced at the given pts
 
-	cDrmBufferPool m_drmBufferPool;                                       ///< pool of drm buffers
-	cDrmBufferPool m_pipDrmBufferPool;                                    ///< PIP pool of drm buffers
-	std::atomic<cBufferStrategy *> m_bufferReuseStrategy = nullptr;       ///< strategy to select drm buffers
-	std::atomic<cBufferStrategy *> m_pipBufferReuseStrategy = nullptr;    ///< strategy to select drm buffers
-	std::atomic<cDecodingStrategy *> m_decodingStrategy = nullptr;        ///< strategy for decoding setup
-	std::atomic<cDecodingStrategy *> m_pipDecodingStrategy = nullptr;     ///< strategy for decoding setup
-	int m_framesPerFlipCycle = 1;                                         ///< number of pageflips over which a single video frame should be presented
-	                                                                      ///< 1 in progressive display mode
-	                                                                      ///< 2 in interlaced display mode, to skip the sync and present an (interleaved) frame 2 times
-	int m_flipCounter = 0;                                                ///< page flip counter
+	cDrmBufferPool m_drmBufferPool;                                        ///< pool of drm buffers
+	cDrmBufferPool m_pipDrmBufferPool;                                     ///< PIP pool of drm buffers
+	std::atomic<cBufferStrategy *> m_bufferReuseStrategy = nullptr;        ///< strategy to select drm buffers
+	std::atomic<cBufferStrategy *> m_pipBufferReuseStrategy = nullptr;     ///< strategy to select drm buffers
+	std::atomic<cDecodingStrategy *> m_decodingStrategy = nullptr;         ///< strategy for decoding setup
+	std::atomic<cDecodingStrategy *> m_pipDecodingStrategy = nullptr;      ///< strategy for decoding setup
+	int m_framesPerFlipCycle = 1;                                          ///< number of pageflips over which a single video frame should be presented
+	                                                                       ///< 1 in progressive display mode
+	                                                                       ///< 2 in interlaced display mode, to skip the sync and present an (interleaved) frame 2 times
+	int m_flipCounter = 0;                                                 ///< page flip counter
 
 	cHdrMetadata m_pHdrMetadata;                             ///< hdr metadata object
 	bool m_hasDoneHdrModeset = false;                        ///< true, if we ever created an hdr blob and did a modesetting

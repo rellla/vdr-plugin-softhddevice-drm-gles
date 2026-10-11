@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 /**
- * @file softhdsetupmenu.h
+ * @file setupmenu.h
  * Plugin Setup Menu Header File
  *
  * @copyright 2011, 2014 by Johns.  All Rights Reserved.
@@ -11,23 +11,23 @@
  * @license{AGPL-3.0-or-later}
  */
 
-#ifndef __SOFTHDSETUPMENU_H
-#define __SOFTHDSETUPMENU_H
+#ifndef __DRMDEVICE_SETUPMENU_H
+#define __DRMDEVICE_SETUPMENU_H
 
 #include <vdr/menuitems.h>
 
-class cSoftHdAudio;
-class cSoftHdConfig;
-class cSoftHdDevice;
+class cAudioStream;
+class cDeviceConfig;
+class cOutputDevice;
 
 /**
  * Plugin Setup Menu
  *
  * @ingroup menu
  */
-class cMenuSetupSoft : public cMenuSetupPage {
+class cDeviceSetupMenu : public cMenuSetupPage {
 public:
-	cMenuSetupSoft(cSoftHdDevice *);
+	cDeviceSetupMenu(cOutputDevice *);
 	virtual eOSState ProcessKey(eKeys);
 
 protected:
@@ -110,9 +110,9 @@ protected:
 	int m_cShowChannelSwitchDurationMessage;
 
 private:
-	cSoftHdDevice *m_pDevice;
-	cSoftHdConfig *m_pConfig;
-	cSoftHdAudio *m_pAudioDevice;
+	cOutputDevice *m_pDevice;
+	cDeviceConfig *m_pConfig;
+	cAudioStream *m_pAudioDevice;
 
 	std::vector<std::string> m_displayMode;
 	std::vector<const char *> m_displayModePtrs;

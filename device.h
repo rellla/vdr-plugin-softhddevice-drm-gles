@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 /**
- * @file softhddevice.h
+ * @file device.h
  * Output Device Header File
  *
  * @copyright 2011 - 2015 by Johns.  All Rights Reserved.
@@ -10,8 +10,8 @@
  * @license{AGPL-3.0-or-later}
  */
 
-#ifndef __SOFTHDDEVICE_H
-#define __SOFTHDDEVICE_H
+#ifndef __DRMDEVICE_OUTPUT_DEVICE_H
+#define __DRMDEVICE_OUTPUT_DEVICE_H
 
 #include <atomic>
 #include <mutex>
@@ -33,14 +33,14 @@ extern "C"
 #include "statemachine.h"
 
 class cAudioDecoder;
+class cAudioStream;
+class cDeviceOsdProvider;
 class cDvbSpuDecoder;
+class cGrabber;
+class cOutputDevice;
 class cPipHandler;
 class cPipReceiver;
 class cSpuDecoder;
-class cSoftHdAudio;
-class cSoftHdDevice;
-class cSoftHdGrab;
-class cSoftOsdProvider;
 class cStateMachine;
 class cVideoRender;
 class cVideoStream;
@@ -69,13 +69,13 @@ enum PlaybackMode {
  *
  * @ingroup device
  */
-class cSoftHdDevice : public cDevice, public cStatus {
+class cOutputDevice : public cDevice, public cStatus {
 public:
-	cSoftHdDevice(cSoftHdConfig *);
-	virtual ~cSoftHdDevice(void);
+	cOutputDevice(cDeviceConfig *);
+	virtual ~cOutputDevice(void);
 
 	//
-	// VDR cPlugin interface (wrapped by cPluginSoftHdDevice)
+	// VDR cPlugin interface (wrapped by cPluginDrmDevice)
 	//
 	bool Initialize(void);
 	int Start(void);
@@ -87,7 +87,7 @@ public:
 protected:
 	virtual void MakePrimaryDevice(bool);
 public:
-	virtual cString DeviceName(void) const { return "softhddevice-drm-gles"; }
+	virtual cString DeviceName(void) const { return "drmdevice"; }
 	virtual bool HasDecoder(void) const;
 
 	// SPU facilities
@@ -134,13 +134,13 @@ protected:
 	virtual void Replaying(const cControl *, const char *, const char *, bool);
 
 	//
-	// cSoftHdDevice public API
+	// cOutputDevice public API
 	//
 public:
-	cSoftHdConfig *Config(void) { return m_pConfig; };
+	cDeviceConfig *Config(void) { return m_pConfig; };
 	cVideoStream *VideoStream(void) { return m_pVideoStream; };
 	cVideoRender *Render(void) { return m_pRender; };
-	cSoftHdAudio *Audio(void) { return m_pAudio; };
+	cAudioStream *Audio(void) { return m_pAudio; };
 
 	// Playback, display and decoder
 	void SetDisableDeint(void);
@@ -244,12 +244,12 @@ private:
 	std::mutex m_eventMutex;                        ///< mutex to protect event queue
 	bool m_needsMakePrimary = false;                ///< true, if device should be made a primary device after attach
 	cDvbSpuDecoder *m_pSpuDecoder;                  ///< pointer to spu decoder
-	cSoftHdConfig *m_pConfig;                       ///< pointer to cSoftHdConfig object
+	cDeviceConfig *m_pConfig;                       ///< pointer to cDeviceConfig object
 	cVideoRender *m_pRender;                        ///< pointer to cVideoRender object
 	cVideoStream *m_pVideoStream;                   ///< pointer to main video stream
-	cSoftHdAudio *m_pAudio;                         ///< pointer to cSoftHdAudio object
+	cAudioStream *m_pAudio;                         ///< pointer to cAudioStream object
 	cAudioDecoder *m_pAudioDecoder = nullptr;       ///< pointer to cAudioDecoder object
-	cSoftOsdProvider *m_pOsdProvider = nullptr;     ///< pointer to cSoftOsdProvider object
+	cDeviceOsdProvider *m_pOsdProvider = nullptr;   ///< pointer to cDeviceOsdProvider object
 	cHardwareDevice *m_pHardwareDevice;             ///< pointer to hardware device description
 	cEventHandler *m_pEventHandler;                 ///< event handler thread
 	cReassemblyBufferVideo m_videoReassemblyBuffer; ///< video pes reassembly buffer
@@ -261,7 +261,7 @@ private:
 
 	std::atomic<PlaybackMode> m_playbackMode = NONE; ///< current playback mode
 	int m_audioChannelID = -1;       ///< current audio channel ID
-	cSoftHdGrab *m_pGrab;            ///< pointer to grabber object
+	cGrabber *m_pGrab;               ///< pointer to grabber object
 
 	cVideoStream *m_pPipStream;      ///< pointer to pip video stream
 	cReassemblyBufferVideo m_pipReassemblyBuffer; ///< pip pes reassembly buffer

@@ -10,8 +10,8 @@
  * @license{AGPL-3.0-or-later}
  */
 
-#ifndef __HARDWAREDEVICE_H
-#define __HARDWAREDEVICE_H
+#ifndef __DRMDEVICE_HARDWAREDEVICE_H
+#define __DRMDEVICE_HARDWAREDEVICE_H
 
 #include <cstdio>
 #include <cstdint>

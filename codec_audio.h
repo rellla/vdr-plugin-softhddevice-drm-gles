@@ -10,8 +10,8 @@
  * @license{AGPL-3.0-or-later}
  */
 
-#ifndef __CODEC_AUDIO_H
-#define __CODEC_AUDIO_H
+#ifndef __DRMDEVICE_CODEC_AUDIO_H
+#define __DRMDEVICE_CODEC_AUDIO_H
 
 #include <array>
 #include <cstdint>
@@ -25,7 +25,7 @@ extern "C" {
 
 #include <vdr/remux.h>
 
-class cSoftHdAudio;
+class cAudioStream;
 
 /**
  * @defgroup audiodecoder Audio Decoder
@@ -54,13 +54,13 @@ enum PassthroughMask {
  * - Audio packet decoding using FFmpeg
  * - SPDIF passthrough
  * - Format changes
- * - Audio frame delivery to cSoftHdAudio
+ * - Audio frame delivery to cAudioStream
  *
  * @ingroup audiodecoder
  */
 class cAudioDecoder {
 public:
-	cAudioDecoder(cSoftHdAudio *);
+	cAudioDecoder(cAudioStream *);
 	~cAudioDecoder(void);
 	void Open(AVCodecID, AVCodecParameters * = nullptr, AVRational = { .num = 1, .den = PTSTICKS });
 	void Close(void);
@@ -70,7 +70,7 @@ public:
 	AVCodecID GetCodecId() const { return m_codecId; };
 
 private:
-	cSoftHdAudio *m_pAudio;                     ///< audio module
+	cAudioStream *m_pAudio;                     ///< audio module
 	AVCodecContext *m_pAudioCtx = nullptr;      ///< ffmpeg audio codec context
 	AVCodecID m_codecId = AV_CODEC_ID_NONE;     ///< current codec id
 	AVFrame *m_pFrame;                          ///< decoded ffmpeg audio frame

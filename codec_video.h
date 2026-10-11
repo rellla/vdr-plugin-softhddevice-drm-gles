@@ -10,8 +10,8 @@
  * @license{AGPL-3.0-or-later}
  */
 
-#ifndef __CODEC_VIDEO_H
-#define __CODEC_VIDEO_H
+#ifndef __DRMDEVICE_CODEC_VIDEO_H
+#define __DRMDEVICE_CODEC_VIDEO_H
 
 #include <mutex>
 

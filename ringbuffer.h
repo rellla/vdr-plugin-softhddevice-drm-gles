@@ -10,8 +10,8 @@
  * @license{AGPL-3.0-or-later}
  */
 
-#ifndef __SOFTHDRINGBUFFER_H
-#define __SOFTHDRINGBUFFER_H
+#ifndef __DRMDEVICE_RINGBUFFER_H
+#define __DRMDEVICE_RINGBUFFER_H
 
 #include <atomic>
 #include <cstddef>
@@ -22,9 +22,9 @@
  *
  * @ingroup audio
  */
-class cSoftHdRingbuffer {
+class cRingbuffer {
 public:
-	cSoftHdRingbuffer(size_t);
+	cRingbuffer(size_t);
 
 	void Reset(void);
 	size_t Write(const void *, size_t);

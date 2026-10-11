@@ -5,7 +5,7 @@
  * Device State Machine and Event Handler
  *
  * This file defines cStateMachine which is the implementation
- * of a state machine for cSoftHdDevice and the event handler which
+ * of a state machine for cOutputDevice and the event handler which
  * controls the state machine.
  *
  * @copyright 2025 - 2026 by Andreas Baierl. All Rights Reserved.
@@ -21,15 +21,15 @@
 #include <vdr/thread.h>
 
 #include "logger.h"
-#include "softhddevice.h"
+#include "device.h"
 #include "statemachine.h"
 
 /**
  * Create the state machine
  *
- * @param device       pointer to cSoftHdDevice object
+ * @param device       pointer to cOutputDevice object
  */
-cStateMachine::cStateMachine(cSoftHdDevice *device)
+cStateMachine::cStateMachine(cOutputDevice *device)
 	: m_pDevice(device)
 {
 }
@@ -71,9 +71,9 @@ void cStateMachine::OnEventReceived(const Event& event)
 
 #ifdef USE_GLES
 	// Lock the GL thread before the state machine lock, because cmdCopyBufferToOutputFb() calls
-	// cSoftHdDevice::OsdDraw(), which itself locks the state machine mutex and we can end
+	// cOutputDevice::OsdDraw(), which itself locks the state machine mutex and we can end
 	// up in a deadlock then.
-	// We can safely unlock the thread again after the state change, because cSoftHdDevice::OsdDraw()
+	// We can safely unlock the thread again after the state change, because cOutputDevice::OsdDraw()
 	// always tests if we are in detached mode and this new state is probably set then.
 	bool needsOglResume = false;
 	if (m_state != DETACHED)

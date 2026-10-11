@@ -12,8 +12,8 @@
  * @license{AGPL-3.0-or-later}
  */
 
-#ifndef __SOFTHDDEVICE_OPENGLSHADER_H
-#define __SOFTHDDEVICE_OPENGLSHADER_H
+#ifndef __DRMDEVICE_OPENGLSHADER_H
+#define __DRMDEVICE_OPENGLSHADER_H
 
 /********************************************************************************
  * Shaders for Hardware Accelerated OpenGL OSD

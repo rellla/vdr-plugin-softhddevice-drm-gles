@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 /**
- * @file softhdosd.h
+ * @file softosd.h
  * Software OSD Header File
  *
  * @copyright 2011, 2014 by Johns.  All Rights Reserved.
@@ -11,12 +11,12 @@
  * @license{AGPL-3.0-or-later}
  */
 
-#ifndef __SOFTOSD_H
-#define __SOFTOSD_H
+#ifndef __DRMDEVICE_SOFTOSD_H
+#define __DRMDEVICE_SOFTOSD_H
 
 #include <vdr/osd.h>
 
-class cSoftHdDevice;
+class cOutputDevice;
 
 /**
  * OSD Rendering Interface
@@ -30,7 +30,7 @@ class cSoftHdDevice;
  */
 class cSoftOsd:public cOsd {
 public:
-	cSoftOsd(int, int, uint, cSoftHdDevice *);
+	cSoftOsd(int, int, uint, cOutputDevice *);
 	virtual ~cSoftOsd(void);
 
 	virtual eOsdError SetAreas(const tArea *, int);
@@ -38,7 +38,7 @@ public:
 	virtual void SetActive(bool);
 
 private:
-	cSoftHdDevice *m_pDevice;        ///< pointer to the cSoftHdDevice object
+	cOutputDevice *m_pDevice;        ///< pointer to the cOutputDevice object
 	bool m_dirty = false;            ///< flag to force redrawing everything
 	int m_osdLevel;                  ///< current osd level
 };

@@ -9,8 +9,8 @@
  * @license{AGPL-3.0-or-later}
  */
 
-#ifndef __GRAB_H
-#define __GRAB_H
+#ifndef __DRMDEVICE_GRAB_H
+#define __DRMDEVICE_GRAB_H
 
 #include <atomic>
 #include <cstdint>
@@ -24,8 +24,8 @@ class cVideoRender;
  * Grabbing Buffer
  *
  * Holds the data for a grabbed buffer.
- * The grab is triggered by VDR/ cSoftHdDevice, data is set by the renderer
- * and composed by cSoftHdDevice again.
+ * The grab is triggered by VDR/ cOutputDevice, data is set by the renderer
+ * and composed by cOutputDevice again.
  *
  * @ingroup misc
  */
@@ -76,9 +76,9 @@ private:
  *
  * @ingroup misc
  */
-class cSoftHdGrab {
+class cGrabber {
 public:
-	cSoftHdGrab(cVideoRender *render) : m_pRender(render) {};
+	cGrabber(cVideoRender *render) : m_pRender(render) {};
 
 	bool IsActive(void) { return m_active; };
 	bool Start(bool, int, int, int, int, int);

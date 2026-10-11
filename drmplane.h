@@ -10,8 +10,8 @@
  * @license{AGPL-3.0-or-later}
  */
 
-#ifndef __DRMPLANE_H
-#define __DRMPLANE_H
+#ifndef __DRMDEVICE_DRMPLANE_H
+#define __DRMDEVICE_DRMPLANE_H
 
 #include <xf86drmMode.h>
 

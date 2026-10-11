@@ -35,7 +35,7 @@
  * @file grab.cpp
  * Grabbing Interface
  *
- * This file defines cGrabBuffer and cSoftHdGrab, which are used
+ * This file defines cGrabBuffer and cGrabber, which are used
  * to handle grab requests.
  *
  * This file contains code under multiple licenses:
@@ -650,7 +650,7 @@ uint8_t *cGrabBuffer::ConvertToRgb(int *size)
 
 
 /*****************************************************************************
- * cSoftHdGrab class
+ * cGrabber class
  ****************************************************************************/
 
 /**
@@ -663,7 +663,7 @@ uint8_t *cGrabBuffer::ConvertToRgb(int *size)
  * @param screenWidth     current screen width
  * @param screenHeight    current screen height
  */
-bool cSoftHdGrab::Start(bool jpeg, int quality, int width, int height, int screenWidth, int screenHeight)
+bool cGrabber::Start(bool jpeg, int quality, int width, int height, int screenWidth, int screenHeight)
 {
 	m_active = true;
 
@@ -697,25 +697,25 @@ bool cSoftHdGrab::Start(bool jpeg, int quality, int width, int height, int scree
  * Clears the dedicated buffers in the renderer again and
  * sets the grab inactive.
  */
-void cSoftHdGrab::Finish(void)
+void cGrabber::Finish(void)
 {
 	m_pRender->ClearGrabBuffers();
 	m_active = false;
 }
 
-uint8_t *cSoftHdGrab::GetGrabbedVideoData(int *size, int *width, int *height, int *x, int *y)
+uint8_t *cGrabber::GetGrabbedVideoData(int *size, int *width, int *height, int *x, int *y)
 {
 	cGrabBuffer *grab = m_pRender->GetGrabbedVideoBuffer();
 	return GetGrabbedData(size, width, height, x, y, grab);
 }
 
-uint8_t *cSoftHdGrab::GetGrabbedPipData(int *size, int *width, int *height, int *x, int *y)
+uint8_t *cGrabber::GetGrabbedPipData(int *size, int *width, int *height, int *x, int *y)
 {
 	cGrabBuffer *grab = m_pRender->GetGrabbedPipBuffer();
 	return GetGrabbedData(size, width, height, x, y, grab);
 }
 
-uint8_t *cSoftHdGrab::GetGrabbedOsdData(int *size, int *width, int *height, int *x, int *y)
+uint8_t *cGrabber::GetGrabbedOsdData(int *size, int *width, int *height, int *x, int *y)
 {
 	cGrabBuffer *grab = m_pRender->GetGrabbedOsdBuffer();
 	return GetGrabbedData(size, width, height, x, y, grab);
@@ -735,7 +735,7 @@ uint8_t *cSoftHdGrab::GetGrabbedOsdData(int *size, int *width, int *height, int 
  *
  * @return a pointer to the raw buffer data
  */
-uint8_t *cSoftHdGrab::GetGrabbedData(int *size, int *width, int *height, int *x, int *y, cGrabBuffer *grab)
+uint8_t *cGrabber::GetGrabbedData(int *size, int *width, int *height, int *x, int *y, cGrabBuffer *grab)
 {
 	int psize = 0;
 
@@ -782,7 +782,7 @@ uint8_t *cSoftHdGrab::GetGrabbedData(int *size, int *width, int *height, int *x,
  *
  * @return true, if grab succeeded, false otherwise
  */
-bool cSoftHdGrab::ProcessGrab(void)
+bool cGrabber::ProcessGrab(void)
 {
 	int screenSize = m_screenWidth * m_screenHeight * 3; // we want a RGB24
 

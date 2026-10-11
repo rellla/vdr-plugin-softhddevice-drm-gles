@@ -9,8 +9,8 @@
  * @license{AGPL-3.0-or-later}
  */
 
-#ifndef __LOGGER_H
-#define __LOGGER_H
+#ifndef __DRMDEVICE_LOGGER_H
+#define __DRMDEVICE_LOGGER_H
 
 #include <atomic>
 #include <chrono>
@@ -35,20 +35,20 @@
  *******************************************************************************/
 
 /** log to LOG_ERR and abort */
-#define LOGFATAL cSoftHdLogger::GetLogger()->LogFatal
+#define LOGFATAL cLogger::GetLogger()->LogFatal
 /** log to LOG_ERR */
-#define LOGERROR cSoftHdLogger::GetLogger()->LogError
+#define LOGERROR cLogger::GetLogger()->LogError
 /** log to LOG_WARN */
-#define LOGWARNING cSoftHdLogger::GetLogger()->LogWarning
+#define LOGWARNING cLogger::GetLogger()->LogWarning
 /** log to LOG_INFO */
-#define LOGINFO cSoftHdLogger::GetLogger()->LogInfo
+#define LOGINFO cLogger::GetLogger()->LogInfo
 /** log to LOG_DEBUG */
-#define LOGDEBUG cSoftHdLogger::GetLogger()->LogDebug
+#define LOGDEBUG cLogger::GetLogger()->LogDebug
 /** log to LOG_DEBUG and add a prefix */
-#define LOGDEBUG2 cSoftHdLogger::GetLogger()->LogDebug2
+#define LOGDEBUG2 cLogger::GetLogger()->LogDebug2
 
 /** shortcut to the logger */
-#define LOGGER cSoftHdLogger::GetLogger()
+#define LOGGER cLogger::GetLogger()
 
 /**
  * Logger Flags
@@ -83,9 +83,9 @@ enum LogFlags {
  *
  * @ingroup misc
  */
-class cSoftHdLogger {
+class cLogger {
 public:
-	static std::shared_ptr<cSoftHdLogger> GetLogger();
+	static std::shared_ptr<cLogger> GetLogger();
 	static void LogFFmpegCallback(void *, int, const char *, va_list);
 	void LogFatal(const char *format, ...);
 	void LogError(const char *format, ...);
@@ -104,9 +104,9 @@ public:
 	std::chrono::steady_clock::time_point GetChannelSwitchDataReceivedTime(void) { return m_dataReceivedTime; };
 
 private:
-	cSoftHdLogger(void) = default;
-	cSoftHdLogger(const cSoftHdLogger &) = delete;
-	cSoftHdLogger& operator=(const cSoftHdLogger &) = delete;
+	cLogger(void) = default;
+	cLogger(const cLogger &) = delete;
+	cLogger& operator=(const cLogger &) = delete;
 
 	static constexpr int MAX_LOGMESSAGE_SIZE = 512; ///< max size of the log message
 

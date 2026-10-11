@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 /**
- * @file softhddevice-drm-gles.cpp
+ * @file plugindrmdevice.cpp
  * Main Plugin Interface
  *
- * This file defines cPluginSoftHdDevice, which is the main class
+ * This file defines cPluginDrmDevice, which is the main class
  * for initializing the plugin itselft.
  *
  * @copyright 2011, 2015 by Johns.  All Rights Reserved.
@@ -21,13 +21,12 @@
 
 #include "logger.h"
 
-#include "softhddevice-drm-gles.h"
-
 #include "config.h"
+#include "device.h"
 #include "mediaplayer.h"
-#include "softhddevice.h"
-#include "softhdmenu.h"
-#include "softhdsetupmenu.h"
+#include "menu.h"
+#include "plugindrmdevice.h"
+#include "setupmenu.h"
 
 /**
  * @addtogroup plugin
@@ -41,22 +40,22 @@ static const char *const VERSION = "1.7.3" GIT_DESCRIBE;    ///< vdr-plugin vers
                                                             ///< Makefile extracts the version number for generating the file name
                                                             ///< for the distribution archive.
 
-static const char *const DESCRIPTION = trNOOP("A software and GPU emulated HD device");
+static const char *const DESCRIPTION = trNOOP("A DRM/KMS based output device");
                                                ///< vdr-plugin description.
 
-static const char *const MAINMENUENTRY = trNOOP("Softhddevice");
+static const char *const MAINMENUENTRY = trNOOP("DRMDevice");
                                                ///< what is displayed in the main menu entry
 
-cSoftHdMenu *cSoftHdMenu::pSoftHdMenu = NULL;  ///< Main Menu Instance
+cDeviceMenu *cDeviceMenu::pMenu = NULL;  ///< Main Menu Instance
 
 /** @} */
 
 /*****************************************************************************
- * cPluginSoftHdDevice
+ * cPluginDrmDevice
  ****************************************************************************/
 
 /**
- * cPluginSoftHdDevice constructor
+ * cPluginDrmDevice constructor
  *
  * Initialize any member variables here.
  *
@@ -67,18 +66,18 @@ cSoftHdMenu *cSoftHdMenu::pSoftHdMenu = NULL;  ///< Main Menu Instance
  * is done next and that one needs config to be available.
  * SetupParse must not access any other objects!
  */
-cPluginSoftHdDevice::cPluginSoftHdDevice(void)
+cPluginDrmDevice::cPluginDrmDevice(void)
 {
-	m_pConfig = new cSoftHdConfig();
-	m_pDevice = new cSoftHdDevice(m_pConfig); // no need to delete m_pDevice, because VDR does it for us
+	m_pConfig = new cDeviceConfig();
+	m_pDevice = new cOutputDevice(m_pConfig); // no need to delete m_pDevice, because VDR does it for us
 }
 
 /**
- * cPluginSoftHdDevice destructor
+ * cPluginDrmDevice destructor
  *
  * Clean up after yourself!
  */
-cPluginSoftHdDevice::~cPluginSoftHdDevice(void)
+cPluginDrmDevice::~cPluginDrmDevice(void)
 {
 	delete m_pConfig;
 }
@@ -88,7 +87,7 @@ cPluginSoftHdDevice::~cPluginSoftHdDevice(void)
  *
  * @return the version number as constant string
  */
-const char *cPluginSoftHdDevice::Version(void)
+const char *cPluginDrmDevice::Version(void)
 {
 	return VERSION;
 }
@@ -98,7 +97,7 @@ const char *cPluginSoftHdDevice::Version(void)
  *
  * @return a short description as constant string
  */
-const char *cPluginSoftHdDevice::Description(void)
+const char *cPluginDrmDevice::Description(void)
 {
 	return tr(DESCRIPTION);
 }
@@ -108,7 +107,7 @@ const char *cPluginSoftHdDevice::Description(void)
  *
  * @return the command line help as constant string
  */
-const char *cPluginSoftHdDevice::CommandLineHelp(void)
+const char *cPluginDrmDevice::CommandLineHelp(void)
 {
 	return "  -a device\taudio device (e.g. alsa: hw:0,0)\n"
 	       "  -c channel\taudio mixer channel name (e.g. PCM)\n"
@@ -130,7 +129,7 @@ const char *cPluginSoftHdDevice::CommandLineHelp(void)
  * @param argc	number of arguments
  * @param argv	arguments vector
  */
-bool cPluginSoftHdDevice::ProcessArgs(int argc, char *argv[])
+bool cPluginDrmDevice::ProcessArgs(int argc, char *argv[])
 {
 //	LOGDEBUG("plugin: %s:", __FUNCTION__);
 
@@ -214,7 +213,7 @@ bool cPluginSoftHdDevice::ProcessArgs(int argc, char *argv[])
  *
  * Must be called before accessing any DVB functions
  */
-bool cPluginSoftHdDevice::Initialize(void)
+bool cPluginDrmDevice::Initialize(void)
 {
 //	LOGDEBUG("plugin: %s:", __FUNCTION__);
 
@@ -224,7 +223,7 @@ bool cPluginSoftHdDevice::Initialize(void)
 /**
  * Start any background activities the plugin shall perform
  */
-bool cPluginSoftHdDevice::Start(void)
+bool cPluginDrmDevice::Start(void)
 {
 //	LOGDEBUG("plugin: %s:", __FUNCTION__);
 
@@ -236,7 +235,7 @@ bool cPluginSoftHdDevice::Start(void)
  *
  * Stop any background activities the plugin is performing
  */
-void cPluginSoftHdDevice::Stop(void)
+void cPluginDrmDevice::Stop(void)
 {
 	//LOGDEBUG("plugin: %s:", __FUNCTION__);
 
@@ -246,7 +245,7 @@ void cPluginSoftHdDevice::Stop(void)
 /**
  * Create main menu entry
  */
-const char *cPluginSoftHdDevice::MainMenuEntry(void)
+const char *cPluginDrmDevice::MainMenuEntry(void)
 {
 	//LOGDEBUG("plugin: %s:", __FUNCTION__);
 
@@ -256,25 +255,25 @@ const char *cPluginSoftHdDevice::MainMenuEntry(void)
 /**
  * Perform the action when selected from the main VDR menu
  */
-cOsdObject *cPluginSoftHdDevice::MainMenuAction(void)
+cOsdObject *cPluginDrmDevice::MainMenuAction(void)
 {
 	//LOGDEBUG("plugin: %s:", __FUNCTION__);
 
-	return new cSoftHdMenu("SoftHdDevice", m_pDevice);
+	return new cDeviceMenu("DRMDevice", m_pDevice);
 }
 
 /**
  * Return our setup menu
  */
-cMenuSetupPage *cPluginSoftHdDevice::SetupMenu(void)
+cMenuSetupPage *cPluginDrmDevice::SetupMenu(void)
 {
 	//LOGDEBUG("plugin: %s:", __FUNCTION__);
 
-	return new cMenuSetupSoft(m_pDevice);
+	return new cDeviceSetupMenu(m_pDevice);
 }
 
 /*****************************************************************************
- * cPluginSoftHdDevice - Setup parameters
+ * cPluginDrmDevice - Setup parameters
  ****************************************************************************/
 
 /**
@@ -286,7 +285,7 @@ cMenuSetupPage *cPluginSoftHdDevice::SetupMenu(void)
  * @retval true     if the parameter is supported
  * @retval false    if the parameter is unsupported
  */
-bool cPluginSoftHdDevice::SetupParse(const char *name, const char *value)
+bool cPluginDrmDevice::SetupParse(const char *name, const char *value)
 {
 	return m_pConfig->SetupParse(name, value);
 }
@@ -298,7 +297,7 @@ bool cPluginSoftHdDevice::SetupParse(const char *name, const char *value)
  *               service protocol
  * @param data	 custom data structure
  */
-bool cPluginSoftHdDevice::Service(const char *id, void *data)
+bool cPluginDrmDevice::Service(const char *id, void *data)
 {
 	//LOGDEBUG("plugin: %s: id %s", __FUNCTION__, id);
 	(void)id;
@@ -308,7 +307,7 @@ bool cPluginSoftHdDevice::Service(const char *id, void *data)
 }
 
 /*****************************************************************************
- * cPluginSoftHdDevice - SVDRP
+ * cPluginDrmDevice - SVDRP
  ****************************************************************************/
 
 /**
@@ -340,7 +339,7 @@ static const char *SVDRPHelpText[] = {
  * return a pointer to a list of help strings for all of the plugin's
  * SVDRP commands.
  */
-const char **cPluginSoftHdDevice::SVDRPHelpPages(void)
+const char **cPluginDrmDevice::SVDRPHelpPages(void)
 {
 	return SVDRPHelpText;
 }
@@ -352,12 +351,12 @@ const char **cPluginSoftHdDevice::SVDRPHelpPages(void)
  * @param option        all command arguments
  * @param reply_code    reply code
  */
-cString cPluginSoftHdDevice::SVDRPCommand(const char *command, const char *option, int &reply_code)
+cString cPluginDrmDevice::SVDRPCommand(const char *command, const char *option, int &reply_code)
 {
 	// mediaplayer
 	if (!strcasecmp(command, "PLAY")) {
 		LOGDEBUG2(L_MEDIA, "plugin: %s: SVDRPCommand: %s %s", __FUNCTION__, command, option);
-		cControl::Launch(new cSoftHdControl(option, m_pDevice));
+		cControl::Launch(new cDrmDeviceControl(option, m_pDevice));
 		return "PLAY url";
 	}
 
@@ -365,27 +364,27 @@ cString cPluginSoftHdDevice::SVDRPCommand(const char *command, const char *optio
 	if (!strcasecmp(command, "DETA")) {
 		LOGDEBUG("plugin: %s: SVDRPCommand: %s %s", __FUNCTION__, command, option);
 		if (m_pDevice->IsDetached())
-			return "SoftHdDevice is already detached";
+			return "DRMDevice is already detached";
 
 		m_pDevice->Detach();
-		return "Detached SoftHdDevice";
+		return "Detached DRMDevice";
 	}
 	if (!strcasecmp(command, "ATTA")) {
 		LOGDEBUG("plugin: %s: SVDRPCommand: %s %s", __FUNCTION__, command, option);
 		if (!m_pDevice->IsDetached())
-			return "SoftHdDevice is not detached";
+			return "DRMDevice is not detached";
 
 		m_pDevice->Attach();
-		return "Attached SoftHdDevice";
+		return "Attached DRMDevice";
 	}
 	if (!strcasecmp(command, "STAT")) {
 		LOGDEBUG("plugin: %s: SVDRPCommand: %s %s", __FUNCTION__, command, option);
 		if (!m_pDevice->IsDetached()) {
 			reply_code = 910;
-			return "SoftHdDevice is attached";
+			return "DRMDevice is attached";
 		} else {
 			reply_code = 911;
-			return "SoftHdDevice is detached";
+			return "DRMDevice is detached";
 		}
 	}
 
@@ -462,4 +461,4 @@ cString cPluginSoftHdDevice::SVDRPCommand(const char *command, const char *optio
 	return NULL;
 }
 
-VDRPLUGINCREATOR(cPluginSoftHdDevice);	// Don't touch this!
+VDRPLUGINCREATOR(cPluginDrmDevice);	// Don't touch this!
