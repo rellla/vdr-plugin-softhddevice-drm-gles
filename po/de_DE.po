@@ -320,12 +320,6 @@ msgstr "  (mindestens: %d)"
 msgid "  fallback after num packets"
 msgstr "  Fallback nach Anzahl Paketen"
 
-msgid " H.264: Wait for I-Frames"
-msgstr " H.264: Auf I-Frame warten"
-
-msgid " H.264: Decoder needs video size for init"
-msgstr " H.264: Dekoder benötigt Videogröße für Init"
-
 msgid " H.264: Parse stream until num I-Frames"
 msgstr " H.264: Stream parsen bis Anzahl I-Frames"
 

@@ -144,8 +144,6 @@ public:
 
 	// Playback, display and decoder
 	void SetDisableDeint(void);
-	void SetDecoderNeedsIFrame(void);
-	void SetParseH264Dimensions(void);
 	void SetDecoderFallbackToSw(bool);
 	void SetEnableHdr(bool);
 	void SetChannelSwitchMode(ChannelSwitchMode mode) { m_channelSwitchMode = mode; };

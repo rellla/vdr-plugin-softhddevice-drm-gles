@@ -309,14 +309,6 @@ Setup: /etc/vdr/setup.conf
 		0 = deinterlacer active if available
 		1 = deinterlacer is disabled
 
-	softhddevice-drm-gles.DecoderNeedsIFrame = 0
-		0 = H.264 HW decoder is started as soon as any frame arrives
-		1 = H.264 HW decoder needs to wait for an I-Frame to start
-
-	softhddevice-drm-gles.ParseH264Dimensions = 0
-		0 = don't parse width and height before decoder start
-		1 = H.264 HW decoder wants decoded width and height before starting
-
 	softhddevice-drm-gles.DecoderFallbackToSw = 0
 		0 = always use hardware decoder if available
 		1 = fallback to software decoder if hardware decoder

@@ -214,8 +214,6 @@ void cMenuSetupSoft::Create(void)
 			Add(new cOsdItem(cString::sprintf(tr("  (minimum: %d)"), m_pConfig->GetDecoderNeedsMaxPackets() + 1), osUnknown, false));
 			Add(new cMenuEditIntItem(tr("  fallback after num packets"), &m_cDecoderFallbackToSwNumPkts, 22));
 		}
-		Add(new cMenuEditBoolItem(tr(" H.264: Wait for I-Frames"), &m_cDecoderNeedsIFrame, trVDR("no"), trVDR("yes")));
-		Add(new cMenuEditBoolItem(tr(" H.264: Decoder needs video size for init"), &m_cParseH264Dimensions, trVDR("no"), trVDR("yes")));
 		Add(new cMenuEditIntItem(tr(" H.264: Parse stream until num I-Frames"), &m_cParseH264StreamStart, 0, 20));
 		Add(new cMenuEditIntItem(tr(" H.264: Drop invalid P-Frames until num I-Frames"), &m_cDropInvalidH264PFrames, 0, 20));
 #ifdef USE_GLES
@@ -379,8 +377,6 @@ cMenuSetupSoft::cMenuSetupSoft(cSoftHdDevice *device)
 	m_cExpertMenu = 0;
 	m_cAdditionalBufferLengthMs= m_pConfig->ConfigAdditionalBufferLengthMs;
 	m_cDisableDeint = m_pConfig->ConfigDisableDeint;
-	m_cDecoderNeedsIFrame = m_pConfig->ConfigDecoderNeedsIFrame;
-	m_cParseH264Dimensions = m_pConfig->ConfigParseH264Dimensions;
 	m_cDecoderFallbackToSw = m_pConfig->ConfigDecoderFallbackToSw;
 	m_cDecoderFallbackToSwNumPkts = m_pConfig->ConfigDecoderFallbackToSwNumPkts;
 	m_cParseH264StreamStart = m_pConfig->ConfigParseH264StreamStart;
@@ -593,10 +589,6 @@ void cMenuSetupSoft::Store(void)
 		LOGDEBUG("Disable deinterlacer!");
 	}
 	m_pDevice->SetDisableDeint();
-	SetupStore("DecoderNeedsIFrame", m_pConfig->ConfigDecoderNeedsIFrame = m_cDecoderNeedsIFrame);
-	m_pDevice->SetDecoderNeedsIFrame();
-	SetupStore("ParseH264Dimensions", m_pConfig->ConfigParseH264Dimensions = m_cParseH264Dimensions);
-	m_pDevice->SetParseH264Dimensions();
 	SetupStore("DecoderFallbackToSw", m_pConfig->ConfigDecoderFallbackToSw = m_cDecoderFallbackToSw);
 	SetupStore("DecoderFallbackToSwNumPkts", m_pConfig->ConfigDecoderFallbackToSwNumPkts = m_cDecoderFallbackToSwNumPkts);
 	m_pDevice->SetDecoderFallbackToSw(m_pConfig->ConfigDecoderFallbackToSw);

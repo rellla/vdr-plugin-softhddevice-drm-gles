@@ -160,15 +160,12 @@ cVideoDecoder::cVideoDecoder(const char *identifier)
  * @param par                      codec parameters
  * @param timebase                 timebase
  * @param forceSoftwareDecoder     force software decoding
- * @param width                    force width (only for H264 and if par is not set)
- * @param height                   force height (only for H264 and if par is not set)
  *
  * @retval 0                       decoder successfully opend
  * @retval -1                      opening the decoder failed
  */
 int cVideoDecoder::Open(enum AVCodecID codecId, AVCodecParameters * par,
-                        AVRational timebase, bool forceSoftwareDecoder,
-                        int width, int height)
+                        AVRational timebase, bool forceSoftwareDecoder)
 {
 	std::unique_lock<std::mutex> lock(m_mutex);
 
@@ -235,20 +232,12 @@ int cVideoDecoder::Open(enum AVCodecID codecId, AVCodecParameters * par,
 	if (av_q2d(timebase) > 0)
 		m_pVideoCtx->pkt_timebase = timebase;
 
-	if (codecId == AV_CODEC_ID_H264) {
-		if (par) {
-			m_pVideoCtx->coded_width = par->width;
-			m_pVideoCtx->coded_height = par->height;
-			m_pVideoCtx->width = par->width;
-			m_pVideoCtx->height = par->height;
-			LOGDEBUG2(L_CODEC, "videocodec: %s: %s: Set width %d and height %d from par", m_identifier, __FUNCTION__, par->width, par->height);
-		} else if (width && height) {
-			m_pVideoCtx->coded_width = width;
-			m_pVideoCtx->coded_height = height;
-			m_pVideoCtx->width = width;
-			m_pVideoCtx->height = height;
-			LOGDEBUG2(L_CODEC, "videocodec: %s: %s: Set width %d and height %d forced", m_identifier, __FUNCTION__, width, height);
-		}
+	if (codecId == AV_CODEC_ID_H264 && par) {
+		m_pVideoCtx->coded_width = par->width;
+		m_pVideoCtx->coded_height = par->height;
+		m_pVideoCtx->width = par->width;
+		m_pVideoCtx->height = par->height;
+		LOGDEBUG2(L_CODEC, "videocodec: %s: %s: Set width %d and height %d from par", m_identifier, __FUNCTION__, par->width, par->height);
 	}
 
 	if (codec->capabilities & (AV_CODEC_CAP_FRAME_THREADS | AV_CODEC_CAP_SLICE_THREADS))
@@ -280,7 +269,7 @@ int cVideoDecoder::Open(enum AVCodecID codecId, AVCodecParameters * par,
 
 		// unlock here, otherwise we run into a deadlock
 		lock.unlock();
-		return Open(codecId, par, timebase, true, 0, 0);
+		return Open(codecId, par, timebase, true);
 	}
 
 	LOGDEBUG("videocodec: %s: %s (%s) for codec \"%s\" opened%s, using %s decoding with %d threads%s",
@@ -313,8 +302,6 @@ void cVideoDecoder::Close(void)
 
 	if (m_pVideoCtx != nullptr) {
 		LOGDEBUG2(L_CODEC, "videocodec: %s: %s: m_pVideoCtx %p", m_identifier, __FUNCTION__, m_pVideoCtx);
-		m_lastCodedWidth = m_pVideoCtx->coded_width;
-		m_lastCodedHeight = m_pVideoCtx->coded_height;
 		avcodec_free_context(&m_pVideoCtx);
 		m_pVideoCtx = nullptr;
 	}
@@ -541,7 +528,7 @@ int cVideoDecoder::ReopenCodec(enum AVCodecID codecId, AVCodecParameters *par,
 {
 	LOGDEBUG2(L_CODEC, "videocodec: %s: %s: m_pVideoCtx %p", m_identifier, __FUNCTION__, m_pVideoCtx);
 	Close();
-	if (Open(codecId, par, timebase, forceSoftwareDecoding, m_lastCodedWidth, m_lastCodedHeight))
+	if (Open(codecId, par, timebase, forceSoftwareDecoding))
 		return -1;
 
 	return 0;
