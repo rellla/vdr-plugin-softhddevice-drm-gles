@@ -37,7 +37,7 @@ extern "C" {
 class cVideoDecoder {
 public:
 	cVideoDecoder(const char *);
-	int Open(enum AVCodecID, AVCodecParameters *, AVRational, bool, int, int);
+	int Open(enum AVCodecID, AVCodecParameters *, AVRational, bool);
 	void Close(void);
 	int SendPacket(const AVPacket *);
 	int ReceiveFrame(AVFrame **);
@@ -56,8 +56,6 @@ private:
 	std::mutex m_mutex;                     ///< mutex to lock codec context
 	int m_cntPacketsSent;                   ///< number of packets sent to decoder
 	int m_cntFramesReceived;                ///< number of decoded frames received from decoder
-	int m_lastCodedWidth;                   ///< save coded width while closing for a directly reopen
-	int m_lastCodedHeight;                  ///< save coded height while closing for a directly reopen
 	bool m_isHardwareDecoder = false;       ///< true, if this is a hardware decoder
 
 	int GetExtraData(const AVPacket *);

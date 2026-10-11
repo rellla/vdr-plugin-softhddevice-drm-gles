@@ -882,23 +882,6 @@ void cSoftHdDevice::SetDisableDeint(void)
 		m_pVideoStream->DisableDeint(m_pConfig->ConfigDisableDeint);
 }
 
-/**
- * Forces the h264 decoder to wait for an I-Frame to start
- */
-void cSoftHdDevice::SetDecoderNeedsIFrame(void)
-{
-	if (m_pVideoStream)
-		m_pVideoStream->SetStartDecodingWithIFrame(m_pConfig->ConfigDecoderNeedsIFrame);
-}
-
-/**
- * Parse the h264 stream width and height before starting the decoder
- */
-void cSoftHdDevice::SetParseH264Dimensions(void)
-{
-	if (m_pVideoStream)
-		m_pVideoStream->SetParseH264Dimensions(m_pConfig->ConfigParseH264Dimensions);
-}
 
 /**
  * Force the decoder to fallback to software if the hardware decoder fails

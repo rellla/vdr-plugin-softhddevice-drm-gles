@@ -56,9 +56,7 @@ cVideoStream::cVideoStream(cVideoRender *render, int hardwareQuirks, cQueue<cDrm
 	  m_videoFilter(render, m_pDrmBufferQueue, isPipStream ? "shd PIP filter" : "shd main filter", frameOutput),
 	  m_hardwareQuirks(hardwareQuirks),
 	  m_userDisabledDeinterlacer(config->ConfigDisableDeint),
-	  m_deinterlacerDeactivated(isPipStream ? true : false),
-	  m_startDecodingWithIFrame(config->ConfigDecoderNeedsIFrame),
-	  m_parseH264Dimensions(config->ConfigParseH264Dimensions)
+	  m_deinterlacerDeactivated(isPipStream ? true : false)
 {
 	m_decoderFallbackToSwNumPkts = config->ConfigDecoderFallbackToSw ? config->ConfigDecoderFallbackToSwNumPkts : 0;
 
@@ -216,38 +214,7 @@ void cVideoStream::CheckForcingFrameDecode(void)
  */
 void cVideoStream::OpenDecoder(void)
 {
-	int width = 0;
-	int height = 0;
-
-	bool needsParsing = m_startDecodingWithIFrame || m_parseH264Dimensions;
-
-	if (needsParsing && m_codecId == AV_CODEC_ID_H264) {
-		cH264Parser h264Packet(m_packets.Peek(),
-		                       m_log2MaxFrameNumMinus4,
-		                       m_ppsNumRefIdxL0DefaultActiveMinus1,
-		                       m_ppsNumRefIdxL1DefaultActiveMinus1);
-		if (!h264Packet.HasSPS()) {
-			LOGDEBUG2(L_CODEC, "videostream %s: %s: No SPS in the packet!", m_identifier, __FUNCTION__);
-			h264Packet.PrintStreamData();
-		}
-
-		// start decoding with an I-Frame only
-		if (!h264Packet.IsISlice() && m_startDecodingWithIFrame) {
-			h264Packet.PrintNalUnits();
-			LOGDEBUG2(L_CODEC, "videostream %s: %s: Skip h264 packet, no I-Frame!", m_identifier, __FUNCTION__);
-			AVPacket *avpkt = m_packets.Pop();
-			av_packet_free(&avpkt);
-			return;
-		}
-
-		if (m_parseH264Dimensions) {
-			width = h264Packet.GetWidth();
-			height = h264Packet.GetHeight();
-			LOGDEBUG2(L_CODEC, "videostream %s: %s: Parsed width %d height %d", m_identifier, __FUNCTION__, width, height);
-		}
-	}
-
-	if (m_pDecoder->Open(m_codecId, m_pPar, m_timebase, false, width, height))
+	if (m_pDecoder->Open(m_codecId, m_pPar, m_timebase, false))
 		LOGFATAL("videostream %s: %s: Could not open the decoder!", m_identifier, __FUNCTION__);
 
 	m_pConfig->CurrentDecoderType = m_pDecoder->IsHardwareDecoder() ? "hardware" : "software";

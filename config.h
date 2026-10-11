@@ -115,8 +115,6 @@ public:
 	bool ConfigDisableDeint = false;            ///< disable deinterlacer
 	bool ConfigDecoderFallbackToSw = false;     ///< fallback to software decoder if the hardware decoder fails
 	int ConfigDecoderFallbackToSwNumPkts = 22;  ///< maximum number of packets sent before fallback to sw decoder
-	bool ConfigDecoderNeedsIFrame = false;      ///< start h264 decoder only when an I-Frame arrives
-	bool ConfigParseH264Dimensions = false;     ///< parse h264 stream for width and height for decoder init
 	int ConfigParseH264StreamStart = 0;         ///< log frames at stream start up to the given number of I-Frames
 	int ConfigDropInvalidH264PFrames = 0;       ///< drop P-Frames with invalid references on stream start up to the given number of I-Frames
 #ifdef USE_GLES

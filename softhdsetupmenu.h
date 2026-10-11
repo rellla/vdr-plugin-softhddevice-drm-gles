@@ -100,8 +100,6 @@ protected:
 	int m_cExpertMenu;
 	int m_cAdditionalBufferLengthMs;
 	int m_cDisableDeint;
-	int m_cDecoderNeedsIFrame;
-	int m_cParseH264Dimensions;
 	int m_cDecoderFallbackToSw;
 	int m_cDecoderFallbackToSwNumPkts;
 	int m_cParseH264StreamStart;
