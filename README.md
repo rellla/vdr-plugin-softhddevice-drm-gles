@@ -1,3 +1,6 @@
+> [!CAUTION]
+> This repository is read only now. The project was renamed and moved to https://github.com/rellla/drmdevice! Please continue there.
+
 softhddevice-drm-gles
 =====================
 
